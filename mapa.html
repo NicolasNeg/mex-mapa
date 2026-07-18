@@ -905,90 +905,56 @@
 
     <div class="fleet-wrapper" style="align-items: center; background: #f8fafc; padding: 25px; overflow-y: auto;">
 
-      <div id="audit-paso1"
-        style="width: 100%; max-width: 850px; background: white; padding: 30px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border); margin: auto;">
-
-        <div style="text-align: center; margin-bottom: 25px;">
-          <h3 style="color:var(--primary); font-weight:900; margin-bottom:10px; font-size: 18px;">PASO 1: CARGAR FLOTA Y ASIGNAR AUXILIAR</h3>
-          <p style="font-size:13px; color:#64748b; margin:0;">Carga la base, selecciona el auxiliar y envía la misión al patio.</p>
-        </div>
-
-        <div
-          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; align-items: center;">
-
-          <div style="display: flex; flex-direction: column; justify-content: center; text-align: center;">
-            <div id="drop-zone" class="upload-drop-zone" onclick="document.getElementById('csvFileInput').click()"
-              ondragover="event.preventDefault(); this.classList.add('dragover');"
-              ondragleave="this.classList.remove('dragover');"
-              ondrop="event.preventDefault(); this.classList.remove('dragover'); window.procesarDropSeguro(event);">
-
-              <span class="material-icons" id="upload-icon"
-                style="font-size: 55px; color: var(--mex-accent); margin-bottom: 10px;">cloud_upload</span>
-              <p id="upload-text" style="font-weight: 800; color: var(--mex-blue); font-size: 16px; margin:0;">Arrastra
-                el archivo aquí</p>
-              <p style="font-size: 12px; color: #64748b; margin-top:5px;">o haz clic para explorar tu PC</p>
-              <input type="file" id="csvFileInput" style="display: none;" onchange="window.procesarInputSeguro(this)">
-            </div>
-
-            <div id="csv-preview-info"
-              style="display:none; margin-top: 20px; padding: 15px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; color: #166534; font-weight: 800; font-size: 14px;">
-              <span class="material-icons" style="vertical-align: middle;">format_list_numbered</span> <span
-                id="csv-count">0</span> unidades extraídas del archivo.
-            </div>
-
-            <div class="audit-assignee-strip">
-              <label class="audit-assignee-label" for="cuadreAuxiliarSelect">Auxiliar de patio</label>
-              <select id="cuadreAuxiliarSelect" class="audit-assignee-select" onchange="window.__syncCuadreMissionButtonState && window.__syncCuadreMissionButtonState()"></select>
-              <div class="audit-assignee-note">La alerta y el pase de lista solo se enviarán a esa persona.</div>
-            </div>
-
-            <button id="btnIniciarMision" onclick="iniciarMisionAuditoria()" disabled
-              style="width: 100%; padding: 18px; background: var(--mex-accent); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; transition: 0.2s; margin-top: 20px; opacity: 0.5; font-size: 14px;">
-              ENVIAR MISIÓN AL AUXILIAR
-            </button>
+      <div id="audit-paso1" class="audit-paso1-shell">
+        <div class="audit-paso1-card">
+          <div class="audit-paso1-head">
+            <h3>PASO 1: ASIGNAR AUXILIAR</h3>
+            <p>La flota se toma del cuadre de la plaza. Solo elige al auxiliar y envía la misión.</p>
           </div>
 
-          <div
-            style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 25px; text-align: left;">
-            <h4
-              style="color: var(--mex-blue); font-weight: 900; font-size: 14px; margin-top: 0; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
-              <span class="material-icons" style="color: #f59e0b;">lightbulb</span> GUÍA RÁPIDA PARA VENTAS
-            </h4>
-
-            <div style="margin-bottom: 18px;">
-              <div
-                style="font-weight: 800; font-size: 12px; color: #1e293b; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                <span
-                  style="background: var(--mex-blue); color: white; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 11px;">1</span>
-                EXPORTAR FLOTA
+          <div class="audit-paso1-grid">
+            <div class="audit-paso1-main">
+              <div id="csv-preview-info" class="audit-flota-preview" style="display:none;">
+                <span class="material-icons">directions_car</span>
+                <div>
+                  <strong><span id="csv-count">0</span> unidades del cuadre</strong>
+                  <small id="audit-flota-plaza-label">Plaza actual</small>
+                </div>
+                <button type="button" class="audit-flota-refresh" onclick="cargarFlotaCuadreParaMision(true)" title="Actualizar flota">
+                  <span class="material-icons">sync</span>
+                </button>
               </div>
-              <p style="font-size: 12px; color: #64748b; margin: 0 0 0 28px; line-height: 1.4;">Filtra en el sistema:
-                Locación <b>BJX</b> y Estatus <b>Arrendable</b>. Haz clic en Exportar.</p>
+              <div id="audit-flota-loading" class="audit-flota-loading">
+                <span class="material-icons spinner">sync</span>
+                Cargando flota del cuadre…
+              </div>
+              <div id="audit-flota-empty" class="audit-flota-empty" style="display:none;">
+                No hay unidades en el cuadre de esta plaza.
+              </div>
+
+              <div class="audit-assignee-strip">
+                <label class="audit-assignee-label" for="cuadreAuxiliarSelect">Auxiliar de patio</label>
+                <select id="cuadreAuxiliarSelect" class="audit-assignee-select" onchange="window.__syncCuadreMissionButtonState && window.__syncCuadreMissionButtonState()"></select>
+                <div class="audit-assignee-note">La alerta y el pase de lista solo se enviarán a esa persona.</div>
+              </div>
+
+              <button id="btnIniciarMision" onclick="iniciarMisionAuditoria()" disabled class="audit-btn-enviar-mision">
+                ENVIAR MISIÓN AL AUXILIAR
+              </button>
             </div>
 
-            <div style="margin-bottom: 18px;">
-              <div
-                style="font-weight: 800; font-size: 12px; color: #1e293b; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                <span
-                  style="background: var(--mex-blue); color: white; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 11px;">2</span>
-                DESCARGAR FORMATO
-              </div>
-              <p style="font-size: 12px; color: #64748b; margin: 0 0 0 28px; line-height: 1.4;">Abre el archivo en
-                Google Drive/Sheets y ve a <b>Archivo &gt; Descargar &gt; Valores separados por comas (.csv)</b>.</p>
-            </div>
-
-            <div>
-              <div
-                style="font-weight: 800; font-size: 12px; color: #1e293b; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                <span
-                  style="background: var(--mex-blue); color: white; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 11px;">3</span>
-                INICIAR MISIÓN
-              </div>
-              <p style="font-size: 12px; color: #64748b; margin: 0 0 0 28px; line-height: 1.4;">Arrastra el .csv a la
-                zona de carga y presiona el botón azul para enviar la misión al Auxiliar.</p>
-            </div>
+            <aside class="audit-paso1-guide">
+              <h4>
+                <span class="material-icons">lightbulb</span>
+                Cómo funciona
+              </h4>
+              <ol>
+                <li><strong>Flota automática</strong> — Se toma todo el cuadre de la plaza (sin subir archivo).</li>
+                <li><strong>Elige auxiliar</strong> — Esa persona recibe la misión en el celular.</li>
+                <li><strong>Pase físico</strong> — Marca Presente o Faltante; al terminar firma y envía a Ventas.</li>
+              </ol>
+            </aside>
           </div>
-
         </div>
       </div>
 
@@ -1191,6 +1157,13 @@
             <div id="mcPredicciones" class="mc-item"
               onclick="reiniciarPrediccion(); document.getElementById('modal-prediccion').classList.add('active'); toggleMoreControls(); document.getElementById('fecha-prediccion').valueAsDate = new Date();">
               <span class="material-icons" style="color: #10b981;">query_stats</span> Cuadre de Predicciones
+            </div>
+
+            <div id="mcExportFlotaCsv" class="mc-item" onclick="exportarFlotaCuadreCsv()">
+              <span class="material-icons" style="color:#0ea5e9;">download</span> Exportar flota (CSV)
+            </div>
+            <div id="mcExportFlotaXls" class="mc-item" onclick="exportarFlotaCuadreXls()">
+              <span class="material-icons" style="color:#16a34a;">table_view</span> Exportar flota (Excel)
             </div>
           </div>
         </div>

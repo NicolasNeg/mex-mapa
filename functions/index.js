@@ -790,16 +790,27 @@ async function resolveCuadreRecipients(plaza, adminIniciador = "", settings = {}
     .map(doc => doc.id);
 }
 
-async function resolveCuadreReviewRecipients(plaza, actorName = "", security = {}) {
+async function resolveCuadreReviewRecipients(plaza, actorName = "", security = {}, settings = {}) {
   const plazaUp = normalizePlaza(plaza);
   const byPlaza = await db.collection(USERS_COL).where("plazaAsignada", "==", plazaUp).limit(200).get();
-  return byPlaza.docs.filter(doc => {
+  const admins = byPlaza.docs.filter(doc => {
     const data = doc.data() || {};
     const role = inferRole(data, data.email);
     const sameActor = normalizeUpper(data.nombre || data.usuario) === normalizeUpper(actorName);
     if (sameActor) return false;
     return isOperationalAdmin(role, security, data);
   }).map(doc => doc.id);
+
+  // Priorizar al admin que inició la misión; mantener al resto de admins de plaza.
+  const iniciadorDocId = normalizeString(
+    settings.adminIniciadorDocId
+    || settings.creadorDocId
+    || settings.cuadreIniciadorDocId
+    || ""
+  );
+  if (!iniciadorDocId) return admins;
+  const ordered = [iniciadorDocId, ...admins.filter(id => id !== iniciadorDocId)];
+  return [...new Set(ordered)];
 }
 
 function normalizeNotificationPrefs(raw = {}) {
@@ -1216,7 +1227,7 @@ exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`$
     const security = await loadSecurityConfig();
     const recipients = shouldNotifyMission
       ? await resolveCuadreRecipients(plazaId, adminName, after)
-      : await resolveCuadreReviewRecipients(plazaId, actorName, security);
+      : await resolveCuadreReviewRecipients(plazaId, actorName, security, after);
     const eventType = shouldNotifyMission
       ? (previousState === "PROCESO" ? "cuadre.updated" : "cuadre.assigned")
       : "cuadre.review_ready";

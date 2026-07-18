@@ -571,6 +571,73 @@
   font-weight: 600;
 }
 
+.cf-card-meta .cf-chip {
+  color: var(--accent, #3b82f6);
+  background: color-mix(in srgb, var(--accent, #3b82f6) 12%, #fff);
+  border-color: color-mix(in srgb, var(--accent, #3b82f6) 28%, #fff);
+}
+
+.cf-card-img--empty {
+  color: var(--cf-muted);
+  opacity: 0.55;
+}
+
+.cf-card-img--empty .material-symbols-outlined {
+  font-size: 56px;
+}
+
+.cf-field-gas {
+  gap: 8px;
+}
+
+.cf-gas-bar {
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--slate-100, #f1f5f9);
+  overflow: hidden;
+  border: 1px solid var(--cf-border);
+}
+
+.cf-gas-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width .2s ease, background .2s ease;
+}
+
+.cf-gas-bar.is-empty {
+  opacity: 0.45;
+}
+
+.cf-step.is-locked {
+  opacity: 0.55;
+}
+
+.cf-btn[disabled],
+.cf-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.cf-coach .cf-coach-card {
+  max-width: 420px;
+}
+
+.cf-coach-steps {
+  margin: 0 0 16px;
+  padding-left: 20px;
+  display: grid;
+  gap: 12px;
+  color: var(--cf-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.cf-coach-steps strong {
+  font-weight: 700;
+}
+
 .cf-fields,
 .cf-row-fields,
 .cf-modal-grid {

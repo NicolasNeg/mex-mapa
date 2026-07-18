@@ -7272,3 +7272,277 @@
     align-items: stretch;
   }
 }
+
+/* ── Cuadre V3: Paso 1 sin CSV + cards audit ── */
+.audit-paso1-shell {
+  width: 100%;
+  max-width: 850px;
+  margin: auto;
+}
+
+.audit-paso1-card {
+  background: var(--surface, #fff);
+  padding: 28px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.audit-paso1-head {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.audit-paso1-head h3 {
+  color: var(--primary, #0f172a);
+  font-weight: 900;
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.audit-paso1-head p {
+  font-size: 13px;
+  color: var(--muted, #64748b);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.audit-paso1-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.audit-paso1-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.audit-flota-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  color: #166534;
+  text-align: left;
+}
+
+.audit-flota-preview .material-icons {
+  font-size: 28px;
+}
+
+.audit-flota-preview strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.audit-flota-preview small {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.audit-flota-refresh {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.audit-flota-loading,
+.audit-flota-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed var(--border, #cbd5e1);
+  color: var(--muted, #64748b);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.audit-btn-enviar-mision {
+  width: 100%;
+  padding: 16px;
+  background: var(--mex-accent, #3b82f6);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.5;
+  transition: opacity .15s ease, transform .12s ease;
+}
+
+.audit-btn-enviar-mision.is-ready {
+  opacity: 1;
+}
+
+.audit-btn-enviar-mision.is-ready:active {
+  transform: scale(0.98);
+}
+
+.audit-paso1-guide {
+  background: var(--bg, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: left;
+}
+
+.audit-paso1-guide h4 {
+  color: var(--mex-blue, #0284c7);
+  font-weight: 900;
+  font-size: 14px;
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audit-paso1-guide ol {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted, #64748b);
+  line-height: 1.45;
+}
+
+.audit-paso1-guide strong {
+  color: var(--text, #1e293b);
+}
+
+.audit-card-thumb {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 48px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  display: grid;
+  place-items: center;
+}
+
+.audit-card-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.audit-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 8px;
+}
+
+.audit-card-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--mex-accent, #3b82f6) 12%, #fff);
+  color: var(--mex-accent, #3b82f6);
+  border: 1px solid color-mix(in srgb, var(--mex-accent, #3b82f6) 25%, #fff);
+}
+
+.audit-card-tag.muted {
+  background: var(--bg, #f8fafc);
+  color: var(--muted, #64748b);
+  border-color: var(--border, #e2e8f0);
+}
+
+.audit-card-field--gas {
+  display: grid;
+  gap: 6px;
+}
+
+.audit-gas-bar {
+  height: 6px;
+  border-radius: 9999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.audit-gas-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width .2s ease, background .2s ease;
+}
+
+.audit-gas-bar.is-empty {
+  opacity: 0.4;
+}
+
+.historial-cuadre-finalize {
+  min-height: 32px;
+  border: 1px solid #f59e0b;
+  border-radius: 4px;
+  background: #f59e0b;
+  color: #fff;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.historial-cuadre-finalize:hover {
+  filter: brightness(0.96);
+}
+
+@media (max-width: 560px) {
+  .audit-paso1-card {
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+
+  .audit-paso1-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .audit-card {
+    flex-wrap: wrap;
+  }
+
+  .audit-card-thumb {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 96px;
+  }
+
+  .audit-card-info {
+    flex: 1 1 100%;
+  }
+
+  .audit-card-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+}

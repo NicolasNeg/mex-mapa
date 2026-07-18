@@ -51,6 +51,7 @@ export async function mount({ container, navigate }) {
     search: '',
     currentIndex: 0,
     showExtra: false,
+    showCoach: !_coachSeen(),
     extra: { mva: '', modelo: '', placas: '', km: '', gasolina: 'N/A' },
     step: 'review'
   };
@@ -231,14 +232,17 @@ function _buildAuditUnits(units = [], localByMva = new Map()) {
   return (Array.isArray(units) ? units : []).map(unit => {
     const mva = _normMva(unit.mva);
     const local = localByMva.get(mva) || {};
+    const modelo = String(unit.modelo || local.modelo || 'S/M').trim() || 'S/M';
     const gas = String(local.gasolina ?? unit.gasolina ?? unit.gas ?? 'N/A').toUpperCase().trim() || 'N/A';
+    const categoria = _modelCategoria(modelo, local.categoria || unit.categoria);
     return {
       ...unit,
       mva,
-      modelo: String(unit.modelo || local.modelo || 'S/M').trim() || 'S/M',
+      modelo,
       placas: String(unit.placas || local.placas || 'S/P').trim() || 'S/P',
+      categoria,
       estado: local.estado || unit.estado || '',
-      ubicacion: local.ubicacion || unit.ubicacion || '',
+      ubicacion: local.ubicacion || unit.ubicacion || local.pos || unit.pos || '',
       gasolinaSistema: gas,
       gasolinaCorregida: gas,
       gasolina: gas,
@@ -247,6 +251,14 @@ function _buildAuditUnits(units = [], localByMva = new Map()) {
       notas: unit.notas || ''
     };
   });
+}
+
+function _coachSeen() {
+  try { return localStorage.getItem('mex.cuadre.coach.v1') === '1'; } catch (_) { return false; }
+}
+
+function _markCoachSeen() {
+  try { localStorage.setItem('mex.cuadre.coach.v1', '1'); } catch (_) {}
 }
 
 function _paint() {
@@ -292,26 +304,49 @@ function _paint() {
       </div>
 
       ${_s.showExtra ? _extraModalHtml() : ''}
+      ${_s.showCoach ? _coachHtml() : ''}
     </section>
   `;
   if (_s.step === 'sign') _setupSignatureCanvas();
+}
+
+function _coachHtml() {
+  return `
+    <div class="cf-modal-backdrop cf-coach" data-action="dismiss-coach">
+      <section class="cf-modal cf-coach-card" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+        <header>
+          <h2>Capacitación rápida</h2>
+          <button type="button" class="cf-icon-btn" data-action="dismiss-coach" aria-label="Cerrar">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </header>
+        <ol class="cf-coach-steps">
+          <li><strong>Revisa cada unidad</strong> en patio. Corrige gasolina y kilometraje si hace falta.</li>
+          <li><strong>Presente</strong> si la ves; <strong>Faltante</strong> si no está (puede estar en otra ubicación).</li>
+          <li>Cuando no queden pendientes, <strong>firma y envía</strong> a Ventas.</li>
+        </ol>
+        <button type="button" class="cf-btn primary wide" data-action="dismiss-coach">
+          Entendido, empezar
+        </button>
+      </section>
+    </div>
+  `;
 }
 
 function _stepsHtml(summary) {
   const reviewDone = summary.total > 0 && summary.pendientes === 0;
   const steps = [
     { id: 'review', icon: 'checklist', label: 'Revisar unidades', hint: `${summary.revisadas}/${summary.total}` },
-    { id: 'sign', icon: 'draw', label: 'Firmar', hint: _actorName() },
-    { id: 'sent', icon: 'send', label: 'Enviado a Ventas', hint: '' }
+    { id: 'sign', icon: 'draw', label: 'Firmar', hint: reviewDone ? _actorName() : 'Completa todas' }
   ];
   return `
     <ol class="cf-steps" aria-label="Flujo del cuadre">
       ${steps.map((step, i) => {
         const isCurrent = _s.step === step.id;
         const isDone = (step.id === 'review' && (reviewDone || _s.step === 'sign')) || false;
-        const clickable = step.id !== 'sent';
+        const clickable = step.id === 'review' || (step.id === 'sign' && reviewDone);
         return `
-          <li class="cf-step ${isCurrent ? 'is-current' : ''} ${isDone && !isCurrent ? 'is-done' : ''}">
+          <li class="cf-step ${isCurrent ? 'is-current' : ''} ${isDone && !isCurrent ? 'is-done' : ''} ${!clickable && !isCurrent ? 'is-locked' : ''}">
             ${clickable ? `<button type="button" data-action="go-step" data-step="${step.id}">` : '<div>'}
               <span class="cf-step-dot"><span class="material-symbols-outlined">${isDone && !isCurrent ? 'check' : step.icon}</span></span>
               <span class="cf-step-txt">
@@ -361,9 +396,10 @@ function _reviewStepHtml(summary) {
     <main class="cf-main">${_mainHtml()}</main>
 
     <div class="cf-flow-next">
-      <button type="button" class="cf-btn primary wide cf-btn-island" data-action="go-step" data-step="sign">
-        <span>${summary.pendientes > 0 ? `Continuar a firma (${summary.pendientes} pendientes)` : 'Continuar a firma'}</span>
-        <span class="cf-btn-icon"><span class="material-symbols-outlined">draw</span></span>
+      <button type="button" class="cf-btn primary wide cf-btn-island" data-action="go-step" data-step="sign"
+        ${summary.pendientes > 0 ? 'disabled aria-disabled="true"' : ''}>
+        <span>${summary.pendientes > 0 ? `Faltan ${summary.pendientes} por revisar` : 'Continuar a firma'}</span>
+        <span class="cf-btn-icon"><span class="material-symbols-outlined">${summary.pendientes > 0 ? 'lock' : 'draw'}</span></span>
       </button>
     </div>
   `;
@@ -467,6 +503,7 @@ function _cardHtml(unit, visibleCount) {
   }
   const idx = _s.units.findIndex(item => item === unit);
   const imgUrl = _modelImageUrl(unit.modelo);
+  const categoria = unit.categoria || _modelCategoria(unit.modelo);
   return `
     <section class="cf-card-wrap">
       <div class="cf-card-count">${visibleCount} coincidencia(s) · ${idx + 1} de ${_s.units.length}</div>
@@ -475,10 +512,11 @@ function _cardHtml(unit, visibleCount) {
           <div class="cf-card-status">${_statusLabel(unit.status)}</div>
           ${imgUrl
             ? `<div class="cf-card-img"><img src="${esc(imgUrl)}" alt="${esc(unit.modelo)}" loading="lazy" draggable="false" onerror="this.parentElement.remove()"></div>`
-            : ''}
+            : `<div class="cf-card-img cf-card-img--empty"><span class="material-symbols-outlined">directions_car</span></div>`}
           <h2>${esc(unit.mva)}</h2>
           <p>${esc(unit.modelo)} · ${esc(unit.placas)}</p>
           <div class="cf-card-meta">
+            ${categoria ? `<span class="cf-chip">${esc(categoria)}</span>` : ''}
             <span>${esc(unit.estado || 'SIN ESTADO')}</span>
             <span>${esc(unit.ubicacion || 'SIN UBICACION')}</span>
           </div>
@@ -528,12 +566,46 @@ function _listHtml(units) {
   `;
 }
 
+function _fuelToPct(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim().toUpperCase();
+  if (!s || s === 'N/A' || s === 'NA' || s === '-') return null;
+  if (/^(F|FULL|LLENO|LLENA)$/.test(s)) return 100;
+  if (/^(H|HALF|MEDIO|MEDIA|1\/2)$/.test(s)) return 50;
+  if (/^(E|EMPTY|VAC[IÍ]O|VAC[IÍ]A)$/.test(s)) return 0;
+  const frac = s.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+  if (frac) {
+    const den = parseFloat(frac[2]);
+    if (den > 0) return Math.max(0, Math.min(100, Math.round(parseFloat(frac[1]) / den * 100)));
+  }
+  const n = parseFloat(s.replace('%', '').replace(',', '.'));
+  if (!Number.isNaN(n)) return Math.max(0, Math.min(100, Math.round(n)));
+  return null;
+}
+
+function _fuelColor(pct) {
+  const t = Math.max(0, Math.min(1, pct / 80));
+  const r = Math.round(220 + (37 - 220) * t);
+  const g = Math.round(38 + (99 - 38) * t);
+  const b = Math.round(38 + (235 - 38) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+function _gasBarHtml(gas) {
+  const pct = _fuelToPct(gas);
+  if (pct == null) {
+    return `<div class="cf-gas-bar is-empty" data-gas-bar aria-hidden="true"><span style="width:0%"></span></div>`;
+  }
+  return `<div class="cf-gas-bar" data-gas-bar aria-label="Gasolina ${pct}%"><span style="width:${pct}%;background:${_fuelColor(pct)}"></span></div>`;
+}
+
 function _unitFields(unit) {
   const gas = String(unit.gasolinaCorregida || unit.gasolina || 'N/A').toUpperCase();
   return `
-    <label class="cf-field compact">
+    <label class="cf-field compact cf-field-gas">
       <span>Gasolina</span>
       <select class="cf-gas" data-gas="${esc(unit.mva)}">${_gasOptions(gas)}</select>
+      ${_gasBarHtml(gas)}
     </label>
     <label class="cf-field compact">
       <span>Kilometraje</span>
@@ -590,6 +662,20 @@ function _onChange(event) {
       const value = String(target.value || 'N/A').toUpperCase();
       unit.gasolinaCorregida = value;
       unit.gasolina = value;
+      const bar = target.closest('.cf-field-gas')?.querySelector('[data-gas-bar]');
+      const fill = bar?.querySelector('span');
+      const pct = _fuelToPct(value);
+      if (bar && fill) {
+        if (pct == null) {
+          bar.classList.add('is-empty');
+          fill.style.width = '0%';
+          fill.style.background = '';
+        } else {
+          bar.classList.remove('is-empty');
+          fill.style.width = `${pct}%`;
+          fill.style.background = _fuelColor(pct);
+        }
+      }
     }
   }
   if (target.matches('[data-extra]')) {
@@ -605,8 +691,21 @@ async function _onClick(event) {
 
   if (action === 'reload') { await _load(); return; }
   if (action === 'go-map') { _navigate?.('/app/mapa'); return; }
+  if (action === 'dismiss-coach') {
+    _s.showCoach = false;
+    _markCoachSeen();
+    _paint();
+    return;
+  }
   if (action === 'go-step') {
     const step = actionEl.dataset.step;
+    if (step === 'sign') {
+      const pending = _s.units.filter(u => u.status === 'PENDIENTE').length;
+      if (pending > 0) {
+        _toast(`Completa las ${pending} unidades pendientes antes de firmar.`, 'warning');
+        return;
+      }
+    }
     if (step === 'sign' || step === 'review') {
       _captureVisibleInputs();
       _s.step = step;
@@ -687,9 +786,10 @@ async function _submit() {
   _captureVisibleInputs();
   const pending = _s.units.filter(unit => unit.status === 'PENDIENTE');
   if (pending.length) {
-    const ok = await _confirm('Unidades pendientes', `Quedan ${pending.length} unidades sin revisar. Se marcaran como faltantes para enviar el reporte.`, 'warning');
-    if (!ok) return;
-    pending.forEach(unit => { unit.status = 'FALTANTE'; });
+    _toast(`Completa las ${pending.length} unidades pendientes (Presente o Faltante) antes de enviar.`, 'warning');
+    _s.step = 'review';
+    _paint();
+    return;
   }
   // El nombre siempre sale del perfil del auxiliar logueado (no editable).
   const signedName = _actorName();
@@ -886,10 +986,9 @@ function _nextPendingIndexAfter(index, skipReviewed = true) {
   return Math.max(0, index);
 }
 
-// Imagen del modelo desde el catalogo de modelos (Panel Admin → Modelos).
-function _modelImageUrl(modelo) {
+function _modelCatalogEntry(modelo) {
   const name = String(modelo || '').trim().toUpperCase();
-  if (!name || name === 'S/M') return '';
+  if (!name || name === 'S/M') return null;
   const catalog = window.MEX_CONFIG?.listas?.modelos || [];
   let best = null;
   for (const item of catalog) {
@@ -899,8 +998,21 @@ function _modelImageUrl(modelo) {
     if (itemName === name) { best = item; break; }
     if (!best && (name.includes(itemName) || itemName.includes(name.split(' ')[0]))) best = item;
   }
+  return best;
+}
+
+// Imagen del modelo desde el catalogo de modelos (Panel Admin → Modelos).
+function _modelImageUrl(modelo) {
+  const best = _modelCatalogEntry(modelo);
   if (!best) return '';
   return String(best.imagenURL || best.imagen || best.image || best.foto || '').trim();
+}
+
+function _modelCategoria(modelo, fallback = '') {
+  const fromUnit = String(fallback || '').trim();
+  if (fromUnit) return fromUnit;
+  const best = _modelCatalogEntry(modelo);
+  return String(best?.categoria || best?.categoriaNombre || '').trim();
 }
 
 function _gasOptions(selected = 'N/A') {

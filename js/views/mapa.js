@@ -9790,6 +9790,7 @@ function _procesarPingUI(res) {
         btn.style.background = "#f59e0b"; // Naranja urgente
         txt.innerText = "FINALIZAR CUADRE";
         ico.innerText = "fact_check";
+        try { _syncHistorialFinalizarBtn(); } catch (_) {}
       } else {
         // Sistema Libre
         btn.style.opacity = "1";
@@ -11003,6 +11004,116 @@ function _positionMoreControlsDropdown() {
   menu.style.webkitOverflowScrolling = 'touch';
 }
 
+function _puedeExportarFlotaCuadre() {
+  return userRole === 'admin'
+    || _roleMeta().isAdmin
+    || canViewAdminCuadre()
+    || hasPermission('export_data');
+}
+
+function _syncExportFlotaMenuItems() {
+  const show = _puedeExportarFlotaCuadre();
+  ['mcExportFlotaCsv', 'mcExportFlotaXls'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+  });
+}
+
+function _csvEscapeFlota(value) {
+  const text = String(value ?? '');
+  if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+async function _flotaCuadreParaExport() {
+  const plaza = _miPlaza();
+  let rows = Array.isArray(DB_FLOTA) && DB_FLOTA.length ? DB_FLOTA.slice() : null;
+  if (!rows || !rows.length) {
+    rows = await api.obtenerDatosFlotaConsola(plaza).catch(() => []);
+  }
+  return Array.isArray(rows) ? rows.filter(u => u && u.mva) : [];
+}
+
+async function exportarFlotaCuadreCsv() {
+  document.getElementById('moreControlsDropdown')?.classList.remove('show');
+  if (!_puedeExportarFlotaCuadre()) {
+    showToast('No tienes permiso para exportar flota.', 'error');
+    return;
+  }
+  try {
+    const rows = await _flotaCuadreParaExport();
+    if (!rows.length) {
+      showToast('No hay unidades en el cuadre para exportar.', 'warning');
+      return;
+    }
+    const headers = ['MVA', 'Placas', 'Modelo', 'Categoria', 'Estado', 'Ubicacion', 'Gasolina', 'KM', 'Plaza'];
+    const plaza = _miPlaza();
+    const body = rows.map(u => [
+      u.mva, u.placas, u.modelo, u.categoria, u.estado, u.ubicacion || u.pos,
+      u.gasolina, u.km, u.plaza || plaza
+    ].map(_csvEscapeFlota).join(','));
+    const csv = '\ufeff' + [headers.join(','), ...body].join('\n');
+    descargarArchivoLocal(buildExportFilename('csv'), csv, 'text/csv;charset=utf-8;');
+    showToast(`Exportadas ${rows.length} unidades (CSV).`, 'success');
+  } catch (err) {
+    console.error('[export-flota-csv]', err);
+    showToast('No se pudo exportar el CSV.', 'error');
+  }
+}
+
+async function exportarFlotaCuadreXls() {
+  document.getElementById('moreControlsDropdown')?.classList.remove('show');
+  if (!_puedeExportarFlotaCuadre()) {
+    showToast('No tienes permiso para exportar flota.', 'error');
+    return;
+  }
+  try {
+    const rows = await _flotaCuadreParaExport();
+    if (!rows.length) {
+      showToast('No hay unidades en el cuadre para exportar.', 'warning');
+      return;
+    }
+    const plaza = _miPlaza();
+    const filas = rows.map(u => `
+      <tr>
+        <td>${escapeHtml(u.mva || '')}</td>
+        <td>${escapeHtml(u.placas || '')}</td>
+        <td>${escapeHtml(u.modelo || '')}</td>
+        <td>${escapeHtml(u.categoria || '')}</td>
+        <td>${escapeHtml(u.estado || '')}</td>
+        <td>${escapeHtml(u.ubicacion || u.pos || '')}</td>
+        <td>${escapeHtml(u.gasolina || '')}</td>
+        <td>${escapeHtml(u.km ?? '')}</td>
+        <td>${escapeHtml(u.plaza || plaza)}</td>
+      </tr>`).join('');
+    const contenido = `\ufeff
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head><meta charset="utf-8">
+          <style>table{border-collapse:collapse;font-family:Arial,sans-serif}th,td{border:1px solid #cbd5e1;padding:8px}th{background:#0d2a54;color:#fff}</style>
+        </head>
+        <body>
+          <h2>Flota del cuadre · ${escapeHtml(plaza)}</h2>
+          ${exportExcelMetaHtml(escapeHtml)}
+          <table>
+            <thead><tr>
+              <th>MVA</th><th>Placas</th><th>Modelo</th><th>Categoria</th><th>Estado</th>
+              <th>Ubicacion</th><th>Gasolina</th><th>KM</th><th>Plaza</th>
+            </tr></thead>
+            <tbody>${filas}</tbody>
+          </table>
+        </body>
+      </html>`;
+    descargarArchivoLocal(buildExportFilename('xls'), contenido, 'application/vnd.ms-excel;charset=utf-8;');
+    showToast(`Exportadas ${rows.length} unidades (Excel).`, 'success');
+  } catch (err) {
+    console.error('[export-flota-xls]', err);
+    showToast('No se pudo exportar el Excel.', 'error');
+  }
+}
+
+window.exportarFlotaCuadreCsv = exportarFlotaCuadreCsv;
+window.exportarFlotaCuadreXls = exportarFlotaCuadreXls;
+
 function toggleMoreControls(ev) {
   ev?.stopPropagation?.();
   document.getElementById('adminControlsDropdown')?.classList.remove('show');
@@ -11012,6 +11123,7 @@ function toggleMoreControls(ev) {
     _closeMoreControlsDropdown();
     return;
   }
+  _syncExportFlotaMenuItems();
   menu.classList.add('show');
   _positionMoreControlsDropdown();
 }
@@ -12792,149 +12904,111 @@ function finalizarCuadre3V() {
 
 
 // ==========================================
-// --- MOTOR DE LECTURA DE ARCHIVOS BLINDADO (V2) ---
+// --- FLOTA DEL CUADRE → MISIÓN DE PATIO ---
 // ==========================================
 window.UNIDADES_SISTEMA_CORPORATIVO = [];
 
-window.procesarDropSeguro = function (e) {
-  if (e.dataTransfer && e.dataTransfer.files.length > 0) {
-    document.getElementById('csvFileInput').files = e.dataTransfer.files;
-    window.ejecutarLectorCSV(e.dataTransfer.files[0]);
+function _modeloCatalogEntry(modelo) {
+  const name = String(modelo || '').trim().toUpperCase();
+  if (!name || name === 'S/M') return null;
+  const catalog = window.MEX_CONFIG?.listas?.modelos || [];
+  let best = null;
+  for (const item of catalog) {
+    if (!item || typeof item !== 'object') continue;
+    const itemName = String(item.nombre || '').trim().toUpperCase();
+    if (!itemName) continue;
+    if (itemName === name) { best = item; break; }
+    if (!best && (name.includes(itemName) || itemName.includes(name.split(' ')[0]))) best = item;
   }
-};
+  return best;
+}
 
-window.procesarInputSeguro = function (input) {
-  if (input.files && input.files.length > 0) {
-    window.ejecutarLectorCSV(input.files[0]);
+function _modeloImagenUrl(modelo) {
+  const best = _modeloCatalogEntry(modelo);
+  if (!best) return '';
+  return String(best.imagenURL || best.imagen || best.image || best.foto || '').trim();
+}
+
+function _modeloCategoria(modelo, fallback = '') {
+  const fromUnit = String(fallback || '').trim();
+  if (fromUnit) return fromUnit;
+  const best = _modeloCatalogEntry(modelo);
+  return String(best?.categoria || best?.categoriaNombre || '').trim();
+}
+
+function _mapUnidadMisionDesdeCuadre(u) {
+  const mva = String(u?.mva || '').toUpperCase().replace(/\s/g, '');
+  const modelo = String(u?.modelo || 'S/M').trim() || 'S/M';
+  const gas = String(u?.gasolina ?? 'N/A').toUpperCase().trim() || 'N/A';
+  const categoria = _modeloCategoria(modelo, u?.categoria);
+  return {
+    mva,
+    placas: String(u?.placas || 'S/P').toUpperCase().trim() || 'S/P',
+    modelo,
+    categoria,
+    estado: String(u?.estado || '').trim(),
+    ubicacion: String(u?.ubicacion || u?.pos || '').trim(),
+    gasolina: gas,
+    gasolinaSistema: gas,
+    gasolinaCorregida: gas,
+    km: (typeof u?.km === 'number' || (typeof u?.km === 'string' && u.km !== '')) ? u.km : '',
+    imagenModelo: _modeloImagenUrl(modelo)
+  };
+}
+
+function _pintarPreviewFlotaMision(count, plaza) {
+  const preview = document.getElementById('csv-preview-info');
+  const countEl = document.getElementById('csv-count');
+  const loading = document.getElementById('audit-flota-loading');
+  const empty = document.getElementById('audit-flota-empty');
+  const plazaLabel = document.getElementById('audit-flota-plaza-label');
+  if (loading) loading.style.display = 'none';
+  if (countEl) countEl.textContent = String(count || 0);
+  if (plazaLabel) plazaLabel.textContent = plaza ? `Plaza ${plaza}` : 'Plaza actual';
+  if (preview) preview.style.display = count > 0 ? 'flex' : 'none';
+  if (empty) empty.style.display = count > 0 ? 'none' : 'block';
+}
+
+async function cargarFlotaCuadreParaMision(force = false) {
+  const plaza = _miPlaza();
+  const loading = document.getElementById('audit-flota-loading');
+  const preview = document.getElementById('csv-preview-info');
+  const empty = document.getElementById('audit-flota-empty');
+  if (!force && Array.isArray(window.UNIDADES_SISTEMA_CORPORATIVO) && window.UNIDADES_SISTEMA_CORPORATIVO.length > 0) {
+    _pintarPreviewFlotaMision(window.UNIDADES_SISTEMA_CORPORATIVO.length, plaza);
+    _cuadreActualizarBotonMision();
+    return window.UNIDADES_SISTEMA_CORPORATIVO;
   }
-};
-
-window.ejecutarLectorCSV = function (file) {
+  if (loading) loading.style.display = 'flex';
+  if (preview) preview.style.display = 'none';
+  if (empty) empty.style.display = 'none';
   try {
-    document.getElementById('upload-icon').innerText = "hourglass_empty";
-    document.getElementById('upload-icon').classList.add('spinner');
-    document.getElementById('upload-text').innerText = "Organizando columnas...";
-
-    const notificar = (msg, tipo) => showToast(msg, tipo || 'error');
-
-    const reader = new FileReader();
-
-    reader.onload = function (e) {
-      try {
-        const text = e.target.result;
-        const rows = text.split(/\r?\n/);
-
-        if (rows.length < 2) return notificar("El archivo está vacío", "error");
-
-        let mvaCol = -1, placaCol = -1, modCol = -1;
-        let startRow = -1;
-        let separador = ',';
-
-        // 1. Buscar los encabezados en las primeras 20 filas
-        for (let i = 0; i < Math.min(20, rows.length); i++) {
-          let rowText = rows[i];
-
-          // Detectar si Excel lo guardó con punto y coma (;) o coma (,)
-          if (rowText.indexOf(';') > -1 && rowText.split(';').length > rowText.split(',').length) {
-            separador = ';';
-          }
-
-          // Separar la fila en celdas limpias
-          let cells = rowText.split(new RegExp(`${separador}(?=(?:(?:[^"]*"){2})*[^"]*$)`))
-            .map(c => c.replace(/^"|"$/g, '').trim().toUpperCase());
-
-          // Buscar en cada celda las palabras clave (quitando acentos para asegurar)
-          for (let j = 0; j < cells.length; j++) {
-            let cell = cells[j];
-            let normalCell = cell.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-            // 🔥 CORRECCIÓN: Agregamos "=== -1" para que SOLO tome la PRIMERA
-            // coincidencia y no la sobreescriba con "Entidad Federativa de la Placa"
-            if (mvaCol === -1 && (normalCell.includes('MVA') || normalCell.includes('ECONOMICO') || normalCell.includes('ECO'))) mvaCol = j;
-            if (placaCol === -1 && normalCell.includes('PLACA')) placaCol = j;
-            if (modCol === -1 && (normalCell.includes('MODELO') || normalCell.includes('VEHICULO'))) modCol = j;
-          }
-
-          // Si encontró la columna del Económico, marcamos esta fila como el Inicio y rompemos el ciclo
-          if (mvaCol !== -1) {
-            startRow = i + 1; // Los autos empiezan una fila abajo de los encabezados
-            break;
-          }
-        }
-
-        let unidadesExtraidas = [];
-        const mvaRegexEstricto = /^[A-Z]{1,2}\d{3,4}$/i;
-
-        // 2. Extraer la data estructurada
-        if (startRow !== -1) {
-          for (let i = startRow; i < rows.length; i++) {
-            if (!rows[i].trim()) continue;
-
-            let cells = rows[i].split(new RegExp(`${separador}(?=(?:(?:[^"]*"){2})*[^"]*$)`))
-              .map(c => c.replace(/^"|"$/g, '').trim());
-
-            let mva = (cells[mvaCol] || "").toUpperCase().replace(/\s/g, '');
-            let placas = placaCol !== -1 ? (cells[placaCol] || "S/P").toUpperCase() : "S/P";
-            let modelo = modCol !== -1 ? (cells[modCol] || "S/M").toUpperCase() : "S/M";
-
-            // Si el MVA es válido (ej. C2871)
-            if (mva && mvaRegexEstricto.test(mva)) {
-              // Evitar meter el mismo auto dos veces
-              if (!unidadesExtraidas.find(u => u.mva === mva)) {
-                unidadesExtraidas.push({ mva: mva, placas: placas, modelo: modelo });
-              }
-            }
-          }
-        }
-
-        window.UNIDADES_SISTEMA_CORPORATIVO = unidadesExtraidas;
-        document.getElementById('upload-icon').classList.remove('spinner');
-
-        if (unidadesExtraidas.length === 0) {
-          document.getElementById('upload-icon').innerText = "error_outline";
-          document.getElementById('upload-icon').style.color = "#ef4444";
-          document.getElementById('upload-text').innerText = "Columnas no encontradas";
-          return notificar("No se pudo estructurar el archivo CSV.", "error");
-        }
-
-        // Actualizar la vista a Éxito
-        document.getElementById('upload-icon').innerText = "check_circle";
-        document.getElementById('upload-icon').style.color = "#10b981";
-        document.getElementById('upload-text').innerText = "¡Lectura estructurada exitosa!";
-
-        document.getElementById('csv-count').innerText = unidadesExtraidas.length;
-        document.getElementById('csv-preview-info').style.display = 'block';
-
-        const btn = document.getElementById('btnIniciarMision');
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        if (typeof window.__syncCuadreMissionButtonState === 'function') window.__syncCuadreMissionButtonState();
-
-        notificar("Base corporativa cargada", "success");
-        console.log("LISTA LIMPIA Y ESTRUCTURADA:", window.UNIDADES_SISTEMA_CORPORATIVO);
-
-      } catch (err) {
-        console.error("Error estructurando Arrays del CSV:", err);
-        notificar("Error al estructurar las columnas", "error");
-        document.getElementById('upload-icon').innerText = "warning";
-        document.getElementById('upload-icon').classList.remove('spinner');
-      } finally {
-        document.getElementById('csvFileInput').value = "";
-      }
-    };
-
-    reader.onerror = function () {
-      notificar("El navegador bloqueó la lectura", "error");
-      document.getElementById('upload-icon').innerText = "warning";
-      document.getElementById('upload-icon').classList.remove('spinner');
-    };
-
-    // Usamos ISO-8859-1 para respetar la 'ñ' y acentos típicos de Excel en español
-    reader.readAsText(file, 'ISO-8859-1');
-
+    const fleet = await api.obtenerDatosFlotaConsola(plaza);
+    const unidades = (Array.isArray(fleet) ? fleet : [])
+      .filter(u => u && u.mva)
+      .map(_mapUnidadMisionDesdeCuadre)
+      .filter(u => u.mva);
+    window.UNIDADES_SISTEMA_CORPORATIVO = unidades;
+    _pintarPreviewFlotaMision(unidades.length, plaza);
+    _cuadreActualizarBotonMision();
+    return unidades;
   } catch (err) {
-    console.error("Error crítico:", err);
+    console.error('[cuadre-mision] flota', err);
+    window.UNIDADES_SISTEMA_CORPORATIVO = [];
+    _pintarPreviewFlotaMision(0, plaza);
+    _cuadreActualizarBotonMision();
+    showToast('No se pudo cargar la flota del cuadre.', 'error');
+    return [];
   }
+}
+
+window.cargarFlotaCuadreParaMision = cargarFlotaCuadreParaMision;
+// Compat: stubs por si queda algún handler viejo del CSV.
+window.procesarDropSeguro = function () { showToast('Ya no se sube CSV: la flota viene del cuadre.', 'info'); };
+window.procesarInputSeguro = function () { showToast('Ya no se sube CSV: la flota viene del cuadre.', 'info'); };
+
+window.ejecutarLectorCSV = function () {
+  showToast('Ya no se sube CSV: la flota viene del cuadre.', 'info');
 };
 
 
@@ -13110,6 +13184,7 @@ function _cuadreActualizarBotonMision() {
   btn.disabled = !enabled;
   btn.style.opacity = enabled ? '1' : '0.5';
   btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+  btn.classList.toggle('is-ready', enabled);
 }
 
 function _cuadreFirmaIds(kind = 'aux') {
@@ -13219,6 +13294,15 @@ function _auditGasOptionsHtml(selected = '') {
   }).join('');
 }
 
+function _auditGasProgressHtml(gasValue) {
+  const pct = _fuelToPct(gasValue);
+  if (pct == null) {
+    return `<div class="audit-gas-bar is-empty" aria-hidden="true"><span style="width:0%"></span></div>`;
+  }
+  const color = _fuelColor(pct);
+  return `<div class="audit-gas-bar" aria-label="Gasolina ${pct}%"><span style="width:${pct}%;background:${color}"></span></div>`;
+}
+
 function _renderAuditCard(u) {
   const statusClass = u.status === 'OK'      ? 'audit-card--ok'
                     : u.status === 'FALTANTE' ? 'audit-card--faltante'
@@ -13232,38 +13316,66 @@ function _renderAuditCard(u) {
 
   const gasValue = String(u.gasolinaCorregida || u.gasolina || 'N/A').toUpperCase();
   const kmValue = u.km != null ? u.km : '';
+  const categoria = _modeloCategoria(u.modelo, u.categoria);
+  const imgUrl = u.imagenModelo || _modeloImagenUrl(u.modelo);
 
   return `
     <div class="audit-card ${statusClass}">
+      ${imgUrl ? `<div class="audit-card-thumb"><img src="${escapeHtml(imgUrl)}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>` : ''}
       <div class="audit-card-info">
-        <h3 class="audit-card-mva">${u.mva}</h3>
-        <span class="audit-card-meta">${u.modelo} &bull; ${u.placas}</span>
+        <h3 class="audit-card-mva">${escapeHtml(u.mva)}</h3>
+        <span class="audit-card-meta">${escapeHtml(u.modelo)} &bull; ${escapeHtml(u.placas)}</span>
+        <div class="audit-card-tags">
+          ${categoria ? `<span class="audit-card-tag">${escapeHtml(categoria)}</span>` : ''}
+          <span class="audit-card-tag muted">${escapeHtml(u.estado || 'SIN ESTADO')}</span>
+          <span class="audit-card-tag muted">${escapeHtml(u.ubicacion || 'SIN UBICACIÓN')}</span>
+        </div>
         <div class="audit-card-corrections" onclick="event.stopPropagation()">
           <label class="audit-card-field">
             <span class="material-icons">speed</span>
-            <input id="audit-km-${u.mva}" type="text" inputmode="numeric" autocomplete="off"
+            <input id="audit-km-${escapeHtml(u.mva)}" type="text" inputmode="numeric" autocomplete="off"
               value="${escapeHtml(String(kmValue))}" placeholder="km">
           </label>
-          <label class="audit-card-field">
+          <label class="audit-card-field audit-card-field--gas">
             <span class="material-icons">local_gas_station</span>
-            <select id="audit-gas-${u.mva}">
+            <select id="audit-gas-${escapeHtml(u.mva)}" onchange="window.__auditSyncGasBar && window.__auditSyncGasBar(this)">
               ${_auditGasOptionsHtml(gasValue)}
             </select>
+            ${_auditGasProgressHtml(gasValue)}
           </label>
         </div>
         ${u.status === 'EXTRA' ? '<span class="audit-card-extra-badge">&#9888; SOBRANTE</span>' : ''}
       </div>
       <div class="audit-card-actions">
-        <button class="audit-btn-action ${btnCrossClass}" onclick="marcarUnidadAudit('${u.mva}', 'FALTANTE')" title="Marcar faltante">
+        <button class="audit-btn-action ${btnCrossClass}" onclick="marcarUnidadAudit('${escapeHtml(u.mva)}', 'FALTANTE')" title="Marcar faltante">
           <span class="material-icons">close</span>
         </button>
-        <button class="audit-btn-action ${btnCheckClass}" onclick="marcarUnidadAudit('${u.mva}', 'OK')" title="Marcar presente">
+        <button class="audit-btn-action ${btnCheckClass}" onclick="marcarUnidadAudit('${escapeHtml(u.mva)}', 'OK')" title="Marcar presente">
           <span class="material-icons">check</span>
         </button>
       </div>
     </div>
   `;
 }
+
+window.__auditSyncGasBar = function (selectEl) {
+  if (!selectEl) return;
+  const wrap = selectEl.closest('.audit-card-field--gas');
+  const bar = wrap?.querySelector('.audit-gas-bar');
+  if (!bar) return;
+  const pct = _fuelToPct(selectEl.value);
+  const fill = bar.querySelector('span');
+  if (pct == null) {
+    bar.classList.add('is-empty');
+    if (fill) { fill.style.width = '0%'; fill.style.background = ''; }
+    return;
+  }
+  bar.classList.remove('is-empty');
+  if (fill) {
+    fill.style.width = `${pct}%`;
+    fill.style.background = _fuelColor(pct);
+  }
+};
 
 function renderizarPaseLista() {
   const container = document.getElementById('audit-list-container');
@@ -13460,10 +13572,7 @@ function procesarUnidadExtra() {
 function finalizarPaseLista() {
   const pendientes = window.AUDIT_LIST.filter(u => u.status === 'PENDIENTE');
   if (pendientes.length > 0) {
-    mostrarCustomModal("Aviso de Pendientes", `Tienes ${pendientes.length} unidades sin revisar.\nSe marcarán como FALTANTES automáticamente. ¿Continuar?`, "warning", "#f59e0b", "CONTINUAR", "#f59e0b", () => {
-      window.AUDIT_LIST.forEach(u => { if (u.status === 'PENDIENTE') u.status = 'FALTANTE'; });
-      llamarAlJuezDeAuditoria();
-    });
+    showToast(`Completa las ${pendientes.length} unidades pendientes (Presente o Faltante) antes de firmar.`, 'warning');
     return;
   }
   llamarAlJuezDeAuditoria();
@@ -13949,6 +14058,7 @@ function manejadorFlujoV3() {
     window.UNIDADES_SISTEMA_CORPORATIVO = [];
     _cuadreActualizarAuxiliares();
     _cuadreActualizarBotonMision();
+    void cargarFlotaCuadreParaMision(true);
   }
   else if (puedeGestionarCuadre && estadoActual === "FINALIZAR CUADRE") {
     toggleAdminSidebar(false);
@@ -14034,7 +14144,7 @@ function manejadorFlujoV3() {
     }).catch(e => console.error(e));
   }
 }
-// ⚡ EL ADMIN SUBE CSV Y ENVÍA MISIÓN
+// ⚡ EL ADMIN ASIGNA AUXILIAR Y ENVÍA MISIÓN (flota desde cuadre)
 async function iniciarMisionAuditoria() {
   const btn = document.getElementById('btnIniciarMision');
   const select = document.getElementById('cuadreAuxiliarSelect');
@@ -14042,10 +14152,6 @@ async function iniciarMisionAuditoria() {
   const option = select?.options?.[select.selectedIndex] || null;
   const auxNombre = String(option?.dataset?.nombre || option?.textContent || '').split('·')[0].trim();
 
-  if (!Array.isArray(window.UNIDADES_SISTEMA_CORPORATIVO) || window.UNIDADES_SISTEMA_CORPORATIVO.length === 0) {
-    showToast('Primero carga la flota en CSV.', 'error');
-    return;
-  }
   if (!auxDocId) {
     showToast('Selecciona un auxiliar para enviar la misión.', 'error');
     return;
@@ -14057,6 +14163,12 @@ async function iniciarMisionAuditoria() {
   }
 
   try {
+    const unidades = await cargarFlotaCuadreParaMision(true);
+    if (!Array.isArray(unidades) || unidades.length === 0) {
+      showToast('No hay unidades en el cuadre de esta plaza.', 'error');
+      return;
+    }
+
     const meta = {
       missionId: `cuadre_${Date.now()}`,
       destinatarioDocId: auxDocId,
@@ -14064,10 +14176,12 @@ async function iniciarMisionAuditoria() {
       auxiliarDocId: auxDocId,
       auxiliarNombre: auxNombre,
       creadorDocId: _currentUserDocId(),
-      creadorEmail: auth.currentUser?.email || ''
+      creadorEmail: auth.currentUser?.email || '',
+      adminDocId: _currentUserDocId(),
+      adminEmail: auth.currentUser?.email || ''
     };
 
-    const res = await api.iniciarProtocoloDesdeAdmin(USER_NAME, JSON.stringify(window.UNIDADES_SISTEMA_CORPORATIVO), _miPlaza(), meta);
+    const res = await api.iniciarProtocoloDesdeAdmin(USER_NAME, JSON.stringify(unidades), _miPlaza(), meta);
     if (res && res.exito) {
       const ctx = _cuadreCtx();
       _cuadreSetStage('aux-review', {
@@ -14109,6 +14223,10 @@ function _historialCuadresShellHtml() {
           <span id="historialCuadreStatus">Cuadres oficiales de flota</span>
         </div>
         <div class="historial-cuadre-actions">
+          <button id="btnHistorialFinalizarCuadre" class="historial-cuadre-finalize" style="display:none;" onclick="finalizarCuadreDesdeHistorial()">
+            <span class="material-icons">task_alt</span>
+            <span id="btnHistorialFinalizarCuadreLabel">FINALIZAR CUADRE</span>
+          </button>
           <button class="historial-cuadre-primary" onclick="abrirCuadrarFlotaDesdeHistorial()">
             <span class="material-icons">playlist_add_check</span>
             Cuadrar Flota
@@ -14211,6 +14329,7 @@ async function abrirHistorialCuadres() {
       autorSelect.innerHTML = '<option value="">Todos los autores</option>' +
         autores.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
     }
+    _syncHistorialFinalizarBtn();
     renderHistorialCuadres();
   }).catch(e => {
     console.error(e);
@@ -14228,6 +14347,33 @@ async function abrirHistorialCuadres() {
     showToast('No se pudo cargar el historial de cuadres.', 'error');
   });
 }
+
+function _fechaCortaHoy() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function _syncHistorialFinalizarBtn() {
+  const btn = document.getElementById('btnHistorialFinalizarCuadre');
+  const label = document.getElementById('btnHistorialFinalizarCuadreLabel');
+  if (!btn) return;
+  const estadoTxt = (document.getElementById('txtV3')?.innerText || '').trim();
+  const estadoV3 = String(_radarState?.settings?.estadoCuadreV3 || '').toUpperCase();
+  const puede = userRole === 'admin' || _roleMeta().isAdmin || canViewAdminCuadre();
+  const enRevision = estadoV3 === 'REVISION' || estadoTxt === 'FINALIZAR CUADRE';
+  btn.style.display = (puede && enRevision) ? 'inline-flex' : 'none';
+  if (label) label.textContent = `FINALIZAR CUADRE (${_fechaCortaHoy()})`;
+}
+
+async function finalizarCuadreDesdeHistorial() {
+  const modal = document.getElementById('historial-cuadres-modal');
+  if (modal) modal.classList.remove('active');
+  return manejadorFlujoV3();
+}
+window.finalizarCuadreDesdeHistorial = finalizarCuadreDesdeHistorial;
 
 async function abrirCuadrarFlotaDesdeHistorial() {
   const estadoActual = (document.getElementById('txtV3')?.innerText || '').trim();
@@ -14249,6 +14395,7 @@ async function abrirCuadrarFlotaDesdeHistorial() {
       window.UNIDADES_SISTEMA_CORPORATIVO = [];
       _cuadreActualizarAuxiliares();
       _cuadreActualizarBotonMision();
+      void cargarFlotaCuadreParaMision(true);
       return;
     }
     if (estadoActual === "INICIAR CUADRE (ADMIN)" || estadoActual === "FINALIZAR CUADRE") {
