@@ -1226,3 +1226,133 @@ body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
     transition: none !important;
   }
 }
+
+/* ── Contraste sidebar (vence luminous !important) ── */
+#modal-config-global.admin-registry.luminous-admin #cfg-admin-sidebar,
+#modal-config-global.admin-registry #cfg-admin-sidebar {
+  background: #07111f !important;
+  color: #e2e8f0 !important;
+}
+
+#modal-config-global.admin-registry.luminous-admin .cfg-nav-group,
+#modal-config-global.admin-registry .cfg-nav-group {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+#modal-config-global.admin-registry.luminous-admin .cfg-nav-group::before,
+#modal-config-global.admin-registry .cfg-nav-group::before {
+  color: #94a3b8 !important;
+}
+
+#modal-config-global.admin-registry.luminous-admin .cfg-nav-group-toggle,
+#modal-config-global.admin-registry.luminous-admin .cfg-nav-group-copy strong,
+#modal-config-global.admin-registry.luminous-admin .cfg-tab,
+#modal-config-global.admin-registry .cfg-tab {
+  color: #cbd5e1 !important;
+}
+
+#modal-config-global.admin-registry.luminous-admin .cfg-nav-group-copy small,
+#modal-config-global.admin-registry.luminous-admin .cfg-nav-group-chevron,
+#modal-config-global.admin-registry.luminous-admin .cfg-tab-icon,
+#modal-config-global.admin-registry.luminous-admin .cfg-v2-sidebar-toggle {
+  color: #94a3b8 !important;
+}
+
+#modal-config-global.admin-registry.luminous-admin .cfg-tab:hover:not(.active),
+#modal-config-global.admin-registry .cfg-tab:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f8fafc !important;
+}
+
+#modal-config-global.admin-registry.luminous-admin .cfg-tab.active,
+#modal-config-global.admin-registry.luminous-admin .cfg-tab.is-active,
+#modal-config-global.admin-registry .cfg-tab.active,
+#modal-config-global.admin-registry .cfg-tab.is-active {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+#modal-config-global.admin-registry.luminous-admin .cfg-tab.active .cfg-tab-icon,
+#modal-config-global.admin-registry.luminous-admin .cfg-tab.is-active .cfg-tab-icon,
+#modal-config-global.admin-registry .cfg-tab.active .cfg-tab-icon {
+  color: #3b82f6 !important;
+}
+
+#modal-config-global.admin-registry.luminous-admin .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse),
+#modal-config-global.admin-registry .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+/* ── Layout: solo contenido scrolleable, sin títulos redundantes ── */
+#modal-config-global.admin-registry .cfg-v2-workspace-header,
+#modal-config-global.admin-registry .cfg-v2-hero,
+#modal-config-global.admin-registry .admin-metric-ribbon,
+#modal-config-global.admin-registry .um-page-header,
+#modal-config-global.admin-registry .cfg-plazas-list-col > header,
+#modal-config-global.admin-registry .cfg-plazas-list-col .um-column-head,
+#modal-config-global.admin-registry .choferes-directory-head,
+#modal-config-global.admin-registry .um-column-head p,
+#modal-config-global.admin-registry .um-list-col > header p {
+  display: none !important;
+}
+
+#modal-config-global.admin-registry .cfg-v2-main,
+#modal-config-global.admin-registry .cfg-v2-main.shell-main-stage {
+  overflow: hidden !important;
+  min-height: 0 !important;
+}
+
+#modal-config-global.admin-registry .admin-tray-shell,
+#modal-config-global.admin-registry #cfg-lista-items,
+#modal-config-global.admin-registry .cfg-v2-list,
+#modal-config-global.admin-registry .um-workspace-shell,
+#modal-config-global.admin-registry .um-workspace-shell-lite,
+#modal-config-global.admin-registry .cfg-plazas-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+}
+
+#modal-config-global.admin-registry .um-list-col,
+#modal-config-global.admin-registry .um-form-col,
+#modal-config-global.admin-registry .cfg-plazas-list-col,
+#modal-config-global.admin-registry .cfg-plaza-edit-col {
+  min-height: 0 !important;
+  overflow: auto !important;
+}
+
+#modal-config-global.admin-registry .um-table-wrap {
+  width: 100%;
+  overflow: auto;
+}
+
+#modal-config-global.admin-registry .um-row.is-active,
+#modal-config-global.admin-registry .um-row.active {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+#modal-config-global.admin-registry .um-row-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#modal-config-global.admin-registry .um-row-user strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#modal-config-global.admin-registry .um-row-user small {
+  display: block;
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+#modal-config-global.admin-registry .um-avatar-sm {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 11px !important;
+}

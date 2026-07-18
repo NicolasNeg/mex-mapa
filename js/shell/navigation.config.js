@@ -156,7 +156,7 @@ export const NAV_GROUPS = [
         id: 'panel-admin',
         label: 'Panel admin',
         icon: 'admin_panel_settings',
-        route: '/app/admin',
+        route: '/app/admin/usuarios',
         roles: ['SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR']
       }
     ]

@@ -2014,15 +2014,16 @@ function _adminShellPath(tab = 'usuarios', entityId = '') {
   return `/app/admin/${encodeURIComponent(section)}`;
 }
 
-function _syncAdminShellRoute(tab = 'usuarios', entityId = '') {
+function _syncAdminShellRoute(tab = 'usuarios', entityId = '', opts = {}) {
   const path = _adminShellPath(tab, entityId);
+  const replace = opts.replace !== false && !entityId; // detalle → push (back vuelve a lista)
   try {
     const parentWin = window.parent && window.parent !== window ? window.parent : null;
     const parentPath = String(parentWin?.location?.pathname || '').replace(/\/$/, '') || '';
     const nextPath = path.split('?')[0].replace(/\/$/, '');
     if (parentPath === nextPath) return;
     if (typeof parentWin?.__mexShellNavigate === 'function') {
-      parentWin.__mexShellNavigate(path, { replace: true });
+      parentWin.__mexShellNavigate(path, { replace });
       return;
     }
   } catch (_) { /* cross-origin */ }
@@ -2030,15 +2031,17 @@ function _syncAdminShellRoute(tab = 'usuarios', entityId = '') {
     if (typeof window.__mexShellNavigate === 'function') {
       const here = String(window.location.pathname || '').replace(/\/$/, '');
       if (here !== path.split('?')[0].replace(/\/$/, '')) {
-        window.__mexShellNavigate(path, { replace: true });
+        window.__mexShellNavigate(path, { replace });
       }
       return;
     }
   } catch (_) {}
   if (_isDedicatedGestionIframeMode()) return;
   try {
-    if (window.history?.replaceState) {
-      window.history.replaceState({ mexInlineRoute: 'admin', tab, entityId }, '', path);
+    if (window.history) {
+      const state = { mexInlineRoute: 'admin', tab, entityId };
+      if (replace) window.history.replaceState(state, '', path);
+      else window.history.pushState(state, '', path);
     }
   } catch (_) {}
 }
@@ -20097,7 +20100,12 @@ async function _bootGestionAdminRoute() {
   if (!_isGestionAdminMode() || _gestionAdminBooted) return;
   _gestionAdminBooted = true;
   _applyGestionAdminChrome();
-  abrirPanelConfiguracion(_gestionInitialTab());
+  const tab = _gestionInitialTab();
+  abrirPanelConfiguracion(tab);
+  const entityId = String(_qs('entityId') || _qs('uid') || '').trim();
+  if (entityId && typeof window.__mexAdminOpenEntity === 'function') {
+    window.__mexAdminOpenEntity(tab, entityId);
+  }
   await _captureAdminExactLocation({ force: true });
 }
 
