@@ -140,18 +140,12 @@ const ROUTE_TABLE = {
   "/app/traslados": { loader: () => import("/js/app/views/traslados.js"), navRoute: "/app/traslados" },
   '/app/admin':    legacyStage('admin', '/app/admin'),
   '/app/gestion':           { loader: () => import('/js/app/views/gestion.js'), navRoute: '/app/gestion', feature: 'gestion_usuarios' },
-  '/app/usuarios':          { redirect: '/app/admin?tab=usuarios' },
-  '/app/admin/usuarios':    { redirect: '/app/admin?tab=usuarios' },
-  '/app/gestion/usuarios':  { redirect: '/app/admin?tab=usuarios' },
-  '/app/admin/choferes':    { redirect: '/app/admin?tab=choferes' },
-  '/app/gestion/choferes':  { redirect: '/app/admin?tab=choferes' },
-  '/app/admin/roles':       { redirect: '/app/admin?tab=roles' },
-  '/app/gestion/roles':     { redirect: '/app/admin?tab=roles' },
-  '/app/admin/plazas':      { redirect: '/app/admin?tab=plazas' },
-  '/app/gestion/plazas':    { redirect: '/app/admin?tab=plazas' },
-  '/app/admin/catalogos':   { redirect: '/app/admin?tab=catalogos' },
-  '/app/gestion/catalogos': { redirect: '/app/admin?tab=catalogos' },
-  '/app/admin/solicitudes': { redirect: '/app/admin?tab=solicitudes' },
+  '/app/usuarios':          { redirect: '/app/admin/usuarios' },
+  '/app/gestion/usuarios':  { redirect: '/app/admin/usuarios' },
+  '/app/gestion/choferes':  { redirect: '/app/admin/choferes' },
+  '/app/gestion/roles':     { redirect: '/app/admin/roles' },
+  '/app/gestion/plazas':    { redirect: '/app/admin/plazas' },
+  '/app/gestion/catalogos': { redirect: '/app/admin/catalogos' },
   '/app/alertas':          {
     loader:   () => import('/js/app/views/alertas.js'),
     navRoute: '/app/alertas',
@@ -163,19 +157,13 @@ const ROUTE_TABLE = {
     feature:  'alertas'
   },
   '/app/historial-alertas': { redirect: '/app/alertas/historial' },
-  '/app/gestion/solicitudes': { redirect: '/app/admin?tab=solicitudes' },
-  '/app/admin/estados':     { redirect: '/app/admin?tab=estados' },
-  '/app/gestion/estados':   { redirect: '/app/admin?tab=estados' },
-  '/app/admin/categorias':  { redirect: '/app/admin?tab=categorias' },
-  '/app/gestion/categorias': { redirect: '/app/admin?tab=categorias' },
-  '/app/admin/modelos':     { redirect: '/app/admin?tab=modelos' },
-  '/app/gestion/modelos':   { redirect: '/app/admin?tab=modelos' },
-  '/app/admin/gasolinas':   { redirect: '/app/admin?tab=gasolinas' },
-  '/app/gestion/gasolinas': { redirect: '/app/admin?tab=gasolinas' },
-  '/app/admin/ubicaciones': { redirect: '/app/admin?tab=ubicaciones' },
-  '/app/gestion/ubicaciones': { redirect: '/app/admin?tab=ubicaciones' },
-  '/app/admin/empresa':     { redirect: '/app/admin?tab=empresa' },
-  '/app/gestion/empresa':   { redirect: '/app/admin?tab=empresa' },
+  '/app/gestion/solicitudes': { redirect: '/app/admin/solicitudes' },
+  '/app/gestion/estados':   { redirect: '/app/admin/estados' },
+  '/app/gestion/categorias': { redirect: '/app/admin/categorias' },
+  '/app/gestion/modelos':   { redirect: '/app/admin/modelos' },
+  '/app/gestion/gasolinas': { redirect: '/app/admin/gasolinas' },
+  '/app/gestion/ubicaciones': { redirect: '/app/admin/ubicaciones' },
+  '/app/gestion/empresa':   { redirect: '/app/admin/empresa' },
   '/app/programador': { loader: () => import('/js/app/views/programador.js'), navRoute: '/programador' },
   '/app/mapa':        { loader: () => import('/js/app/views/mapa.js'),        navRoute: '/mapa' },
   '/app/editmap': {
@@ -271,6 +259,7 @@ function _stripRouteSlash(value) {
 
 function _routeForPath(path) {
   const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
+  if (key === '/app/admin' || key.startsWith('/app/admin/')) return ROUTE_TABLE['/app/admin'];
   if (key.startsWith('/app/mensajes/')) return ROUTE_TABLE['/app/mensajes'];
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return ROUTE_TABLE['/app/traslados'];
   if (key.startsWith('/app/cuadre/u/')) return ROUTE_TABLE['/app/cuadre/u'];
@@ -279,6 +268,7 @@ function _routeForPath(path) {
 
 function _styleKeyForPath(path) {
   const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
+  if (key === '/app/admin' || key.startsWith('/app/admin/')) return '/app/admin';
   if (key.startsWith('/app/mensajes/')) return '/app/mensajes';
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return '/app/traslados';
   if (key.startsWith('/app/cuadre/u/')) return '/app/cuadre/u';

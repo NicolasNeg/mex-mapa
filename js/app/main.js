@@ -326,7 +326,7 @@ async function boot() {
   // 6. Crear router — renderiza la vista inicial automáticamente
   router = createRouter({ shell });
   // Navegación SPA global (la usa el buscador global para "Ir al mapa").
-  window.__mexShellNavigate = (path) => router.navigate(path);
+  window.__mexShellNavigate = (path, opts) => router.navigate(path, opts || {});
   // Acceso directo: navega al mapa y deja pendiente el MVA a resaltar
   // (legacy-stage / vista SPA lo reenvían cuando el mapa está listo). Si la unidad
   // está en otra plaza permitida, cambia la plaza activa primero.

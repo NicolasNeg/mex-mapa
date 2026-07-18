@@ -106,12 +106,34 @@ function _idFromContext(ctx = {}) {
   return 'dashboard';
 }
 
+const ADMIN_SECTIONS = [
+  'usuarios', 'users', 'choferes', 'roles', 'plazas', 'catalogos', 'solicitudes',
+  'estados', 'categorias', 'modelos', 'gasolinas', 'ubicaciones', 'empresa',
+  'motivos_traslado'
+];
+
+function _parseAdminPath(path = '') {
+  const parts = _routePath(path).split('/').filter(Boolean);
+  // /app/admin[/section[/id]]
+  if (parts[0] !== 'app' || parts[1] !== 'admin') {
+    return { tab: '', entityId: '' };
+  }
+  let section = String(parts[2] || '').trim().toLowerCase();
+  let entityId = String(parts[3] || '').trim();
+  if (section === 'users') section = 'usuarios';
+  if (!ADMIN_SECTIONS.includes(section) && !ADMIN_SECTIONS.includes(String(parts[2] || '').trim().toLowerCase())) {
+    return { tab: '', entityId: '' };
+  }
+  if (!ADMIN_SECTIONS.includes(section)) section = '';
+  return { tab: section, entityId };
+}
+
 function _tabFromPath(path = '') {
+  const parsed = _parseAdminPath(path);
+  if (parsed.tab) return parsed.tab;
   const clean = _routePath(path);
   const last = clean.split('/').filter(Boolean).pop() || '';
-  if (['usuarios', 'choferes', 'roles', 'plazas', 'catalogos', 'solicitudes', 'estados', 'categorias', 'modelos', 'gasolinas', 'ubicaciones', 'empresa'].includes(last)) {
-    return last;
-  }
+  if (ADMIN_SECTIONS.includes(last) && last !== 'users') return last;
   return '';
 }
 
@@ -135,9 +157,10 @@ function _srcFor(id, ctx = {}) {
     const base = plaza ? `/editmap/${encodeURIComponent(plaza)}` : '/editmap';
     return `${base}?${params.toString()}${window.location.hash || ''}`;
   }
-  if (id === 'admin' && !params.get('tab')) {
-    const tab = _tabFromPath(ctx.state?.currentRoute || window.location.pathname);
-    if (tab) params.set('tab', tab);
+  if (id === 'admin') {
+    const parsed = _parseAdminPath(ctx.state?.currentRoute || window.location.pathname);
+    if (!params.get('tab') && parsed.tab) params.set('tab', parsed.tab);
+    if (parsed.entityId) params.set('entityId', parsed.entityId);
   }
   return `${cfg.src}?${params.toString()}${window.location.hash || ''}`;
 }
@@ -257,14 +280,16 @@ function _maybeNavigateFromFrameLocation(frame, id, ctx = {}) {
   } catch (_) {}
 }
 
-function _requestedAdminTab(ctx = {}) {
+function _requestedAdminRoute(ctx = {}) {
   const params = new URLSearchParams(window.location.search || '');
-  const queryTab = params.get('tab');
-  if (queryTab) return String(queryTab).trim().toLowerCase();
-  return _tabFromPath(ctx.state?.currentRoute || window.location.pathname);
+  const parsed = _parseAdminPath(ctx.state?.currentRoute || window.location.pathname);
+  let tab = String(params.get('tab') || parsed.tab || '').trim().toLowerCase();
+  if (tab === 'users') tab = 'usuarios';
+  const entityId = String(params.get('entityId') || params.get('uid') || parsed.entityId || '').trim();
+  return { tab, entityId };
 }
 
-function _activateAdminTab(frame, tab) {
+function _activateAdminTab(frame, tab, entityId = '') {
   const targetTab = String(tab || '').trim().toLowerCase();
   if (!targetTab) return;
   try {
@@ -273,15 +298,18 @@ function _activateAdminTab(frame, tab) {
     if (!win || !doc) return;
     const btn = doc.getElementById(`cfg-tab-${targetTab}`)
       || doc.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
-    if (!btn) return;
+    if (!btn && !entityId) return;
 
     if (typeof win.abrirPanelConfiguracion === 'function') {
       win.abrirPanelConfiguracion(targetTab);
     }
     if (typeof win.abrirTabConfig === 'function') {
       win.abrirTabConfig(targetTab, btn);
-    } else {
+    } else if (btn) {
       btn.click();
+    }
+    if (entityId && typeof win.__mexAdminOpenEntity === 'function') {
+      win.__mexAdminOpenEntity(targetTab, entityId);
     }
   } catch (_) {
     // The frame is same-origin in hosting/dev. If it is not ready yet, later attempts retry.
@@ -290,10 +318,10 @@ function _activateAdminTab(frame, tab) {
 
 function _scheduleFrameSync(frame, id, ctx = {}) {
   if (id !== 'admin') return;
-  const tab = _requestedAdminTab(ctx);
+  const { tab, entityId } = _requestedAdminRoute(ctx);
   if (!tab) return;
   [0, 250, 750, 1500, 3000].forEach(delay => {
-    window.setTimeout(() => _activateAdminTab(frame, tab), delay);
+    window.setTimeout(() => _activateAdminTab(frame, tab, entityId), delay);
   });
 }
 

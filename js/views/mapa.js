@@ -2005,6 +2005,65 @@ function _buildGestionRouteUrl(tab = 'usuarios') {
   return `/gestion${query ? `?${query}` : ''}`;
 }
 
+function _adminShellPath(tab = 'usuarios', entityId = '') {
+  const section = String(tab || 'usuarios').trim().toLowerCase() || 'usuarios';
+  const id = String(entityId || '').trim();
+  // Detalle de usuario: /app/admin/users/:uid (pedido de producto)
+  if (section === 'usuarios' && id) return `/app/admin/users/${encodeURIComponent(id)}`;
+  if (id) return `/app/admin/${encodeURIComponent(section)}/${encodeURIComponent(id)}`;
+  return `/app/admin/${encodeURIComponent(section)}`;
+}
+
+function _syncAdminShellRoute(tab = 'usuarios', entityId = '') {
+  const path = _adminShellPath(tab, entityId);
+  try {
+    const parentWin = window.parent && window.parent !== window ? window.parent : null;
+    const parentPath = String(parentWin?.location?.pathname || '').replace(/\/$/, '') || '';
+    const nextPath = path.split('?')[0].replace(/\/$/, '');
+    if (parentPath === nextPath) return;
+    if (typeof parentWin?.__mexShellNavigate === 'function') {
+      parentWin.__mexShellNavigate(path, { replace: true });
+      return;
+    }
+  } catch (_) { /* cross-origin */ }
+  try {
+    if (typeof window.__mexShellNavigate === 'function') {
+      const here = String(window.location.pathname || '').replace(/\/$/, '');
+      if (here !== path.split('?')[0].replace(/\/$/, '')) {
+        window.__mexShellNavigate(path, { replace: true });
+      }
+      return;
+    }
+  } catch (_) {}
+  if (_isDedicatedGestionIframeMode()) return;
+  try {
+    if (window.history?.replaceState) {
+      window.history.replaceState({ mexInlineRoute: 'admin', tab, entityId }, '', path);
+    }
+  } catch (_) {}
+}
+
+window.__mexAdminOpenEntity = function (tab, entityId) {
+  const section = String(tab || '').trim().toLowerCase();
+  const id = String(entityId || '').trim();
+  if (!section || !id) return;
+  const open = () => {
+    if (section === 'usuarios' || section === 'users') {
+      if (typeof umSeleccionar === 'function') umSeleccionar(id, { syncRoute: false });
+      return;
+    }
+    if (section === 'choferes') {
+      if (typeof _choferesSelectUser === 'function') _choferesSelectUser(id, { syncRoute: false });
+      return;
+    }
+    if (section === 'plazas') {
+      if (typeof plazaSeleccionarCfg === 'function') plazaSeleccionarCfg(id, { syncRoute: false });
+    }
+  };
+  // Esperar a que el tab pinte la lista antes de seleccionar.
+  [0, 200, 600, 1200].forEach(delay => setTimeout(open, delay));
+};
+
 function _buildCuadreRouteUrl(tab = 'normal') {
   const isAdmins = String(tab || 'normal').trim().toLowerCase() === 'admins';
   return `/mapa?tab=${isAdmins ? 'cuadreadmins' : 'cuadre'}`;
@@ -7402,11 +7461,12 @@ function _umRenderCards() {
 
 function umFiltrar() { _umRenderCards(); }
 
-function umSeleccionar(id) {
+function umSeleccionar(id, opts = {}) {
   _umSelectedId = id;
   _umRenderCards();
   const user = _umUsers.find(u => u.id === id);
   if (user) _umRenderEditForm(user);
+  if (opts.syncRoute !== false) _syncAdminShellRoute('usuarios', id);
 }
 
 function _umRenderEditForm(user) {
@@ -20198,6 +20258,10 @@ function abrirTabConfig(tabName, btnElement) {
   if (_isGestionAdminMode() && !_isDedicatedGestionIframeMode()) {
     _syncInlineAdminRoute(normalizedTab);
   }
+  // En shell (iframe admin=1) sincronizar URL padre: /app/admin/:section
+  if (_isDedicatedGestionIframeMode()) {
+    _syncAdminShellRoute(normalizedTab);
+  }
   // Si estábamos en tabs con listeners de usuarios, desuscribir al salir.
   if (TAB_ACTIVA_CFG === 'usuarios' && _unsubUsuarios) {
     _unsubUsuarios(); _unsubUsuarios = null;
@@ -21947,37 +22011,52 @@ function _choferesRenderList() {
     `;
     return;
   }
-  host.innerHTML = list.map(user => {
-    const active = user.id === _choferesSelectedId ? ' active' : '';
-    const badge = _umRoleBadge(user.rol);
-    const registered = _choferesEstaRegistrado(user);
-    return `
-      <button type="button" class="um-card${active}" onclick="_choferesSelectUser('${_choferesJsArg(user.id)}')" aria-pressed="${active ? 'true' : 'false'}">
-        <div class="um-avatar" style="${_umAvatarStyle(user.nombre || user.email || 'U')}">${_umInitials(user.nombre || user.email || 'U')}</div>
-        <div class="um-card-info">
-          <div class="um-card-head">
-            <div class="um-card-copy">
-              <div class="um-card-name" title="${escapeHtml(user.nombre || '')}">${escapeHtml(user.nombre || 'SIN NOMBRE')}</div>
-              <div class="um-card-email" title="${escapeHtml(user.email || '')}">${escapeHtml(user.email || '(usuario heredado)')}</div>
-            </div>
-            <div class="um-card-badges">
-              <span class="um-role-badge" style="${badge.style}">${escapeHtml(badge.label)}</span>
-              <span class="um-role-badge ${registered ? 'success' : 'um-role-badge-muted'}">${registered ? 'CHOFER' : 'SIN ALTA'}</span>
-            </div>
-          </div>
-          <div class="um-card-meta">
-            <span><span class="material-icons">apartment</span>${escapeHtml(user.plazaAsignada || 'Sin plaza')}</span>
-            <span><span class="material-icons">${registered ? 'description' : 'upload_file'}</span>${registered ? escapeHtml(user.licenciaVencimiento) : 'Licencia pendiente'}</span>
-          </div>
-        </div>
-      </button>
-    `;
-  }).join('');
+  host.innerHTML = `
+    <div class="um-table-wrap">
+      <table class="um-table" aria-label="Choferes">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Plaza</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map(user => {
+            const active = user.id === _choferesSelectedId ? ' is-active' : '';
+            const badge = _umRoleBadge(user.rol);
+            const registered = _choferesEstaRegistrado(user);
+            const idArg = _choferesJsArg(user.id);
+            return `<tr class="um-row${active}" onclick="_choferesSelectUser('${idArg}')">
+              <td>
+                <div class="um-row-user">
+                  <span class="um-avatar um-avatar-sm" style="${_umAvatarStyle(user.nombre || user.email || 'U')}">${_umInitials(user.nombre || user.email || 'U')}</span>
+                  <div>
+                    <strong>${escapeHtml(user.nombre || 'SIN NOMBRE')}</strong>
+                    <small>${escapeHtml(user.email || '(usuario heredado)')}</small>
+                  </div>
+                </div>
+              </td>
+              <td>${escapeHtml(user.plazaAsignada || 'Sin plaza')}</td>
+              <td><span class="um-role-badge" style="${badge.style}">${escapeHtml(badge.label)}</span></td>
+              <td><span class="um-role-badge ${registered ? 'success' : 'um-role-badge-muted'}">${registered ? 'CHOFER' : 'SIN ALTA'}</span></td>
+              <td><button type="button" class="um-link-btn" onclick="event.stopPropagation(); _choferesSelectUser('${idArg}')">Ver</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
-function _choferesSelectUser(id) {
+function _choferesSelectUser(id, opts = {}) {
   _choferesSelectedId = String(id || '');
   _choferesRender();
+  if (opts.syncRoute !== false && _choferesSelectedId) {
+    _syncAdminShellRoute('choferes', _choferesSelectedId);
+  }
 }
 
 function _choferesSelectedUser() {
@@ -22940,7 +23019,7 @@ function _plazaRemoveContact(ci) {
   if (row) row.remove();
 }
 
-function plazaSeleccionarCfg(plazaId) {
+function plazaSeleccionarCfg(plazaId, opts = {}) {
   _plazaSeleccionadaCfg = plazaId;
   const plazas = (window.MEX_CONFIG.empresa || {}).plazas || [];
   const searchInp = document.getElementById('cfg-plaza-search');
@@ -22949,6 +23028,7 @@ function plazaSeleccionarCfg(plazaId) {
   if (cardsContainer) cardsContainer.innerHTML = _renderPlazaCards(plazas, filter);
   const editCol = document.getElementById('cfg-plaza-edit-col');
   if (editCol) editCol.innerHTML = _renderPlazaForm(plazaId);
+  if (opts.syncRoute !== false && plazaId) _syncAdminShellRoute('plazas', plazaId);
 }
 
 async function plazaGuardarCfg(plazaId) {
