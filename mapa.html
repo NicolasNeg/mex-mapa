@@ -1195,8 +1195,13 @@
           </div>
         </div>
 
-        <!-- Controles admin / Unidades globales retirado — no reintroducir -->
-        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;" hidden aria-hidden="true"></div>
+        <!-- Controles admin → módulo Unidades (/app/unidades) -->
+        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;">
+          <button type="button" class="btn-more-controls btn-icon-mobile" onclick="toggleAdminControls()" title="Controles admin" aria-label="Controles admin">
+            <span class="material-icons" style="font-size: 18px;">admin_panel_settings</span>
+            <span class="txt-mobile-hide">CONTROLES ADMIN</span>
+          </button>
+        </div>
 
       </div>
 

@@ -328,12 +328,14 @@ async function boot() {
   // Navegación SPA global (la usa el buscador global para "Ir al mapa").
   window.__mexShellNavigate = (path) => router.navigate(path);
   // Acceso directo: navega al mapa y deja pendiente el MVA a resaltar
-  // (legacy-stage lo reenvía al iframe del mapa cuando se muestra). Si la unidad
+  // (legacy-stage / vista SPA lo reenvían cuando el mapa está listo). Si la unidad
   // está en otra plaza permitida, cambia la plaza activa primero.
   window.__mexGoToMapUnit = (mva, plaza) => {
     const token = String(mva || '').trim().toUpperCase();
-    window.__mexPendingMapFocus = token;
+    if (!token) return;
     const p = String(plaza || '').trim().toUpperCase();
+    // Payload rico: no limpiar hasta focus OK o timeout (evita race plaza/render).
+    window.__mexPendingMapFocus = { mva: token, plaza: p || '', at: Date.now() };
     if (p && p !== String(getState().currentPlaza || '').toUpperCase() && window.__mexCanViewPlaza(p)) {
       setCurrentPlaza(p, { source: 'buscador-ir-al-mapa' });
     }
@@ -341,22 +343,44 @@ async function boot() {
       .replace(/\/$/, '')
       .startsWith('/app/mapa');
     if (onMapa) {
-      // Ya estamos en mapa: remount no garantiza el focus; aplicarlo ya.
-      let tries = 0;
-      const tick = () => {
-        tries++;
-        let ok = false;
-        try { ok = window.__mexFocusUnidad?.(token) === true; } catch (_) {}
-        if (ok || tries > 90) {
-          if (ok) window.__mexPendingMapFocus = null;
-          return;
-        }
-        setTimeout(tick, 200);
-      };
-      setTimeout(tick, 80);
+      window.__mexApplyPendingMapFocus?.();
       return;
     }
     router.navigate('/app/mapa');
+  };
+  // Reintento compartido (SPA mapa nativo o ya montado).
+  window.__mexApplyPendingMapFocus = (opts = {}) => {
+    const pend = window.__mexPendingMapFocus;
+    if (!pend) return;
+    const token = typeof pend === 'string'
+      ? String(pend).trim().toUpperCase()
+      : String(pend.mva || '').trim().toUpperCase();
+    if (!token) { window.__mexPendingMapFocus = null; return; }
+    let tries = 0;
+    const maxTries = Number(opts.maxTries) > 0 ? Number(opts.maxTries) : 90;
+    const tick = () => {
+      tries++;
+      let ok = false;
+      try {
+        if (typeof window.__mexEnsureMapaRendered === 'function') window.__mexEnsureMapaRendered();
+      } catch (_) {}
+      try { ok = window.__mexFocusUnidad?.(token) === true; } catch (_) {}
+      if (ok) {
+        window.__mexPendingMapFocus = null;
+        return;
+      }
+      if (tries > maxTries) {
+        window.__mexPendingMapFocus = null;
+        try {
+          if (typeof window.showToast === 'function') {
+            window.showToast(`No se encontró ${token} en el mapa (¿otra plaza o aún cargando?)`, 'warning');
+          }
+        } catch (_) {}
+        return;
+      }
+      setTimeout(tick, 200);
+    };
+    setTimeout(tick, opts.delayMs != null ? opts.delayMs : 80);
   };
   window.__mexGoToUnidad = (mva, opts = {}) => {
     const token = String(mva || '').trim().toUpperCase();

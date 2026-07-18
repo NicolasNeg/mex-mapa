@@ -274,6 +274,7 @@ Critical rules:
 
 `docs/` contains ~40 markdown files: feature specs, migration runbooks, QA checklists, and view blueprints. Key files for ongoing work:
 
+- `agente.md` — regla de oro de exportación/firma de documentos (PDF, Excel, CSV)
 - `docs/app-real-view-migration-status.md` — per-view migration progress
 - `docs/app-shell-migration-policy.md` — rules for when a view qualifies as "migrated"
 - `docs/legacy-view-blueprints.md` — visual/behavioral spec for each legacy page being ported

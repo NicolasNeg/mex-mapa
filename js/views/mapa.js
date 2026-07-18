@@ -4888,13 +4888,20 @@ function _selectCarOnMap(car, options = {}) {
 window.__mexSelectCarOnMap = _selectCarOnMap;
 
 // Acceso directo desde el buscador global ("Ir al mapa"): busca la unidad por
-// MVA, hace scroll, la selecciona y le da un pulso de resaltado. Devuelve true
-// si la encontró (el shell reintenta hasta que el .car esté renderizado).
+// MVA (cajón, limbo o taller), hace scroll, la selecciona y le da un pulso de
+// resaltado. Devuelve true si la encontró (el shell reintenta hasta render).
 window.__mexFocusUnidad = function (mva) {
   var target = String(mva || '').trim().toUpperCase();
   if (!target) return false;
-  var car = Array.prototype.slice.call(document.querySelectorAll('.car'))
-    .find(function (c) { return (c.dataset.mva || '').toUpperCase() === target; });
+  try {
+    if (typeof window.__mexEnsureMapaRendered === 'function') window.__mexEnsureMapaRendered();
+  } catch (_) {}
+  var cars = Array.prototype.slice.call(document.querySelectorAll(
+    '.car, #unidades-limbo .car, #unidades-taller .car, [data-mva]'
+  ));
+  var car = cars.find(function (c) {
+    return String(c.dataset.mva || c.getAttribute('data-mva') || '').toUpperCase() === target;
+  });
   if (!car) return false;
   // Reflejar la unidad en el buscador del mapa (input text) — ver spec Fase 1.5.
   var sd = document.getElementById('searchInput');
@@ -4912,7 +4919,7 @@ window.__mexFocusUnidad = function (mva) {
     else if (typeof buscarMasivo === 'function') buscarMasivo();
   } catch (_) {}
   try { car.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
-  _selectCarOnMap(car, { openPanel: true });
+  try { _selectCarOnMap(car, { openPanel: true }); } catch (_) {}
   car.classList.add('car-focus-pulse');
   setTimeout(function () { car.classList.remove('car-focus-pulse'); }, 2200);
   return true;
@@ -6201,6 +6208,9 @@ function _openFleetModalInPlace(initialTab = 'NORMAL') {
 
   // 1. BLINDAJE PARA AUXILIARES (Operativos)
   const esOperario = (typeof userRole !== 'undefined' && userRole !== 'admin');
+  const esAdminUi = !esOperario
+    || (typeof hasPermission === 'function' && hasPermission('manage_fleet'))
+    || (typeof window.mexPerms?.canDo === 'function' && window.mexPerms.canDo('manage_fleet'));
 
   // Apagar botón de Registrar Nueva Unidad
   const btnNuevo = document.getElementById('btnNuevaUnidadFlota');
@@ -6210,10 +6220,13 @@ function _openFleetModalInPlace(initialTab = 'NORMAL') {
   const menuMasControles = document.getElementById('btnMasControlesWrapper');
   if (menuMasControles) menuMasControles.style.display = esOperario ? 'none' : 'inline-block';
 
-  // Controles admin / Unidades globales retirado — no reintroducir
+  // Controles admin → /app/unidades (misma visibilidad que Más controles / manage_fleet)
   const menuAdminControls = document.getElementById('btnAdminControlsWrapper');
-  if (menuAdminControls) menuAdminControls.style.display = 'none';
-
+  if (menuAdminControls) {
+    menuAdminControls.style.display = esAdminUi ? 'inline-block' : 'none';
+    menuAdminControls.hidden = !esAdminUi;
+    menuAdminControls.setAttribute('aria-hidden', esAdminUi ? 'false' : 'true');
+  }
 
   const btnTabAdmins = document.getElementById('tabFlotaAdmins');
   if (btnTabAdmins) {
@@ -6816,9 +6829,34 @@ async function ejecutarGuardadoFlota() {
         return;
       }
 
+      // Pre-check índice local (cache buscador): plazaActual ocupada en otra plaza.
+      const miPlazaIns = String(_miPlaza() || '').toUpperCase().trim();
+      let idxHit = null;
+      try {
+        if (typeof window.__mexLookupIndexUnit === 'function') {
+          idxHit = window.__mexLookupIndexUnit(mvaIns);
+        }
+      } catch (_) {}
+      if (!idxHit) {
+        try {
+          const raw = localStorage.getItem('mexbz.units.v2');
+          const o = raw ? JSON.parse(raw) : null;
+          const list = Array.isArray(o?.d) ? o.d : null;
+          if (list) {
+            idxHit = list.find(u => String(u?.mva || '').toUpperCase() === mvaIns) || null;
+          }
+        } catch (_) {}
+      }
+      const plazaActualIdx = String(idxHit?.plazaActual || '').toUpperCase().trim();
+      if (plazaActualIdx && miPlazaIns && plazaActualIdx !== miPlazaIns) {
+        showToast(`La unidad ${mvaIns} está registrada en la plaza ${plazaActualIdx}. Retírala de ahí antes de insertarla aquí.`, "error");
+        restaurarBotonFlota();
+        return;
+      }
+
       // Guardado con respuesta real: no dar éxito si el backend rechaza
       // (duplicado / plazaActual ocupada).
-      payload.plaza = _miPlaza() || '';
+      payload.plaza = miPlazaIns || '';
       try {
         const res = await api.insertarUnidadDesdeHTML(payload);
         const ok = String(res || '').startsWith('EXITO');
@@ -8615,6 +8653,8 @@ function ejecutarEliminacionIncidencia(id) {
 radarInterval = null;
 let filaAlertasPendientes = [];
 let alertaActualMostrandose = null;
+/** IDs marcados leídos en este cliente (evita race snapshot vs write). */
+const _alertasLeidasLocal = new Set();
 let historialAlertasCache = [];
 let alertasPlantillasCache = [];
 let alertaSelectionRange = null;
@@ -9028,6 +9068,7 @@ function _alertaAliasesUsuario(usuario = USER_NAME) {
 }
 
 function _alertaYaLeidaPor(alerta, usuario = USER_NAME) {
+  if (alerta?.id && _alertasLeidasLocal.has(alerta.id)) return true;
   const readers = _parseListaAlertaCsv(
     (alerta && (alerta.leidoPor || alerta.leidaPor || alerta.readBy || alerta.vistoPor)) || ''
   );
@@ -9037,11 +9078,12 @@ function _alertaYaLeidaPor(alerta, usuario = USER_NAME) {
 }
 
 function _alertaAplicaAUsuario(alerta, usuario = USER_NAME) {
-  const usuarioNorm = String(usuario || '').trim().toUpperCase();
-  if (!usuarioNorm) return false;
   const destinatarios = _parseListaAlertaCsv(alerta && alerta.destinatarios).filter(item => item !== 'GLOBAL');
   if (destinatarios.length === 0) return true;
-  return destinatarios.includes(usuarioNorm);
+  const aliases = _alertaAliasesUsuario(usuario);
+  if (!aliases.length) return false;
+  // Destinatarios pueden ser email, uid o nombre — comparar contra todos.
+  return aliases.some(a => destinatarios.includes(a));
 }
 
 function _inferirModoDestinatariosAlerta(alerta = {}) {
@@ -9819,6 +9861,17 @@ function _procesarPingUI(res) {
 
 
 // Llama al modal flotante de la primera alerta en la fila
+function _ensureAlertasCssLoaded() {
+  try {
+    if (document.querySelector('link[data-lmapa-alertas-css], link[href*="alertas.css"]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/css/alertas.css';
+    link.setAttribute('data-lmapa-alertas-css', '1');
+    document.head.appendChild(link);
+  } catch (_) {}
+}
+
 function abrirSiguienteAlerta() {
   filaAlertasPendientes = _ordenarAlertasPendientes(filaAlertasPendientes.filter(a =>
     !_alertaYaLeidaPor(a, USER_NAME) && _alertaAplicaAUsuario(a, USER_NAME)
@@ -9828,6 +9881,8 @@ function abrirSiguienteAlerta() {
     showToast("No tienes alertas nuevas", "success");
     return;
   }
+
+  _ensureAlertasCssLoaded();
 
   const modalAlerta = document.getElementById('modalAlertaMaestra');
   const tituloAlerta = document.getElementById('alertaTitulo');
@@ -9905,21 +9960,51 @@ function procesarAlertaLeida() {
   if (!alertaActualMostrandose) return;
 
   const btn = document.getElementById('btnCerrarAlerta');
+  const alerta = alertaActualMostrandose;
+  const idAlerta = alerta.id;
+  const aliases = _alertaAliasesUsuario(USER_NAME);
+  const leidoMerge = [...new Set([
+    ..._parseListaAlertaCsv(alerta.leidoPor || alerta.leidaPor || ''),
+    ...aliases
+  ])].join(', ');
+
+  // Parche optimista: el ping/radar no debe reabrir esta alerta antes del write.
+  alerta.leidoPor = leidoMerge;
+  if (idAlerta) _alertasLeidasLocal.add(idAlerta);
+  if (Array.isArray(_radarState?.alertas)) {
+    _radarState.alertas = _radarState.alertas.map(a =>
+      a && a.id === idAlerta ? { ...a, leidoPor: leidoMerge } : a
+    );
+  }
+  filaAlertasPendientes = _ordenarAlertasPendientes(
+    (filaAlertasPendientes || []).filter(a =>
+      a && a.id !== idAlerta && !_alertaYaLeidaPor(a, USER_NAME)
+    )
+  );
+
   btn.disabled = true;
   btn.innerText = "PROCESANDO...";
+  document.getElementById('modalAlertaMaestra')?.classList.remove('active');
+  alertaActualMostrandose = null;
+  alertaAccionActualActiva = null;
 
-  api.marcarAlertaComoLeida(alertaActualMostrandose.id, USER_NAME).then(() => {
-    filaAlertasPendientes = filaAlertasPendientes.filter(a => a.id !== alertaActualMostrandose.id);
-    document.getElementById('modalAlertaMaestra').classList.remove('active');
+  api.marcarAlertaComoLeida(idAlerta, USER_NAME, aliases).then((res) => {
+    // marcarAlertaComoLeida resuelve con "OK" o "ERROR" (no rechaza en error lógico).
+    if (res !== 'OK') throw new Error(res || 'ERROR');
     btn.disabled = false;
     btn.innerText = "ENTENDIDO (MARCAR COMO LEÍDA)";
-    alertaActualMostrandose = null;
-    alertaAccionActualActiva = null;
     hacerPingNotificaciones();
   }).catch(e => {
     console.error(e);
     btn.disabled = false;
     btn.innerText = "REINTENTAR";
+    if (idAlerta) _alertasLeidasLocal.delete(idAlerta);
+    // Si falló el write, reencolar para que el usuario pueda reintentar.
+    alertaActualMostrandose = alerta;
+    if (!filaAlertasPendientes.some(a => a && a.id === idAlerta)) {
+      filaAlertasPendientes = _ordenarAlertasPendientes([alerta, ...filaAlertasPendientes]);
+    }
+    document.getElementById('modalAlertaMaestra')?.classList.add('active');
   });
 }
 
@@ -10931,8 +11016,12 @@ function _clickInsideMoreControls(event) {
   if (menu?.contains(event.target)) return true;
   const wrapper = document.getElementById('btnMasControlesWrapper');
   if (wrapper?.contains(event.target)) return true;
+  const adminWrap = document.getElementById('btnAdminControlsWrapper');
+  if (adminWrap?.contains(event.target)) return true;
   try {
-    if (window.parent.document.getElementById('mexHdrCuadreMoreBtn')?.contains(event.target)) return true;
+    const parentDoc = window.parent.document;
+    if (parentDoc.getElementById('mexHdrCuadreMoreBtn')?.contains(event.target)) return true;
+    if (parentDoc.getElementById('mexHdrCuadreAdminBtn')?.contains(event.target)) return true;
   } catch (_) { /* cross-origin */ }
   return false;
 }
@@ -17237,6 +17326,16 @@ function ejecutarAccionGemini(respuestaIA) {
       };
 
       // Magia Visual solo si el backend confirma
+      const plazaVoz = String(_miPlaza() || '').toUpperCase().trim();
+      let idxVoz = null;
+      try {
+        if (typeof window.__mexLookupIndexUnit === 'function') idxVoz = window.__mexLookupIndexUnit(payloadNuevo.mva);
+      } catch (_) {}
+      const paVoz = String(idxVoz?.plazaActual || '').toUpperCase().trim();
+      if (paVoz && plazaVoz && paVoz !== plazaVoz) {
+        showToast(`La unidad ${payloadNuevo.mva} está registrada en la plaza ${paVoz}.`, 'error');
+        return;
+      }
       api.insertarUnidadDesdeHTML(payloadNuevo).then((res) => {
         if (String(res || '').startsWith('EXITO')) {
           if (typeof VISTA_ACTUAL_FLOTA !== 'undefined' && VISTA_ACTUAL_FLOTA === 'NORMAL') {

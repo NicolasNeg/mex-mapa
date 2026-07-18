@@ -156,3 +156,103 @@ export function totalMinutosSemana(horarios = [], diasKeys = ['lun', 'mar', 'mie
   }
   return min;
 }
+
+/** ¿El horario tiene al menos una celda con tipo en la semana? */
+export function usuarioTieneCeldasSemana(horario, diasKeys = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']) {
+  const dias = horario?.dias || {};
+  return diasKeys.some((d) => {
+    const c = dias[d];
+    return c && c.tipo;
+  });
+}
+
+/**
+ * Agrupa usuarios por filas de rol operativo (custom, no RBAC).
+ * Usuarios sin fila → sección "Sin asignar".
+ * Dentro de cada sección: con horario vs sin celdas (compactables).
+ *
+ * @returns {{ id: string, nombre: string, esSinAsignar: boolean, conHorario: object[], sinHorario: object[] }[]}
+ */
+export function agruparPorRolOperativo(usuarios, rolesFilas, horarios = [], opts = {}) {
+  const lista = Array.isArray(usuarios) ? usuarios : [];
+  const filas = Array.isArray(rolesFilas) ? rolesFilas : [];
+  const horariosByUid = new Map();
+  for (const h of horarios || []) {
+    const uid = String(h?.usuarioId || '').trim();
+    if (uid) horariosByUid.set(uid, h);
+  }
+
+  const assigned = new Set();
+  const sections = [];
+
+  for (const fila of filas) {
+    const members = [];
+    for (const uid of fila.usuarioIds || []) {
+      const u = lista.find(x => normalizeUsuarioUid(x) === uid);
+      if (u) {
+        members.push(u);
+        assigned.add(uid);
+      }
+    }
+    // Orden: el de usuarioIds; fallback alfabético para huérfanos ya filtrados
+    const conHorario = [];
+    const sinHorario = [];
+    for (const u of members) {
+      const uid = normalizeUsuarioUid(u);
+      if (usuarioTieneCeldasSemana(horariosByUid.get(uid))) conHorario.push(u);
+      else sinHorario.push(u);
+    }
+    sections.push({
+      id: fila.id,
+      nombre: fila.nombre,
+      esSinAsignar: false,
+      conHorario,
+      sinHorario,
+    });
+  }
+
+  const unassigned = lista.filter(u => !assigned.has(normalizeUsuarioUid(u)));
+  const uaCon = [];
+  const uaSin = [];
+  for (const u of unassigned) {
+    const uid = normalizeUsuarioUid(u);
+    if (usuarioTieneCeldasSemana(horariosByUid.get(uid))) uaCon.push(u);
+    else uaSin.push(u);
+  }
+
+  // Sin filas definidas: no forzar sección "Sin asignar" — flat list en una sola sección virtual
+  if (!filas.length) {
+    return [{
+      id: '_all',
+      nombre: '',
+      esSinAsignar: false,
+      esPlano: true,
+      conHorario: uaCon,
+      sinHorario: opts.compactEmpty === false ? [] : uaSin,
+      // si no compactamos, todos van a conHorario vía merge abajo
+      ...(opts.compactEmpty === false
+        ? { conHorario: unassigned, sinHorario: [] }
+        : {}),
+    }];
+  }
+
+  sections.push({
+    id: '_sin',
+    nombre: 'Sin asignar',
+    esSinAsignar: true,
+    conHorario: uaCon,
+    sinHorario: uaSin,
+  });
+
+  return sections;
+}
+
+/** FilaId actual de un usuario (o '' si sin asignar). */
+export function rolOperativoDeUsuario(usuarioId, rolesFilas = []) {
+  const uid = String(usuarioId || '').trim();
+  if (!uid) return '';
+  for (const f of rolesFilas || []) {
+    if ((f.usuarioIds || []).includes(uid)) return f.id;
+  }
+  return '';
+}

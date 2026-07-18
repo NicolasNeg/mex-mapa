@@ -410,6 +410,39 @@
       font-weight: 700;
     }
 
+    /* Modal portaleado a document.body (SPA / stage oculto): estilos
+       autocontenidos para que no dependa solo de mapa.css. */
+    #modalAlertaMaestra.modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      box-sizing: border-box;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transition: opacity 0.2s, visibility 0.2s;
+    }
+
+    #modalAlertaMaestra.modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+    }
+
+    #modalAlertaMaestra.modal-overlay.active .modal-box,
+    #modalAlertaMaestra.modal-overlay.active .alerta-final-shell {
+      transform: scale(1) translateY(0);
+    }
+
     /* ── Display de alerta — rediseño glass + minimalista (corporativo) ── */
     .alerta-final-shell {
       padding: 0;

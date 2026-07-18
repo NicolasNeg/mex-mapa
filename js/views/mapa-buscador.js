@@ -329,6 +329,19 @@
     return null;
   }
 
+  // Lookup síncrono del índice (cache buscador) — lo usa el insert de cuadre
+  // para bloquear plazaActual ≠ plaza actual antes del round-trip a Firestore.
+  window.__mexLookupIndexUnit = function (mva) {
+    var token = String(mva || '').trim().toUpperCase();
+    if (!token) return null;
+    var list = unitsReady();
+    if (!list || !list.length) return null;
+    for (var i = 0; i < list.length; i++) {
+      if (String(list[i].mva || '').toUpperCase() === token) return list[i];
+    }
+    return null;
+  };
+
   function searchUnidades() {
     var q = (document.getElementById('mexbzInput').value || '').toLowerCase().trim();
     // Siempre desde el índice global (mismo comportamiento en todas las rutas).

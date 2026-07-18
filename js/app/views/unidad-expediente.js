@@ -88,7 +88,7 @@ export function unmount() {
 function _ensureCss() {
   [
     { href: '/css/app-unidades.css?v=20260715f', attr: 'data-app-unidades-css' },
-    { href: '/css/app-unidad-expediente.css?v=20260718a', attr: 'data-app-unidad-exp-css' }
+    { href: '/css/app-unidad-expediente.css?v=20260718b', attr: 'data-app-unidad-exp-css' }
   ].forEach(({ href, attr }) => {
     let link = document.querySelector(`link[${attr}="1"]`);
     if (link) {
@@ -393,35 +393,58 @@ function _adjuntoFormHtml() {
   `;
 }
 
+function _dedupeNoteAttachments(nota = {}) {
+  const merged = [
+    ...(Array.isArray(nota.adjuntos) ? nota.adjuntos : []),
+    ...(Array.isArray(nota.evidencias) ? nota.evidencias : []),
+    ...(Array.isArray(nota.links) ? nota.links : []),
+    ...(Array.isArray(nota.enlaces) ? nota.enlaces : [])
+  ];
+  const seen = new Set();
+  return merged.filter(item => {
+    if (!item) return false;
+    const key = typeof item === 'string'
+      ? item.trim()
+      : String(item.path || item.url || item.downloadURL || item.href || item.fileName || item.name || '').trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function _notasHtml(notas) {
   if (!notas.length) return '<p class="uexp-empty">Sin notas registradas para esta unidad.</p>';
   return `<div class="uexp-notes">${notas.map(n => {
-    const adj = [...(n.adjuntos || []), ...(n.evidencias || [])];
+    const esAdjunto = String(n.tipo || '').toUpperCase() === 'ADJUNTO'
+      || String(n.estado || '').toUpperCase() === 'ADJUNTO';
+    const adj = _dedupeNoteAttachments(n);
     const chip = String(n.chipLabel || '').trim()
-      || (String(n.tipo || '').toUpperCase() === 'ADJUNTO' ? 'ADJUNTO' : '')
+      || (esAdjunto ? 'ADJUNTO' : '')
       || String(n.estado || 'PENDIENTE');
-    const chipClass = String(n.chipLabel || n.estado || 'PENDIENTE').toLowerCase().replace(/\s+/g, '-');
+    const chipClass = String(n.chipLabel || (esAdjunto ? 'adjunto' : n.estado) || 'PENDIENTE')
+      .toLowerCase().replace(/\s+/g, '-');
     return `
-      <article class="uexp-note">
+      <article class="uexp-note${esAdjunto ? ' uexp-note--adjunto' : ''}">
         <header>
           <strong>${esc(n.titulo || 'Nota')}</strong>
-          <span class="uexp-pill ${esc(chipClass)}">${esc(chip)}</span>
+          ${esAdjunto ? '' : `<span class="uexp-pill ${esc(chipClass)}">${esc(chip)}</span>`}
         </header>
         <p>${esc(n.descripcion || n.nota || '')}</p>
         <footer>
           <span>${esc(n.autor || n.creadoPor || '—')}</span>
           <span>${esc(n.fecha || _fmtTs(n.timestamp))}</span>
         </footer>
-        ${_attachmentsHtml(adj)}
+        ${_attachmentsHtml(adj, esAdjunto ? chip : '', chipClass)}
       </article>
     `;
   }).join('')}</div>`;
 }
 
-function _attachmentsHtml(items) {
+function _attachmentsHtml(items, chipLabel = '', chipClass = '') {
   const list = (items || []).filter(Boolean);
-  if (!list.length) return '';
-  return `<div class="uexp-attachments">${list.map(item => {
+  const chip = String(chipLabel || '').trim();
+  if (!list.length && !chip) return '';
+  const filesHtml = list.map(item => {
     const url = String(item.url || item.downloadURL || item.href || (typeof item === 'string' ? item : '')).trim();
     if (!url) return '';
     const name = String(item.fileName || item.nombre || item.name || 'Archivo').trim();
@@ -430,7 +453,11 @@ function _attachmentsHtml(items) {
       return `<a class="uexp-att-img" href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" alt="${esc(name)}" loading="lazy"></a>`;
     }
     return `<a class="uexp-att-file" href="${esc(url)}" target="_blank" rel="noopener"><span class="material-icons">attach_file</span>${esc(name)}</a>`;
-  }).join('')}</div>`;
+  }).filter(Boolean).join('');
+  const chipHtml = chip
+    ? `<span class="uexp-pill ${esc(chipClass || 'adjunto')}">${esc(chip)}</span>`
+    : '';
+  return `<div class="uexp-attachments${chip ? ' uexp-attachments--with-chip' : ''}">${filesHtml}${chipHtml}</div>`;
 }
 
 function _estadosBanner(d = {}) {

@@ -1,0 +1,27 @@
+---
+description: Regla de oro — firma e identidad en exportaciones PDF/Excel/CSV
+alwaysApply: true
+---
+
+# Exportación de documentos (firma)
+
+Política completa: [`agente.md`](../../agente.md) en la raíz del proyecto.
+
+**Todo documento exportado** debe identificar quién lo exporta y la empresa.
+
+- **PDF:** firma **dentro del documento** (empresa + usuario: nombre, fecha, etc.). Preferir pie/metadata “Exportado por …”.
+- **Excel (xlsx/xls):** datos de empresa (y exportador) **dentro del archivo** (hoja, encabezado, pie o celda meta). Preferir “Exportado por …”.
+- **CSV:** firma **solo en el nombre del archivo** (sin fila meta obligatoria salvo que ya exista).
+
+**Nombre de descarga (todos los tipos):**
+
+`NOMBRE_USUARIO_FECHA_NOMBREEMPRESA.ext`
+
+Ejemplo: `ANGEL_ARMENTA_2026_09_16_OPTIMARENTACAR.pdf`
+
+- Usuario: MAYÚSCULAS, espacios → `_`
+- Fecha: `YYYY_MM_DD`
+- Empresa: mayúsculas sanitizadas
+- Extensión según tipo
+
+Al crear o modificar cualquier export, aplicar esta política. No inventar formatos de nombre ni omitir la firma interna en PDF/Excel.

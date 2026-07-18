@@ -365,15 +365,20 @@
 .uexp-attachments {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin-top: 8px;
+}
+
+.uexp-attachments--with-chip {
+  padding-top: 4px;
 }
 
 .uexp-att-img img {
   width: 72px;
   height: 72px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid var(--uexp-line);
 }
 
@@ -383,11 +388,20 @@
   gap: 4px;
   padding: 6px 10px;
   border: 1px solid var(--uexp-line);
-  border-radius: 6px;
+  border-radius: 8px;
   color: #2563eb;
   text-decoration: none;
   font-size: 12px;
   font-weight: 600;
+  background: #fff;
+}
+
+.uexp-note--adjunto {
+  background: #fff;
+}
+
+.uexp-note--adjunto .uexp-attachments .uexp-pill {
+  flex-shrink: 0;
 }
 
 .uexp-log {

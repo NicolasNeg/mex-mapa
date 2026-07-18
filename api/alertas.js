@@ -45,25 +45,34 @@
       return "EXITO";
     },
 
-    async marcarAlertaComoLeida(idAlerta, usuarioActivo) {
+    async marcarAlertaComoLeida(idAlerta, usuarioActivo, aliasesExtra = null) {
       const ref = db.collection(COL.ALERTAS).doc(idAlerta);
       const snap = await ref.get();
       if (!snap.exists) return "ERROR";
       const lectores = _splitAlertCsv(snap.data().leidoPor);
-      // Fallback al usuario de Firebase Auth cuando usuarioActivo llega vacío
+      // Auth + perfil + aliases explícitos del cliente → evita reaparecer
+      // cuando destinatarios/leidoPor usan email vs nombre vs uid.
       const currentUser = firebase.auth().currentUser;
+      const profile = (typeof window !== "undefined" && window.__mexCurrentUserRecord) || {};
+      const extra = Array.isArray(aliasesExtra) ? aliasesExtra : [];
       const aliases = [
         usuarioActivo,
         currentUser?.displayName,
         currentUser?.email,
-        currentUser?.uid
+        currentUser?.uid,
+        profile.nombre,
+        profile.usuario,
+        profile.nombreCompleto,
+        profile.displayName,
+        profile.email,
+        profile.uid,
+        ...extra
       ]
         .map((v) => String(v || "").trim().toUpperCase())
         .filter(Boolean);
-      if (!aliases.length) return "ERROR";
-      // Guardar todos los alias conocidos → evita que reaparezca si el
-      // cliente compara con email vs nombre de usuario.
-      aliases.forEach((usuario) => {
+      const uniq = [...new Set(aliases)];
+      if (!uniq.length) return "ERROR";
+      uniq.forEach((usuario) => {
         if (!lectores.includes(usuario)) lectores.push(usuario);
       });
       await ref.update({ leidoPor: lectores.join(", ") });

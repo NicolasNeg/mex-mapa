@@ -1754,6 +1754,15 @@ const API_FUNCTIONS = {
       return `La unidad ${mvaStr} está en el cuadre de ${plazaDoc}. Retírala de ahí antes de insertarla aquí.`;
     }
 
+    const existingExt = await db.collection(COL.EXTERNOS).doc(docId).get();
+    if (existingExt.exists) {
+      const plazaExt = String(existingExt.data()?.plaza || '').toUpperCase().trim();
+      if (!plazaUp || !plazaExt || plazaExt === plazaUp) {
+        return `La unidad ${mvaStr} ya está registrada como externa.`;
+      }
+      return `La unidad ${mvaStr} está en externos de ${plazaExt}. Retírala de ahí antes de insertarla aquí.`;
+    }
+
     // Verificar duplicado solo dentro de la misma plaza
     const dupQuery = plazaUp
       ? db.collection(COL.CUADRE).where("plaza", "==", plazaUp).where("mva", "==", mvaStr).limit(1)
@@ -1769,6 +1778,11 @@ const API_FUNCTIONS = {
     const plazaActualIdx = String(indexData.plazaActual || '').toUpperCase().trim();
     if (plazaActualIdx && plazaActualIdx !== plazaUp) {
       return `La unidad ${mvaStr} está registrada en la plaza ${plazaActualIdx}. Retírala de ahí antes de insertarla aquí.`;
+    }
+    const sucursalIdx = String(indexData.sucursal || '').toUpperCase().trim();
+    const posIdx = String(indexData.pos || '').trim();
+    if (!plazaActualIdx && sucursalIdx && plazaUp && sucursalIdx !== plazaUp && posIdx) {
+      return `La unidad ${mvaStr} figura activa en ${sucursalIdx}. Retírala de ahí antes de insertarla aquí.`;
     }
 
     const unitData = {
@@ -2172,16 +2186,22 @@ const API_FUNCTIONS = {
     });
     return "EXITO";
   },
-  async marcarAlertaComoLeida(idAlerta, usuarioActivo) {
+  async marcarAlertaComoLeida(idAlerta, usuarioActivo, aliasesExtra = null) {
     const ref = db.collection(COL.ALERTAS).doc(idAlerta);
     const snap = await ref.get();
     if (!snap.exists) return "ERROR";
     const lectores = _splitAlertCsv(snap.data().leidoPor);
-    // Guardar todos los alias conocidos (nombre / email / uid) para que
+    // Guardar todos los alias conocidos (nombre / email / uid / perfil) para que
     // checarNotificaciones no vuelva a mostrar la alerta como nueva.
-    const aliases = _alertIdentityAliases(usuarioActivo);
-    if (!aliases.length) return "ERROR";
-    aliases.forEach((usuario) => {
+    const aliases = [
+      ..._alertIdentityAliases(usuarioActivo),
+      ...(Array.isArray(aliasesExtra) ? aliasesExtra : [])
+    ]
+      .map((v) => String(v || "").trim().toUpperCase())
+      .filter(Boolean);
+    const uniq = [...new Set(aliases)];
+    if (!uniq.length) return "ERROR";
+    uniq.forEach((usuario) => {
       if (!lectores.includes(usuario)) lectores.push(usuario);
     });
     await ref.update({ leidoPor: lectores.join(", ") });

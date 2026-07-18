@@ -18,10 +18,12 @@ let _portalResizeBound = false;
 
 // ── CSS legacy ───────────────────────────────────────────────
 function _ensureCss() {
-  if (document.querySelector('link[data-lmapa-css]')) return;
   // mapa.css + alertas.css (el estilo de alertas y del feed vive en alertas.css;
   // el SPA no carga global.css, así que hay que inyectarla aquí o salen sin estilo).
+  // Cada hoja se verifica por separado: si solo existe mapa.css no debemos
+  // early-return y saltarnos alertas.css (carrera al montar desde cuadre).
   ['/css/mapa.css', '/css/alertas.css'].forEach(href => {
+    if (document.querySelector(`link[href="${href}"]`)) return;
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = href;
@@ -193,6 +195,7 @@ function _ensureStageOverrides(stage) {
 // { stage, fresh: false } si ya estaba inicializado.
 // Usado por mapa.js y cuadre.js views.
 export async function ensureStageReady() {
+  _ensureCss();
   _ensurePortalGuardCss();
   const stage = _getOrCreateStage();
   if (!stage) return { stage: null, fresh: false };
@@ -245,7 +248,7 @@ export async function mount(ctx) {
     const mvaQs = String(qs.get('mva') || '').trim().toUpperCase();
     const plazaQs = String(qs.get('plaza') || '').trim().toUpperCase();
     if (mvaQs) {
-      window.__mexPendingMapFocus = mvaQs;
+      window.__mexPendingMapFocus = { mva: mvaQs, plaza: plazaQs || '', at: Date.now() };
       if (plazaQs && window.__mexCanViewPlaza?.(plazaQs)) {
         // Preferir el helper del shell (cambia plaza + deja focus pendiente).
         if (typeof window.__mexGoToMapUnit === 'function') {
@@ -274,17 +277,34 @@ function _kickMapaRender() {
   setTimeout(kick, 350);
 }
 
+function _pendingFocusMva() {
+  const pend = window.__mexPendingMapFocus;
+  if (!pend) return '';
+  if (typeof pend === 'string') return String(pend).trim().toUpperCase();
+  return String(pend.mva || '').trim().toUpperCase();
+}
+
 // Aplica el resaltado de unidad pendiente ("Ver en mapa"). Reintenta hasta ~18s
 // porque las unidades (.car) pueden tardar en renderizar tras cambiar de plaza.
 function _applyPendingFocus() {
-  const mva = window.__mexPendingMapFocus;
+  if (typeof window.__mexApplyPendingMapFocus === 'function') {
+    window.__mexApplyPendingMapFocus({ delayMs: 150 });
+    return;
+  }
+  const mva = _pendingFocusMva();
   if (!mva) return;
   let tries = 0;
   const tick = () => {
     tries++;
     let ok = false;
+    try { if (typeof window.__mexEnsureMapaRendered === 'function') window.__mexEnsureMapaRendered(); } catch (_) {}
     try { ok = window.__mexFocusUnidad?.(mva) === true; } catch (_) {}
-    if (ok || tries > 90) { window.__mexPendingMapFocus = null; return; }
+    if (ok) { window.__mexPendingMapFocus = null; return; }
+    if (tries > 90) {
+      window.__mexPendingMapFocus = null;
+      try { window.showToast?.(`No se encontró ${mva} en el mapa`, 'warning'); } catch (_) {}
+      return;
+    }
     setTimeout(tick, 200);
   };
   setTimeout(tick, 150);

@@ -343,6 +343,16 @@
         return `La unidad ${mvaStr} está en el cuadre de ${plazaDoc}. Retírala de ahí antes de insertarla aquí.`;
       }
 
+      // Misma unidad en EXTERNOS (cualquier plaza) → bloquear insertar en patio.
+      const existingExt = await db.collection(COL.EXTERNOS).doc(docId).get();
+      if (existingExt.exists) {
+        const plazaExt = String(existingExt.data()?.plaza || '').toUpperCase().trim();
+        if (!plazaUp || !plazaExt || plazaExt === plazaUp) {
+          return `La unidad ${mvaStr} ya está registrada como externa.`;
+        }
+        return `La unidad ${mvaStr} está en externos de ${plazaExt}. Retírala de ahí antes de insertarla aquí.`;
+      }
+
       const dupQuery = plazaUp
         ? db.collection(COL.CUADRE).where("plaza", "==", plazaUp).where("mva", "==", mvaStr).limit(1)
         : db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1);
@@ -358,6 +368,13 @@
       const plazaActualIdx = String(indexData.plazaActual || '').toUpperCase().trim();
       if (plazaActualIdx && plazaActualIdx !== plazaUp) {
         return `La unidad ${mvaStr} está registrada en la plaza ${plazaActualIdx}. Retírala de ahí antes de insertarla aquí.`;
+      }
+      // Si plazaActual vacío pero el índice apunta sucursal distinta y hay
+      // señal de ocupación (pos), no insertar a ciegas en otra plaza.
+      const sucursalIdx = String(indexData.sucursal || '').toUpperCase().trim();
+      const posIdx = String(indexData.pos || '').trim();
+      if (!plazaActualIdx && sucursalIdx && plazaUp && sucursalIdx !== plazaUp && posIdx) {
+        return `La unidad ${mvaStr} figura activa en ${sucursalIdx}. Retírala de ahí antes de insertarla aquí.`;
       }
 
       const unitData = {
@@ -382,7 +399,28 @@
         lastTouchedBy: objeto.responsableSesion || "Sistema"
       };
 
-      await db.collection(COL.CUADRE).doc(docId).set(unitData);
+      // Transacción: evita carrera get-then-set si dos clientes insertan el mismo MVA.
+      const cuadreRef = db.collection(COL.CUADRE).doc(docId);
+      try {
+        await db.runTransaction(async (tx) => {
+          const live = await tx.get(cuadreRef);
+          if (live.exists) {
+            const plazaDoc = String(live.data()?.plaza || '').toUpperCase().trim();
+            const msg = (!plazaUp || !plazaDoc || plazaDoc === plazaUp)
+              ? `La unidad ${mvaStr} ya está registrada en el patio.`
+              : `La unidad ${mvaStr} está en el cuadre de ${plazaDoc}. Retírala de ahí antes de insertarla aquí.`;
+            const err = new Error(msg);
+            err.code = 'already-exists';
+            throw err;
+          }
+          tx.set(cuadreRef, unitData);
+        });
+      } catch (e) {
+        if (e && (e.code === 'already-exists' || /ya está registrada|está en el cuadre/i.test(String(e.message || '')))) {
+          return e.message;
+        }
+        throw e;
+      }
       await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp);
       await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
         mva: mvaStr,

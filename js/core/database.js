@@ -63,6 +63,7 @@ export const COL = Object.freeze({
   ASISTENCIA:         'asistencia',
   HORARIOS_PLANTILLAS:'horarios_plantillas',
   NOTAS_SEMANA:       'notas_semana',
+  TURNOS_ROLES_OP:    'turnos_roles_operativos',
 });
 
 // ── Meta de roles ─────────────────────────────────────────

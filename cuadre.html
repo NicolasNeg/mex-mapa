@@ -511,8 +511,7 @@
     #fleet-modal .badge { font-size: 12px !important; padding: 5px 10px !important; border-radius: 4px !important; font-weight: 700 !important; }
     #fleet-modal .ubi-badge { font-size: 12px !important; font-weight: 700 !important; }
 
-    /* Controles admin / Unidades globales: retirado — usar tab CUADRE ADMINS */
-    #btnAdminControlsWrapper { display: none !important; }
+    /* Controles admin: visible para admins vía JS (_openFleetModalInPlace) */
 
     /* Desktop shell: Más controles vive en el header — no duplicar en la toolbar */
     @media (min-width: 769px) {
@@ -801,8 +800,13 @@
             <div id="mcPrediccionCuadre" class="mc-item" onclick="abrirPrediccionCuadre(); toggleMoreControls();"><span class="material-icons" style="color: #0b74b8;">query_stats</span> Cuadre de predicciones</div>
           </div>
         </div>
-        <!-- Placeholder oculto: mapa.js aún busca el id; no reintroducir Controles admin -->
-        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;" hidden aria-hidden="true"></div>
+        <!-- Controles admin → módulo Unidades (/app/unidades) -->
+        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;">
+          <button type="button" class="btn-more-controls" onclick="toggleAdminControls()" title="Controles admin" aria-label="Controles admin">
+            <span class="material-icons" style="font-size:18px;">admin_panel_settings</span>
+            <span class="txt-mobile-hide">CONTROLES ADMIN</span>
+          </button>
+        </div>
       </div>
 
       <div id="toastContainer"></div>

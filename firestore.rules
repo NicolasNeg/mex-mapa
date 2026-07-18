@@ -1114,5 +1114,13 @@ service cloud.firestore {
       allow create, update: if tienePerfilActual();
       allow delete: if tienePerfilActual();
     }
+
+    // Roles operativos custom por plaza (filas del grid de turnos).
+    // Independientes de roles RBAC — cada plaza define CAPACITACIÓN, AEROPUERTO, etc.
+    match /turnos_roles_operativos/{plazaDoc} {
+      allow read: if estaAutenticado();
+      allow create, update, delete: if estaAutenticado()
+        && (esAdminOperativo() || esProgramadorBootstrap());
+    }
   }
 }

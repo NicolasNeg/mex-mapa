@@ -692,6 +692,10 @@
 .status-pill.is-en_proceso { background: var(--st-proc-bg); color: var(--st-proc-fg); }
 .status-pill.is-resuelta { background: var(--st-done-bg); color: var(--st-done-fg); }
 .status-pill.is-cerrada { background: var(--st-cerr-bg); color: var(--st-cerr-fg); }
+.status-pill.is-adjunto {
+  background: #e0f2fe;
+  color: #075985;
+}
 
 .inc-avatar {
   border-radius: 50%;
@@ -2499,6 +2503,146 @@
   color: var(--fg-muted);
 }
 .inc-module .ci-prev-foot .material-icons { font-size: 11px; }
+
+/* Adjunto preview — alineado con tarjeta de Unidades expediente */
+.inc-module .ci-prev-card--adjunto {
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: none;
+}
+.inc-module .ci-prev-adj-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.inc-module .ci-prev-adj-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-strong);
+  line-height: 1.35;
+}
+.inc-module .ci-prev-adj-body {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.inc-module .ci-prev-adj-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  margin-bottom: 8px;
+}
+.inc-module .ci-prev-adj-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.inc-module .ci-prev-att-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+}
+.inc-module .ci-prev-att-file .material-icons {
+  font-size: 14px;
+}
+.inc-module .ci-prev-adj-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #e0f2fe;
+  color: #075985;
+}
+.inc-module .ci-prev-adj-mva {
+  margin-top: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+/* Detalle adjunto unificado */
+.inc-module .dp-adjunto-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+.inc-module .dp-adjunto-desc {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg);
+}
+.inc-module .dp-adjunto-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  margin-bottom: 8px;
+}
+.inc-module .dp-adjunto-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.inc-module .dp-adjunto-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.inc-module .dp-adjunto-file .material-icons { font-size: 14px; }
+.inc-module .dp-adjunto-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #e0f2fe;
+  color: #075985;
+}
+.inc-module .dp-foot-hint {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+.inc-module .row-prio-bar.is-adjunto {
+  background: #3b82f6;
+}
+.inc-module .inc-row.is-adjunto-row .inc-row-title {
+  font-weight: 600;
+}
 
 .inc-module .ci-foot {
   display: flex;

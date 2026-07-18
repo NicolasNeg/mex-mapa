@@ -17,6 +17,14 @@ import {
   onNotasSemana, guardarNotaSemana,
 } from '/js/app/features/turnos/horarios-data.js';
 import {
+  onRolesOperativos,
+  crearRolOperativo,
+  renombrarRolOperativo,
+  eliminarRolOperativo,
+  reordenarRolOperativo,
+  asignarUsuarioARol,
+} from '/js/app/features/turnos/roles-operativos-data.js';
+import {
   isTurnosAdmin,
   LISTENER_ERROR,
   nombreUsuario,
@@ -34,6 +42,8 @@ import {
   matchPlantilla,
   totalMinutosSemana,
   minutosEntre,
+  agruparPorRolOperativo,
+  rolOperativoDeUsuario,
 } from '/js/app/features/turnos/turnos-view-model.js';
 import { colorDeTurno, contraste } from '/js/app/features/turnos/turno-color.js';
 
@@ -205,6 +215,7 @@ let _unsubH  = null;
 let _unsubAs = null;
 let _unsubP  = null;
 let _unsubNS = null;
+let _unsubRO = null;
 let _ticker  = null;
 
 // ── Lifecycle ─────────────────────────────────────────────────
@@ -244,6 +255,9 @@ export async function mount({ container }) {
     plantillas: [],
     notasSemana: {},
     showGestionPlantillas: false,
+    rolesOperativos: [],
+    showGestionRoles: false,
+    expandSinHorario: {},
   };
 
   _render();
@@ -280,8 +294,8 @@ function _ensureCss() {
 
 // ── Listeners ─────────────────────────────────────────────────
 function _stopListeners() {
-  [_unsubTA, _unsubH, _unsubAs, _unsubP, _unsubNS].forEach(fn => { if (fn) try { fn(); } catch (_) {} });
-  _unsubTA = _unsubH = _unsubAs = _unsubP = _unsubNS = null;
+  [_unsubTA, _unsubH, _unsubAs, _unsubP, _unsubNS, _unsubRO].forEach(fn => { if (fn) try { fn(); } catch (_) {} });
+  _unsubTA = _unsubH = _unsubAs = _unsubP = _unsubNS = _unsubRO = null;
   if (_ticker) { clearInterval(_ticker); _ticker = null; }
 }
 
@@ -329,6 +343,16 @@ function _startListeners() {
   _unsubNS = onNotasSemana(plaza, _s.semana, notas => {
     if (!_s) return;
     _s.notasSemana = notas || {};
+    if (_s.tab === 'horarios') _repaintTab();
+  });
+
+  // Roles operativos custom (por plaza)
+  if (_unsubRO) { try { _unsubRO(); } catch (_) {} }
+  _unsubRO = onRolesOperativos(plaza, (filas, err) => {
+    if (!_s) return;
+    _s.rolesOperativos = filas || [];
+    if (err) _s.listenerErrors.roles = err;
+    else delete _s.listenerErrors.roles;
     if (_s.tab === 'horarios') _repaintTab();
   });
 
@@ -623,7 +647,11 @@ function _renderCellSelect(u, diaKey, cell, plantillas, editable) {
 }
 
 function _renderHorarios() {
-  const { semana, horarios, usuarios, isAdmin, usuariosLoading, uid, plantillas, notasSemana, showGestionPlantillas, profile } = _s;
+  const {
+    semana, horarios, usuarios, isAdmin, usuariosLoading, uid, plantillas,
+    notasSemana, showGestionPlantillas, showGestionRoles, rolesOperativos,
+    profile, expandSinHorario,
+  } = _s;
 
   const semanaEditable = isAdmin && !esSemanaPasada(semana);
 
@@ -659,7 +687,45 @@ function _renderHorarios() {
     </th>`;
   }).join('');
 
-  // Filas de usuarios
+  const roleSelectHtml = (u) => {
+    if (!isAdmin || !rolesOperativos.length) return '';
+    const realUid = normalizeUsuarioUid(u);
+    const current = rolOperativoDeUsuario(realUid, rolesOperativos);
+    const opts = [
+      `<option value="">Sin asignar</option>`,
+      ...rolesOperativos.map(r =>
+        `<option value="${esc(r.id)}"${r.id === current ? ' selected' : ''}>${esc(r.nombre)}</option>`
+      ),
+    ].join('');
+    return `<select class="tu-role-assign" data-assign-uid="${esc(realUid)}" title="Rol operativo" aria-label="Rol operativo">
+      ${opts}
+    </select>`;
+  };
+
+  const renderUserRow = (u) => {
+    const realUid = normalizeUsuarioUid(u);
+    const horario = horarios.find(h => h.usuarioId === realUid);
+    const esYo    = realUid === uid;
+    return `<tr class="tu-grid-row${esYo ? ' tu-grid-row--own' : ''}">
+      <td class="tu-grid-td-name">
+        <span class="tu-grid-avatar">${initialUsuario(u)}</span>
+        <div class="tu-grid-uname-wrap">
+          <span class="tu-grid-uname">${esc(nombreUsuario(u))}</span>
+          ${roleSelectHtml(u)}
+        </div>
+      </td>
+      ${DIAS.map(d => {
+        const cell  = horario?.dias?.[d];
+        const fecha = fechaDia(semana, d);
+        const esHoy = fecha === hoy();
+        return `<td class="tu-grid-td tu-grid-td--sel${esHoy ? ' tu-grid-td--today' : ''}${semanaEditable ? ' tu-grid-td--editable' : ''}">
+          ${_renderCellSelect(u, d, cell, plantillas, semanaEditable)}
+        </td>`;
+      }).join('')}
+    </tr>`;
+  };
+
+  // Filas de usuarios agrupadas por rol operativo
   let filas = '';
   if (usuariosLoading) {
     filas = `<tr><td colspan="8" class="tu-grid-loading">Cargando usuarios…</td></tr>`;
@@ -673,24 +739,39 @@ function _renderHorarios() {
     if (emptyMsg) {
       filas = `<tr><td colspan="8" class="tu-grid-empty">${esc(emptyMsg)}</td></tr>`;
     } else {
-      for (const u of lista) {
-        const realUid = normalizeUsuarioUid(u);
-        const horario = horarios.find(h => h.usuarioId === realUid);
-        const esYo    = realUid === uid;
-        filas += `<tr class="tu-grid-row${esYo ? ' tu-grid-row--own' : ''}">
-          <td class="tu-grid-td-name">
-            <span class="tu-grid-avatar">${initialUsuario(u)}</span>
-            <span class="tu-grid-uname">${esc(nombreUsuario(u))}</span>
-          </td>
-          ${DIAS.map(d => {
-            const cell  = horario?.dias?.[d];
-            const fecha = fechaDia(semana, d);
-            const esHoy = fecha === hoy();
-            return `<td class="tu-grid-td tu-grid-td--sel${esHoy ? ' tu-grid-td--today' : ''}${semanaEditable ? ' tu-grid-td--editable' : ''}">
-              ${_renderCellSelect(u, d, cell, plantillas, semanaEditable)}
-            </td>`;
-          }).join('')}
-        </tr>`;
+      const sections = agruparPorRolOperativo(lista, rolesOperativos, horarios, { compactEmpty: true });
+      for (const sec of sections) {
+        const totalSec = sec.conHorario.length + sec.sinHorario.length;
+        if (sec.esSinAsignar && totalSec === 0) continue;
+        if (!sec.esPlano && sec.nombre) {
+          filas += `<tr class="tu-role-head${sec.esSinAsignar ? ' tu-role-head--muted' : ''}" data-role-id="${esc(sec.id)}">
+            <td colspan="8">
+              <span class="tu-role-head-label">${esc(sec.nombre)}</span>
+              <span class="tu-role-head-count">${totalSec}</span>
+            </td>
+          </tr>`;
+        }
+        for (const u of sec.conHorario) filas += renderUserRow(u);
+
+        if (sec.sinHorario.length) {
+          const expanded = !!expandSinHorario?.[sec.id];
+          filas += `<tr class="tu-role-empty-toggle">
+            <td colspan="8">
+              <button type="button" class="tu-role-empty-btn" data-toggle-empty="${esc(sec.id)}">
+                <span class="material-symbols-outlined">${expanded ? 'expand_less' : 'expand_more'}</span>
+                Sin horario esta semana (${sec.sinHorario.length})
+              </button>
+            </td>
+          </tr>`;
+          if (expanded) {
+            for (const u of sec.sinHorario) {
+              filas += renderUserRow(u).replace('tu-grid-row', 'tu-grid-row tu-grid-row--compact');
+            }
+          }
+        }
+      }
+      if (!filas) {
+        filas = `<tr><td colspan="8" class="tu-grid-empty">Sin colaboradores para mostrar.</td></tr>`;
       }
     }
   }
@@ -748,6 +829,43 @@ function _renderHorarios() {
   </div>
 </div>` : '';
 
+  // Panel roles operativos (custom por plaza — vault TURNOS)
+  const rolesPanel = showGestionRoles ? `
+<div class="tu-roles-panel" id="tuRolesPanel">
+  <div class="tu-plantillas-panel-head">
+    <span class="material-symbols-outlined">group_work</span>
+    <h3>Roles operativos</h3>
+    <button class="tu-btn tu-btn--icon" id="tuCerrarRoles" type="button">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  <p class="tu-roles-hint">Filas personalizables de esta plaza (CAPACITACIÓN, AEROPUERTO…). No son roles del sistema.</p>
+  <div class="tu-roles-list">
+    ${rolesOperativos.length === 0
+      ? '<p class="tu-empty" style="padding:8px 0;">Sin roles. Crea el primero para dividir el grid.</p>'
+      : rolesOperativos.map((r, i) => `
+        <div class="tu-role-item" data-role-row="${esc(r.id)}">
+          <input class="tu-input tu-role-name-input" type="text" value="${esc(r.nombre)}" data-rename-role="${esc(r.id)}" maxlength="40">
+          <span class="tu-role-item-count">${(r.usuarioIds || []).length}</span>
+          <button class="tu-btn tu-btn--icon tu-btn--sm" type="button" data-role-up="${esc(r.id)}" ${i === 0 ? 'disabled' : ''} title="Subir">
+            <span class="material-symbols-outlined">arrow_upward</span>
+          </button>
+          <button class="tu-btn tu-btn--icon tu-btn--sm" type="button" data-role-down="${esc(r.id)}" ${i === rolesOperativos.length - 1 ? 'disabled' : ''} title="Bajar">
+            <span class="material-symbols-outlined">arrow_downward</span>
+          </button>
+          <button class="tu-btn tu-btn--sm tu-btn--red" type="button" data-del-role="${esc(r.id)}" title="Eliminar">
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+        </div>`).join('')}
+  </div>
+  <div class="tu-roles-form">
+    <input class="tu-input" type="text" id="tuRolNombre" placeholder="Nombre (ej: AEROPUERTO)" maxlength="40">
+    <button class="tu-btn tu-btn--primary" id="tuCrearRol" type="button">
+      <span class="material-symbols-outlined">add</span> Agregar rol
+    </button>
+  </div>
+</div>` : '';
+
   return `
 <div class="tu-horarios">
   ${isAdmin && !semanaEditable ? `
@@ -773,6 +891,9 @@ function _renderHorarios() {
     <span class="tu-sem-total" id="tuSemTotal">Total semana: <strong>${esc(totalHoras)} h</strong></span>
     <div style="flex:1"></div>
     ${isAdmin ? `
+    <button class="tu-btn tu-btn--ghost" id="tuGestionRoles" type="button">
+      <span class="material-symbols-outlined">group_work</span> Roles
+    </button>
     <button class="tu-btn tu-btn--ghost" id="tuGestionPlantillas" type="button">
       <span class="material-symbols-outlined">schedule</span> Catálogo
     </button>` : ''}
@@ -780,6 +901,7 @@ function _renderHorarios() {
       <span class="material-symbols-outlined">picture_as_pdf</span> Exportar PDF
     </button>
   </div>
+  ${rolesPanel}
   ${gestionPanel}
   <div class="tu-grid-wrap">
     <table class="tu-grid">
@@ -1158,10 +1280,115 @@ function _bindHorarios() {
   // Exportar
   _ctr?.querySelector('#tuExportar')?.addEventListener('click', _exportarHorarios);
 
+  // Expandir filas sin horario
+  _ctr?.querySelectorAll('[data-toggle-empty]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_s) return;
+      const id = btn.dataset.toggleEmpty;
+      _s.expandSinHorario = {
+        ...(_s.expandSinHorario || {}),
+        [id]: !_s.expandSinHorario?.[id],
+      };
+      _repaintTab();
+    });
+  });
+
+  // Gestionar roles operativos
+  _ctr?.querySelector('#tuGestionRoles')?.addEventListener('click', () => {
+    if (!_s) return;
+    _s.showGestionRoles = !_s.showGestionRoles;
+    if (_s.showGestionRoles) _s.showGestionPlantillas = false;
+    _repaintTab();
+  });
+  _ctr?.querySelector('#tuCerrarRoles')?.addEventListener('click', () => {
+    if (!_s) return;
+    _s.showGestionRoles = false;
+    _repaintTab();
+  });
+  _ctr?.querySelector('#tuCrearRol')?.addEventListener('click', async () => {
+    const inp = _ctr?.querySelector('#tuRolNombre');
+    const nombre = inp?.value?.trim();
+    if (!nombre || !_s?.plaza) return;
+    const btn = _ctr.querySelector('#tuCrearRol');
+    if (btn) btn.disabled = true;
+    try {
+      await crearRolOperativo(_s.plaza, nombre);
+      if (inp) inp.value = '';
+    } catch (e) {
+      console.warn('[turnos] crearRol:', e);
+      _toast(e?.message || 'No se pudo crear el rol.', 'Error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
+  _ctr?.querySelectorAll('[data-rename-role]').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const id = inp.dataset.renameRole;
+      const nombre = inp.value.trim();
+      if (!id || !nombre || !_s?.plaza) return;
+      try {
+        await renombrarRolOperativo(_s.plaza, id, nombre);
+      } catch (e) {
+        console.warn('[turnos] renameRol:', e);
+        _toast(e?.message || 'No se pudo renombrar.', 'Error');
+        _repaintTab();
+      }
+    });
+  });
+  _ctr?.querySelectorAll('[data-del-role]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.delRole;
+      if (!id || !_s?.plaza) return;
+      const ok = typeof window.mexConfirm === 'function'
+        ? await window.mexConfirm('Eliminar rol', '¿Eliminar este rol? Los colaboradores pasan a Sin asignar.', 'warning')
+        : false;
+      if (!ok) return;
+      btn.disabled = true;
+      try {
+        await eliminarRolOperativo(_s.plaza, id);
+      } catch (e) {
+        console.warn('[turnos] delRol:', e);
+        _toast(e?.message || 'No se pudo eliminar.', 'Error');
+        btn.disabled = false;
+      }
+    });
+  });
+  _ctr?.querySelectorAll('[data-role-up]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_s?.plaza) return;
+      try { await reordenarRolOperativo(_s.plaza, btn.dataset.roleUp, -1); }
+      catch (e) { console.warn('[turnos] roleUp:', e); }
+    });
+  });
+  _ctr?.querySelectorAll('[data-role-down]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!_s?.plaza) return;
+      try { await reordenarRolOperativo(_s.plaza, btn.dataset.roleDown, 1); }
+      catch (e) { console.warn('[turnos] roleDown:', e); }
+    });
+  });
+  _ctr?.querySelectorAll('.tu-role-assign').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const uid = sel.dataset.assignUid;
+      if (!uid || !_s?.plaza) return;
+      sel.disabled = true;
+      try {
+        await asignarUsuarioARol(_s.plaza, uid, sel.value || null);
+      } catch (e) {
+        console.warn('[turnos] assignRol:', e);
+        _toast(e?.message || 'No se pudo asignar.', 'Error');
+        _repaintTab();
+      } finally {
+        sel.disabled = false;
+      }
+    });
+  });
+
   // Gestionar plantillas (toggle panel)
   _ctr?.querySelector('#tuGestionPlantillas')?.addEventListener('click', () => {
     if (!_s) return;
     _s.showGestionPlantillas = !_s.showGestionPlantillas;
+    if (_s.showGestionPlantillas) _s.showGestionRoles = false;
     _repaintTab();
   });
   _ctr?.querySelector('#tuCerrarGestion')?.addEventListener('click', () => {
@@ -1538,7 +1765,7 @@ function _exportCabeceraEmpresa() {
 
 function _exportarHorarios() {
   if (!_s) return;
-  const { semana, horarios, usuarios, notasSemana, isAdmin, uid, profile, plaza, plantillas } = _s;
+  const { semana, horarios, usuarios, notasSemana, isAdmin, uid, profile, plaza, plantillas, rolesOperativos } = _s;
   const lista = resolveUsuariosLista(usuarios || [], { isAdmin, uid, profile });
   if (!lista.length) {
     _toast('No hay colaboradores para exportar.', 'Exportar');
@@ -1565,8 +1792,7 @@ function _exportarHorarios() {
     try { return _parseSelectValue(sel.value, plantillas); } catch (_) { return null; }
   };
 
-  let totalMin = 0;
-  const rows = lista.map((u) => {
+  const renderExportUser = (u) => {
     const realUid = normalizeUsuarioUid(u);
     const horario = horarios.find(h => h.usuarioId === realUid);
     const celdas = DIAS.map((d) => {
@@ -1589,7 +1815,23 @@ function _exportarHorarios() {
       return `<td style="background:${bg};color:${fg};font-weight:600">${esc(meta.label || cell.tipo)}${nota}</td>`;
     }).join('');
     return `<tr><td class="emp">${esc(nombreUsuario(u))}</td>${celdas}</tr>`;
-  }).join('');
+  };
+
+  let totalMin = 0;
+  const sections = agruparPorRolOperativo(lista, rolesOperativos || [], horarios, { compactEmpty: true });
+  let rows = '';
+  for (const sec of sections) {
+    if (!sec.conHorario.length) continue; // export compacto: sin filas vacías
+    if (!sec.esPlano && sec.nombre) {
+      rows += `<tr class="role"><td colspan="8">${esc(sec.nombre)}</td></tr>`;
+    }
+    for (const u of sec.conHorario) rows += renderExportUser(u);
+  }
+
+  if (!rows) {
+    _toast('No hay horarios asignados para exportar.', 'Exportar');
+    return;
+  }
 
   const totalHoras = (totalMin / 60).toFixed(1);
   const rangoLabel = `Semana del ${fmt(semana)} al ${fmt(finDisp.toISOString().slice(0, 10))}`;
@@ -1612,6 +1854,7 @@ function _exportarHorarios() {
   td.off{color:#94a3b8;font-style:italic}
   .we{background:#e2e8f0}
   .nota{color:#6366f1}
+  tr.role td{background:#0f172a;color:#fff;font-weight:700;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;text-align:left;padding:5px 8px}
   .rpt-cab{display:flex;align-items:center;gap:14px;border-bottom:2px solid #0f172a;padding-bottom:10px;margin:0 0 14px}
   .rpt-logo{height:46px;width:auto;object-fit:contain}
   .rpt-empresa{display:flex;flex-direction:column;line-height:1.35}

@@ -490,11 +490,20 @@ function _syncLegacyCuadreHeader(id, ctx) {
     return;
   }
 
+  // No usar getComputedStyle: en desktop shell la tools-bar tiene
+  // display:none !important, así que el computed de sus hijos siempre es none
+  // aunque el JS de rol haya puesto style.display = 'inline-block'.
   const masControles = doc.getElementById('btnMasControlesWrapper');
-  const showMas = masControles && masControles.style.display !== 'none'
-    && getComputedStyle(masControles).display !== 'none';
+  const adminControles = doc.getElementById('btnAdminControlsWrapper');
+  const showMas = !!(masControles
+    && masControles.style.display
+    && masControles.style.display !== 'none');
+  const showAdmin = !!(adminControles
+    && !adminControles.hidden
+    && adminControles.style.display
+    && adminControles.style.display !== 'none');
 
-  const sig = `cuadre:${showMas}:0`;
+  const sig = `cuadre:${showMas ? 1 : 0}:${showAdmin ? 1 : 0}`;
   if (sig === _unitsHeaderSig) return;
   _unitsHeaderSig = sig;
 
@@ -506,6 +515,13 @@ function _syncLegacyCuadreHeader(id, ctx) {
       </button>
     `;
   }
+  if (showAdmin) {
+    html += `
+      <button type="button" class="mex-hdr-limbo-btn--legacy mex-hdr-icon-btn" id="mexHdrCuadreAdminBtn" title="Controles admin" aria-label="Controles admin">
+        <span class="material-icons">admin_panel_settings</span>
+      </button>
+    `;
+  }
 
   _shell.setHeaderActions?.(html);
 
@@ -514,6 +530,13 @@ function _syncLegacyCuadreHeader(id, ctx) {
     moreBtn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       try { win.toggleMoreControls?.(ev); } catch (_) {}
+    });
+  }
+  const adminBtn = document.getElementById('mexHdrCuadreAdminBtn');
+  if (adminBtn) {
+    adminBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      try { win.toggleAdminControls?.(); } catch (_) {}
     });
   }
 }
@@ -558,19 +581,36 @@ function _ensureStageHost() {
 }
 
 // "Ir al mapa" desde el buscador global deja window.__mexPendingMapFocus con el
-// MVA. Al mostrarse el mapa, se lo pasamos al iframe (mismo-origen) reintentando
-// hasta que el .car esté renderizado.
+// MVA (string o { mva, plaza }). Al mostrarse el mapa, se lo pasamos al iframe
+// reintentando hasta que el .car esté renderizado.
+function _pendingFocusMva(pend = window.__mexPendingMapFocus) {
+  if (!pend) return '';
+  if (typeof pend === 'string') return String(pend).trim().toUpperCase();
+  return String(pend.mva || '').trim().toUpperCase();
+}
+
 function _applyPendingMapFocus(iframe) {
-  const mva = window.__mexPendingMapFocus;
+  const mva = _pendingFocusMva();
   if (!mva || !iframe) return;
   let tries = 0;
   const tick = () => {
     tries++;
     let ok = false;
-    try { ok = iframe.contentWindow?.__mexFocusUnidad?.(mva) === true; } catch (_) {}
+    try {
+      const win = iframe.contentWindow;
+      if (win && typeof win.__mexEnsureMapaRendered === 'function') win.__mexEnsureMapaRendered();
+      ok = win?.__mexFocusUnidad?.(mva) === true;
+    } catch (_) {}
     // Hasta ~18s: el mapa puede tardar en renderizar las unidades (.car) tras
     // navegar/cambiar de plaza; antes se rendía a los 8s y no resaltaba.
-    if (ok || tries > 90) { window.__mexPendingMapFocus = null; return; }
+    if (ok) { window.__mexPendingMapFocus = null; return; }
+    if (tries > 90) {
+      window.__mexPendingMapFocus = null;
+      try {
+        iframe.contentWindow?.showToast?.(`No se encontró ${mva} en el mapa`, 'warning');
+      } catch (_) {}
+      return;
+    }
     setTimeout(tick, 200);
   };
   setTimeout(tick, 150);

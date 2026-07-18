@@ -1936,13 +1936,19 @@ body.car-dragging * {
   }
 
   .notif-item {
-    padding: 13px;
-    border-radius: 18px;
+    padding: 16px;
+    border-radius: 12px;
   }
 
+  /* Mantener meta + fecha en una sola fila (legible, menos apretado) */
   .notif-item-head {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .notif-item-time {
+    color: #475569;
   }
 }
 
@@ -2175,8 +2181,8 @@ body.car-dragging * {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 3px;
+  gap: 12px;
+  margin-bottom: 6px;
 }
 
 #notifications-center-modal .notif-item-context {
@@ -2184,23 +2190,23 @@ body.car-dragging * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #565e6d;
-  font-size: 10px;
-  font-weight: 900;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
   letter-spacing: .04em;
   text-transform: uppercase;
 }
 
 #notifications-center-modal .notif-item-time {
-  color: #7b8492;
-  font-size: 11px;
-  font-weight: 700;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 #notifications-center-modal .notif-item-text {
-  color: #191c1e;
-  font-size: 13px;
-  line-height: 1.5;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 #notifications-center-modal .notif-item.unread .notif-item-text {
@@ -2291,18 +2297,21 @@ body.car-dragging * {
 
 @media (max-width: 620px) {
   #notifications-center-modal.notif-center-modal {
-    align-items: stretch;
-    padding: 10px;
+    align-items: flex-end;
+    padding: 0;
   }
 
   #notifications-center-modal .notif-center-shell {
-    max-height: calc(100dvh - 20px);
+    width: 100%;
+    max-height: min(94dvh, 820px);
+    border-radius: 16px 16px 0 0;
   }
 
   #notifications-center-modal .notif-center-title-row {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   #notifications-center-modal .notif-center-toolbar {
@@ -2310,6 +2319,31 @@ body.car-dragging * {
   }
 
   #notifications-center-modal .notif-center-device-pill {
-    flex-basis: 100%;
+    flex: 1 1 auto;
+  }
+
+  #notifications-center-modal .notif-item {
+    gap: 12px;
+    margin: 0 12px 8px;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+  }
+
+  #notifications-center-modal .notif-item.unread {
+    background: #f8fbff;
+    border-color: #bfdbfe;
+    box-shadow: inset 3px 0 0 #3b82f6;
+  }
+
+  #notifications-center-modal .notif-item-head {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  #notifications-center-modal .notif-center-empty {
+    margin: 16px;
+    padding: 40px 24px;
+    border-radius: 16px;
   }
 }

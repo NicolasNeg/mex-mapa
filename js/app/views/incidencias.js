@@ -600,6 +600,7 @@ function _renderLinksNuevos() {
       <button type="button" onclick="window._incRemoveDraftLink(${i})" title="Quitar link"><span class="material-icons">close</span></button>
     </div>
   `).join('');
+  _renderCreatePreview();
 }
 
 function _onFilesSelected(e) {
@@ -628,6 +629,7 @@ function _renderAdjuntosNuevos() {
   if (!cont) return;
   if (!_state.archivosNuevaNota.length) {
     cont.innerHTML = '';
+    _renderCreatePreview();
     return;
   }
   cont.innerHTML = _state.archivosNuevaNota.map((item, i) => `
@@ -639,6 +641,7 @@ function _renderAdjuntosNuevos() {
       <button type="button" class="upload-remove" onclick="window._incEliminarArchivoNuevos(${i})"><span class="material-icons">close</span></button>
     </div>
   `).join('');
+  _renderCreatePreview();
 }
 
 // ────────────────────────────────────────────────────────────
@@ -1039,6 +1042,7 @@ function _renderList(items) {
     const status = _statusFromNota(item);
     const stKey = status.toLowerCase();
     const stLabel = _statusLabel(status, item);
+    const isAdjunto = status === 'ADJUNTO' || String(item.tipo || '').toUpperCase() === 'ADJUNTO';
     const isActive = _state.detailOpenId === id;
     const isSelected = sel.has(id);
     const tipo = String(item?.tipo || 'OTRO').toUpperCase().trim() || 'OTRO';
@@ -1052,10 +1056,11 @@ function _renderList(items) {
       : _displayName(author);
     const initials = _initialsFrom(assigneeName);
     const firstName = (assigneeName || '').split(/\s+/)[0] || '';
+    const attCount = _evidenceRows(item).length;
 
     return `
-      <div class="inc-row ${isActive ? 'is-active' : ''} ${isSelected ? 'is-selected' : ''}" data-open-id="${esc(id)}">
-        <div class="row-prio-bar is-${esc(pr)}"></div>
+      <div class="inc-row ${isActive ? 'is-active' : ''} ${isSelected ? 'is-selected' : ''} ${isAdjunto ? 'is-adjunto-row' : ''}" data-open-id="${esc(id)}">
+        <div class="row-prio-bar ${isAdjunto ? 'is-adjunto' : `is-${esc(pr)}`}"></div>
         <label class="row-check" data-stop data-row-check="${esc(id)}">
           <input type="checkbox" ${isSelected ? 'checked' : ''}>
           <span class="row-check-box"></span>
@@ -1063,12 +1068,13 @@ function _renderList(items) {
         <div class="inc-row-id" title="${esc(codigo)}">${esc(codigo)}</div>
         <div class="inc-row-main">
           <div class="inc-row-title-line">
-            <span class="prio-dot is-${esc(pr)}"></span>
+            ${isAdjunto ? '' : `<span class="prio-dot is-${esc(pr)}"></span>`}
             <span class="inc-row-title">${esc(item.titulo || 'Sin título')}</span>
           </div>
           <div class="inc-row-meta">
-            <span>${esc(tipo)}</span>
+            <span>${esc(isAdjunto ? 'Adjunto' : tipo)}</span>
             ${mva ? `<span class="sep">·</span><span class="mva">${esc(mva)}</span>` : ''}
+            ${isAdjunto && attCount ? `<span class="sep">·</span><span>${attCount} archivo${attCount === 1 ? '' : 's'}</span>` : ''}
             <span class="sep">·</span>
             <span>${esc(fecha)}</span>
           </div>
@@ -1077,9 +1083,11 @@ function _renderList(items) {
           <span class="schedule-chip sla-neutral">—</span>
         </div>
         <div class="row-assignee">
-          ${(asignadoRow || author)
-            ? `<span class="row-assignee-pill"><span class="inc-avatar" style="width:20px;height:20px;font-size:9px;">${esc(initials)}</span><span>${esc(firstName)}</span></span>`
-            : `<span class="row-unassigned">Sin asignar</span>`}
+          ${isAdjunto
+            ? `<span class="row-unassigned">—</span>`
+            : (asignadoRow || author)
+              ? `<span class="row-assignee-pill"><span class="inc-avatar" style="width:20px;height:20px;font-size:9px;">${esc(initials)}</span><span>${esc(firstName)}</span></span>`
+              : `<span class="row-unassigned">Sin asignar</span>`}
         </div>
         <div class="row-status"><span class="status-pill is-${esc(stKey)}"><span class="status-pill-dot"></span>${esc(stLabel)}</span></div>
         <button class="row-more" data-stop title="Más"><span class="material-icons">more_vert</span></button>
@@ -1262,11 +1270,13 @@ function _renderDetailPanel() {
   const status = _statusFromNota(item);
   const stKey = status.toLowerCase();
   const stLabel = _statusLabel(status, item);
+  const isAdjunto = status === 'ADJUNTO' || String(item.tipo || '').toUpperCase() === 'ADJUNTO';
   const open = status === 'PENDIENTE' || status === 'EN_PROCESO';
   const canDelete = _canDelete(item);
   const evidencias = _evidenceRows(item);
   const descripcion = _renderRichText(item.descripcion || 'Sin descripción.', item.descripcionHtml);
   const resolved = status === 'RESUELTA' || status === 'CERRADA';
+  const chipLabel = String(item.chipLabel || '').trim() || (isAdjunto ? 'ADJUNTO' : '');
 
   // Seguidores (real desde Firestore)
   const author = String(item.autor || item.creadoPor || 'Sistema').trim();
@@ -1291,6 +1301,16 @@ function _renderDetailPanel() {
   const me = gs?.profile?.nombreCompleto || gs?.profile?.nombre || gs?.profile?.email || 'Usuario';
   const meInitials = _initialsFrom(me);
 
+  const adjuntoAttachmentsHtml = evidencias.length || chipLabel
+    ? `<div class="dp-adjunto-attachments">
+        ${evidencias.map(ev => ev.url
+          ? `<a class="dp-adjunto-file" href="${esc(ev.url)}" target="_blank" rel="noopener noreferrer"><span class="material-icons">attach_file</span><span>${esc(ev.label)}</span></a>`
+          : `<span class="dp-adjunto-file"><span class="material-icons">attach_file</span><span>${esc(ev.label)}</span></span>`
+        ).join('')}
+        ${chipLabel ? `<span class="dp-adjunto-chip">${esc(chipLabel.toUpperCase())}</span>` : ''}
+      </div>`
+    : '';
+
   panel.innerHTML = `
     <div class="dp-head">
       <div class="dp-head-top">
@@ -1301,14 +1321,25 @@ function _renderDetailPanel() {
         <button class="dp-icon-btn" id="incDetailClose" title="Cerrar"><span class="material-icons">close</span></button>
       </div>
       <h2 class="dp-title">${esc(item.titulo || 'Sin título')}</h2>
+      ${isAdjunto ? '' : `
       <div class="dp-pills">
         <span class="dp-pill"><span class="prio-dot is-${esc(prLower)}"></span>${esc(_priorityLabel(pr))}</span>
         <span class="status-pill is-${esc(stKey)}"><span class="status-pill-dot"></span>${esc(stLabel)}</span>
         <span class="schedule-chip sla-neutral">—</span>
-      </div>
+      </div>`}
     </div>
 
     <div class="dp-body">
+      ${isAdjunto ? `
+      <article class="dp-adjunto-card">
+        <p class="dp-adjunto-desc">${descripcion}</p>
+        <footer class="dp-adjunto-meta">
+          <span>${esc(_displayName(item.autor || item.creadoPor || 'Sistema'))}</span>
+          <span>${esc(_longDate(item.creadoEn || item.fecha))}</span>
+        </footer>
+        ${adjuntoAttachmentsHtml}
+      </article>
+      ` : `
       <section class="dp-section">
         <div class="dp-section-label">Descripción</div>
         <div class="dp-text">${descripcion}</div>
@@ -1366,8 +1397,9 @@ function _renderDetailPanel() {
           })()}
         </section>
       ` : ''}
+      `}
 
-      ${resolved ? `
+      ${!isAdjunto && resolved ? `
         <section class="dp-section">
           <div class="dp-section-label">Resolución</div>
           <div class="dp-resolution">
@@ -1378,6 +1410,22 @@ function _renderDetailPanel() {
             <div class="dp-resolution-body">${esc(item.solucion || 'Sin detalle de solución.').replace(/\n/g, '<br>')}</div>
           </div>
         </section>
+      ` : ''}
+
+      ${isAdjunto ? `
+      <section class="dp-grid" style="margin-top:16px">
+        <div>
+          <div class="dp-section-label">MVA / Activo</div>
+          <div class="dp-meta-val">${esc(item.mva || '—')}</div>
+        </div>
+        <div>
+          <div class="dp-section-label">Visibilidad</div>
+          <div class="dp-meta-val">${item.plaza && item.plaza !== 'GLOBAL'
+            ? `<span class="dp-plaza-badge">${esc(item.plaza)}</span>`
+            : `<span class="dp-plaza-badge is-global">GLOBAL</span>`
+          }</div>
+        </div>
+      </section>
       ` : ''}
 
       <section class="dp-section">
@@ -1476,7 +1524,9 @@ function _renderDetailPanel() {
     </div>
 
     <div class="dp-foot">
-      ${open ? `
+      ${isAdjunto ? `
+        <span class="dp-foot-hint">Documento adjunto · no requiere resolución</span>
+      ` : open ? `
         <button class="dp-btn dp-btn-secondary" id="incReasignarBtn" data-reasignar-id="${esc(item.legacyNotaId || item.id)}" data-stop>
           <span class="material-icons" style="font-size:13px">person</span> Reasignar
         </button>
@@ -1670,9 +1720,10 @@ async function _onCreateIncidencia() {
   const tipo = String(q('nuevaNotaTipo')?.value || 'OTRO').toUpperCase();
   const mva = String(q('incMvaInput')?.value || '').trim().toUpperCase();
   const chipLabel = String(q('nuevaNotaChip')?.value || '').trim().toUpperCase();
+  const esAdjunto = tipo === 'ADJUNTO';
   if (!titulo) return _showNotice('Escribe el título de la nota.', 'error');
   if (!descripcion) return _showNotice('Escribe la descripción.', 'error');
-  if (tipo === 'ADJUNTO' && !chipLabel) return _showNotice('Escribe el chip del adjunto (ej. VIGENTE).', 'error');
+  if (esAdjunto && !chipLabel) return _showNotice('Escribe el chip del adjunto (ej. VIGENTE).', 'error');
 
   const btn = q('btnPublicarInc');
   const gs = getState();
@@ -1686,17 +1737,17 @@ async function _onCreateIncidencia() {
       notaHtml: descripcionHtml,
       nota: descripcion,
       codigo: `INC-${String(Date.now()).slice(-6)}`,
-      prioridad,
+      prioridad: esAdjunto ? 'BAJA' : prioridad,
       tipo,
       mva,
       plaza: _state.plaza,
       plazaID: _state.plaza,
       autor,
       creadoPor: autor,
-      estado: tipo === 'ADJUNTO' ? 'ADJUNTO' : 'PENDIENTE',
-      chipLabel: tipo === 'ADJUNTO' ? chipLabel : '',
+      estado: esAdjunto ? 'ADJUNTO' : 'PENDIENTE',
+      chipLabel: esAdjunto ? chipLabel : '',
       source: 'notas_admin',
-      asignadoA: _state.asignarSelected || null,
+      asignadoA: esAdjunto ? null : (_state.asignarSelected || null),
       seguidores: [],
     };
     const links = (_state.linksNuevaNota || []).map(item => ({
@@ -1737,6 +1788,7 @@ function _resetComposer() {
   const tip = q('nuevaNotaTipo'); if (tip) tip.value = 'OTRO';
   const chip = q('nuevaNotaChip'); if (chip) chip.value = '';
   const chipWrap = q('nuevaNotaChipWrap'); if (chipWrap) chipWrap.hidden = true;
+  _syncAdjuntoFormMode(false);
   // Reset segmented prio
   qsa('[data-ci-prio]').forEach(b => b.classList.toggle('is-on', b.dataset.ciPrio === 'ALTA'));
   if (_state.archivosNuevaNota) {
@@ -1896,8 +1948,12 @@ function _evidenceRows(item) {
     if (!Array.isArray(value)) return;
     value.forEach(v => list.push(v));
   };
-  fromArray(item?.evidencias);
-  fromArray(item?.adjuntos);
+  // Preferir adjuntos (lista canónica); evidencias solo si adjuntos vacío (legacy).
+  if (Array.isArray(item?.adjuntos) && item.adjuntos.length) {
+    fromArray(item.adjuntos);
+  } else {
+    fromArray(item?.evidencias);
+  }
   fromArray(item?.evidenciaUrls);
   fromArray(item?.links);
   fromArray(item?.enlaces);
@@ -1918,7 +1974,7 @@ function _evidenceRows(item) {
       label = String(entry.nombre || entry.name || entry.filename || entry.fileName || entry.label || '').trim();
     }
     const key = `${url}|${path}|${label}`;
-    if (!key || seen.has(key)) return;
+    if (!key || key === '||' || seen.has(key)) return;
     seen.add(key);
     out.push({ url, path, label: label || (url || path || 'Evidencia') });
   });
@@ -2087,6 +2143,7 @@ function _onDraftChange() {
   _state.createDraft.chipLabel = String(q('nuevaNotaChip')?.value || '').trim();
   const chipWrap = q('nuevaNotaChipWrap');
   if (chipWrap) chipWrap.hidden = _state.createDraft.tipo !== 'ADJUNTO';
+  _syncAdjuntoFormMode(_state.createDraft.tipo === 'ADJUNTO');
   // Hint counter
   const titleHint = q('incCreateTitleHint');
   if (titleHint) {
@@ -2097,20 +2154,67 @@ function _onDraftChange() {
   _updateCreateSubmitState();
 }
 
+function _syncAdjuntoFormMode(isAdjunto) {
+  const prioWrap = q('nuevaNotaPrioridadWrap');
+  const assignWrap = q('nuevaNotaAsignarWrap');
+  if (prioWrap) prioWrap.hidden = !!isAdjunto;
+  if (assignWrap) assignWrap.hidden = !!isAdjunto;
+  if (isAdjunto && _state?.asignarSelected) {
+    _state.asignarSelected = null;
+    const sel = q('incAsignarSelected');
+    const wrap = q('incAsignarSearchWrap');
+    if (sel) sel.style.display = 'none';
+    if (wrap) wrap.style.display = 'flex';
+    const input = q('incAsignarInput');
+    if (input) input.value = '';
+  }
+}
+
 function _renderCreatePreview() {
   const card = q('incCreatePreviewCard');
   if (!card) return;
   const d = _state?.createDraft || { titulo: '', descripcion: '', prioridad: 'ALTA', tipo: 'OTRO', mva: '', chipLabel: '' };
-  const prLower = String(d.prioridad).toLowerCase();
   const tipo = String(d.tipo || 'OTRO').toUpperCase();
-  const statusLabel = tipo === 'ADJUNTO'
-    ? (String(d.chipLabel || 'ADJUNTO').trim().toUpperCase() || 'ADJUNTO')
-    : 'Pendiente';
-  const statusCls = tipo === 'ADJUNTO' ? 'is-adjunto' : 'is-pendiente';
+  const isAdjunto = tipo === 'ADJUNTO';
   const gs = getState();
   const me = gs?.profile?.nombreCompleto || gs?.profile?.nombre || gs?.profile?.email || 'Sistema';
   const meInitials = _initialsFrom(me);
+  const files = Array.isArray(_state?.archivosNuevaNota) ? _state.archivosNuevaNota : [];
+  const links = Array.isArray(_state?.linksNuevaNota) ? _state.linksNuevaNota : [];
 
+  if (isAdjunto) {
+    const chip = String(d.chipLabel || 'ADJUNTO').trim().toUpperCase() || 'ADJUNTO';
+    const attachRows = [
+      ...files.map(item => {
+        const name = esc(item.file?.name || 'Adjunto');
+        return `<span class="ci-prev-att-file"><span class="material-icons">attach_file</span>${name}</span>`;
+      }),
+      ...links.map(item => {
+        const label = esc(item.label || item.url || 'Enlace');
+        return `<span class="ci-prev-att-file"><span class="material-icons">link</span>${label}</span>`;
+      })
+    ].join('');
+    card.className = 'ci-prev-card ci-prev-card--adjunto';
+    card.innerHTML = `
+      <header class="ci-prev-adj-head">
+        <strong class="ci-prev-adj-title">${d.titulo ? esc(d.titulo) : '<span class="ci-prev-empty">Título del documento</span>'}</strong>
+      </header>
+      <p class="ci-prev-adj-body">${d.descripcion ? esc(d.descripcion) : '<span class="ci-prev-empty">La descripción aparecerá aquí…</span>'}</p>
+      <footer class="ci-prev-adj-meta">
+        <span>${esc(me)}</span>
+        <span>justo ahora</span>
+      </footer>
+      <div class="ci-prev-adj-attachments">
+        ${attachRows || '<span class="ci-prev-empty">Sin archivo seleccionado</span>'}
+        <span class="ci-prev-adj-chip">${esc(chip)}</span>
+      </div>
+      ${d.mva ? `<div class="ci-prev-adj-mva">${esc(d.mva)}</div>` : ''}
+    `;
+    return;
+  }
+
+  const prLower = String(d.prioridad).toLowerCase();
+  card.className = 'ci-prev-card';
   card.innerHTML = `
     <div class="ci-prev-bar is-${esc(prLower)}"></div>
     <div class="ci-prev-top">
@@ -2123,7 +2227,7 @@ function _renderCreatePreview() {
     <h2 class="ci-prev-title">${d.titulo ? esc(d.titulo) : '<span class="ci-prev-empty">Título de la incidencia</span>'}</h2>
     <div class="ci-prev-pills">
       <span class="ci-prev-pill"><span class="prio-dot is-${esc(prLower)}"></span>${esc(_priorityLabel(d.prioridad))}</span>
-      <span class="status-pill ${statusCls}"><span class="status-pill-dot"></span>${esc(statusLabel)}</span>
+      <span class="status-pill is-pendiente"><span class="status-pill-dot"></span>Pendiente</span>
       <span class="ci-prev-pill ci-prev-pill-soft">${esc(tipo)}</span>
       ${d.mva ? `<span class="ci-prev-pill ci-prev-pill-soft">${esc(d.mva)}</span>` : ''}
     </div>
@@ -2400,7 +2504,7 @@ function _renderLayout() {
               </div>
 
               <div class="ci-grid">
-                <div class="ci-field">
+                <div class="ci-field" id="nuevaNotaPrioridadWrap">
                   <label class="ci-label">Prioridad</label>
                   <div class="ci-prio-seg" id="incPrioSeg">
                     <button type="button" class="ci-prio-opt ci-prio-critica" data-ci-prio="CRITICA"><span class="prio-dot is-critica"></span>Crítica</button>
@@ -2431,7 +2535,7 @@ function _renderLayout() {
                 <div class="ci-field" id="nuevaNotaChipWrap" hidden>
                   <label class="ci-label">Chip personalizado</label>
                   <input type="text" id="nuevaNotaChip" class="ci-input" placeholder="Ej. VIGENTE, ORIGINAL, COPIA…" maxlength="24">
-                  <p class="ci-hint" style="margin:6px 0 0;font-size:12px;color:var(--fg-muted)">Se muestra en lugar de “Pendiente” en el expediente de la unidad.</p>
+                  <p class="ci-hint" style="margin:6px 0 0;font-size:12px;color:var(--fg-muted)">Se muestra al lado del documento adjunto</p>
                 </div>
 
                 <div class="ci-field">
@@ -2446,7 +2550,7 @@ function _renderLayout() {
                 </div>
               </div>
 
-              <div class="ci-field" style="position:relative">
+              <div class="ci-field" id="nuevaNotaAsignarWrap" style="position:relative">
                 <label class="ci-label">Asignar a <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--fg-muted)">(opcional)</span></label>
                 <div class="ci-assign-selected" id="incAsignarSelected" style="display:none">
                   <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;" id="incAsignarAvatar"></span>

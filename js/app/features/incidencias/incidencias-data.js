@@ -87,8 +87,9 @@ export function mapNotaAdminToIncidencia(id, data = {}) {
     resueltaEn: data.resueltaEn || data.resueltoEn || '',
     quienResolvio: String(data.quienResolvio || data.resueltoPor || '').trim(),
     solucion: String(data.solucion || '').trim(),
+    // Una sola lista canónica: no duplicar en evidencias (el expediente concatenaba ambas).
     adjuntos: normalizeAttachments(data),
-    evidencias: normalizeAttachments(data),
+    evidencias: [],
     source: String(data.source || 'notas_admin').trim() || 'notas_admin',
     version: Number(data.version || 1) || 1,
     asignadoA: (data.asignadoA && typeof data.asignadoA === 'object') ? data.asignadoA : null,

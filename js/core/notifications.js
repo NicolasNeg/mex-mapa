@@ -57,6 +57,7 @@ function _ensureNotificationAssets() {
   ensureStylesheet('mex-notif-icons-material', 'https://fonts.googleapis.com/icon?family=Material+Icons');
   ensureStylesheet('mex-notif-icons-symbols', 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
   ensureStylesheet('mex-notif-center-css', '/css/notificaciones.css');
+  ensureStylesheet('mex-notif-center-app-css', '/css/app-notifications.css');
 }
 
 function _fallbackCurrentUserDocId() {
@@ -400,15 +401,17 @@ function _notificationChatTarget(item = {}) {
 }
 
 function _notificationContextCopy(item = {}) {
-  const parts = [];
   const kind = _friendlyNotificationKind(item);
+  const type = _safeText(item?.type).toLowerCase();
+  // Mensajes ya muestran el remitente en el cuerpo; no repetir "De …" en el meta.
+  if (type.includes('message') || type.includes('mensaje')) {
+    return kind || 'Mensaje directo';
+  }
+  const parts = [];
   if (kind) parts.push(kind);
   const sender = _notificationSender(item);
-  if (sender) parts.push(`De ${sender}`);
-  if (_safeText(item?.plaza) && !_safeText(item?.type).toLowerCase().includes('test')) {
-    parts.push(_safeText(item.plaza));
-  }
-  return parts.join(' · ');
+  if (sender) parts.push(sender);
+  return parts.join(' · ') || 'Sistema';
 }
 
 function _currentRoute() {
@@ -755,9 +758,10 @@ function _notifFriendlyText(item = {}) {
     const who = sender || 'Alguien';
     const friendly = _humanizeBody(body);
     const isFile = friendly !== body && body.length > 0;
-    if (isFile) return `<strong>${who}</strong> ${friendly.toLowerCase()}.`;
-    const preview = friendly ? `: "${friendly.slice(0, 60)}${friendly.length > 60 ? '…' : ''}"` : ' te envió un mensaje.';
-    return `<strong>${who}</strong>${preview}`;
+    if (isFile) return `<strong>${who}</strong> · ${friendly}`;
+    if (!friendly) return `<strong>${who}</strong> te envió un mensaje.`;
+    const preview = friendly.slice(0, 72) + (friendly.length > 72 ? '…' : '');
+    return `<strong>${who}</strong> · ${preview}`;
   }
   if (type.includes('cuadre.assigned')) {
     return `Tienes una nueva misión de inventario asignada.`;
@@ -844,11 +848,14 @@ function _renderNotifList() {
 
   if (!items.length) {
     const filter = _notifActiveFilter();
-    const msg = filter === 'all' ? 'aún no tienes notificaciones.' : 'no hay notificaciones de este tipo.';
-    listEl.innerHTML = `<div class="notif-center-empty">
-      <span class="material-icons">notifications_none</span>
-      <strong>Todo tranquilo</strong>
-      <p>Por ahora ${msg}</p>
+    const isAll = filter === 'all';
+    listEl.innerHTML = `<div class="notif-center-empty" role="status">
+      <span class="material-icons" aria-hidden="true">${isAll ? 'mark_email_read' : 'notifications_none'}</span>
+      <span class="notif-center-empty-pill">${isAll ? 'Todo al día' : 'Sin resultados'}</span>
+      <strong>${isAll ? 'Inbox limpio' : 'Nada en este filtro'}</strong>
+      <p>${isAll
+        ? 'Cuando llegue algo importante, aparecerá aquí.'
+        : 'Prueba otro filtro o vuelve a Todos.'}</p>
     </div>`;
     return;
   }
@@ -887,12 +894,12 @@ function _renderNotifList() {
           <div class="notif-item-copy">
             <div class="notif-item-head">
               <span class="notif-item-context">${_safeText(context || _friendlyNotificationKind(item) || 'Sistema')}</span>
-              <span class="notif-item-time">${timeStr}</span>
+              <time class="notif-item-time" datetime="${ts ? new Date(ts).toISOString() : ''}">${timeStr}</time>
             </div>
             <p class="notif-item-text">${text}</p>
             ${_safeText(item?.plaza) ? `<div class="notif-item-meta"><span class="notif-item-tag">${_safeText(item.plaza)}</span></div>` : ''}
           </div>
-          ${isUnread ? '<div class="notif-unread-dot"></div>' : ''}
+          ${isUnread ? '<div class="notif-unread-dot" aria-hidden="true"></div>' : ''}
         </button>
       `;
     });
@@ -943,17 +950,44 @@ function _renderNotificationCenter() {
     chipBadge.style.display = count > 0 ? 'inline-flex' : 'none';
   });
 
+  const inboxCount = inbox.length;
+  const modalEl = document.getElementById('notifications-center-modal');
+  if (modalEl) {
+    modalEl.classList.toggle('is-empty', inboxCount === 0);
+    modalEl.classList.toggle('has-items', inboxCount > 0);
+  }
+
+  // Empty-state copy solo cuando no hay ítems (evita "Todo al día" junto a tarjetas leídas).
   if (unreadBadge) {
-    unreadBadge.textContent = _state.unread > 0
-      ? `${_state.unread} nueva${_state.unread === 1 ? '' : 's'}`
-      : 'Todo al día';
-    unreadBadge.classList.toggle('has-unread', _state.unread > 0);
+    if (_state.unread > 0) {
+      unreadBadge.hidden = false;
+      unreadBadge.textContent = `${_state.unread} nueva${_state.unread === 1 ? '' : 's'}`;
+      unreadBadge.classList.add('has-unread');
+    } else if (inboxCount === 0) {
+      unreadBadge.hidden = false;
+      unreadBadge.textContent = 'Todo al día';
+      unreadBadge.classList.remove('has-unread');
+    } else {
+      unreadBadge.hidden = true;
+      unreadBadge.textContent = '';
+      unreadBadge.classList.remove('has-unread');
+    }
   }
 
   if (summaryEl) {
-    summaryEl.textContent = _state.unread > 0
-      ? `Tienes ${_state.unread} pendiente${_state.unread === 1 ? '' : 's'} por revisar en el inbox operativo.`
-      : 'Tu inbox está limpio por ahora. Cuando llegue algo importante, aparecerá aquí.';
+    if (inboxCount === 0) {
+      summaryEl.hidden = false;
+      summaryEl.textContent = 'Tu inbox está limpio por ahora. Cuando llegue algo importante, aparecerá aquí.';
+      summaryEl.classList.add('is-empty-copy');
+    } else if (_state.unread > 0) {
+      summaryEl.hidden = false;
+      summaryEl.textContent = `${_state.unread} pendiente${_state.unread === 1 ? '' : 's'} por revisar.`;
+      summaryEl.classList.remove('is-empty-copy');
+    } else {
+      summaryEl.hidden = true;
+      summaryEl.textContent = '';
+      summaryEl.classList.remove('is-empty-copy');
+    }
   }
 
   const permission = _supportsPush() ? Notification.permission : 'unsupported';
