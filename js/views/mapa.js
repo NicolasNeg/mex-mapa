@@ -563,8 +563,11 @@ function _esPlazaFija(ubiNombre) {
 }
 
 function _obtenerPlazaOperativaCuadreAdmin(fallback = '') {
+  // Cuadre Admins es virtual por plaza operativa (selector), no el patio de flota regular.
+  // Prioriza la plaza activa en UI para que Gerente/Admin pueda registrar cualquier unidad.
   return _normalizePlaza(
-    (currentUserProfile && (currentUserProfile.plazaAsignada || currentUserProfile.plaza))
+    _miPlaza()
+    || (currentUserProfile && (currentUserProfile.plazaAsignada || currentUserProfile.plaza))
     || fallback
     || ''
   );
@@ -6969,12 +6972,12 @@ async function ejecutarGuardadoFlota() {
     }
   }
   else {
-    // Cuadre Admins → misma UI, escribe en cuadre_admins
+    // Cuadre Admins → registro virtual por plaza operativa (selector), independiente del patio.
     const plaza = _obtenerPlazaOperativaCuadreAdmin(
       (SELECT_REF_FLOTA && (SELECT_REF_FLOTA.plaza || SELECT_REF_FLOTA.sucursal)) || ''
     );
     if (!plaza) {
-      showToast("No se pudo resolver la plaza operativa para Cuadre Admins.", "error");
+      showToast("Selecciona una plaza operativa para registrar en Cuadre Admins.", "error");
       restaurarBotonFlota();
       return;
     }
@@ -11407,7 +11410,9 @@ async function abrirModalInsertarExterno() {
   const modal = await _openLegacyModalElement('modal-insertar-externo');
   if (!modal) return;
   const badge = document.getElementById('ext_badgePlaza');
-  if (badge) badge.innerText = `PLAZA ${plaza}`;
+  if (badge) {
+    badge.innerHTML = `<span class="material-symbols-outlined">location_on</span> Plaza ${plaza}`;
+  }
   limpiarFormularioInsertarExterno();
   setTimeout(() => document.getElementById('ext_mva')?.focus(), 80);
 }
@@ -11427,7 +11432,7 @@ function ejecutarInsertarExterno() {
   const txt = document.getElementById('txtGuardarExterno');
   const icon = document.getElementById('iconGuardarExterno');
   if (btn) btn.disabled = true;
-  if (txt) txt.innerText = 'REGISTRANDO...';
+  if (txt) txt.innerText = 'Registrando...';
   if (icon) { icon.innerText = 'sync'; icon.classList.add('spinner'); }
 
   api.insertarUnidadExterna({
@@ -11451,7 +11456,7 @@ function ejecutarInsertarExterno() {
     showToast(err?.message || 'No se pudo registrar la unidad externa.', 'error');
   }).finally(() => {
     if (btn) btn.disabled = false;
-    if (txt) txt.innerText = 'REGISTRAR EXTERNO';
+    if (txt) txt.innerText = 'Registrar externo';
     if (icon) { icon.innerText = 'save'; icon.classList.remove('spinner'); }
   });
 }
@@ -11517,7 +11522,8 @@ function autocompletarInsertarAdmin(u) {
   input.value = `${u.mva} - ${u.modelo}`;
   input.disabled = true;
   document.getElementById('a_ins_results').style.display = 'none';
-  const plazaOperativa = _obtenerPlazaOperativaCuadreAdmin(u.plaza || u.sucursal);
+  // Registro virtual en la plaza operativa activa (no la plaza “casa” de la unidad).
+  const plazaOperativa = _obtenerPlazaOperativaCuadreAdmin();
   document.getElementById('a_ins_badgePlaza').innerText = `PLAZA ${plazaOperativa || 'GLOBAL'}`;
 
   // Mostramos formulario y llenamos los datos inamovibles
@@ -11534,12 +11540,10 @@ async function ejecutarInsertarAdmin() {
   const mva = document.getElementById('a_ins_mva').value.toUpperCase().trim();
   const est = document.getElementById('a_ins_est').value;
   const ubi = document.getElementById('a_ins_ubi').value;
-  const plaza = _obtenerPlazaOperativaCuadreAdmin(
-    (ADMIN_INSERT_UNIT && (ADMIN_INSERT_UNIT.plaza || ADMIN_INSERT_UNIT.sucursal)) || ''
-  );
+  const plaza = _obtenerPlazaOperativaCuadreAdmin();
 
   if (!mva) return showToast("Primero selecciona una unidad desde Base Maestra.", "error");
-  if (!plaza) return showToast("No se pudo resolver la plaza operativa para este registro.", "error");
+  if (!plaza) return showToast("Selecciona una plaza operativa para registrar en Cuadre Admins.", "error");
   if (!est || !ubi) return showToast("Debes seleccionar un Estado y una Ubicación", "error");
 
   const btn = document.getElementById('btnGuardarAdmin');

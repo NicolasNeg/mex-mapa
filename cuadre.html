@@ -796,6 +796,12 @@
             </div>
             <div class="mc-item" onclick="abrirResumenFlota(); toggleMoreControls();"><span class="material-icons">pie_chart</span> Resumen flota</div>
             <div id="mcInsertarExterno" class="mc-item" style="display:none;" onclick="abrirModalInsertarExterno(); toggleMoreControls();"><span class="material-icons" style="color:#8b5cf6;">directions_car</span> Insertar unidad externa</div>
+            <div id="mcExportFlotaCsv" class="mc-item" onclick="exportarFlotaCuadreCsv()">
+              <span class="material-icons" style="color:#0ea5e9;">download</span> Exportar flota (CSV)
+            </div>
+            <div id="mcExportFlotaXls" class="mc-item" onclick="exportarFlotaCuadreXls()">
+              <span class="material-icons" style="color:#16a34a;">table_view</span> Exportar flota (Excel)
+            </div>
             <div id="mcPdfReservas" class="mc-item" onclick="abrirModalPDFReservas(); toggleMoreControls();"><span class="material-icons" style="color: #0284c7;">receipt_long</span> Analisis de reservas</div>
             <div id="mcPrediccionCuadre" class="mc-item" onclick="abrirPrediccionCuadre(); toggleMoreControls();"><span class="material-icons" style="color: #0b74b8;">query_stats</span> Cuadre de predicciones</div>
           </div>

@@ -1992,69 +1992,71 @@
   </div>
 
   <div id="modal-insertar-externo" class="modal-overlay" style="z-index: 6000;">
-    <div class="console-card form-console-card" style="min-height: 520px;">
-      <button class="form-modal-close"
-        onclick="document.getElementById('modal-insertar-externo').classList.remove('active')">
-        <span class="material-icons" style="font-size:20px;">close</span>
-      </button>
-
-      <div class="form-modal-hero">
-        <div class="form-modal-kicker">
-          <span class="material-icons" style="font-size:16px;">directions_car</span>
-          Registro Operativo
+    <div class="ext-modal-card" role="dialog" aria-labelledby="ext_modal_title">
+      <header class="ext-modal-header">
+        <div class="ext-modal-heading">
+          <p class="ext-modal-kicker">Registro operativo</p>
+          <h2 id="ext_modal_title" class="ext-modal-title">Insertar unidad externa</h2>
+          <p class="ext-modal-sub">Queda visible en mapa y flota de la plaza activa, sin mezclar otras plazas.</p>
         </div>
-        <div class="form-modal-title">Alta de Unidad Externa</div>
-        <div class="form-modal-subtitle">Registra una unidad externa dentro de la plaza activa para que quede visible
-          en mapa, flota y seguimiento operativo sin mezclar otras plazas.</div>
-
-        <div class="form-modal-metrics">
-          <div class="form-modal-pill" id="ext_badgePlaza">
-            <span class="material-icons" style="font-size:15px;">pin_drop</span>
-            PLAZA --
-          </div>
-          <div class="form-modal-pill">
-            <span class="material-icons" style="font-size:15px;">route</span>
-            Flujo por plaza
-          </div>
-        </div>
-      </div>
-
-      <div class="form-modal-body">
-        <div class="form-modal-scroll">
-          <div class="form-modal-card">
-            <span class="section-label-modal" style="margin-top:0;">Identificación</span>
-            <div class="grid-2">
-              <div class="field"><label>Económico (MVA)</label><input type="text" id="ext_mva" placeholder="Ej. D5256">
-              </div>
-              <div class="field"><label>Placas</label><input type="text" id="ext_placas" placeholder="Ej. GVT840F">
-              </div>
-            </div>
-            <div class="grid-2" style="margin-top:15px;">
-              <div class="field"><label>Categoría</label><input type="text" id="ext_categoria"
-                  placeholder="Ej. EXTERNO"></div>
-              <div class="field"><label>Modelo</label><input type="text" id="ext_modelo"
-                  placeholder="Ej. AVEO / SENTRA / SIN MODELO"></div>
-            </div>
-          </div>
-
-          <div class="form-modal-card">
-            <span class="section-label-modal" style="margin-top:0;">Seguimiento</span>
-            <div class="field">
-              <label>Notas Operativas</label>
-              <textarea id="ext_notas" rows="3"
-                placeholder="Motivo del alta, traslado, resguardo, envío a otra plaza o cualquier contexto relevante..."
-                style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
-            </div>
-            <div class="form-modal-helper">Se registrará como unidad externa en la plaza activa y quedará ubicada como
-              EXTERNO para evitar confusión con otras plazas.</div>
-          </div>
-        </div>
-
-        <button class="btn-save-global" id="btnGuardarExterno" onclick="ejecutarInsertarExterno()">
-          <span class="material-icons" id="iconGuardarExterno">save</span>
-          <span id="txtGuardarExterno">REGISTRAR EXTERNO</span>
+        <button type="button" class="ext-modal-close"
+          onclick="document.getElementById('modal-insertar-externo').classList.remove('active')"
+          aria-label="Cerrar">
+          <span class="material-symbols-outlined">close</span>
         </button>
+      </header>
+
+      <div class="ext-modal-meta">
+        <span class="ext-meta-chip" id="ext_badgePlaza">
+          <span class="material-symbols-outlined">location_on</span>
+          Plaza --
+        </span>
+        <span class="ext-meta-chip ext-meta-chip--muted">
+          <span class="material-symbols-outlined">account_tree</span>
+          Por plaza
+        </span>
       </div>
+
+      <div class="ext-modal-body">
+        <section class="ext-modal-section">
+          <h3 class="ext-section-label">Identificación</h3>
+          <div class="ext-grid-2">
+            <div class="ext-field">
+              <label for="ext_mva">Económico (MVA)</label>
+              <input type="text" id="ext_mva" placeholder="Ej. D5256" autocomplete="off">
+            </div>
+            <div class="ext-field">
+              <label for="ext_placas">Placas</label>
+              <input type="text" id="ext_placas" placeholder="Ej. GVT840F" autocomplete="off">
+            </div>
+            <div class="ext-field">
+              <label for="ext_categoria">Categoría</label>
+              <input type="text" id="ext_categoria" placeholder="Ej. EXTERNO" autocomplete="off">
+            </div>
+            <div class="ext-field">
+              <label for="ext_modelo">Modelo</label>
+              <input type="text" id="ext_modelo" placeholder="Ej. AVEO / SENTRA" autocomplete="off">
+            </div>
+          </div>
+        </section>
+
+        <section class="ext-modal-section">
+          <h3 class="ext-section-label">Notas</h3>
+          <div class="ext-field">
+            <label for="ext_notas">Observaciones</label>
+            <textarea id="ext_notas" rows="3"
+              placeholder="Motivo del alta, traslado, resguardo u otro contexto operativo..."></textarea>
+          </div>
+          <p class="ext-modal-hint">Se registra como externa en la plaza activa, con ubicación EXTERNO.</p>
+        </section>
+      </div>
+
+      <footer class="ext-modal-footer">
+        <button type="button" class="ext-btn-primary" id="btnGuardarExterno" onclick="ejecutarInsertarExterno()">
+          <span class="material-symbols-outlined" id="iconGuardarExterno">save</span>
+          <span id="txtGuardarExterno">Registrar externo</span>
+        </button>
+      </footer>
     </div>
   </div>
 
