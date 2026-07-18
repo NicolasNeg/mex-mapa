@@ -684,6 +684,7 @@ function cambiarTabFlota(tabSeleccionado) {
   VISTA_ACTUAL_FLOTA = tabSeleccionado;
   SELECT_REF_FLOTA = null;
   ADMIN_INSERT_UNIT = null;
+  try { _syncHistorialMisionBadge(); } catch (_) {}
   if (_isCuadreFleetMode() && !_isDedicatedCuadreIframeMode()) {
     _syncInlineFleetRoute(tabSeleccionado);
   }
@@ -9899,6 +9900,14 @@ function _procesarPingUI(res) {
     }
   }
 
+  try {
+    _syncHistorialMisionBadge();
+    _syncHistorialFinalizarBtn();
+    if (document.getElementById('historial-cuadres-modal')?.classList.contains('active')) {
+      renderHistorialCuadres();
+    }
+  } catch (_) {}
+
   // 6. GESTIÓN DE ALERTAS (CAMPANA)
   const badgeAlt = document.getElementById('badgeAlerts');
   const shellBellBadge = document.getElementById('shellBellBadge');
@@ -13134,19 +13143,93 @@ function _cuadreStageMode() {
   return 'aux';
 }
 
+function _cuadreMissionActiva() {
+  const settings = _radarState?.settings || {};
+  const estado = String(settings.estadoCuadreV3 || '').toUpperCase().trim();
+  if (estado !== 'PROCESO' && estado !== 'REVISION') return null;
+
+  let mission = null;
+  try {
+    const raw = settings.misionAuditoria;
+    if (typeof raw === 'string' && raw.trim()) mission = JSON.parse(raw);
+    else if (raw && typeof raw === 'object') mission = raw;
+  } catch (_) { mission = null; }
+
+  const unidades = Array.isArray(mission?.unidades)
+    ? mission.unidades
+    : (Array.isArray(mission) ? mission : []);
+  const meta = (!Array.isArray(mission) && mission && typeof mission === 'object') ? mission : {};
+
+  return {
+    estado,
+    plaza: String(meta.plaza || settings.plaza || _miPlaza() || '').toUpperCase(),
+    missionId: String(meta.missionId || settings.cuadreMissionId || '').toUpperCase(),
+    admin: String(settings.adminIniciador || meta.creador || meta.adminIniciador || 'Sistema').trim(),
+    auxiliar: String(
+      settings.cuadreDestinoNombre
+      || meta.destinatarioNombre
+      || settings.cuadreRevisionAuxNombre
+      || ''
+    ).trim(),
+    unidades: unidades.length,
+    enRevision: estado === 'REVISION'
+  };
+}
+
+function _syncHistorialMisionBadge() {
+  const active = _cuadreMissionActiva();
+  const btn = document.getElementById('tabFlotaHistorial');
+  if (btn) {
+    btn.classList.toggle('has-mision-activa', !!active);
+    let badge = btn.querySelector('.flota-tab-mision-dot');
+    if (active) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'flota-tab-mision-dot';
+        badge.title = active.enRevision ? 'Cuadre en revisión' : 'Misión de cuadre en curso';
+        badge.setAttribute('aria-label', badge.title);
+        btn.appendChild(badge);
+      }
+      badge.classList.toggle('is-revision', !!active.enRevision);
+    } else if (badge) {
+      badge.remove();
+    }
+  }
+  document.querySelectorAll('[data-cuadre-flow-tabs] [data-cuadre-tab="historial"]').forEach(el => {
+    el.classList.toggle('has-mision-activa', !!active);
+    let tip = el.querySelector('.cuadre-tab-mision-dot');
+    if (active) {
+      if (!tip) {
+        tip = document.createElement('span');
+        tip.className = 'cuadre-tab-mision-dot';
+        tip.title = active.enRevision ? 'Cuadre en revisión' : 'Misión en curso';
+        el.appendChild(tip);
+      }
+      tip.classList.toggle('is-revision', !!active.enRevision);
+    } else if (tip) {
+      tip.remove();
+    }
+  });
+}
+
 function _cuadreViewTabsHtml(active = '') {
   const current = String(active || '').toLowerCase();
-  const btn = (key, icon, label, action) => `
-    <button type="button" class="${current === key ? 'active' : ''}" onclick="${action}">
+  const mission = _cuadreMissionActiva();
+  const historialBadge = mission
+    ? `<span class="cuadre-tab-mision-dot${mission.enRevision ? ' is-revision' : ''}" title="${mission.enRevision ? 'Cuadre en revisión' : 'Misión en curso'}"></span>`
+    : '';
+  const btn = (key, icon, label, action, extra = '') => `
+    <button type="button" data-cuadre-tab="${key}" class="${current === key ? 'active' : ''}${key === 'historial' && mission ? ' has-mision-activa' : ''}" onclick="${action}">
       <span class="material-symbols-outlined">${icon}</span>
       ${label}
+      ${extra}
     </button>
   `;
   return `
     <div class="cuadre-flow-tabs" data-cuadre-flow-tabs>
       ${btn('normal', 'directions_car', 'Flota Regular', "abrirCuadreVistaFlota('NORMAL')")}
       ${btn('admins', 'admin_panel_settings', 'Cuadre Admins', "abrirCuadreVistaFlota('ADMINS')")}
-      ${btn('historial', 'history', 'Historial de Cuadre', 'abrirCuadreHistorialDesdeTabs()')}
+      ${btn('historial', 'history', 'Historial de Cuadre', 'abrirCuadreHistorialDesdeTabs()', historialBadge)}
     </div>
   `;
 }
@@ -14382,6 +14465,7 @@ async function abrirHistorialCuadres() {
   }
   modal.classList.add('active');
   _cuadreEnsureViewTabs(modal, 'historial');
+  try { _syncHistorialMisionBadge(); } catch (_) {}
 
   const container = document.getElementById('lista-historial-cuadres');
   if (!container) return;
@@ -14407,6 +14491,7 @@ async function abrirHistorialCuadres() {
         autores.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
     }
     _syncHistorialFinalizarBtn();
+    _syncHistorialMisionBadge();
     renderHistorialCuadres();
   }).catch(e => {
     console.error(e);
@@ -14609,9 +14694,47 @@ function verPdfCuadreHistorial(id) {
   abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(units, stats, meta));
 }
 
+function _historialMisionActivaHtml(mission) {
+  if (!mission) return '';
+  const estadoLabel = mission.enRevision ? 'En revisión (Ventas)' : 'En patio (auxiliar)';
+  const estadoClass = mission.enRevision ? 'is-revision' : 'is-proceso';
+  const puedeGestionar = userRole === 'admin' || _roleMeta().isAdmin || canViewAdminCuadre();
+  const primaryAction = mission.enRevision && puedeGestionar
+    ? `<button type="button" class="historial-mision-btn primary" onclick="finalizarCuadreDesdeHistorial()">
+         <span class="material-icons">task_alt</span> Finalizar cuadre
+       </button>`
+    : `<button type="button" class="historial-mision-btn primary" onclick="abrirCuadrarFlotaDesdeHistorial()">
+         <span class="material-icons">${mission.enRevision ? 'fact_check' : 'checklist'}</span>
+         ${mission.enRevision ? 'Ver revisión' : 'Abrir misión'}
+       </button>`;
+  return `
+    <article class="historial-mision-activa ${estadoClass}" aria-live="polite">
+      <div class="historial-mision-activa-head">
+        <span class="historial-mision-pulse" aria-hidden="true"></span>
+        <div>
+          <p class="historial-mision-kicker">Misión en curso</p>
+          <h3>${escapeHtml(estadoLabel)}</h3>
+        </div>
+        <span class="historial-mision-estado">${escapeHtml(mission.estado)}</span>
+      </div>
+      <div class="historial-mision-meta">
+        <span><span class="material-icons">pin_drop</span>${escapeHtml(mission.plaza || 'SIN PLAZA')}</span>
+        <span><span class="material-icons">person</span>${escapeHtml(mission.auxiliar || 'Sin auxiliar asignado')}</span>
+        <span><span class="material-icons">badge</span>${escapeHtml(mission.admin || 'Sistema')}</span>
+        <span><span class="material-icons">directions_car</span>${escapeHtml(String(mission.unidades || 0))} unidades</span>
+      </div>
+      <div class="historial-mision-actions">
+        ${primaryAction}
+        ${mission.missionId ? `<span class="historial-mision-id">${escapeHtml(mission.missionId)}</span>` : ''}
+      </div>
+    </article>
+  `;
+}
+
 function renderHistorialCuadres() {
   const container = document.getElementById('lista-historial-cuadres');
   if (!container) return;
+  const mission = _cuadreMissionActiva();
   const filtered = _filtrarHistorialCuadres();
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / HISTORIAL_CUADRES_PAGE_SIZE));
@@ -14620,11 +14743,19 @@ function renderHistorialCuadres() {
   const end = Math.min(total, start + HISTORIAL_CUADRES_PAGE_SIZE);
   const pageRows = filtered.slice(start, end);
   const status = document.getElementById('historialCuadreStatus');
-  if (status) status.textContent = `${total} registro${total === 1 ? '' : 's'} disponibles`;
+  if (status) {
+    status.textContent = mission
+      ? `${total} cerrado${total === 1 ? '' : 's'} · 1 misión en curso`
+      : `${total} registro${total === 1 ? '' : 's'} disponibles`;
+  }
+  try { _syncHistorialMisionBadge(); } catch (_) {}
+
+  const missionHtml = _historialMisionActivaHtml(mission);
 
   if (filtered.length === 0) {
     container.innerHTML = `
-      <div class="audit-history-empty">No hay cuadres que coincidan con los filtros.</div>
+      ${missionHtml}
+      <div class="audit-history-empty">${mission ? 'Aún no hay cuadres cerrados en el historial.' : 'No hay cuadres que coincidan con los filtros.'}</div>
       <div class="audit-history-footer">
         <span>Showing 0-0 of 0 records</span>
         <div class="audit-history-pager">
@@ -14657,6 +14788,7 @@ function renderHistorialCuadres() {
   }).join('');
 
   container.innerHTML = `
+    ${missionHtml}
     <table class="audit-history-table">
       <thead>
         <tr>
