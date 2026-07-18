@@ -738,7 +738,12 @@ function _normalizeIncidentPriority(value, fallbackText = "") {
 
 function _normalizeIncidentStatus(value) {
   const normalized = String(value || "").trim().toUpperCase();
-  return normalized === "RESUELTA" || normalized === "RESUELTO" ? "RESUELTA" : "PENDIENTE";
+  if (normalized === "RESUELTA" || normalized === "RESUELTO" || normalized === "CERRADA" || normalized === "CERRADO") {
+    return "RESUELTA";
+  }
+  if (normalized === "EN_PROCESO" || normalized === "EN PROCESO") return "EN_PROCESO";
+  if (normalized === "ADJUNTO" || normalized === "DOCUMENTO" || normalized === "INFO") return "ADJUNTO";
+  return "PENDIENTE";
 }
 
 function _buildIncidentCode(timestampValue) {
@@ -767,6 +772,7 @@ function _buildIncidentPayload(data = {}, autor = "", adjuntos = [], timestampVa
   const mvaField = _sanitizeText(data.mva || data.unidad || '');
   const tipoField = _sanitizeText(data.tipo || '');
   const sourceField = _sanitizeText(data.source || '');
+  const chipLabel = _sanitizeText(data.chipLabel || data.etiquetaChip || data.chip || '');
 
   return {
     timestamp,
@@ -787,7 +793,8 @@ function _buildIncidentPayload(data = {}, autor = "", adjuntos = [], timestampVa
     ...(plazaField ? { plaza: plazaField.toUpperCase().trim() } : {}),
     ...(mvaField ? { mva: mvaField.toUpperCase().trim() } : {}),
     ...(tipoField ? { tipo: tipoField } : {}),
-    ...(sourceField ? { source: sourceField } : {})
+    ...(sourceField ? { source: sourceField } : {}),
+    ...(chipLabel ? { chipLabel } : {})
   };
 }
 
@@ -2374,10 +2381,17 @@ const API_FUNCTIONS = {
       : [];
 
     const plazaNotaUp = (payloadEntrada.plaza || '').toUpperCase().trim();
+    const tipoNota = String(payloadEntrada.tipo || '').trim().toUpperCase();
+    const esAdjunto = tipoNota === 'ADJUNTO' || tipoNota === 'DOCUMENTO';
+    const estadoNota = esAdjunto
+      ? (payloadEntrada.estado || 'ADJUNTO')
+      : (payloadEntrada.estado || 'PENDIENTE');
     const payload = _buildIncidentPayload({
       ...payloadEntrada,
       fecha: _now(),
-      estado: "PENDIENTE",
+      estado: estadoNota,
+      tipo: tipoNota || payloadEntrada.tipo || 'OTRO',
+      chipLabel: payloadEntrada.chipLabel || payloadEntrada.etiquetaChip || '',
       quienResolvio: "",
       solucion: "",
       resueltaEn: ""

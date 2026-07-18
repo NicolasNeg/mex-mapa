@@ -85,6 +85,7 @@ function _normalizeEstado(value) {
     return 'resuelta';
   }
   if (raw === 'EN_PROCESO' || raw === 'EN PROCESO') return 'en_proceso';
+  if (raw === 'ADJUNTO' || raw === 'DOCUMENTO' || raw === 'INFO') return 'adjunto';
   // abierta / pendiente / anything else
   return 'abierta';
 }

@@ -107,3 +107,52 @@ export function usuariosPlazaEmptyMessage({ usuariosLoading, hasIndexError, hasU
   }
   return null;
 }
+
+/** Semana (lunes ISO) estrictamente anterior a la semana actual. */
+export function esSemanaPasada(semana) {
+  const actual = (() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString().slice(0, 10);
+  })();
+  return String(semana || '') < actual;
+}
+
+/** Busca plantilla por id o por horas coincidentes. */
+export function matchPlantilla(cell, plantillas = []) {
+  if (!cell || cell.tipo !== 'NORMAL') return null;
+  if (cell.plantillaId) {
+    const byId = plantillas.find(p => p.id === cell.plantillaId);
+    if (byId) return byId;
+  }
+  return plantillas.find(p => p.inicio === cell.inicio && p.fin === cell.fin) || null;
+}
+
+/** Minutos netos de celda (sin dependencia de Firestore). */
+export function minutosEntre(inicio, fin, pausaMin = 0) {
+  const parse = (s) => {
+    const [h, m] = String(s || '0:0').split(':').map(Number);
+    return (Number(h) || 0) * 60 + (Number(m) || 0);
+  };
+  const a = parse(inicio);
+  const b = parse(fin);
+  if (b <= a) return 0;
+  return Math.max(0, b - a - Math.max(0, Number(pausaMin) || 0));
+}
+
+/** Total de minutos de una lista de horarios (semana visible). */
+export function totalMinutosSemana(horarios = [], diasKeys = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']) {
+  let min = 0;
+  for (const h of horarios) {
+    for (const d of diasKeys) {
+      const cell = h?.dias?.[d];
+      if (cell?.tipo === 'NORMAL') {
+        min += minutosEntre(cell.inicio, cell.fin, cell.pausaMin);
+      }
+    }
+  }
+  return min;
+}

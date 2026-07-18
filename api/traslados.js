@@ -185,7 +185,38 @@
   }
 
   function _edicion(campo, antes, despues, usuario) {
-    return { campo, antes: antes == null ? '' : String(antes), despues: despues == null ? '' : String(despues), usuario: _actorName(usuario), fecha: _now(), timestamp: _ts() };
+    const ts = _ts();
+    return {
+      campo,
+      antes: antes == null ? '' : String(antes),
+      despues: despues == null ? '' : String(despues),
+      usuario: _actorName(usuario),
+      fecha: new Date(ts).toISOString(),
+      timestamp: ts
+    };
+  }
+
+  /** Espejo de api/cuadre.js::_syncIndexEstadoYUbicacion — el índice debe reflejar TRASLADO al instante. */
+  async function _syncIndexTraslado(mva, patch = {}) {
+    try {
+      const mvaStr = _upper(mva);
+      if (!mvaStr) return;
+      const snap = await db.collection(COL.INDEX).where('mva', '==', mvaStr).limit(1).get();
+      if (snap.empty) return;
+      const fields = {};
+      if (patch.plazaActual !== undefined) fields.plazaActual = patch.plazaActual;
+      if (patch.ubicacion !== undefined) fields.ubicacion = patch.ubicacion;
+      if (patch.pos !== undefined) fields.pos = patch.pos;
+      if (patch.estadoPatio) {
+        fields.estadoPatio = _upper(patch.estadoPatio);
+        fields.estadoFlota = _upper(patch.estadoFlota || patch.estadoPatio);
+        // Alias legacy leído por Unidades / filtros.
+        if (fields.estadoFlota === 'TRASLADO' || !patch.preserveEstadoAlias) {
+          fields.estado = fields.estadoFlota;
+        }
+      }
+      if (Object.keys(fields).length) await snap.docs[0].ref.set(fields, { merge: true });
+    } catch (_) { /* sync índice no debe romper el traslado */ }
   }
 
   function _validarCierre(data, kmLlegada, fechaCierre) {
@@ -243,8 +274,13 @@
         kmSalida, gasSalida: unit.data.gasolina || 'N/A', fechaSalida: salidaIso,
         fechaRegresoEstimada: payload.fechaRegresoEstimada ? _iso(payload.fechaRegresoEstimada) : '',
         estado: 'ABIERTO', creadoPor: actor, fechaCreacion: nowText, timestampCreacion: _ts(),
-        notas: payload.nota ? [{ texto: _text(payload.nota), usuario: actor, fecha: nowText, timestamp: _ts() }] : [],
-        ediciones: [], estadoAntesTraslado: unit.data.estado || '', ubicacionAntesTraslado: unit.data.ubicacion || ''
+        notas: payload.nota ? (() => {
+          const noteTs = _ts();
+          return [{ texto: _text(payload.nota), usuario: actor, fecha: new Date(noteTs).toISOString(), timestamp: noteTs }];
+        })() : [],
+        ediciones: [],
+        estadoAntesTraslado: unit.data.estadoPatio || unit.data.estado || '',
+        ubicacionAntesTraslado: unit.data.ubicacion || ''
       };
       await ref.set(data);
       const kmRes = await window.api.registrarKm({ mva, km: kmSalida, fuente: 'TRASLADO_SALIDA', usuario: actor, plaza: plazaOrigen, trasladoId: ref.id });
@@ -252,7 +288,21 @@
         await ref.delete();
         return { ok: false, error: kmRes || 'No se pudo registrar el kilometraje de salida' };
       }
-      await unit.ref.set({ estado: 'TRASLADO', traslado_destino: plazaDestino, trasladoId: ref.id, trasladoFolio: folio, _updatedAt: nowText, _updatedBy: actor }, { merge: true });
+      await unit.ref.set({
+        estado: 'TRASLADO',
+        estadoPatio: 'TRASLADO',
+        traslado_destino: plazaDestino,
+        trasladoId: ref.id,
+        trasladoFolio: folio,
+        _updatedAt: nowText,
+        _updatedBy: actor
+      }, { merge: true });
+      await _syncIndexTraslado(mva, {
+        plazaActual: plazaOrigen,
+        ubicacion: unit.data.ubicacion || 'PATIO',
+        estadoPatio: 'TRASLADO',
+        estadoFlota: 'TRASLADO'
+      });
       await _actualizarFeed('TRASLADO SALIDA: ' + mva + ' -> ' + plazaDestino, actor, plazaOrigen);
       await _registrarLog('TRASLADO', 'TRASLADO CREADO: ' + folio + ' · ' + mva + ' -> ' + plazaDestino, actor, plazaOrigen, {
         mva,
@@ -295,7 +345,8 @@
       }
       if (cambios.nota) {
         const notas = Array.isArray(cur.notas) ? cur.notas.slice() : [];
-        notas.push({ texto: _text(cambios.nota), usuario: actor, fecha: _now(), timestamp: _ts() });
+        const noteTs = _ts();
+        notas.push({ texto: _text(cambios.nota), usuario: actor, fecha: new Date(noteTs).toISOString(), timestamp: noteTs });
         update.notas = notas;
       }
       if (!Object.keys(update).length && !edits.length) return { ok: true, id };
@@ -331,22 +382,46 @@
       }
       const samePlaza = _normalizePlazaId(data.plazaOrigen) === _normalizePlazaId(data.plazaDestino);
       const clearFields = { traslado_destino: FV.delete(), trasladoId: FV.delete(), trasladoFolio: FV.delete() };
+      const estadoRestaurado = data.estadoAntesTraslado || (samePlaza ? 'LISTO' : 'SUCIO');
       if (samePlaza) {
-        if (unit) await unit.ref.set({ ...clearFields, estado: data.estadoAntesTraslado || 'LISTO', ubicacion: data.ubicacionAntesTraslado || 'PATIO', gasolina: gasLlegada, km: kmLlegada, _updatedAt: _now(), _updatedBy: actor }, { merge: true });
+        if (unit) {
+          await unit.ref.set({
+            ...clearFields,
+            estado: estadoRestaurado,
+            estadoPatio: estadoRestaurado,
+            ubicacion: data.ubicacionAntesTraslado || 'PATIO',
+            gasolina: gasLlegada,
+            km: kmLlegada,
+            _updatedAt: _now(),
+            _updatedBy: actor
+          }, { merge: true });
+        }
+        await _syncIndexTraslado(data.mva, {
+          plazaActual: data.plazaOrigen,
+          ubicacion: data.ubicacionAntesTraslado || 'PATIO',
+          estadoPatio: estadoRestaurado
+        });
       } else {
         const base = unit ? unit.data : {};
         if (unit) await unit.ref.delete();
         await db.collection(COL.CUADRE).doc(_mvaToDocId(data.mva)).set({
           ...base, ...clearFields, mva: data.mva, modelo: data.modelo || base.modelo || '', placas: data.placas || base.placas || '',
-          plaza: data.plazaDestino, pos: 'LIMBO', ubicacion: 'PATIO', estado: data.estadoAntesTraslado || 'SUCIO', gasolina: gasLlegada,
+          plaza: data.plazaDestino, pos: 'LIMBO', ubicacion: 'PATIO', estado: estadoRestaurado, estadoPatio: estadoRestaurado, gasolina: gasLlegada,
           km: kmLlegada, fechaIngreso: new Date().toISOString(), _updatedAt: _now(), _updatedBy: actor
         }, { merge: true });
-        const idx = await db.collection(COL.INDEX).where('mva', '==', data.mva).limit(1).get();
-        if (!idx.empty) await idx.docs[0].ref.set({ plazaActual: data.plazaDestino, pos: 'LIMBO', ubicacion: 'PATIO' }, { merge: true });
+        await _syncIndexTraslado(data.mva, {
+          plazaActual: data.plazaDestino,
+          pos: 'LIMBO',
+          ubicacion: 'PATIO',
+          estadoPatio: estadoRestaurado
+        });
       }
       const cierreNota = _text(payload.nota || '');
       const notas = Array.isArray(data.notas) ? data.notas.slice() : [];
-      if (cierreNota) notas.push({ texto: cierreNota, usuario: actor, fecha: _now(), timestamp: _ts(), tipo: 'CIERRE' });
+      if (cierreNota) {
+        const noteTs = _ts();
+        notas.push({ texto: cierreNota, usuario: actor, fecha: new Date(noteTs).toISOString(), timestamp: noteTs, tipo: 'CIERRE' });
+      }
       const cierre = { estado: 'CERRADO', kmLlegada, gasLlegada, fechaCierre, cerradoPor: actor, notaCierre: cierreNota, notas, ediciones: (Array.isArray(data.ediciones) ? data.ediciones : []).concat([_edicion('estado', 'ABIERTO', 'CERRADO', actor)]) };
       await ref.set(cierre, { merge: true });
       await _actualizarFeed('TRASLADO CERRADO: ' + data.mva + ' -> ' + data.plazaDestino, actor, data.plazaDestino);

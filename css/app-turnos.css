@@ -550,13 +550,22 @@
 }
 
 .tu-cell-horario {
-  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-size: 10px;
   font-weight: 700;
-  color: #4338ca;
-  background: #eef2ff;
   border-radius: 6px;
-  padding: 3px 5px;
-  display: inline-block;
+  padding: 4px 6px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.tu-cell-horario small {
+  font-weight: 500;
+  opacity: 0.85;
+  font-size: 9px;
 }
 
 .tu-cell-tipo {
@@ -1088,6 +1097,152 @@
   border-radius: 8px;
   background: #f8fafc;
   border: 1px solid #f1f5f9;
+}
+
+.tu-plantilla-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+/* ── Grid selects (paridad CHECADOR) ─────────────────────── */
+.tu-grid-td--sel {
+  padding: 4px !important;
+  vertical-align: middle;
+}
+
+.tu-cell-sel-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tu-grid-sel {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: auto;
+  background: #f8fafc;
+  color: #334155;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.tu-grid-sel:hover,
+.tu-grid-sel:focus {
+  border-color: #93c5fd;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.tu-grid-sel:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.tu-cell-edit-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.tu-grid-td--sel:hover .tu-cell-edit-btn,
+.tu-cell-edit-btn:focus {
+  opacity: 1;
+}
+
+.tu-cell-edit-btn:hover {
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+.tu-cell-edit-btn .material-symbols-outlined {
+  font-size: 14px;
+}
+
+.tu-cell-empty {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.tu-cell-horario small {
+  font-weight: 500;
+  opacity: 0.85;
+  font-size: 9px;
+}
+
+.tu-sem-total {
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  padding: 0 8px;
+}
+
+.tu-sem-total strong {
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.tu-input--color {
+  padding: 2px 4px;
+  height: 36px;
+  min-width: 48px;
+  cursor: pointer;
+}
+
+.tu-plantilla-chip {
+  background: var(--chip-bg, #eef2ff);
+  color: var(--chip-fg, #3730a3);
+}
+
+.tu-grid-nota-gen,
+.tu-grid-nota-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #6366f1;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 2px;
+}
+
+.tu-grid-nota-gen .material-symbols-outlined,
+.tu-grid-nota-add .material-symbols-outlined {
+  font-size: 14px;
+}
+
+.tu-grid-nota-gen:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+@media (max-width: 768px) {
+  .tu-cell-edit-btn { opacity: 1; }
+  .tu-grid-sel { font-size: 9px; }
+  .tu-sem-total { font-size: 11px; }
 }
 
 .tu-plantilla-item-name {

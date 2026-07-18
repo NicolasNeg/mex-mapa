@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v565';
+const CACHE_NAME = 'mapa-v567';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -311,12 +311,70 @@ async function _documentFallbackResponse(request, url) {
   );
 }
 
+// Nunca devolver Response.error(): Chrome lo reporta como
+// "FetchEvent ... resolved with an error response object" y rompe la carga
+// (iframes del shell, navegaciones flaky). Preferir 503 vacío o offline HTML.
+function _offlineResponse(request) {
+  const dest = request.destination;
+  if (dest === 'script' || (request.url && request.url.endsWith('.js'))) {
+    return new Response('/* offline */', {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' }
+    });
+  }
+  if (dest === 'style' || (request.url && request.url.endsWith('.css'))) {
+    return new Response('/* offline */', {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' }
+    });
+  }
+  return new Response('', {
+    status: 503,
+    statusText: 'Service Unavailable',
+    headers: { 'Cache-Control': 'no-store' }
+  });
+}
+
+function _isFirebaseOrGoogleRequest(url) {
+  const host = url.hostname;
+  // Passthrough total: un respondWith aquí rompe WebChannel/Listen de Firestore.
+  return (
+    host === 'firestore.googleapis.com' ||
+    host.endsWith('.googleapis.com') ||
+    host.endsWith('.google.com') ||
+    host.endsWith('.gstatic.com') ||
+    host.endsWith('.firebaseio.com') ||
+    host.endsWith('.firebasestorage.app') ||
+    host.endsWith('.firebaseapp.com') ||
+    host.endsWith('.cloudfunctions.net') ||
+    host.includes('fonts.google')
+  );
+}
+
+function _isDocumentLikeRequest(request, url, dest) {
+  if (request.mode === 'navigate') return true;
+  // Chrome marca iframes del shell (legacy-stage) como destination "iframe".
+  if (dest === 'document' || dest === 'iframe') return true;
+  if (request.method !== 'GET') return false;
+  if (url.origin !== self.location.origin) return false;
+  const accept = request.headers.get('accept') || '';
+  if (accept.includes('text/html')) return true;
+  const path = url.pathname;
+  if (path === '/app' || path.startsWith('/app/')) return true;
+  if (/\.html?$/i.test(path)) return true;
+  // Clean URLs sin extensión ( /mapa, /cuadre, … ) — no son assets estáticos.
+  if (path.length > 1 && !/\.[a-z0-9]+$/i.test(path)) return true;
+  return false;
+}
+
 // ── Fetch: estrategia por tipo de recurso ───────────────────
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   const sameOrigin = url.origin === self.location.origin;
   const dest = event.request.destination;
-  const isDocumentRequest = event.request.mode === 'navigate' || dest === 'document';
+  const isDocumentRequest = _isDocumentLikeRequest(event.request, url, dest);
   const isStaticAsset = sameOrigin && (dest === 'script' || dest === 'style');
 
   // Nunca interceptar scripts de Service Worker
@@ -324,16 +382,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Siempre ir a la red para Firebase (Firestore, Auth, FCM) y no-GET
-  if (
-    url.hostname.includes('firestore.googleapis.com') ||
-    url.hostname.includes('firebase') ||
-    url.hostname.includes('googleapis.com') ||
-    url.hostname.includes('google.com') ||
-    url.hostname.includes('gstatic.com') ||
-    url.hostname.includes('fonts.google') ||
-    event.request.method !== 'GET'
-  ) {
+  // Siempre ir a la red para Firebase (Firestore, Auth, FCM) y no-GET.
+  // Importante: no llamar respondWith — el SW no debe tocar WebChannel.
+  if (_isFirebaseOrGoogleRequest(url) || event.request.method !== 'GET') {
     return;
   }
 
@@ -369,8 +420,8 @@ self.addEventListener('fetch', event => {
           event.waitUntil(networkFetch);
           return cached;
         }
-        // Sin cache → esperar la red
-        return networkFetch.then(r => r || Response.error());
+        // Sin cache → esperar la red; nunca Response.error() (ruido en consola + rotura)
+        return networkFetch.then(r => r || _offlineResponse(event.request));
       })
     );
     return;
@@ -382,7 +433,7 @@ self.addEventListener('fetch', event => {
       if (cached) return cached;
       return fetch(event.request)
         .then(r => _cacheAndReturn(event.request, r))
-        .catch(() => Response.error());
+        .catch(() => _offlineResponse(event.request));
     })
   );
 });

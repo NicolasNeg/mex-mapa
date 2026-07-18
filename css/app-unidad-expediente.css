@@ -143,6 +143,13 @@
   margin: 0;
 }
 
+.uexp-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
 .uexp-link {
   border: 0;
   background: transparent;
@@ -249,7 +256,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: #fef3c7;
   color: #92400e;
 }
@@ -258,6 +265,101 @@
 .uexp-pill.resuelto {
   background: #dcfce7;
   color: #166534;
+}
+
+.uexp-pill.adjunto,
+.uexp-pill.vigente,
+.uexp-pill.original,
+.uexp-pill.documento {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.uexp-pill.vencido,
+.uexp-pill.vencida,
+.uexp-pill.copia {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.uexp-adjunto-form {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--uexp-border);
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.uexp-adjunto-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.uexp-adjunto-head strong {
+  font-size: 14px;
+  color: var(--uexp-ink);
+}
+
+.uexp-adjunto-head span {
+  font-size: 12px;
+  color: var(--uexp-muted);
+}
+
+.uexp-adjunto-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.uexp-adjunto-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--uexp-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.uexp-adjunto-grid label.span-all {
+  grid-column: 1 / -1;
+}
+
+.uexp-adjunto-grid input,
+.uexp-adjunto-grid textarea {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--uexp-border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--uexp-ink);
+  font: 400 13px/1.4 Inter, sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+.uexp-adjunto-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.uexp-adjunto-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .uexp-adjunto-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .uexp-attachments {

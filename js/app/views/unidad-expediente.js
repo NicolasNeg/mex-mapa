@@ -67,6 +67,9 @@ export async function mount({ container, navigate }) {
     error: '',
     editing: params.get('edit') === '1' && _canManage(),
     busy: false,
+    showAdjuntoForm: false,
+    adjuntoBusy: false,
+    adjuntoFiles: [],
     data: null
   };
   _renderShell();
@@ -85,7 +88,7 @@ export function unmount() {
 function _ensureCss() {
   [
     { href: '/css/app-unidades.css?v=20260715f', attr: 'data-app-unidades-css' },
-    { href: '/css/app-unidad-expediente.css?v=20260715c', attr: 'data-app-unidad-exp-css' }
+    { href: '/css/app-unidad-expediente.css?v=20260718a', attr: 'data-app-unidad-exp-css' }
   ].forEach(({ href, attr }) => {
     let link = document.querySelector(`link[${attr}="1"]`);
     if (link) {
@@ -103,10 +106,13 @@ function _ensureCss() {
 function _bind() {
   const click = e => _onClick(e);
   const submit = e => _onSubmit(e);
+  const change = e => _onChange(e);
   _ctr?.addEventListener('click', click);
   _ctr?.addEventListener('submit', submit);
+  _ctr?.addEventListener('change', change);
   _offs.push(() => _ctr?.removeEventListener('click', click));
   _offs.push(() => _ctr?.removeEventListener('submit', submit));
+  _offs.push(() => _ctr?.removeEventListener('change', change));
 }
 
 function _mvaFromPath() {
@@ -264,8 +270,12 @@ function _paintBody() {
     <section class="uexp-panel uexp-panel--wide">
       <div class="uexp-panel-head">
         <h2>Notas e incidencias</h2>
-        <button type="button" class="uexp-link" data-action="incidencias">Ver todas</button>
+        <div class="uexp-panel-actions">
+          ${_canManage() ? '<button type="button" class="uexp-link" data-action="toggle-adjunto">Adjuntar documento</button>' : ''}
+          <button type="button" class="uexp-link" data-action="incidencias">Ver todas</button>
+        </div>
       </div>
+      ${_adjuntoFormHtml()}
       ${_notasHtml(_s.data?.notas || [])}
     </section>
 
@@ -343,15 +353,59 @@ function _extrasPanel(extras) {
   `;
 }
 
+function _adjuntoFormHtml() {
+  if (!_s?.showAdjuntoForm || !_canManage()) return '';
+  const files = Array.isArray(_s.adjuntoFiles) ? _s.adjuntoFiles : [];
+  return `
+    <form class="uexp-adjunto-form" data-action="save-adjunto">
+      <div class="uexp-adjunto-head">
+        <strong>Adjuntar documento a la unidad</strong>
+        <span>No es una incidencia pendiente: es una nota tipo adjunto con chip personalizable.</span>
+      </div>
+      <div class="uexp-adjunto-grid">
+        <label>
+          <span>Título</span>
+          <input name="titulo" required maxlength="90" placeholder="Ej. Tarjeta de circulación">
+        </label>
+        <label>
+          <span>Chip</span>
+          <input name="chipLabel" required maxlength="24" placeholder="Ej. VIGENTE" style="text-transform:uppercase">
+        </label>
+        <label class="span-all">
+          <span>Descripción</span>
+          <textarea name="descripcion" rows="2" required placeholder="Se adjunta imagen de T.C. original"></textarea>
+        </label>
+        <label class="span-all">
+          <span>Archivos</span>
+          <input type="file" id="uexp-adjunto-files" multiple accept="image/*,.pdf,.doc,.docx">
+        </label>
+      </div>
+      ${files.length ? `<div class="uexp-adjunto-files">${files.map((f, i) => `
+        <span class="uexp-att-file"><span class="material-icons">attach_file</span>${esc(f.name || `archivo-${i + 1}`)}</span>
+      `).join('')}</div>` : ''}
+      <div class="uexp-adjunto-actions">
+        <button type="button" class="uexp-btn ghost" data-action="toggle-adjunto">Cancelar</button>
+        <button type="submit" class="uexp-btn primary" ${_s.adjuntoBusy ? 'disabled' : ''}>
+          ${_s.adjuntoBusy ? 'Guardando…' : 'Guardar adjunto'}
+        </button>
+      </div>
+    </form>
+  `;
+}
+
 function _notasHtml(notas) {
   if (!notas.length) return '<p class="uexp-empty">Sin notas registradas para esta unidad.</p>';
   return `<div class="uexp-notes">${notas.map(n => {
     const adj = [...(n.adjuntos || []), ...(n.evidencias || [])];
+    const chip = String(n.chipLabel || '').trim()
+      || (String(n.tipo || '').toUpperCase() === 'ADJUNTO' ? 'ADJUNTO' : '')
+      || String(n.estado || 'PENDIENTE');
+    const chipClass = String(n.chipLabel || n.estado || 'PENDIENTE').toLowerCase().replace(/\s+/g, '-');
     return `
       <article class="uexp-note">
         <header>
           <strong>${esc(n.titulo || 'Nota')}</strong>
-          <span class="uexp-pill ${esc(String(n.estado || 'PENDIENTE').toLowerCase())}">${esc(n.estado || 'PENDIENTE')}</span>
+          <span class="uexp-pill ${esc(chipClass)}">${esc(chip)}</span>
         </header>
         <p>${esc(n.descripcion || n.nota || '')}</p>
         <footer>
@@ -458,6 +512,13 @@ function _onClick(event) {
     _go(`/app/incidencias?mva=${encodeURIComponent(_s.mva)}`);
     return;
   }
+  if (action === 'toggle-adjunto') {
+    if (!_canManage()) return;
+    _s.showAdjuntoForm = !_s.showAdjuntoForm;
+    if (!_s.showAdjuntoForm) _s.adjuntoFiles = [];
+    _paintBody();
+    return;
+  }
   if (action === 'cola') {
     const plaza = _s.data?.detail?.plazaActual || _s.data?.detail?.sucursal || '';
     const qs = new URLSearchParams({ mva: _s.mva });
@@ -467,6 +528,13 @@ function _onClick(event) {
 }
 
 async function _onSubmit(event) {
+  const adjuntoForm = event.target.closest('form[data-action="save-adjunto"]');
+  if (adjuntoForm && _ctr?.contains(adjuntoForm)) {
+    event.preventDefault();
+    await _submitAdjunto(adjuntoForm);
+    return;
+  }
+
   const form = event.target.closest('form[data-unit-form="edit"]');
   if (!form || !_ctr?.contains(form)) return;
   event.preventDefault();
@@ -497,6 +565,74 @@ async function _onSubmit(event) {
     if (_s) {
       _s.busy = false;
       _syncEditingUi();
+    }
+  }
+}
+
+function _onChange(event) {
+  if (event.target?.id !== 'uexp-adjunto-files' || !_s) return;
+  _s.adjuntoFiles = Array.from(event.target.files || []);
+  const host = _ctr?.querySelector('.uexp-adjunto-files');
+  const form = _ctr?.querySelector('.uexp-adjunto-form');
+  if (!form) return;
+  const html = _s.adjuntoFiles.length
+    ? `<div class="uexp-adjunto-files">${_s.adjuntoFiles.map((f, i) => `
+        <span class="uexp-att-file"><span class="material-icons">attach_file</span>${esc(f.name || `archivo-${i + 1}`)}</span>
+      `).join('')}</div>`
+    : '';
+  if (host) host.outerHTML = html || '<div class="uexp-adjunto-files" hidden></div>';
+  else if (html) {
+    const grid = form.querySelector('.uexp-adjunto-grid');
+    if (grid) grid.insertAdjacentHTML('afterend', html);
+  }
+}
+
+async function _submitAdjunto(form) {
+  if (!_s || _s.adjuntoBusy || !_canManage()) return;
+  const fd = new FormData(form);
+  const titulo = String(fd.get('titulo') || '').trim();
+  const descripcion = String(fd.get('descripcion') || '').trim();
+  const chipLabel = String(fd.get('chipLabel') || '').trim().toUpperCase();
+  if (!titulo) return _toast('Escribe un título.', 'error');
+  if (!descripcion) return _toast('Escribe una descripción.', 'error');
+  if (!chipLabel) return _toast('Escribe el chip (ej. VIGENTE).', 'error');
+
+  const plaza = norm(_s.data?.detail?.plazaActual || _s.data?.detail?.sucursal || '');
+  const files = Array.isArray(_s.adjuntoFiles) ? _s.adjuntoFiles : [];
+  _s.adjuntoBusy = true;
+  _paintBody();
+  try {
+    const api = window.api;
+    if (typeof api?.guardarNuevaNotaDirecto !== 'function') {
+      throw new Error('API de notas no disponible.');
+    }
+    const res = await api.guardarNuevaNotaDirecto({
+      titulo,
+      descripcion,
+      chipLabel,
+      tipo: 'ADJUNTO',
+      estado: 'ADJUNTO',
+      mva: _s.mva,
+      unidad: _s.mva,
+      plaza,
+      prioridad: 'MEDIA',
+      archivos: files,
+      source: 'unidad_expediente_adjunto',
+      autor: _actor()
+    }, _actor());
+    if (res !== 'OK' && res?.ok !== true) {
+      throw new Error(typeof res === 'string' ? res : 'No se pudo guardar el adjunto.');
+    }
+    _toast('Documento adjunto guardado.', 'success');
+    _s.showAdjuntoForm = false;
+    _s.adjuntoFiles = [];
+    await _load();
+  } catch (err) {
+    _toast(err?.message || 'No se pudo guardar el adjunto.', 'error');
+  } finally {
+    if (_s) {
+      _s.adjuntoBusy = false;
+      if (_s.showAdjuntoForm) _paintBody();
     }
   }
 }

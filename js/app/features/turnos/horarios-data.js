@@ -8,6 +8,7 @@
 
 import { db, COL } from '/js/core/database.js';
 import { isFirestoreIndexError, listenerErrorFrom, normalizePlazaUsuario } from '/js/app/features/turnos/turnos-view-model.js';
+import { PALETA } from '/js/app/features/turnos/turno-color.js';
 
 export { isFirestoreIndexError, listenerErrorFrom };
 
@@ -123,6 +124,47 @@ export function onHorariosSemanales(plaza, semana, callback) {
   );
 }
 
+/** Valida y normaliza una celda de día. Devuelve null si se debe borrar. */
+export function validarCelda(raw) {
+  if (raw == null || raw === '' || raw === false) return null;
+  const tipo = String(raw.tipo || '').toUpperCase().trim();
+  if (!tipo || tipo === 'VACIO' || tipo === 'NONE') return null;
+
+  if (tipo === 'NORMAL') {
+    const inicio = String(raw.inicio || '').trim();
+    const fin = String(raw.fin || '').trim();
+    if (!/^\d{1,2}:\d{2}$/.test(inicio) || !/^\d{1,2}:\d{2}$/.test(fin)) {
+      throw new Error('Horario NORMAL requiere inicio y fin (HH:MM).');
+    }
+    const cell = { tipo: 'NORMAL', inicio, fin };
+    if (raw.plantillaId) cell.plantillaId = String(raw.plantillaId);
+    if (raw.nota) cell.nota = String(raw.nota).trim();
+    if (Number.isFinite(raw.pausaMin)) cell.pausaMin = Math.max(0, Number(raw.pausaMin));
+    return cell;
+  }
+
+  if (!TIPOS_DIA[tipo]) {
+    throw new Error(`Tipo de día inválido: ${tipo}`);
+  }
+  const cell = { tipo };
+  if (raw.nota) cell.nota = String(raw.nota).trim();
+  return cell;
+}
+
+/** Minutos netos de una celda NORMAL (resta pausa). */
+export function minutosCelda(cell) {
+  if (!cell || cell.tipo !== 'NORMAL') return 0;
+  const parse = (s) => {
+    const [h, m] = String(s || '0:0').split(':').map(Number);
+    return (Number(h) || 0) * 60 + (Number(m) || 0);
+  };
+  const a = parse(cell.inicio);
+  const b = parse(cell.fin);
+  if (b <= a) return 0;
+  const pausa = Math.max(0, Number(cell.pausaMin) || 0);
+  return Math.max(0, b - a - pausa);
+}
+
 /** Guarda o actualiza el horario de un usuario para una semana. */
 export async function guardarHorario(usuarioId, plaza, semana, dias, meta = {}) {
   const fv = _fv();
@@ -130,23 +172,87 @@ export async function guardarHorario(usuarioId, plaza, semana, dias, meta = {}) 
   const ref = db.collection(COL.HORARIOS).doc(docId);
   const snap = await ref.get();
 
+  // Validar cada celda para no persistir basura
+  const diasClean = {};
+  for (const [k, v] of Object.entries(dias || {})) {
+    if (!DIAS.includes(k)) continue;
+    const cell = validarCelda(v);
+    if (cell) diasClean[k] = cell;
+  }
+
   const base = {
     usuarioId,
     usuarioNombre:  String(meta.nombre || '').trim(),
     usuarioRol:     String(meta.rol    || '').toUpperCase(),
     plaza,
     semanaInicio:   semana,
-    dias,
+    dias: diasClean,
     actualizadoPor: _authUid(),
     actualizadoEn:  fv ? fv.serverTimestamp() : Date.now(),
   };
 
   if (!snap.exists) {
     base.creadoEn = fv ? fv.serverTimestamp() : Date.now();
+    base.version = 1;
     await ref.set(base);
   } else {
+    base.version = (Number(snap.data()?.version) || 0) + 1;
     await ref.update(base);
   }
+  return docId;
+}
+
+/**
+ * Patch atómico de una sola celda (evita pisar ediciones concurrentes).
+ * cellData = null | false → borra la celda.
+ */
+export async function guardarHorarioCelda(usuarioId, plaza, semana, diaKey, cellData, meta = {}) {
+  if (!DIAS.includes(diaKey)) throw new Error(`Día inválido: ${diaKey}`);
+  const fv = _fv();
+  const docId = horarioDocId(plaza, semana, usuarioId);
+  const ref = db.collection(COL.HORARIOS).doc(docId);
+  const snap = await ref.get();
+  const cell = validarCelda(cellData);
+
+  if (!snap.exists) {
+    const dias = {};
+    if (cell) dias[diaKey] = cell;
+    await ref.set({
+      usuarioId,
+      usuarioNombre: String(meta.nombre || '').trim(),
+      usuarioRol: String(meta.rol || '').toUpperCase(),
+      plaza,
+      semanaInicio: semana,
+      dias,
+      version: 1,
+      creadoEn: fv ? fv.serverTimestamp() : Date.now(),
+      actualizadoPor: _authUid(),
+      actualizadoEn: fv ? fv.serverTimestamp() : Date.now(),
+    });
+    return docId;
+  }
+
+  const prev = snap.data() || {};
+  const patch = {
+    actualizadoPor: _authUid(),
+    actualizadoEn: fv ? fv.serverTimestamp() : Date.now(),
+    version: (Number(prev.version) || 0) + 1,
+  };
+  if (meta.nombre) patch.usuarioNombre = String(meta.nombre).trim();
+  if (meta.rol) patch.usuarioRol = String(meta.rol).toUpperCase();
+
+  if (cell) {
+    patch[`dias.${diaKey}`] = cell;
+  } else if (fv?.delete) {
+    patch[`dias.${diaKey}`] = fv.delete();
+  } else {
+    // Fallback sin FieldValue.delete: reescribe dias sin la clave
+    const dias = { ...(prev.dias || {}) };
+    delete dias[diaKey];
+    patch.dias = dias;
+  }
+
+  await ref.update(patch);
   return docId;
 }
 
@@ -374,7 +480,15 @@ export function onPlantillas(callback) {
   );
 }
 
-export async function guardarPlantilla(nombre, inicio, fin, id = null) {
+/**
+ * Catálogo de turnos (plantillas) — paridad ChecadorGLOBAL.
+ * @param {string} nombre
+ * @param {string} inicio HH:MM
+ * @param {string} fin HH:MM
+ * @param {string|null} id
+ * @param {{ color?: string, pausaMin?: number }} [extra]
+ */
+export async function guardarPlantilla(nombre, inicio, fin, id = null, extra = {}) {
   const fv = _fv();
   const base = {
     nombre: String(nombre).trim(),
@@ -383,10 +497,21 @@ export async function guardarPlantilla(nombre, inicio, fin, id = null) {
     actualizadoPor: _authUid(),
     actualizadoEn:  fv ? fv.serverTimestamp() : Date.now(),
   };
+  if (extra.color) base.color = String(extra.color).trim();
+  if (Number.isFinite(extra.pausaMin)) {
+    base.pausaMin = Math.max(0, Number(extra.pausaMin));
+  }
   if (id) {
     await db.collection(COL.HORARIOS_PLANTILLAS).doc(id).update(base);
     return id;
   }
+  // Color por defecto de paleta si no se indica
+  if (!base.color) {
+    const n = (await db.collection(COL.HORARIOS_PLANTILLAS).get()).size;
+    base.color = PALETA[n % PALETA.length];
+  }
+  base.pausaMin = base.pausaMin ?? 0;
+  base.activo = true;
   base.creadoEn = fv ? fv.serverTimestamp() : Date.now();
   const ref = await db.collection(COL.HORARIOS_PLANTILLAS).add(base);
   return ref.id;

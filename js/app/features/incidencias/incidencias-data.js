@@ -21,6 +21,7 @@ function normalizeState(value = '') {
     return 'RESUELTA';
   }
   if (normalized === 'EN_PROCESO' || normalized === 'EN PROCESO') return 'EN_PROCESO';
+  if (normalized === 'ADJUNTO' || normalized === 'DOCUMENTO' || normalized === 'INFO') return 'ADJUNTO';
   return 'PENDIENTE';
 }
 
@@ -73,6 +74,7 @@ export function mapNotaAdminToIncidencia(id, data = {}) {
     tipo: String(data.tipo || 'OTRO').toUpperCase().trim() || 'OTRO',
     prioridad: normalizePriority(data.prioridad),
     estado: normalizeState(data.estado),
+    chipLabel: String(data.chipLabel || data.etiquetaChip || data.chip || '').trim(),
     autor: String(data.autor || data.creadoPor || '').trim(),
     creadoPor: String(data.creadoPor || data.autor || '').trim(),
     creadoEn: normalizeDateField(data.creadoEn || data.fecha || data.timestamp || timestamp),
@@ -201,11 +203,13 @@ export async function createIncidencia(payload = {}) {
     descripcion: String(basePayload.descripcion || basePayload.nota || ''),
     descripcionHtml: String(basePayload.descripcionHtml || basePayload.notaHtml || ''),
     notaHtml: String(basePayload.descripcionHtml || basePayload.notaHtml || ''),
-    estado: 'PENDIENTE',
+    estado: String(basePayload.estado || (String(basePayload.tipo || '').toUpperCase() === 'ADJUNTO' ? 'ADJUNTO' : 'PENDIENTE')).toUpperCase(),
+    chipLabel: String(basePayload.chipLabel || basePayload.etiquetaChip || '').trim(),
     quienResolvio: '',
     solucion: '',
     resueltaEn: '',
     codigo: String(basePayload.codigo || `INC-${id.slice(-6)}`),
+    tipo: String(basePayload.tipo || 'OTRO').toUpperCase(),
     adjuntos: [
       ...(Array.isArray(basePayload.evidencias) ? basePayload.evidencias : []),
       ...(Array.isArray(basePayload.adjuntos) ? basePayload.adjuntos : []),

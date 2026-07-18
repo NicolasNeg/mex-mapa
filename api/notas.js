@@ -72,10 +72,17 @@
         : [];
 
       const plazaNotaUp = (payloadEntrada.plaza || '').toUpperCase().trim();
+      const tipoNota = String(payloadEntrada.tipo || '').trim().toUpperCase();
+      const esAdjunto = tipoNota === 'ADJUNTO' || tipoNota === 'DOCUMENTO';
+      const estadoNota = esAdjunto
+        ? (payloadEntrada.estado || 'ADJUNTO')
+        : (payloadEntrada.estado || 'PENDIENTE');
       const payload = _buildIncidentPayload({
         ...payloadEntrada,
         fecha: _now(),
-        estado: "PENDIENTE",
+        estado: estadoNota,
+        tipo: tipoNota || payloadEntrada.tipo || 'OTRO',
+        chipLabel: payloadEntrada.chipLabel || payloadEntrada.etiquetaChip || '',
         quienResolvio: "",
         solucion: "",
         resueltaEn: ""

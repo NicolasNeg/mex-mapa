@@ -35,6 +35,9 @@
 
   function _configureFirestoreTransport(dbInstance) {
     if (!dbInstance || window.__mexFirestoreSettingsApplied) return dbInstance;
+    // Flag manual (Programador / localStorage). No combinar Force + AutoDetect.
+    // Por defecto: AutoDetect — el SDK cambia a long-polling si WebChannel/QUIC falla
+    // (errores Listen 400 / QUIC_NETWORK_IDLE_TIMEOUT suelen ser transitorios y el SDK reintenta).
     const forceLongPolling = _lsGet('mex.firestore.forceLongPolling') === '1';
     const settings = forceLongPolling
       ? {

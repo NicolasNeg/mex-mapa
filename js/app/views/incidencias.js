@@ -32,14 +32,14 @@ function _trackListener(action, name, extra = {}) {
 }
 
 // ─── Tipos de incidencia conocidos (para FilterRail) ───
-const TIPOS_KNOWN = ['MECANICA', 'ACCIDENTE', 'LIMPIEZA', 'DOCUMENTOS', 'OTRO'];
+const TIPOS_KNOWN = ['MECANICA', 'ACCIDENTE', 'LIMPIEZA', 'DOCUMENTOS', 'ADJUNTO', 'OTRO'];
 
 function _makeState(plaza) {
   const url = new URL(window.location.href);
   const mvaFromQuery = String(url.searchParams.get('mva') || '').trim().toUpperCase();
   const queryFromUrl = String(url.searchParams.get('q') || '').trim();
   const priorityFilter = { CRITICA: true, ALTA: true, MEDIA: true, BAJA: true };
-  const statusFilter = { PENDIENTE: true, EN_PROCESO: true, RESUELTA: true, CERRADA: true };
+  const statusFilter = { PENDIENTE: true, EN_PROCESO: true, RESUELTA: true, CERRADA: true, ADJUNTO: true };
   const tipoFilter = {};
   TIPOS_KNOWN.forEach(t => { tipoFilter[t] = true; });
   const profile = getState()?.profile || null;
@@ -298,6 +298,7 @@ function _bindUi() {
   q('nuevaNotaPrioridad')?.addEventListener('change', _applyDraftMeta);
   q('nuevaNotaTitulo')?.addEventListener('input', _onDraftChange);
   q('nuevaNotaTipo')?.addEventListener('change', _onDraftChange);
+  q('nuevaNotaChip')?.addEventListener('input', _onDraftChange);
   const mvaInput = q('incMvaInput');
   if (mvaInput) {
     mvaInput.addEventListener('input', () => { _onDraftChange(); _showMvaSuggestions(mvaInput); });
@@ -1037,7 +1038,7 @@ function _renderList(items) {
     const pr = _priority(item).toLowerCase();
     const status = _statusFromNota(item);
     const stKey = status.toLowerCase();
-    const stLabel = _statusLabel(status);
+    const stLabel = _statusLabel(status, item);
     const isActive = _state.detailOpenId === id;
     const isSelected = sel.has(id);
     const tipo = String(item?.tipo || 'OTRO').toUpperCase().trim() || 'OTRO';
@@ -1122,7 +1123,7 @@ function _renderTable(items) {
     const prLower = pr.toLowerCase();
     const status = _statusFromNota(item);
     const stKey = status.toLowerCase();
-    const stLabel = _statusLabel(status);
+    const stLabel = _statusLabel(status, item);
     const isActive = _state.detailOpenId === id;
     const tipo = String(item?.tipo || 'OTRO').toUpperCase().trim() || 'OTRO';
 
@@ -1260,7 +1261,7 @@ function _renderDetailPanel() {
   const prLower = pr.toLowerCase();
   const status = _statusFromNota(item);
   const stKey = status.toLowerCase();
-  const stLabel = _statusLabel(status);
+  const stLabel = _statusLabel(status, item);
   const open = status === 'PENDIENTE' || status === 'EN_PROCESO';
   const canDelete = _canDelete(item);
   const evidencias = _evidenceRows(item);
@@ -1406,7 +1407,7 @@ function _renderDetailPanel() {
               const rPr = _priority(r).toLowerCase();
               const rStatus = _statusFromNota(r);
               const rStKey = rStatus.toLowerCase();
-              const rStLabel = _statusLabel(rStatus);
+              const rStLabel = _statusLabel(rStatus, r);
               return `
                 <button class="dp-related-row" data-open-id="${esc(rid)}">
                   <span class="prio-dot is-${esc(rPr)}"></span>
@@ -1668,8 +1669,10 @@ async function _onCreateIncidencia() {
   const prioridad = String(q('nuevaNotaPrioridad')?.value || 'MEDIA').toUpperCase();
   const tipo = String(q('nuevaNotaTipo')?.value || 'OTRO').toUpperCase();
   const mva = String(q('incMvaInput')?.value || '').trim().toUpperCase();
+  const chipLabel = String(q('nuevaNotaChip')?.value || '').trim().toUpperCase();
   if (!titulo) return _showNotice('Escribe el título de la nota.', 'error');
   if (!descripcion) return _showNotice('Escribe la descripción.', 'error');
+  if (tipo === 'ADJUNTO' && !chipLabel) return _showNotice('Escribe el chip del adjunto (ej. VIGENTE).', 'error');
 
   const btn = q('btnPublicarInc');
   const gs = getState();
@@ -1690,7 +1693,8 @@ async function _onCreateIncidencia() {
       plazaID: _state.plaza,
       autor,
       creadoPor: autor,
-      estado: 'PENDIENTE',
+      estado: tipo === 'ADJUNTO' ? 'ADJUNTO' : 'PENDIENTE',
+      chipLabel: tipo === 'ADJUNTO' ? chipLabel : '',
       source: 'notas_admin',
       asignadoA: _state.asignarSelected || null,
       seguidores: [],
@@ -1731,6 +1735,8 @@ function _resetComposer() {
   _state.descripcionHtmlNuevaNota = '';
   const pri = q('nuevaNotaPrioridad'); if (pri) pri.value = 'ALTA';
   const tip = q('nuevaNotaTipo'); if (tip) tip.value = 'OTRO';
+  const chip = q('nuevaNotaChip'); if (chip) chip.value = '';
+  const chipWrap = q('nuevaNotaChipWrap'); if (chipWrap) chipWrap.hidden = true;
   // Reset segmented prio
   qsa('[data-ci-prio]').forEach(b => b.classList.toggle('is-on', b.dataset.ciPrio === 'ALTA'));
   if (_state.archivosNuevaNota) {
@@ -1748,7 +1754,7 @@ function _resetComposer() {
   if (dropEl) { dropEl.style.display = 'none'; dropEl.innerHTML = ''; }
   const assignInput = q('incAsignarInput');
   if (assignInput) assignInput.value = '';
-  _state.createDraft = { titulo: '', descripcion: '', prioridad: 'ALTA', tipo: 'OTRO', mva: '' };
+  _state.createDraft = { titulo: '', descripcion: '', prioridad: 'ALTA', tipo: 'OTRO', mva: '', chipLabel: '' };
   _renderAdjuntosNuevos();
   _renderLinksNuevos();
   _prefillMvaFromQuery();
@@ -1845,10 +1851,16 @@ function _statusFromNota(item) {
   if (value === 'RESUELTA' || value === 'RESUELTO') return 'RESUELTA';
   if (value === 'CERRADA' || value === 'CERRADO') return 'CERRADA';
   if (value === 'EN_PROCESO' || value === 'EN PROCESO') return 'EN_PROCESO';
+  if (value === 'ADJUNTO' || value === 'DOCUMENTO' || value === 'INFO') return 'ADJUNTO';
+  if (String(item?.tipo || '').toUpperCase() === 'ADJUNTO') return 'ADJUNTO';
   return 'PENDIENTE';
 }
 
-function _statusLabel(key) {
+function _statusLabel(key, item = null) {
+  if (key === 'ADJUNTO') {
+    const chip = String(item?.chipLabel || '').trim();
+    return chip || 'Adjunto';
+  }
   switch (key) {
     case 'RESUELTA': return 'Resuelta';
     case 'CERRADA': return 'Cerrada';
@@ -2072,6 +2084,9 @@ function _onDraftChange() {
   _state.createDraft.prioridad = String(q('nuevaNotaPrioridad')?.value || 'ALTA').toUpperCase();
   _state.createDraft.tipo = String(q('nuevaNotaTipo')?.value || 'OTRO').toUpperCase();
   _state.createDraft.mva = String(q('incMvaInput')?.value || '').trim();
+  _state.createDraft.chipLabel = String(q('nuevaNotaChip')?.value || '').trim();
+  const chipWrap = q('nuevaNotaChipWrap');
+  if (chipWrap) chipWrap.hidden = _state.createDraft.tipo !== 'ADJUNTO';
   // Hint counter
   const titleHint = q('incCreateTitleHint');
   if (titleHint) {
@@ -2085,9 +2100,13 @@ function _onDraftChange() {
 function _renderCreatePreview() {
   const card = q('incCreatePreviewCard');
   if (!card) return;
-  const d = _state?.createDraft || { titulo: '', descripcion: '', prioridad: 'ALTA', tipo: 'OTRO', mva: '' };
+  const d = _state?.createDraft || { titulo: '', descripcion: '', prioridad: 'ALTA', tipo: 'OTRO', mva: '', chipLabel: '' };
   const prLower = String(d.prioridad).toLowerCase();
   const tipo = String(d.tipo || 'OTRO').toUpperCase();
+  const statusLabel = tipo === 'ADJUNTO'
+    ? (String(d.chipLabel || 'ADJUNTO').trim().toUpperCase() || 'ADJUNTO')
+    : 'Pendiente';
+  const statusCls = tipo === 'ADJUNTO' ? 'is-adjunto' : 'is-pendiente';
   const gs = getState();
   const me = gs?.profile?.nombreCompleto || gs?.profile?.nombre || gs?.profile?.email || 'Sistema';
   const meInitials = _initialsFrom(me);
@@ -2104,7 +2123,7 @@ function _renderCreatePreview() {
     <h2 class="ci-prev-title">${d.titulo ? esc(d.titulo) : '<span class="ci-prev-empty">Título de la incidencia</span>'}</h2>
     <div class="ci-prev-pills">
       <span class="ci-prev-pill"><span class="prio-dot is-${esc(prLower)}"></span>${esc(_priorityLabel(d.prioridad))}</span>
-      <span class="status-pill is-pendiente"><span class="status-pill-dot"></span>Pendiente</span>
+      <span class="status-pill ${statusCls}"><span class="status-pill-dot"></span>${esc(statusLabel)}</span>
       <span class="ci-prev-pill ci-prev-pill-soft">${esc(tipo)}</span>
       ${d.mva ? `<span class="ci-prev-pill ci-prev-pill-soft">${esc(d.mva)}</span>` : ''}
     </div>
@@ -2234,6 +2253,7 @@ function _renderStatusChecks() {
   const opts = [
     { key: 'PENDIENTE',  label: 'Pendiente',  cls: 'is-pendiente' },
     { key: 'EN_PROCESO', label: 'En proceso', cls: 'is-en_proceso' },
+    { key: 'ADJUNTO',    label: 'Adjunto',    cls: 'is-adjunto' },
     { key: 'RESUELTA',   label: 'Resuelta',   cls: 'is-resuelta' },
     { key: 'CERRADA',    label: 'Cerrada',    cls: 'is-cerrada' },
   ];
@@ -2248,11 +2268,19 @@ function _renderStatusChecks() {
 }
 
 function _renderTipoChecks() {
+  const labels = {
+    MECANICA: 'Mecánica',
+    ACCIDENTE: 'Accidente',
+    LIMPIEZA: 'Limpieza',
+    DOCUMENTOS: 'Documentos',
+    ADJUNTO: 'Adjunto',
+    OTRO: 'Otro'
+  };
   return TIPOS_KNOWN.map(t => `
     <label class="rail-check is-on" data-tipo="${t}">
       <input type="checkbox" checked>
       <span class="rail-tick"></span>
-      <span class="rail-label">${esc(t.charAt(0) + t.slice(1).toLowerCase())}</span>
+      <span class="rail-label">${esc(labels[t] || t)}</span>
       <span class="rail-num" data-count-tipo="${t}">0</span>
     </label>
   `).join('');
@@ -2395,8 +2423,15 @@ function _renderLayout() {
                     <option value="ACCIDENTE">Accidente</option>
                     <option value="LIMPIEZA">Limpieza</option>
                     <option value="DOCUMENTOS">Documentos</option>
+                    <option value="ADJUNTO">Adjunto / documento</option>
                     <option value="OTRO" selected>Otro</option>
                   </select>
+                </div>
+
+                <div class="ci-field" id="nuevaNotaChipWrap" hidden>
+                  <label class="ci-label">Chip personalizado</label>
+                  <input type="text" id="nuevaNotaChip" class="ci-input" placeholder="Ej. VIGENTE, ORIGINAL, COPIA…" maxlength="24">
+                  <p class="ci-hint" style="margin:6px 0 0;font-size:12px;color:var(--fg-muted)">Se muestra en lugar de “Pendiente” en el expediente de la unidad.</p>
                 </div>
 
                 <div class="ci-field">

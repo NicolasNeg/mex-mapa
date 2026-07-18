@@ -9,11 +9,10 @@ import { onTurnosActivos } from '/js/app/features/turnos/turnos-data.js';
 import { iniciarTurno, cerrarTurno } from '/js/app/features/turnos/turnos-mutations.js';
 import {
   DIAS, DIA_NOMBRE, TIPOS_DIA, ESTADOS_ASISTENCIA,
-  semanaInicio, moverSemana, fechaDia, hoy, rangoSemana,
-  onHorariosSemanales, guardarHorario, copiarSemanaAnterior,
+  semanaInicio, moverSemana, fechaDia, hoy,
+  onHorariosSemanales, guardarHorarioCelda, copiarSemanaAnterior,
   onAsistencia, registrarAsistencia, confirmarAsistencia,
   getHistorialTurnos, getUsuariosPlaza,
-  getMiHorario,
   onPlantillas, guardarPlantilla, eliminarPlantilla,
   onNotasSemana, guardarNotaSemana,
 } from '/js/app/features/turnos/horarios-data.js';
@@ -31,7 +30,12 @@ import {
   normalizeUsuarioUid,
   indexErrorBannerHtml,
   usuariosPlazaEmptyMessage,
+  esSemanaPasada,
+  matchPlantilla,
+  totalMinutosSemana,
+  minutosEntre,
 } from '/js/app/features/turnos/turnos-view-model.js';
+import { colorDeTurno, contraste } from '/js/app/features/turnos/turno-color.js';
 
 function _toast(msg, title = 'Turnos') {
   if (typeof window.mexAlert === 'function') {
@@ -541,12 +545,87 @@ function _renderTurnoMeta(turno) {
   return `<div class="tu-card-meta">${bits.join('')}</div>`;
 }
 
-// ── Tab Horarios ──────────────────────────────────────────────
+// ── Tab Horarios (paridad ChecadorGLOBAL: selects coloreados) ─
+function _cellSelectValue(cell, plantillas) {
+  if (!cell) return '';
+  if (cell.tipo && cell.tipo !== 'NORMAL') return `tipo:${cell.tipo}`;
+  const p = matchPlantilla(cell, plantillas);
+  if (p) return `p:${p.id}`;
+  if (cell.tipo === 'NORMAL' && cell.inicio && cell.fin) {
+    return `custom:${cell.inicio}-${cell.fin}`;
+  }
+  return '';
+}
+
+function _cellStyle(cell, plantillas) {
+  if (!cell) return '';
+  if (cell.tipo && cell.tipo !== 'NORMAL') {
+    const bg = TIPOS_DIA[cell.tipo]?.color || '#94a3b8';
+    return `background:${bg};color:${contraste(bg)}`;
+  }
+  const p = matchPlantilla(cell, plantillas);
+  if (p || cell.tipo === 'NORMAL') {
+    const bg = colorDeTurno(p || { id: `${cell.inicio}-${cell.fin}`, color: cell.color });
+    return `background:${bg};color:${contraste(bg)}`;
+  }
+  return '';
+}
+
+function _renderCellSelect(u, diaKey, cell, plantillas, editable) {
+  const realUid = normalizeUsuarioUid(u);
+  const val = _cellSelectValue(cell, plantillas);
+  const sty = _cellStyle(cell, plantillas);
+  if (!editable) {
+    if (!cell) return '<span class="tu-cell-empty">—</span>';
+    if (cell.tipo === 'NORMAL') {
+      const p = matchPlantilla(cell, plantillas);
+      const label = p ? p.nombre : `${cell.inicio}–${cell.fin}`;
+      return `<div class="tu-cell-horario" style="${sty}">${esc(label)}<small>${esc(cell.inicio)}–${esc(cell.fin)}</small></div>`;
+    }
+    return `<div class="tu-cell-tipo" style="${sty}">${esc(TIPOS_DIA[cell.tipo]?.label || cell.tipo)}</div>`;
+  }
+
+  const tipoOpts = Object.entries(TIPOS_DIA)
+    .filter(([k]) => k !== 'NORMAL')
+    .map(([k, v]) => `<option value="tipo:${k}"${val === `tipo:${k}` ? ' selected' : ''}>${esc(v.label)}</option>`)
+    .join('');
+  const plantOpts = plantillas.map((p) => {
+    const v = `p:${p.id}`;
+    return `<option value="${esc(v)}"${val === v ? ' selected' : ''}>${esc(p.nombre)} (${esc(p.inicio)}–${esc(p.fin)})</option>`;
+  }).join('');
+  let customOpt = '';
+  if (val.startsWith('custom:')) {
+    customOpt = `<option value="${esc(val)}" selected>Custom ${esc(cell.inicio)}–${esc(cell.fin)}</option>`;
+  }
+
+  return `<div class="tu-cell-sel-wrap">
+  <select class="tu-grid-sel"
+      data-edit-uid="${esc(realUid)}"
+      data-edit-nombre="${esc(nombreUsuario(u))}"
+      data-edit-rol="${esc(u.rol || u.role || '')}"
+      data-edit-dia="${diaKey}"
+      style="${sty}"
+      title="Asignar turno">
+    <option value="">—</option>
+    ${plantOpts}
+    ${tipoOpts}
+    ${customOpt}
+  </select>
+  <button type="button" class="tu-cell-edit-btn"
+      data-edit-uid="${esc(realUid)}"
+      data-edit-nombre="${esc(nombreUsuario(u))}"
+      data-edit-rol="${esc(u.rol || u.role || '')}"
+      data-edit-dia="${diaKey}"
+      title="Editar detalle">
+    <span class="material-symbols-outlined">edit</span>
+  </button>
+  </div>`;
+}
+
 function _renderHorarios() {
   const { semana, horarios, usuarios, isAdmin, usuariosLoading, uid, plantillas, notasSemana, showGestionPlantillas, profile } = _s;
 
-  const semanaActual = semanaInicio();
-  const semanaEditable = isAdmin && semana >= semanaActual;
+  const semanaEditable = isAdmin && !esSemanaPasada(semana);
 
   const semanaFin = moverSemana(semana, 1);
   const semanaFinDisplay = new Date(semanaFin + 'T00:00:00');
@@ -556,6 +635,9 @@ function _renderHorarios() {
     const d = new Date(s + 'T00:00:00');
     return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
   };
+
+  const totalMin = totalMinutosSemana(horarios);
+  const totalHoras = (totalMin / 60).toFixed(1);
 
   // Encabezado de columnas con notas generales
   const diasHeaders = DIAS.map(d => {
@@ -569,13 +651,15 @@ function _renderHorarios() {
         ${dObj.getDate()}
       </div>
       ${notaGen
-        ? `<div class="tu-grid-nota-gen" title="${esc(notaGen)}" ${semanaEditable ? `data-nota-dia="${d}" data-nota-val="${esc(notaGen)}"` : ''}>📌</div>`
-        : (semanaEditable ? `<button class="tu-grid-nota-add" data-nota-dia="${d}" title="Agregar nota general" type="button">+</button>` : '')
+        ? `<button type="button" class="tu-grid-nota-gen" title="${esc(notaGen)}" ${semanaEditable ? `data-nota-dia="${d}" data-nota-val="${esc(notaGen)}"` : 'disabled'}>
+            <span class="material-symbols-outlined">sticky_note_2</span>
+          </button>`
+        : (semanaEditable ? `<button class="tu-grid-nota-add" data-nota-dia="${d}" title="Agregar nota general" type="button"><span class="material-symbols-outlined">add</span></button>` : '')
       }
     </th>`;
   }).join('');
 
-  // Filas de usuarios (FIX: usar u.uid || u.id para obtener el UID real)
+  // Filas de usuarios
   let filas = '';
   if (usuariosLoading) {
     filas = `<tr><td colspan="8" class="tu-grid-loading">Cargando usuarios…</td></tr>`;
@@ -602,17 +686,8 @@ function _renderHorarios() {
             const cell  = horario?.dias?.[d];
             const fecha = fechaDia(semana, d);
             const esHoy = fecha === hoy();
-            const editable = semanaEditable;
-            let content = '';
-            if (cell) {
-              content = cell.tipo === 'NORMAL'
-                ? `<div class="tu-cell-horario">${esc(cell.inicio)}–${esc(cell.fin)}</div>`
-                : `<div class="tu-cell-tipo" style="background:${TIPOS_DIA[cell.tipo]?.color || '#94a3b8'}20;color:${TIPOS_DIA[cell.tipo]?.color || '#94a3b8'}">${TIPOS_DIA[cell.tipo]?.label || cell.tipo}</div>`;
-              if (cell.nota) content += `<div class="tu-cell-nota" title="${esc(cell.nota)}">💬 ${esc(cell.nota)}</div>`;
-            }
-            return `<td class="tu-grid-td${esHoy ? ' tu-grid-td--today' : ''}${editable ? ' tu-grid-td--editable' : ''}"
-                        ${editable ? `data-edit-uid="${esc(realUid)}" data-edit-nombre="${esc(nombreUsuario(u))}" data-edit-rol="${esc(u.rol || u.role || '')}" data-edit-dia="${d}"` : ''}>
-              ${content || (editable ? '<span class="tu-cell-add">+</span>' : '')}
+            return `<td class="tu-grid-td tu-grid-td--sel${esHoy ? ' tu-grid-td--today' : ''}${semanaEditable ? ' tu-grid-td--editable' : ''}">
+              ${_renderCellSelect(u, d, cell, plantillas, semanaEditable)}
             </td>`;
           }).join('')}
         </tr>`;
@@ -620,27 +695,32 @@ function _renderHorarios() {
     }
   }
 
-  // Panel gestión de plantillas
+  // Panel gestión de catálogo (plantillas con color — paridad CHECADOR)
   const gestionPanel = showGestionPlantillas ? `
 <div class="tu-plantillas-panel" id="tuPlantillasPanel">
   <div class="tu-plantillas-panel-head">
-    <span class="material-symbols-outlined">bookmark</span>
-    <h3>Plantillas de horario</h3>
+    <span class="material-symbols-outlined">schedule</span>
+    <h3>Catálogo de turnos</h3>
     <button class="tu-btn tu-btn--icon" id="tuCerrarGestion" type="button">
       <span class="material-symbols-outlined">close</span>
     </button>
   </div>
   <div class="tu-plantillas-list" id="tuPlantillasList">
     ${plantillas.length === 0
-      ? '<p class="tu-empty" style="padding:8px 0;">Sin plantillas. Crea la primera.</p>'
-      : plantillas.map(p => `
+      ? '<p class="tu-empty" style="padding:8px 0;">Sin turnos. Crea el primero (ej. Mañana 08:00–16:00).</p>'
+      : plantillas.map(p => {
+        const bg = colorDeTurno(p);
+        const fg = contraste(bg);
+        return `
         <div class="tu-plantilla-item">
+          <span class="tu-plantilla-swatch" style="background:${bg};color:${fg}"></span>
           <span class="tu-plantilla-item-name">${esc(p.nombre)}</span>
           <span class="tu-plantilla-item-hours">${esc(p.inicio)}–${esc(p.fin)}</span>
           <button class="tu-btn tu-btn--sm tu-btn--red" data-del-plantilla="${esc(p.id)}" type="button">
             <span class="material-symbols-outlined">delete</span>
           </button>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
   </div>
   <div class="tu-plantillas-form">
     <input class="tu-input" type="text" id="tuPNombre" placeholder="Nombre (ej: Turno Mañana)">
@@ -653,9 +733,17 @@ function _renderHorarios() {
         <label class="tu-label">Salida</label>
         <input class="tu-input" type="time" id="tuPFin" value="16:00">
       </div>
+      <div class="tu-field-group">
+        <label class="tu-label">Color</label>
+        <input class="tu-input tu-input--color" type="color" id="tuPColor" value="#3B82F6">
+      </div>
+      <div class="tu-field-group">
+        <label class="tu-label">Pausa (min)</label>
+        <input class="tu-input" type="number" id="tuPPausa" value="0" min="0" max="180" step="5">
+      </div>
     </div>
     <button class="tu-btn tu-btn--primary tu-btn--full" id="tuGuardarPlantilla" type="button" style="margin-top:8px;">
-      <span class="material-symbols-outlined">add</span> Agregar plantilla
+      <span class="material-symbols-outlined">add</span> Agregar turno
     </button>
   </div>
 </div>` : '';
@@ -682,13 +770,14 @@ function _renderHorarios() {
     <button class="tu-btn tu-btn--ghost" id="tuCopiarSemana" type="button">
       <span class="material-symbols-outlined">content_copy</span> Copiar semana anterior
     </button>` : ''}
+    <span class="tu-sem-total" id="tuSemTotal">Total semana: <strong>${esc(totalHoras)} h</strong></span>
     <div style="flex:1"></div>
     ${isAdmin ? `
     <button class="tu-btn tu-btn--ghost" id="tuGestionPlantillas" type="button">
-      <span class="material-symbols-outlined">bookmark</span> Plantillas
+      <span class="material-symbols-outlined">schedule</span> Catálogo
     </button>` : ''}
     <button class="tu-btn tu-btn--ghost" id="tuExportar" type="button">
-      <span class="material-symbols-outlined">share</span> Exportar
+      <span class="material-symbols-outlined">picture_as_pdf</span> Exportar PDF
     </button>
   </div>
   ${gestionPanel}
@@ -704,7 +793,13 @@ function _renderHorarios() {
     </table>
   </div>
   ${isAdmin ? `<div class="tu-horarios-legend">
-    ${Object.entries(TIPOS_DIA).map(([k, v]) =>
+    ${plantillas.map(p => {
+      const bg = colorDeTurno(p);
+      return `<span class="tu-legend-item">
+        <span class="tu-legend-dot" style="background:${bg}"></span>${esc(p.nombre)}
+      </span>`;
+    }).join('')}
+    ${Object.entries(TIPOS_DIA).filter(([k]) => k !== 'NORMAL').map(([, v]) =>
       `<span class="tu-legend-item">
         <span class="tu-legend-dot" style="background:${v.color}"></span>${v.label}
       </span>`).join('')}
@@ -723,14 +818,20 @@ function _renderHorarios() {
     <div class="tu-editor-body">
       ${plantillas.length ? `
       <div>
-        <label class="tu-label">Usar plantilla</label>
+        <label class="tu-label">Usar turno del catálogo</label>
         <div class="tu-plantillas-chips" id="tuPlantillasChips">
-          ${plantillas.map(p => `
+          ${plantillas.map(p => {
+            const bg = colorDeTurno(p);
+            const fg = contraste(bg);
+            return `
             <button class="tu-plantilla-chip" type="button"
-                    data-pid="${esc(p.id)}" data-inicio="${esc(p.inicio)}" data-fin="${esc(p.fin)}">
+                    data-pid="${esc(p.id)}" data-inicio="${esc(p.inicio)}" data-fin="${esc(p.fin)}"
+                    data-pausa="${Number(p.pausaMin) || 0}"
+                    style="--chip-bg:${bg};--chip-fg:${fg}">
               ${esc(p.nombre)}
               <span class="tu-plantilla-chip-time">${esc(p.inicio)}–${esc(p.fin)}</span>
-            </button>`).join('')}
+            </button>`;
+          }).join('')}
         </div>
       </div>` : ''}
       <div>
@@ -757,6 +858,9 @@ function _renderHorarios() {
         <label class="tu-label">Nota para este colaborador</label>
         <input class="tu-input" type="text" id="tuNotaDia" placeholder="Ej: Va a GDL ese día">
       </div>
+      <button class="tu-btn tu-btn--ghost tu-btn--full" id="tuEditorBorrar" type="button" style="margin-bottom:8px;">
+        Quitar asignación
+      </button>
       <button class="tu-btn tu-btn--primary tu-btn--full" id="tuEditorGuardar" type="button">
         <span class="material-symbols-outlined">save</span>
         Guardar
@@ -1066,20 +1170,23 @@ function _bindHorarios() {
     _repaintTab();
   });
 
-  // Guardar nueva plantilla
+  // Guardar nuevo turno del catálogo
   _ctr?.querySelector('#tuGuardarPlantilla')?.addEventListener('click', async () => {
     const nombre = _ctr.querySelector('#tuPNombre')?.value.trim();
     const inicio = _ctr.querySelector('#tuPInicio')?.value;
     const fin    = _ctr.querySelector('#tuPFin')?.value;
+    const color  = _ctr.querySelector('#tuPColor')?.value || '#3B82F6';
+    const pausaMin = Number(_ctr.querySelector('#tuPPausa')?.value) || 0;
     if (!nombre || !inicio || !fin) return;
     const btn = _ctr.querySelector('#tuGuardarPlantilla');
     if (btn) btn.disabled = true;
     try {
-      await guardarPlantilla(nombre, inicio, fin);
+      await guardarPlantilla(nombre, inicio, fin, null, { color, pausaMin });
       const el = _ctr.querySelector('#tuPNombre');
       if (el) el.value = '';
     } catch (e) {
       console.warn('[turnos] guardarPlantilla:', e);
+      _toast(e?.message || 'No se pudo guardar el turno.', 'Error');
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -1094,19 +1201,67 @@ function _bindHorarios() {
     });
   });
 
-  // Notas generales de día — clic en 📌 o en "+"
+  // Notas generales de día
   _ctr?.querySelectorAll('[data-nota-dia]').forEach(el => {
     el.addEventListener('click', () => _openNotaModal(el.dataset.notaDia, el.dataset.notaVal || ''));
   });
   _bindNotaModal();
 
-  // Click en celda editable (abrir editor)
+  // Selects inline (paridad CHECADOR)
   if (_s.isAdmin) {
-    _ctr?.querySelectorAll('.tu-grid-td--editable').forEach(td => {
-      td.addEventListener('click', () => _openEditor(td));
+    _ctr?.querySelectorAll('.tu-grid-sel').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        const uid = sel.dataset.editUid;
+        const nombre = sel.dataset.editNombre;
+        const rol = sel.dataset.editRol;
+        const diaKey = sel.dataset.editDia;
+        if (!uid || !diaKey || !_s) return;
+        sel.disabled = true;
+        try {
+          const cell = _parseSelectValue(sel.value, _s.plantillas);
+          await guardarHorarioCelda(uid, _s.plaza, _s.semana, diaKey, cell, { nombre, rol });
+        } catch (e) {
+          console.warn('[turnos] grid-sel:', e);
+          _toast(e?.message || 'No se pudo guardar.', 'Error');
+          _repaintTab();
+        } finally {
+          sel.disabled = false;
+        }
+      });
+    });
+    _ctr?.querySelectorAll('.tu-cell-edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        _openEditor(btn);
+      });
     });
     _bindEditor();
   }
+}
+
+function _parseSelectValue(value, plantillas = []) {
+  const v = String(value || '');
+  if (!v) return null;
+  if (v.startsWith('tipo:')) {
+    return { tipo: v.slice(5) };
+  }
+  if (v.startsWith('p:')) {
+    const id = v.slice(2);
+    const p = plantillas.find(x => x.id === id);
+    if (!p) throw new Error('Turno del catálogo no encontrado.');
+    return {
+      tipo: 'NORMAL',
+      inicio: p.inicio,
+      fin: p.fin,
+      plantillaId: p.id,
+      pausaMin: Number(p.pausaMin) || 0,
+    };
+  }
+  if (v.startsWith('custom:')) {
+    const [inicio, fin] = v.slice(7).split('-');
+    return { tipo: 'NORMAL', inicio, fin };
+  }
+  return null;
 }
 
 function _openEditor(td) {
@@ -1122,7 +1277,7 @@ function _openEditor(td) {
   const horario = _s.horarios.find(h => h.usuarioId === uid);
   const cell    = horario?.dias?.[diaKey];
 
-  _s.editDia = { uid, nombre, rol, diaKey };
+  _s.editDia = { uid, nombre, rol, diaKey, plantillaId: cell?.plantillaId || null };
 
   // Setear título
   const titleEl = editor.querySelector('#tuEditorTitle');
@@ -1141,6 +1296,11 @@ function _openEditor(td) {
   const fin = editor.querySelector('#tuHoraFin');
   if (ini) ini.value = cell?.inicio || '08:00';
   if (fin) fin.value = cell?.fin    || '16:00';
+
+  // Chips plantilla
+  editor.querySelectorAll('.tu-plantilla-chip').forEach(c => {
+    c.classList.toggle('tu-plantilla-chip--active', c.dataset.pid === cell?.plantillaId);
+  });
 
   // Nota del día
   const notaEl = editor.querySelector('#tuNotaDia');
@@ -1165,6 +1325,10 @@ function _bindEditor() {
       btn.classList.add('tu-tipo-btn--active');
       const horasRow = editor.querySelector('#tuHorasRow');
       if (horasRow) horasRow.style.display = btn.dataset.tipo === 'NORMAL' ? '' : 'none';
+      if (btn.dataset.tipo !== 'NORMAL' && _s?.editDia) {
+        _s.editDia.plantillaId = null;
+        editor.querySelectorAll('.tu-plantilla-chip').forEach(c => c.classList.remove('tu-plantilla-chip--active'));
+      }
     });
   });
 
@@ -1175,6 +1339,8 @@ function _bindEditor() {
       const fin = editor.querySelector('#tuHoraFin');
       if (ini) ini.value = chip.dataset.inicio;
       if (fin) fin.value = chip.dataset.fin;
+      if (_s?.editDia) _s.editDia.plantillaId = chip.dataset.pid || null;
+      if (_s?.editDia) _s.editDia.pausaMin = Number(chip.dataset.pausa) || 0;
       // Activar NORMAL
       editor.querySelectorAll('.tu-tipo-btn').forEach(b => {
         b.classList.toggle('tu-tipo-btn--active', b.dataset.tipo === 'NORMAL');
@@ -1187,8 +1353,28 @@ function _bindEditor() {
     });
   });
 
+  editor.querySelector('#tuEditorBorrar')?.addEventListener('click', async () => {
+    const { editDia, plaza, semana } = _s;
+    if (!editDia) return;
+    const btn = editor.querySelector('#tuEditorBorrar');
+    if (btn) btn.disabled = true;
+    try {
+      await guardarHorarioCelda(editDia.uid, plaza, semana, editDia.diaKey, null, {
+        nombre: editDia.nombre,
+        rol: editDia.rol,
+      });
+      editor.style.display = 'none';
+      _s.editDia = null;
+    } catch (e) {
+      console.warn('[turnos] borrarCelda:', e);
+      _toast(e?.message || 'No se pudo quitar.', 'Error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
+
   editor.querySelector('#tuEditorGuardar')?.addEventListener('click', async () => {
-    const { editDia, horarios, plaza, semana } = _s;
+    const { editDia, plaza, semana } = _s;
     if (!editDia) return;
     const btn = editor.querySelector('#tuEditorGuardar');
     if (btn) btn.disabled = true;
@@ -1199,15 +1385,29 @@ function _bindEditor() {
       const fin        = editor.querySelector('#tuHoraFin')?.value    || '16:00';
       const nota       = (editor.querySelector('#tuNotaDia')?.value || '').trim();
 
-      const horario = horarios.find(h => h.usuarioId === editDia.uid);
-      const dias    = { ...(horario?.dias || {}) };
-      const cellData = tipoActivo === 'NORMAL'
-        ? { tipo: 'NORMAL', inicio, fin }
-        : { tipo: tipoActivo };
+      let cellData;
+      if (tipoActivo === 'NORMAL') {
+        cellData = {
+          tipo: 'NORMAL',
+          inicio,
+          fin,
+          plantillaId: editDia.plantillaId || null,
+          pausaMin: Number(editDia.pausaMin) || 0,
+        };
+        // Si las horas coinciden con una plantilla, enlazar
+        if (!cellData.plantillaId) {
+          const match = (_s.plantillas || []).find(p => p.inicio === inicio && p.fin === fin);
+          if (match) {
+            cellData.plantillaId = match.id;
+            cellData.pausaMin = Number(match.pausaMin) || 0;
+          }
+        }
+      } else {
+        cellData = { tipo: tipoActivo };
+      }
       if (nota) cellData.nota = nota;
-      dias[editDia.diaKey] = cellData;
 
-      await guardarHorario(editDia.uid, plaza, semana, dias, {
+      await guardarHorarioCelda(editDia.uid, plaza, semana, editDia.diaKey, cellData, {
         nombre: editDia.nombre,
         rol:    editDia.rol,
       });
@@ -1215,7 +1415,8 @@ function _bindEditor() {
       editor.style.display = 'none';
       _s.editDia = null;
     } catch (e) {
-      console.warn('[turnos] guardarHorario:', e);
+      console.warn('[turnos] guardarHorarioCelda:', e);
+      _toast(e?.message || 'No se pudo guardar.', 'Error');
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -1313,25 +1514,12 @@ function _bindAsistencia() {
   });
 }
 
-function _minutosEntre(inicio, fin) {
-  const parse = (s) => {
-    const [h, m] = String(s || '0:0').split(':').map(Number);
-    return (Number(h) || 0) * 60 + (Number(m) || 0);
-  };
-  const a = parse(inicio);
-  const b = parse(fin);
-  if (b <= a) return 0;
-  return b - a;
+function _minutosEntre(inicio, fin, pausaMin = 0) {
+  return minutosEntre(inicio, fin, pausaMin);
 }
 
 function _contrasteHex(hex) {
-  const h = String(hex || '#94a3b8').replace('#', '');
-  if (h.length < 6) return '#0f172a';
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return lum > 0.55 ? '#0f172a' : '#ffffff';
+  return contraste(hex);
 }
 
 function _exportCabeceraEmpresa() {
@@ -1350,7 +1538,7 @@ function _exportCabeceraEmpresa() {
 
 function _exportarHorarios() {
   if (!_s) return;
-  const { semana, horarios, usuarios, notasSemana, isAdmin, uid, profile, plaza } = _s;
+  const { semana, horarios, usuarios, notasSemana, isAdmin, uid, profile, plaza, plantillas } = _s;
   const lista = resolveUsuariosLista(usuarios || [], { isAdmin, uid, profile });
   if (!lista.length) {
     _toast('No hay colaboradores para exportar.', 'Exportar');
@@ -1366,26 +1554,37 @@ function _exportarHorarios() {
     const fecha = fechaDia(semana, d);
     const dObj = new Date(`${fecha}T12:00:00`);
     const finde = dObj.getDay() === 0 || dObj.getDay() === 6;
-    const nota = notasSemana[d] ? `<br><small class="nota">📌 ${esc(notasSemana[d])}</small>` : '';
+    const nota = notasSemana[d] ? `<br><small class="nota">${esc(notasSemana[d])}</small>` : '';
     return `<th class="${finde ? 'we' : ''}">${esc(DIA_NOMBRE[d].slice(0, 3))}<br><small>${esc(fmt(fecha))}</small>${nota}</th>`;
   }).join('');
+
+  // Leer selects en vivo (paridad CHECADOR pdfTurnos) si existen
+  const liveVal = (uid, dia) => {
+    const sel = _ctr?.querySelector(`.tu-grid-sel[data-edit-uid="${uid}"][data-edit-dia="${dia}"]`);
+    if (!sel) return null;
+    try { return _parseSelectValue(sel.value, plantillas); } catch (_) { return null; }
+  };
 
   let totalMin = 0;
   const rows = lista.map((u) => {
     const realUid = normalizeUsuarioUid(u);
     const horario = horarios.find(h => h.usuarioId === realUid);
     const celdas = DIAS.map((d) => {
-      const cell = horario?.dias?.[d];
-      if (!cell) return '<td class="off">—</td>';
+      const cell = liveVal(realUid, d) || horario?.dias?.[d];
+      if (!cell) return '<td class="off">Descanso</td>';
       if (cell.tipo === 'NORMAL') {
-        const mins = _minutosEntre(cell.inicio, cell.fin);
+        const p = matchPlantilla(cell, plantillas);
+        const mins = _minutosEntre(cell.inicio, cell.fin, cell.pausaMin ?? p?.pausaMin);
         totalMin += mins;
+        const bg = colorDeTurno(p || { id: `${cell.inicio}-${cell.fin}` });
+        const fg = contraste(bg);
+        const label = p ? p.nombre : `${cell.inicio}–${cell.fin}`;
         const nota = cell.nota ? `<br><small>${esc(cell.nota)}</small>` : '';
-        return `<td class="normal"><strong>${esc(cell.inicio)}–${esc(cell.fin)}</strong>${nota}</td>`;
+        return `<td style="background:${bg};color:${fg}"><strong>${esc(label)}</strong><br><small>${esc(cell.inicio)}–${esc(cell.fin)}</small>${nota}</td>`;
       }
       const meta = TIPOS_DIA[cell.tipo] || { label: cell.tipo, color: '#94a3b8' };
       const bg = meta.color || '#94a3b8';
-      const fg = _contrasteHex(bg);
+      const fg = contraste(bg);
       const nota = cell.nota ? `<br><small>${esc(cell.nota)}</small>` : '';
       return `<td style="background:${bg};color:${fg};font-weight:600">${esc(meta.label || cell.tipo)}${nota}</td>`;
     }).join('');
@@ -1394,7 +1593,7 @@ function _exportarHorarios() {
 
   const totalHoras = (totalMin / 60).toFixed(1);
   const rangoLabel = `Semana del ${fmt(semana)} al ${fmt(finDisp.toISOString().slice(0, 10))}`;
-  const titulo = `Horarios${plaza ? ` — ${plaza}` : ''}`;
+  const titulo = `Distribución de turnos${plaza ? ` — ${plaza}` : ''}`;
   const cab = _exportCabeceraEmpresa();
 
   const html = `<!DOCTYPE html>
@@ -1411,7 +1610,6 @@ function _exportarHorarios() {
   th small,td small{font-weight:400;opacity:.8;font-size:9px;text-transform:none;letter-spacing:0}
   td.emp,th.emp{text-align:left;white-space:nowrap;font-weight:600;background:#f8fafc;width:150px}
   td.off{color:#94a3b8;font-style:italic}
-  td.normal{color:#0f172a}
   .we{background:#e2e8f0}
   .nota{color:#6366f1}
   .rpt-cab{display:flex;align-items:center;gap:14px;border-bottom:2px solid #0f172a;padding-bottom:10px;margin:0 0 14px}
@@ -1420,7 +1618,7 @@ function _exportarHorarios() {
   .rpt-empresa strong{font-size:14px;color:#0f172a}
   .rpt-empresa span{font-size:10px;color:#64748b}
   .no-print{margin-top:16px}
-  .btn-print{padding:8px 20px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+  .btn-print{padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
   @page{size:landscape;margin:12mm}
   @media print{body{margin:0}.no-print{display:none}}
 </style></head><body>

@@ -211,7 +211,7 @@ const ROUTE_STYLES = {
   "/app/unidades": [{ href: "/css/app-unidades.css?v=20260715f", attr: "data-app-unidades-css" }],
   "/app/cuadre/u": [
     { href: "/css/app-unidades.css?v=20260715f", attr: "data-app-unidades-css" },
-    { href: "/css/app-unidad-expediente.css?v=20260715c", attr: "data-app-unidad-exp-css" }
+    { href: "/css/app-unidad-expediente.css?v=20260718a", attr: "data-app-unidad-exp-css" }
   ],
   "/app/mapa": [
     { href: "/css/mapa.css", attr: "data-lmapa-css" },

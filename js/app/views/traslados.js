@@ -7,13 +7,17 @@ import {
   obtenerTrasladosBootstrap,
   crearTraslado,
   actualizarTraslado,
-  cerrarTraslado
+  cerrarTraslado,
+  db,
+  COL
 } from '/js/core/database.js';
 
 let _ctr = null;
 let _navigate = null;
 let _offs = [];
 let _s = null;
+let _unsubTraslados = null;
+let _unsubUnidades = null;
 
 const DEFAULT_TYPES = [
   { codigo: 'CORT', etiqueta: 'Cortesia' },
@@ -106,6 +110,7 @@ export async function mount({ container, navigate }) {
 }
 
 export function unmount() {
+  _stopLive();
   _offs.forEach(fn => { try { fn(); } catch (_) {} });
   _offs = [];
   _ctr = null;
@@ -114,7 +119,7 @@ export function unmount() {
 }
 
 function _ensureCss() {
-  const href = '/css/app-traslados.css?v=20260715a';
+  const href = '/css/app-traslados.css?v=20260718a';
   let link = document.querySelector('link[data-app-traslados-css="1"]');
   if (link) {
     if (link.getAttribute('href') !== href) link.setAttribute('href', href);
@@ -163,11 +168,100 @@ async function _load() {
     _applyRouteMode();
     _renderShell();
     _paintAll();
+    _startLive();
   } catch (err) {
     console.error('[traslados]', err);
     _s.loading = false;
     _s.error = err?.message || 'No se pudo cargar traslados.';
     _paintAll();
+  }
+}
+
+function _stopLive() {
+  if (typeof _unsubTraslados === 'function') {
+    try { _unsubTraslados(); } catch (_) {}
+  }
+  if (typeof _unsubUnidades === 'function') {
+    try { _unsubUnidades(); } catch (_) {}
+  }
+  _unsubTraslados = null;
+  _unsubUnidades = null;
+}
+
+function _estadoDerivado(row) {
+  const raw = String(row?.estado || 'ABIERTO').toUpperCase();
+  return raw === 'CERRADO' ? 'CERRADO' : 'ABIERTO';
+}
+
+function _mergeTrasladoDocs(docs) {
+  const map = new Map();
+  docs.forEach(doc => {
+    const data = doc.data() || {};
+    map.set(doc.id, { id: doc.id, ...data, estadoOperativo: _estadoDerivado(data) });
+  });
+  const rows = Array.from(map.values());
+  rows.sort((a, b) => (_toMs(b.fechaCreacion) || _toMs(b.fechaSalida)) - (_toMs(a.fechaCreacion) || _toMs(a.fechaSalida)));
+  return rows;
+}
+
+function _startLive() {
+  _stopLive();
+  if (!_s || !db) return;
+  const plazaUp = _normPlaza(_s.plaza);
+  const applyTraslados = snapOrDocs => {
+    if (!_s) return;
+    const docs = snapOrDocs?.docs || snapOrDocs || [];
+    _s.boot.traslados = _mergeTrasladoDocs(docs);
+    _paintAll();
+  };
+
+  try {
+    if (plazaUp) {
+      const origenSnap = [];
+      const destinoSnap = [];
+      let origenReady = false;
+      let destinoReady = false;
+      const flush = () => {
+        if (!origenReady || !destinoReady) return;
+        applyTraslados([...origenSnap, ...destinoSnap]);
+      };
+      const u1 = db.collection('traslados').where('plazaOrigen', '==', plazaUp).limit(250)
+        .onSnapshot(snap => {
+          origenSnap.length = 0;
+          snap.docs.forEach(d => origenSnap.push(d));
+          origenReady = true;
+          flush();
+        }, err => console.warn('[traslados] live origen:', err));
+      const u2 = db.collection('traslados').where('plazaDestino', '==', plazaUp).limit(250)
+        .onSnapshot(snap => {
+          destinoSnap.length = 0;
+          snap.docs.forEach(d => destinoSnap.push(d));
+          destinoReady = true;
+          flush();
+        }, err => console.warn('[traslados] live destino:', err));
+      _unsubTraslados = () => { try { u1(); } catch (_) {} try { u2(); } catch (_) {} };
+    } else {
+      _unsubTraslados = db.collection('traslados').limit(300).onSnapshot(
+        snap => applyTraslados(snap),
+        err => console.warn('[traslados] live:', err)
+      );
+    }
+
+    if (plazaUp) {
+      _unsubUnidades = db.collection(COL.CUADRE || 'cuadre').where('plaza', '==', plazaUp)
+        .onSnapshot(snap => {
+          if (!_s) return;
+          const rows = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(u => u.mva);
+          rows.sort((a, b) => String(a.mva || '').localeCompare(String(b.mva || '')));
+          _s.boot.unidades = rows;
+          if (_isEditorMode()) {
+            _paintUnitPickerMenu();
+            _syncUnitPickerVisibility();
+          }
+        }, err => console.warn('[traslados] live unidades:', err));
+    }
+  } catch (err) {
+    console.warn('[traslados] live setup:', err);
   }
 }
 
@@ -401,7 +495,6 @@ function _paintTable() {
             <th>Regreso</th>
             <th>Razon</th>
             <th>Estatus</th>
-            <th class="tras-th-actions">Accion</th>
           </tr>
         </thead>
         <tbody>
@@ -417,7 +510,7 @@ function _rowHtml(row) {
   const routeId = _routeToken(row);
   const selected = _isSelected(row) ? ' selected' : '';
   return `
-    <tr class="${selected}" data-action="select" data-id="${esc(routeId)}">
+    <tr class="tras-row-clickable${selected}" data-action="select" data-id="${esc(routeId)}" role="button" tabindex="0" title="${st === 'CERRADO' ? 'Ver traslado' : (_s.boot.canManage ? 'Abrir traslado' : 'Ver traslado')}">
       <td class="tras-td-mono">${esc(_shortId(row))}</td>
       <td>
         <span class="tras-td-main">${esc(row.mva || '-')}</span>
@@ -428,12 +521,8 @@ function _rowHtml(row) {
       <td>${esc(row.plazaOrigen || '-')} → ${esc(row.plazaDestino || '-')}</td>
       <td class="tras-td-date">${_dateCell(row.fechaSalida)}</td>
       <td class="tras-td-date">${_dateCell(row.fechaCierre || row.fechaRegresoEstimada)}</td>
-      <td>${esc(row.tipo || '-')}</td>
+      <td>${esc(row.tipoEtiqueta || row.tipo || '-')}</td>
       <td><span class="tras-status-text ${st.toLowerCase()}">${esc(st)}</span></td>
-      <td class="tras-row-actions">
-        ${st !== 'CERRADO' ? `<button type="button" class="tras-link-btn" data-action="select" data-id="${esc(routeId)}">Editar</button>` : ''}
-        <button type="button" class="tras-link-btn" data-action="select" data-id="${esc(routeId)}">Ver</button>
-      </td>
     </tr>
   `;
 }
@@ -569,11 +658,15 @@ function _formHtml(row) {
         </section>
 
         <div class="tras-form-actions tras-form-actions--footer">
-          <button type="button" class="tras-btn ghost" data-action="back-list">Cancelar</button>
-          ${!isNew && !isClosed ? `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}">Cerrar traslado</button>` : ''}
-          <button type="submit" class="tras-btn primary" ${_s.busy || (!canEdit && !isNew) ? 'disabled' : ''}>
-            ${isNew ? 'Guardar' : 'Guardar cambios'}
-          </button>
+          ${isClosed
+            ? `<button type="button" class="tras-btn ghost" data-action="back-list">Volver</button>`
+            : `
+              <button type="button" class="tras-btn ghost" data-action="back-list">Cancelar</button>
+              ${!isNew ? `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}">Cerrar traslado</button>` : ''}
+              ${(canEdit || isNew) ? `<button type="submit" class="tras-btn primary" ${_s.busy ? 'disabled' : ''}>
+                ${isNew ? 'Guardar' : 'Guardar cambios'}
+              </button>` : ''}
+            `}
         </div>
       </form>
 
@@ -607,8 +700,8 @@ function _timelineHtml(row) {
   const edits = Array.isArray(row.ediciones) ? row.ediciones : [];
   const notes = Array.isArray(row.notas) ? row.notas : [];
   const items = [
-    ...edits.map(e => ({ kind: 'Edicion', icon: 'edit_note', title: e.campo || 'Cambio', body: `${e.antes || '-'} -> ${e.despues || '-'}`, user: e.usuario, date: e.fecha || e.timestamp })),
-    ...notes.map(n => ({ kind: n.tipo === 'CIERRE' ? 'Cierre' : 'Nota', icon: n.tipo === 'CIERRE' ? 'flag' : 'notes', title: n.tipo === 'CIERRE' ? 'Nota de cierre' : 'Nota', body: n.texto, user: n.usuario, date: n.fecha || n.timestamp }))
+    ...edits.map(e => ({ kind: 'Edicion', icon: 'edit_note', title: e.campo || 'Cambio', body: `${e.antes || '-'} → ${e.despues || '-'}`, user: e.usuario, date: e.timestamp || e.fecha })),
+    ...notes.map(n => ({ kind: n.tipo === 'CIERRE' ? 'Cierre' : 'Nota', icon: n.tipo === 'CIERRE' ? 'flag' : 'notes', title: n.tipo === 'CIERRE' ? 'Nota de cierre' : 'Nota', body: n.texto, user: n.usuario, date: n.timestamp || n.fecha }))
   ].sort((a, b) => _toMs(b.date) - _toMs(a.date));
   if (!items.length) return `<div class="tras-timeline empty"><span class="material-icons">history</span>Sin notas ni ediciones todavia.</div>`;
   return `
@@ -629,7 +722,7 @@ function _timelineHtml(row) {
               <td class="tras-history-kind">${esc(item.kind)} · ${esc(item.title)}</td>
               <td>${esc(item.body || 'Sin detalle')}</td>
               <td>${esc(item.user || 'Sistema')}</td>
-              <td class="tras-history-date">${esc(_fmtDate(item.date) || '-')}</td>
+              <td class="tras-history-date">${_dateCell(item.date)}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -731,6 +824,10 @@ async function _onClick(event) {
     _handlePickerSelect(actionEl);
     return;
   }
+  if (action === 'clear-unit') {
+    _clearUnitSelection();
+    return;
+  }
   if (action === 'picker-toggle') {
     const field = actionEl.closest('.tras-search-field');
     if (field) _togglePicker(field, true);
@@ -752,7 +849,25 @@ function _onInput(event) {
     const key = event.target.dataset.unitFilter;
     if (!_s.draft.unitFilters) _s.draft.unitFilters = _emptyUnitFilters();
     _s.draft.unitFilters[key] = event.target.value || '';
+    // Si el usuario edita filtros tras una selección, limpia MVA hasta re-elegir.
+    if (_s.draft.mva) {
+      const unit = _unitByMva(_s.draft.mva);
+      const stillMatches = unit && _unitMatchesFilters(unit, _s.draft.unitFilters);
+      if (!stillMatches) {
+        _s.draft.mva = '';
+        const hidden = _ctr?.querySelector('#tras-form-mva');
+        if (hidden) hidden.value = '';
+        _paintUnitSummary(null);
+        _syncUnitPickerVisibility();
+      }
+    }
     _paintUnitPickerMenu();
+    _tryAutoSelectUnit();
+    const wrap = _ctr?.querySelector('#tras-unit-picker-wrap');
+    if (wrap && !_s.draft.mva) {
+      wrap.hidden = false;
+      _togglePicker(wrap, true);
+    }
     return;
   }
   if (event.target?.id === 'tras-form-chofer-search') {
@@ -846,9 +961,7 @@ function _applyUnitSelection(unit) {
     clase: _unitField(unit, 'clase')
   };
   const hidden = _ctr?.querySelector('#tras-form-mva');
-  const search = _ctr?.querySelector('#tras-form-unit-search');
   if (hidden) hidden.value = _s.draft.mva;
-  if (search) search.value = _unitPickerLabel(unit);
   Object.entries(_s.draft.unitFilters).forEach(([key, value]) => {
     const el = _ctr?.querySelector(`[data-unit-filter="${key}"]`);
     if (el) el.value = value;
@@ -858,30 +971,61 @@ function _applyUnitSelection(unit) {
   if (km) km.value = unit.km ?? '';
   if (gas) gas.value = unit.gasolina || 'N/A';
   _s.draft.kmSalida = km?.value || '';
-  _paintUnitSummary(unit);
+  _syncUnitPickerVisibility();
   _closeAllPickers();
 }
 
-function _paintUnitSummary(unit) {
-  const host = _ctr?.querySelector('#tras-unit-summary');
-  if (!host) return;
-  if (!unit) {
-    host.hidden = true;
-    host.innerHTML = '';
-    return;
+function _paintUnitSummary() {
+  // Resumen duplicado eliminado: los filtros rellenados son la fuente de verdad.
+  _syncUnitPickerVisibility();
+}
+
+function _syncUnitPickerVisibility() {
+  const wrap = _ctr?.querySelector('#tras-unit-picker-wrap');
+  const hasUnit = Boolean(_s?.draft?.mva);
+  if (wrap) wrap.hidden = hasUnit;
+  let bar = _ctr?.querySelector('.tras-unit-selected-bar');
+  if (hasUnit) {
+    if (!bar) {
+      const filters = _ctr?.querySelector('#tras-unit-filters');
+      if (filters) {
+        filters.insertAdjacentHTML('afterend', `
+          <div class="tras-unit-selected-bar">
+            <span class="material-icons">check_circle</span>
+            <strong>${esc(_s.draft.mva)}</strong>
+            <span>seleccionada — puedes ajustar los filtros arriba para cambiar</span>
+            <button type="button" class="tras-link-btn" data-action="clear-unit">Cambiar</button>
+          </div>
+        `);
+      }
+    } else {
+      const strong = bar.querySelector('strong');
+      if (strong) strong.textContent = _s.draft.mva;
+    }
+  } else if (bar) {
+    bar.remove();
   }
-  host.hidden = false;
-  host.innerHTML = `
-    <div class="tras-unit-summary-grid">
-      <div><span>Clase</span><strong>${esc(_unitField(unit, 'clase') || '—')}</strong></div>
-      <div><span>Económico</span><strong>${esc(unit.mva || '—')}</strong></div>
-      <div><span>Marca</span><strong>${esc(_unitField(unit, 'marca') || '—')}</strong></div>
-      <div><span>Modelo</span><strong>${esc(unit.modelo || '—')}</strong></div>
-      <div><span>Placas</span><strong>${esc(unit.placas || '—')}</strong></div>
-      <div><span>Año</span><strong>${esc(_unitField(unit, 'anio') || '—')}</strong></div>
-      <div><span>Color</span><strong>${esc(_unitField(unit, 'color') || '—')}</strong></div>
-    </div>
-  `;
+}
+
+function _clearUnitSelection() {
+  if (!_s) return;
+  _s.draft.mva = '';
+  _s.draft.unitFilters = _emptyUnitFilters();
+  _s.draft.kmSalida = '';
+  const hidden = _ctr?.querySelector('#tras-form-mva');
+  if (hidden) hidden.value = '';
+  Object.keys(_emptyUnitFilters()).forEach(key => {
+    const el = _ctr?.querySelector(`[data-unit-filter="${key}"]`);
+    if (el) el.value = '';
+  });
+  const km = _ctr?.querySelector('#tras-form-km');
+  const gas = _ctr?.querySelector('#tras-form-gas-salida');
+  if (km) km.value = '';
+  if (gas) gas.value = 'N/A';
+  _syncUnitPickerVisibility();
+  _paintUnitPickerMenu();
+  const firstFilter = _ctr?.querySelector('[data-unit-filter="mva"]');
+  if (firstFilter) firstFilter.focus();
 }
 
 function _syncUnitPreview() {
@@ -994,11 +1138,20 @@ function _rowsForTab() {
 function _filteredRows() {
   const f = _s.filters;
   let rows = _rowsForTab();
-  if (f.folio) rows = rows.filter(r => String(r.folio || r.id || '').toLowerCase().includes(f.folio.toLowerCase()));
-  if (f.unidad) rows = rows.filter(r => [r.mva, r.modelo, r.placas].some(v => String(v || '').toLowerCase().includes(f.unidad.toLowerCase())));
-  if (f.chofer) rows = rows.filter(r => String(r.choferNombre || '').toLowerCase().includes(f.chofer.toLowerCase()));
+  if (f.folio) rows = rows.filter(r => String(r.folio || r.id || '').toLowerCase().includes(f.folio.toLowerCase().trim()));
+  if (f.unidad) {
+    const q = f.unidad.toLowerCase().trim();
+    rows = rows.filter(r => [r.mva, r.modelo, r.placas, r.categoria].some(v => String(v || '').toLowerCase().includes(q)));
+  }
+  if (f.chofer) {
+    const q = f.chofer.toLowerCase().trim();
+    rows = rows.filter(r => String(r.choferNombre || '').toLowerCase().includes(q));
+  }
   if (f.creador) rows = rows.filter(r => String(r.creadoPor || '') === f.creador);
-  if (f.tipo) rows = rows.filter(r => String(r.tipo || '') === f.tipo);
+  if (f.tipo) {
+    const tipo = String(f.tipo).toUpperCase();
+    rows = rows.filter(r => String(r.tipo || '').toUpperCase() === tipo);
+  }
   if (f.plazaOrigen) rows = rows.filter(r => _normPlaza(r.plazaOrigen) === f.plazaOrigen);
   if (f.plazaDestino) rows = rows.filter(r => _normPlaza(r.plazaDestino) === f.plazaDestino);
   if (f.estatus) rows = rows.filter(r => _estado(r) === f.estatus);
@@ -1089,20 +1242,29 @@ function _filteredChoferes(query = '') {
   return _choferes().filter(c => _includesText(c.nombre, q));
 }
 
+function _unitMatchesFilters(unit, filters = {}) {
+  const f = filters || {};
+  if (f.mva && !_includesText(unit.mva, f.mva)) return false;
+  if (f.placas && !_includesText(unit.placas, f.placas)) return false;
+  if (f.marca && !_includesText(_unitField(unit, 'marca'), f.marca)) return false;
+  if (f.modelo && !_includesText(unit.modelo, f.modelo)) return false;
+  if (f.anio && !_includesText(_unitField(unit, 'anio'), f.anio)) return false;
+  if (f.color && !_includesText(_unitField(unit, 'color'), f.color)) return false;
+  if (f.clase && !_includesText(_unitField(unit, 'clase'), f.clase)) return false;
+  return true;
+}
+
 function _filteredUnitsForPicker() {
   const f = _s?.draft?.unitFilters || _emptyUnitFilters();
-  const quick = String(_val('tras-form-unit-search') || '').trim();
-  return _availableUnits().filter(unit => {
-    if (quick && !_includesText(_unitPickerLabel(unit), quick)) return false;
-    if (f.mva && !_includesText(unit.mva, f.mva)) return false;
-    if (f.placas && !_includesText(unit.placas, f.placas)) return false;
-    if (f.marca && !_includesText(_unitField(unit, 'marca'), f.marca)) return false;
-    if (f.modelo && !_includesText(unit.modelo, f.modelo)) return false;
-    if (f.anio && !_includesText(_unitField(unit, 'anio'), f.anio)) return false;
-    if (f.color && !_includesText(_unitField(unit, 'color'), f.color)) return false;
-    if (f.clase && !_includesText(_unitField(unit, 'clase'), f.clase)) return false;
-    return true;
-  });
+  return _availableUnits().filter(unit => _unitMatchesFilters(unit, f));
+}
+
+function _tryAutoSelectUnit() {
+  if (!_s || _s.detailMode !== 'new') return;
+  const rows = _filteredUnitsForPicker();
+  if (rows.length === 1) {
+    _applyUnitSelection(rows[0]);
+  }
 }
 
 function _unitPickerLabel(unit) {
@@ -1127,27 +1289,34 @@ function _choferPickerHtml({ uid = '', label = '', disabled = false } = {}) {
 
 function _unitPickerSectionHtml(draft, unit, gasSalida) {
   const filters = draft.unitFilters || _emptyUnitFilters();
-  const selectedLabel = unit ? _unitPickerLabel(unit) : '';
+  const hasUnit = Boolean(unit || draft.mva);
   return `
-    <div class="tras-unit-filters">
-      <label><span>Buscar económico</span><input data-unit-filter="mva" value="${esc(filters.mva)}" placeholder="Buscar económico…"></label>
-      <label><span>Placas</span><input data-unit-filter="placas" value="${esc(filters.placas)}" placeholder="Buscar placas…"></label>
-      <label><span>Marca</span><input data-unit-filter="marca" value="${esc(filters.marca)}" placeholder="Buscar marca…"></label>
-      <label><span>Modelo</span><input data-unit-filter="modelo" value="${esc(filters.modelo)}" placeholder="Buscar modelo…"></label>
-      <label><span>Año</span><input data-unit-filter="anio" value="${esc(filters.anio)}" placeholder="Buscar año…"></label>
-      <label><span>Color</span><input data-unit-filter="color" value="${esc(filters.color)}" placeholder="Buscar color…"></label>
-      <label><span>Clase</span><input data-unit-filter="clase" value="${esc(filters.clase)}" placeholder="Buscar clase…"></label>
+    <div class="tras-unit-filters" id="tras-unit-filters">
+      <label><span>Buscar económico</span><input data-unit-filter="mva" value="${esc(filters.mva)}" placeholder="Buscar económico…" autocomplete="off"></label>
+      <label><span>Placas</span><input data-unit-filter="placas" value="${esc(filters.placas)}" placeholder="Buscar placas…" autocomplete="off"></label>
+      <label><span>Marca</span><input data-unit-filter="marca" value="${esc(filters.marca)}" placeholder="Buscar marca…" autocomplete="off"></label>
+      <label><span>Modelo</span><input data-unit-filter="modelo" value="${esc(filters.modelo)}" placeholder="Buscar modelo…" autocomplete="off"></label>
+      <label><span>Año</span><input data-unit-filter="anio" value="${esc(filters.anio)}" placeholder="Buscar año…" autocomplete="off"></label>
+      <label><span>Color</span><input data-unit-filter="color" value="${esc(filters.color)}" placeholder="Buscar color…" autocomplete="off"></label>
+      <label><span>Clase</span><input data-unit-filter="clase" value="${esc(filters.clase)}" placeholder="Buscar clase…" autocomplete="off"></label>
     </div>
-    <div class="tras-search-field span-all" data-picker="unidad">
+    <div class="tras-search-field span-all" data-picker="unidad" id="tras-unit-picker-wrap"${hasUnit ? ' hidden' : ''}>
       <span>Seleccionar unidad</span>
       <input type="hidden" id="tras-form-mva" name="mva" value="${esc(draft.mva || '')}">
       <div class="tras-search-input-wrap">
-        <input type="text" id="tras-form-unit-search" class="tras-search-input" value="${esc(selectedLabel)}" placeholder="Filtra y elige una unidad…" autocomplete="off">
+        <input type="text" id="tras-form-unit-search" class="tras-search-input" value="" placeholder="Elige una unidad de la lista…" autocomplete="off" readonly tabindex="-1">
         <span class="material-icons" aria-hidden="true">directions_car</span>
       </div>
       <ul class="tras-search-menu" id="tras-unit-menu" hidden></ul>
     </div>
-    <div id="tras-unit-summary" class="tras-unit-summary"${unit ? '' : ' hidden'}></div>
+    ${hasUnit ? `
+      <div class="tras-unit-selected-bar">
+        <span class="material-icons">check_circle</span>
+        <strong>${esc(draft.mva || unit?.mva || '')}</strong>
+        <span>seleccionada — puedes ajustar los filtros arriba para cambiar</span>
+        <button type="button" class="tras-link-btn" data-action="clear-unit">Cambiar</button>
+      </div>
+    ` : ''}
     <div class="tras-form-grid tras-form-grid--unit">
       <label>
         <span>Kilometros de salida</span>
@@ -1164,18 +1333,29 @@ function _unitPickerSectionHtml(draft, unit, gasSalida) {
 function _initFormPickers() {
   _paintChoferPickerMenu();
   _paintUnitPickerMenu();
-  if (_s?.draft?.mva) _paintUnitSummary(_unitByMva(_s.draft.mva));
+  _syncUnitPickerVisibility();
   const choferSearch = _ctr?.querySelector('#tras-form-chofer-search');
   if (choferSearch && !_s.draft?.choferSearch) {
     _s.draft.choferSearch = choferSearch.value || '';
   }
   const onFocus = event => {
     const field = event.target.closest('.tras-search-field');
-    if (field) _togglePicker(field, true);
+    if (field && !field.hidden) _togglePicker(field, true);
   };
   _ctr?.querySelectorAll('.tras-search-input').forEach(el => {
     el.removeEventListener('focus', onFocus);
     el.addEventListener('focus', onFocus);
+  });
+  // Al enfocar filtros de unidad, abre la lista de coincidencias.
+  _ctr?.querySelectorAll('[data-unit-filter]').forEach(el => {
+    el.addEventListener('focus', () => {
+      const wrap = _ctr?.querySelector('#tras-unit-picker-wrap');
+      if (wrap && !wrap.hidden) _togglePicker(wrap, true);
+      else if (!_s?.draft?.mva) {
+        if (wrap) wrap.hidden = false;
+        _togglePicker(wrap, true);
+      }
+    });
   });
 }
 
@@ -1350,6 +1530,25 @@ function _toMs(value) {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [y, m, d] = value.split('-').map(Number);
     return new Date(y, m - 1, d).getTime();
+  }
+  if (typeof value === 'string') {
+    // ISO / datetime-local
+    const iso = new Date(value).getTime();
+    if (Number.isFinite(iso) && iso > 0) return iso;
+    // Locale es-MX: "18/7/2026, 12:32:04 a.m." (guardado histórico vía _now())
+    const m = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?)?/i);
+    if (m) {
+      let year = Number(m[3]);
+      if (year < 100) year += 2000;
+      let hour = Number(m[4] || 0);
+      const minute = Number(m[5] || 0);
+      const second = Number(m[6] || 0);
+      const ampm = String(m[7] || '').toLowerCase().replace(/\s+/g, '');
+      if (ampm.startsWith('p') && hour < 12) hour += 12;
+      if (ampm.startsWith('a') && hour === 12) hour = 0;
+      const parsed = new Date(year, Number(m[2]) - 1, Number(m[1]), hour, minute, second).getTime();
+      if (Number.isFinite(parsed)) return parsed;
+    }
   }
   const ms = new Date(value).getTime();
   return Number.isFinite(ms) ? ms : 0;
