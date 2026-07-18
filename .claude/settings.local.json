@@ -172,7 +172,12 @@
       "Bash(NODE_PATH=/home/negrura/Escritorio/MYPROYECT/mex-mapa/node_modules node /tmp/claude-1001/-home-negrura-Escritorio-MYPROYECT-mex-mapa/b36e0b24-50a8-416f-b6f8-489cb82d35d3/scratchpad/probe-cuadre-km.js)",
       "Bash(NODE_PATH=/home/negrura/Escritorio/MYPROYECT/mex-mapa/node_modules node -e ' *)",
       "Bash(NODE_PATH=/home/negrura/Escritorio/MYPROYECT/mex-mapa/functions/node_modules node -e ' *)",
-      "Bash(NODE_PATH=/home/negrura/Escritorio/MYPROYECT/mex-mapa/node_modules node *)"
+      "Bash(NODE_PATH=/home/negrura/Escritorio/MYPROYECT/mex-mapa/node_modules node *)",
+      "Bash(powershell -Command \"Get-ChildItem -Path C:\\\\Users\\\\Pc -Recurse -Filter '*.obsidian' -Directory -ErrorAction SilentlyContinue -Depth 4 | Select-Object -First 10 FullName\")",
+      "Bash(npm ls *)",
+      "Bash(npm view *)",
+      "Bash(firebase --version)",
+      "Bash(firebase projects:list)"
     ]
   }
 }
