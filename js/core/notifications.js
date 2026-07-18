@@ -1425,9 +1425,12 @@ export function routeDeepLink(url = '') {
   }
 
   if (chatFromPath) {
+    // Preferir navegación SPA a /app/mensajes (evita buzón legacy del mapa).
     closeNotificationCenter();
-    if (typeof _state.routeHandlers?.openChat === 'function') _state.routeHandlers.openChat(chatFromPath);
-    else window.location.href = _chatDeepLink(chatFromPath);
+    const next = _chatDeepLink(chatFromPath);
+    if (typeof window.__mexShellNavigate === 'function') window.__mexShellNavigate(next);
+    else if (typeof _state.routeHandlers?.openChat === 'function') _state.routeHandlers.openChat(chatFromPath);
+    else window.location.href = next;
     return;
   }
 
@@ -1442,10 +1445,15 @@ export function routeDeepLink(url = '') {
   if (notif === "chat") {
     closeNotificationCenter();
     const chatUser = target.searchParams.get("chatUser") || "";
-    if (chatUser && typeof _state.routeHandlers?.openChat === "function") {
+    const next = _chatDeepLink(chatUser);
+    if (typeof window.__mexShellNavigate === 'function') {
+      window.__mexShellNavigate(next);
+    } else if (chatUser && typeof _state.routeHandlers?.openChat === "function") {
       _state.routeHandlers.openChat(chatUser);
+    } else if (typeof _state.routeHandlers?.openBuzon === "function") {
+      _state.routeHandlers.openBuzon();
     } else {
-      _state.routeHandlers?.openBuzon?.();
+      window.location.href = next;
     }
     return;
   }

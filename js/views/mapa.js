@@ -2642,8 +2642,9 @@ function iniciarApp(esNuevoLogin = true) {
     getCurrentPlaza: () => _miPlaza(),
     toast: showToast,
     routeHandlers: {
+      // Siempre ir a la vista SPA de mensajes (no al buzón legacy del mapa).
       openChat:   nombre => _abrirChatDesdeNotificacion(nombre),
-      openBuzon:  () => abrirBuzon(),
+      openBuzon:  () => _navegarAMensajesApp(),
       openCuadre: () => { window.location.href = '/app/cuadrarflota?source=notif'; },
       openAlerts: () => abrirSiguienteAlerta()
     }
@@ -15103,13 +15104,32 @@ window._mexShowPushPrompt = function () {
   );
 };
 
+function _navegarAMensajesApp(chatUser = '') {
+  const user = _chatUserName(chatUser);
+  const target = user
+    ? `/app/mensajes/c/${encodeURIComponent(user)}`
+    : '/app/mensajes';
+  try {
+    if (typeof window.parent?.__mexShellNavigate === 'function') {
+      window.parent.__mexShellNavigate(target);
+      return;
+    }
+  } catch (_) { /* cross-origin */ }
+  try {
+    if (typeof window.__mexShellNavigate === 'function') {
+      window.__mexShellNavigate(target);
+      return;
+    }
+  } catch (_) {}
+  try {
+    (window.top || window).location.assign(target);
+  } catch (_) {
+    window.location.assign(target);
+  }
+}
+
 function _abrirChatDesdeNotificacion(nombre = '') {
-  const target = _chatUserName(nombre);
-  if (!target) return;
-  abrirBuzon();
-  setTimeout(() => {
-    abrirChat(target);
-  }, 180);
+  _navegarAMensajesApp(nombre);
 }
 
 function _abrirCuadreDesdeNotificacion() {
