@@ -10,6 +10,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { escapeHtml, descargarArchivoLocal } from '/mapa/features/core/utils.js';
+import { buildExportFilename } from '/js/core/export-signing.js';
 
 const api = window.api;
 
@@ -99,7 +100,7 @@ export function exportarComparadorCSV() {
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
   });
   const csv = [encabezado.join(','), ...filas].join('\n');
-  descargarArchivoLocal(`comparador_plazas_${new Date().toISOString().slice(0, 10)}.csv`, '﻿' + csv, 'text/csv;charset=utf-8;');
+  descargarArchivoLocal(buildExportFilename('csv'), '﻿' + csv, 'text/csv;charset=utf-8;');
   window.showToast?.('CSV exportado correctamente', 'success');
 }
 

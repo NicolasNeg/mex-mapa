@@ -34,7 +34,8 @@ import {
   toDatetimeLocal,
   comparePrepItems,
   filterAndSortItems,
-  computeStats,
+  matchesPrepSearch,
+  matchesPrepFilter,
   canPrepManage,
   findItemByMva,
   deriveEstadoCola
@@ -792,9 +793,9 @@ function _renderLoading() {
   const listEl = q('prepList');
   if (!listEl) return;
   listEl.innerHTML = `
-    <div style="padding:40px;text-align:center;color:#94a3b8;">
-      <span class="material-symbols-outlined" style="font-size:32px;animation:spin 1s linear infinite;">sync</span>
-      <div style="margin-top:10px;font-size:13px;">Cargando unidades…</div>
+    <div class="cola-state">
+      <span class="material-symbols-outlined cola-spin">sync</span>
+      <div class="cola-state-msg">Cargando unidades…</div>
     </div>`;
 }
 
@@ -802,11 +803,10 @@ function _renderError(msg) {
   const listEl = q('prepList');
   if (!listEl) return;
   listEl.innerHTML = `
-    <div style="padding:32px;text-align:center;color:#ef4444;">
-      <span class="material-symbols-outlined" style="font-size:28px;">error_outline</span>
-      <div style="margin-top:8px;font-size:13px;">${esc(msg)}</div>
-      <a href="/cola-preparacion" style="display:inline-block;margin-top:16px;font-size:12px;
-         color:#2b6954;text-decoration:underline;">Abrir módulo completo</a>
+    <div class="cola-state cola-state--error">
+      <span class="material-symbols-outlined">error_outline</span>
+      <div class="cola-state-msg">${esc(msg)}</div>
+      <a href="/cola-preparacion" class="cola-state-link">Abrir módulo completo</a>
     </div>`;
 }
 
@@ -823,9 +823,9 @@ function _renderEmpty(msg = 'Sin unidades para mostrar.') {
   const listEl = q('prepList');
   if (!listEl) return;
   listEl.innerHTML = `
-    <div style="padding:40px;text-align:center;color:#94a3b8;">
-      <span class="material-symbols-outlined" style="font-size:36px;">fact_check</span>
-      <div style="margin-top:10px;font-size:13px;">${esc(msg)}</div>
+    <div class="cola-state">
+      <span class="material-symbols-outlined">fact_check</span>
+      <div class="cola-state-msg">${esc(msg)}</div>
     </div>`;
 }
 
@@ -843,15 +843,29 @@ function _setTopbarPlaza(plaza = '') {
 
 function _renderStats() {
   if (!_state) return;
-  const stats = computeStats(_state.filteredItems || []);
+  // Los conteos de los filtros se calculan sobre el conjunto completo
+  // (respetando la búsqueda), no sobre el filtro de estado activo, para que
+  // cada pestaña muestre cuántas unidades hay realmente en esa categoría.
+  const base = (_state.items || []).filter(it => matchesPrepSearch(it, _state.searchQuery, _unitsByMva));
+  const profileCtx = { profileEmail: _state.profileEmail, profileName: _state.profileName };
+  const total = base.length;
+  const urgentes = base.filter(it => urgencyType(it) === 'urgent').length;
+  const listos = base.filter(it => isItemReady(it)).length;
+  const pendientes = total - listos;
+  const mios = base.filter(it => matchesPrepFilter(it, 'mine', profileCtx)).length;
+  const progreso = total > 0
+    ? Math.round(base.reduce((acc, it) => acc + cpProgress(it).percent, 0) / total)
+    : 0;
 
-  _setText('prepStatTotal',    String(stats.total));
-  _setText('prepStatUrgent',   String(stats.urgentes));
-  _setText('prepStatReady',    String(stats.listos));
-  _setText('prepStatProgress', `${stats.progreso}%`);
+  _setText('prepStatTotal',    String(total));
+  _setText('prepStatUrgent',   String(urgentes));
+  _setText('prepStatPending',  String(pendientes));
+  _setText('prepStatReady',    String(listos));
+  _setText('prepStatMine',     String(mios));
+  _setText('prepStatProgress', `${progreso}%`);
 
   const bar = q('prepProgressBar');
-  if (bar) bar.style.width = `${stats.progreso}%`;
+  if (bar) bar.style.width = `${progreso}%`;
 }
 
 function _renderList() {
@@ -870,7 +884,7 @@ function _renderList() {
       _deleteArmedPrepId = '';
       _showDetail(_state.items.find(i => i.id === _state.selectedId));
     });
-    card.querySelector('.prep-drag-handle')?.addEventListener('click', e => e.stopPropagation());
+    card.querySelector('.cola-card-drag')?.addEventListener('click', e => e.stopPropagation());
   });
   _attachDragPrepCards();
   _syncBulkButtonVisibility();
@@ -911,31 +925,39 @@ function _itemCard(it) {
   const modelo = unit.modelo || unit.categoria || 'Sin expediente local';
   const progress = cpProgress(it);
   const urgency = urgencyType(it);
-  const urgentChip = urgency === 'urgent';
+  const chipIcon = urgency === 'urgent' ? 'schedule' : (urgency === 'ready' ? 'check_circle' : 'pending');
   const chipLabel = countdownLabel(it.fechaSalida);
   const selected = _state.selectedId === it.id;
 
   return `
-<article class="prep-list-card ${selected ? 'is-selected' : ''}" data-item-id="${esc(it.id)}" draggable="true">
-  <div class="prep-list-card-head">
-    <div class="prep-list-card-meta">
-      <div class="prep-drag-handle"><span class="material-symbols-outlined">drag_indicator</span></div>
+<article class="cola-card ${selected ? 'is-selected' : ''}" data-item-id="${esc(it.id)}" draggable="true">
+  <button type="button" class="cola-card-drag" aria-label="Reordenar" tabindex="-1">
+    <span class="material-symbols-outlined">drag_indicator</span>
+  </button>
+  <div class="cola-card-main">
+    <div class="cola-card-top">
       <div>
-        <div class="prep-mva">${esc(mva)}</div>
-        <div class="prep-list-card-submeta">${esc(modelo)}</div>
+        <div class="cola-card-mva">${esc(mva)}</div>
+        <div class="cola-card-model">${esc(modelo)}</div>
       </div>
+      <span class="cola-chip cola-chip--${urgency}">
+        <span class="material-symbols-outlined">${chipIcon}</span>${esc(chipLabel)}
+      </span>
     </div>
-    <div class="prep-status-chip ${urgentChip ? 'urgent' : urgency}">${esc(chipLabel)}</div>
-  </div>
-  <div class="prep-list-card-meta">
-    <span class="prep-inline-badge">${esc(unit.estado || 'Sin estado')}</span>
-    <span class="prep-inline-badge">${esc(unit.ubicacion || 'Sin ubicacion')}</span>
-    <span class="prep-inline-badge">${progress.done}/${progress.total} checks</span>
-  </div>
-  <div class="prep-mini-progress"><span style="width:${progress.percent}%;"></span></div>
-  <div class="prep-list-card-footer">
-    <span class="prep-list-card-submeta">${esc(it.asignado || 'Sin responsable')}</span>
-    <span class="prep-list-card-submeta">${esc(departureLabel(it.fechaSalida))}</span>
+    <div class="cola-card-badges">
+      <span class="cola-badge">${esc(unit.estado || 'Sin estado')}</span>
+      <span class="cola-badge cola-badge--muted">
+        <span class="material-symbols-outlined">place</span>${esc(unit.ubicacion || 'Sin ubicación')}
+      </span>
+    </div>
+    <div class="cola-card-progress">
+      <div class="cola-progress-track"><div class="cola-progress-fill" style="width:${progress.percent}%;"></div></div>
+      <span class="cola-card-checks">${progress.done}/${progress.total}</span>
+    </div>
+    <div class="cola-card-foot">
+      <span><span class="material-symbols-outlined">person</span>${esc(it.asignado || 'Sin responsable')}</span>
+      <span><span class="material-symbols-outlined">event</span>${esc(departureLabel(it.fechaSalida))}</span>
+    </div>
   </div>
 </article>`;
 }
@@ -947,105 +969,85 @@ function _showDetail(it) {
   if (!panel || !it) return;
 
   const unit = _unitsByMva.get(String(it.mva || '').toUpperCase()) || {};
-  const prog = cpProgress(it);
   const estadoCola = deriveEstadoCola(it);
   const mvaRoute = escAttr(String(it.mva || '').toUpperCase());
   const plazaQ = escAttr(String(_state?.plaza || ''));
 
   const deleteArmed = _deleteArmedPrepId === it.id;
   const showDel = _canPrepDelete();
+  const urgency = urgencyType(it);
+  const chipIcon = urgency === 'urgent' ? 'schedule' : (urgency === 'ready' ? 'check_circle' : 'pending');
 
   panel.innerHTML = `
-<div style="padding:18px;">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:10px;">
+<div class="cola-detail-inner">
+  <div class="cola-detail-head">
     <div>
-      <h3 style="font-size:16px;font-weight:800;color:#0f172a;margin:0;">${esc(it.mva || '—')}</h3>
-      <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.4;">
-        ${esc([
-          unit.estado || 'Sin estado',
-          unit.ubicacion || 'Sin ubicación',
-          unit.categoria || unit.modelo || 'Sin categoría'
-        ].join(' · '))}
+      <h3 class="cola-detail-mva">${esc(it.mva || '—')}</h3>
+      <div class="cola-detail-sub">${esc(unit.categoria || unit.modelo || 'Sin expediente local')}</div>
+      <div class="cola-detail-head-chip">
+        <span class="cola-chip cola-chip--${urgency}">
+          <span class="material-symbols-outlined">${chipIcon}</span>${esc(countdownLabel(it.fechaSalida))}
+        </span>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;">
-      ${showDel ? `<button type="button" id="prepDetailDeleteBtn"
-        style="border:1px solid ${deleteArmed ? '#dc2626' : '#fecaca'};border-radius:8px;background:${deleteArmed ? '#fef2f2' : '#fff'};
-        color:#b91c1c;padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer;">
-        ${deleteArmed ? 'Confirmar borrado' : 'Eliminar'}
+    <div class="cola-detail-head-actions">
+      ${showDel ? `<button type="button" id="prepDetailDeleteBtn" class="prep-danger-btn${deleteArmed ? ' is-armed' : ''}">
+        <span class="material-symbols-outlined">delete</span>${deleteArmed ? 'Confirmar' : ''}
       </button>` : ''}
-      ${showDel && deleteArmed ? `<button type="button" id="prepDetailCancelDelBtn"
-        style="border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#64748b;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;">
-        Cancelar
-      </button>` : ''}
-      <button type="button" id="prepCloseDetail"
-              style="border:none;background:none;cursor:pointer;color:#94a3b8;padding:4px;">
-        <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+      ${showDel && deleteArmed ? `<button type="button" id="prepDetailCancelDelBtn" class="prep-link-btn">Cancelar</button>` : ''}
+      <button type="button" id="prepCloseDetail" class="prep-icon-btn" aria-label="Cerrar">
+        <span class="material-symbols-outlined">close</span>
       </button>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
-    ${_detailRow('Plaza operativa', _state?.plaza || '—')}
-    ${_detailRow('Cuenta regresiva', countdownLabel(it.fechaSalida))}
+  <div class="cola-meta-grid">
+    ${_detailRow('Estado', unit.estado || 'Sin estado')}
+    ${_detailRow('Ubicación', unit.ubicacion || 'Sin ubicación')}
     ${_detailRow('Estado cola', estadoCola)}
-    ${_detailRow('Origen expediente', unit.origen || (unit.mva ? 'PATIO' : '—'))}
-    ${_detailRow('Progreso checklist', `${prog.done}/${prog.total} (${prog.percent}%)`)}
-  </div>
-
-  <div style="margin-bottom:12px;">
-    <label style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:4px;">Salida estimada</label>
-    <input id="prepDetailDeparture" type="datetime-local" value="${esc(_toDatetimeLocal(it.fechaSalida))}"
-           style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px;box-sizing:border-box;" />
-  </div>
-  <div style="margin-bottom:12px;">
-    <label style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:4px;">Asignado a</label>
-    <input id="prepDetailAssigned" type="text" value="${esc(it.asignado || '')}"
-           placeholder="Correo o nombre" list="prepUsersDatalist"
-           style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px;box-sizing:border-box;" />
-  </div>
-  <div style="margin-bottom:12px;">
-    <label style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:4px;">Notas (no destructivas)</label>
-    <textarea id="prepDetailNotes" rows="3" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box;">${esc(it.notas || '')}</textarea>
-  </div>
-
-  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
-    <button type="button" id="prepAssignMeBtn" style="flex:1;min-width:120px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#0f172a;">
-      Asignarme
-    </button>
-    <button type="button" id="prepCompleteChecklistBtn" style="flex:1;min-width:140px;border:1px solid #bbf7d0;border-radius:8px;background:#ecfdf5;padding:8px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#047857;">
-      Marcar checklist listo
-    </button>
-  </div>
-
-  <button type="button" id="prepDetailSaveBtn"
-          style="width:100%;border:none;border-radius:10px;background:#0f172a;color:#fff;padding:10px 12px;font-size:12px;font-weight:800;cursor:pointer;margin-bottom:14px;">
-    Guardar cambios operativos
-  </button>
-
-  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
-    <a data-app-route="/app/cuadre/u/${mvaRoute}" href="/app/cuadre/u/${mvaRoute}"
-       style="flex:1;min-width:120px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
-              border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px 10px;font-size:11px;
-              font-weight:700;color:#0f172a;text-decoration:none;cursor:pointer;">
-      <span class="material-symbols-outlined" style="font-size:16px;">folder_open</span>
-      Expediente
-    </a>
-    <a data-app-route="/app/mapa?mva=${mvaRoute}${plazaQ ? `&plaza=${plazaQ}` : ''}"
-       href="/app/mapa?mva=${mvaRoute}${plazaQ ? `&plaza=${plazaQ}` : ''}"
-       style="flex:1;min-width:120px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
-              border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px 10px;font-size:11px;
-              font-weight:700;color:#0f172a;text-decoration:none;cursor:pointer;">
-      <span class="material-symbols-outlined" style="font-size:16px;">map</span>
-      Ver en mapa
-    </a>
+    ${_detailRow('Plaza', _state?.plaza || '—')}
   </div>
 
   ${_checklistSection(it)}
 
+  <div class="cola-field">
+    <label class="cola-field-label" for="prepDetailDeparture">Salida programada</label>
+    <input id="prepDetailDeparture" class="cola-input" type="datetime-local" value="${esc(_toDatetimeLocal(it.fechaSalida))}" />
+  </div>
+  <div class="cola-field">
+    <label class="cola-field-label" for="prepDetailAssigned">Responsable asignado</label>
+    <div class="cola-field-row">
+      <input id="prepDetailAssigned" class="cola-input" type="text" value="${esc(it.asignado || '')}"
+             placeholder="Correo o nombre" list="prepUsersDatalist" />
+      <button type="button" id="prepAssignMeBtn" class="prep-link-btn">Asignarme</button>
+    </div>
+  </div>
+  <div class="cola-field">
+    <label class="cola-field-label" for="prepDetailNotes">Notas (no destructivas)</label>
+    <textarea id="prepDetailNotes" class="cola-textarea" rows="3">${esc(it.notas || '')}</textarea>
+  </div>
+
+  <div class="cola-detail-links">
+    <a data-app-route="/app/cuadre/u/${mvaRoute}" href="/app/cuadre/u/${mvaRoute}" class="prep-link-btn">
+      <span class="material-symbols-outlined">folder_open</span>Expediente
+    </a>
+    <a data-app-route="/app/mapa?mva=${mvaRoute}${plazaQ ? `&plaza=${plazaQ}` : ''}"
+       href="/app/mapa?mva=${mvaRoute}${plazaQ ? `&plaza=${plazaQ}` : ''}" class="prep-link-btn">
+      <span class="material-symbols-outlined">map</span>Ver en mapa
+    </a>
+  </div>
+</div>
+
+<div class="cola-detail-foot">
+  <button type="button" id="prepCompleteChecklistBtn" class="prep-soft-btn">
+    <span class="material-symbols-outlined">task_alt</span>Marcar listo
+  </button>
+  <button type="button" id="prepDetailSaveBtn" class="prep-primary-btn">
+    <span class="material-symbols-outlined">save</span>Guardar cambios
+  </button>
 </div>`;
 
-  panel.style.display = 'block';
+  panel.style.display = 'flex';
 
   panel.querySelectorAll('[data-app-route]').forEach(link => {
     link.addEventListener('click', e => {
@@ -1160,10 +1162,9 @@ function _showDetail(it) {
 
 function _detailRow(label, value) {
   return `
-<div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
-  <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;
-              letter-spacing:0.05em;margin-bottom:3px;">${esc(label)}</div>
-  <div style="font-size:12px;font-weight:600;color:#1e293b;">${esc(String(value ?? '—'))}</div>
+<div class="cola-meta-cell">
+  <div class="cola-meta-label">${esc(label)}</div>
+  <div class="cola-meta-value">${esc(String(value ?? '—'))}</div>
 </div>`;
 }
 
@@ -1172,24 +1173,22 @@ function _checklistSection(it) {
   const pct = prog.percent;
 
   return `
-<div style="background:#f8fafc;border-radius:10px;padding:12px;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;
-                letter-spacing:0.06em;">Checklist operativo</div>
-    <span style="font-size:11px;font-weight:700;color:#2b6954;">${prog.done}/${prog.total} (${pct}%)</span>
+<div class="cola-checklist">
+  <div class="cola-checklist-head">
+    <span class="cola-section-title">Checklist de preparación</span>
+    <span class="cola-checklist-count">${prog.done}/${prog.total}</span>
   </div>
-  <div style="height:4px;background:#e2e8f0;border-radius:2px;margin-bottom:10px;overflow:hidden;">
-    <div style="height:100%;width:${pct}%;background:#22c55e;border-radius:2px;transition:width .3s;"></div>
+  <div class="cola-progress-track" style="margin-bottom:12px;">
+    <div class="cola-progress-fill" style="width:${pct}%;"></div>
   </div>
   ${CHECKLIST_META.map(meta => {
     const done = it.checklist?.[meta.key] === true;
     return `
-    <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9;cursor:pointer;">
-      <input type="checkbox" data-prep-check="${meta.key}" ${done ? 'checked' : ''}
-             style="margin-top:2px;width:16px;height:16px;accent-color:#15803d;" />
+    <label class="cola-check">
+      <input type="checkbox" data-prep-check="${meta.key}" ${done ? 'checked' : ''} />
       <div>
-        <div style="font-size:12px;font-weight:700;color:#0f172a;">${esc(meta.label)}</div>
-        <div style="font-size:11px;color:#64748b;line-height:1.35;">${esc(meta.hint)}</div>
+        <div class="cola-check-label">${esc(meta.label)}</div>
+        <div class="cola-check-hint">${esc(meta.hint)}</div>
       </div>
     </label>`;
   }).join('')}
@@ -1209,89 +1208,65 @@ function _skeleton({ profile, role, company, plaza }) {
   const name = profile?.nombreCompleto || profile?.nombre || profile?.email || '';
 
   return `
-<div style="display:flex;flex-direction:column;height:100%;font-family:'Inter',sans-serif;">
+<div class="cola-view">
 
   <!-- Barra superior de contexto -->
-  <div data-prep-topbar style="display:flex;align-items:center;gap:10px;padding:12px 20px;
-       border-bottom:1px solid #f1f5f9;background:#fff;flex-shrink:0;">
-    <a data-app-route="/app/dashboard" href="/app/dashboard"
-       style="display:flex;align-items:center;gap:4px;font-size:12px;color:#64748b;
-              text-decoration:none;font-weight:500;cursor:pointer;">
-      <span class="material-symbols-outlined" style="font-size:14px;">arrow_back</span>
+  <div data-prep-topbar class="cola-topbar">
+    <a data-app-route="/app/dashboard" href="/app/dashboard" class="cola-back">
+      <span class="material-symbols-outlined">arrow_back</span>
       Dashboard
     </a>
-    <span style="color:#cbd5e1;font-size:12px;">·</span>
-    <span style="font-size:12px;font-weight:700;color:#0f172a;">Cola de preparación</span>
-    <span id="prepTopbarPlaza" style="margin-left:auto;font-size:11px;font-weight:700;color:#2b6954;
-                            padding:3px 10px;background:#dcfce7;border-radius:100px;display:${plaza ? 'inline-flex' : 'none'};">${esc(plaza)}</span>
+    <span class="cola-topbar-sep">·</span>
+    <span class="cola-topbar-title">Cola de preparación</span>
+    <span id="prepTopbarPlaza" class="cola-plaza-badge" style="display:${plaza ? 'inline-flex' : 'none'};">${esc(plaza)}</span>
   </div>
   <div data-prep-toast-host style="position:fixed;bottom:20px;right:20px;z-index:50;pointer-events:none;max-width:min(320px,92vw);"></div>
   <datalist id="prepUsersDatalist"></datalist>
   <datalist id="prepMvaDatalist"></datalist>
 
-  <!-- Stats -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#f1f5f9;
-              flex-shrink:0;">
-    ${_statCell('prepStatTotal',    '—', 'Total',    'list_alt',    '#2563eb','#eff6ff')}
-    ${_statCell('prepStatUrgent',   '—', 'Urgentes', 'priority_high','#f97316','#fff7ed')}
-    ${_statCell('prepStatReady',    '—', 'Listos',   'check_circle', '#16a34a','#f0fdf4')}
-    ${_statCell('prepStatProgress', '—', 'Progreso', 'speed',        '#8b5cf6','#ede9fe')}
-  </div>
-  <!-- Barra de progreso delgada -->
-  <div style="height:3px;background:#f1f5f9;flex-shrink:0;overflow:hidden;">
-    <div id="prepProgressBar" style="height:100%;width:0%;background:#22c55e;transition:width .5s;"></div>
-  </div>
-
-  <!-- Controles: filtros + sort -->
-  <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa;
-              flex-shrink:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-    <!-- Filtros operativos: urgencia / pendiente / listo / míos -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:180px;">
-      ${_filterBtn('all',      'Todos',       true)}
-      ${_filterBtn('urgent',   'Urgentes',    false)}
-      ${_filterBtn('pending',  'Pendientes',  false)}
-      ${_filterBtn('ready',    'Listos',      false)}
-      ${_filterBtn('mine',     'Míos',        false)}
-      ${_filterBtn('with-date','Con salida',  false)}
+  <!-- Resumen + filtros (control unificado con conteos) -->
+  <div class="cola-filters">
+    <div class="cola-filter-scroll">
+      ${_filterBtn('all',     'Todos',      'list_alt',     'prepStatTotal',   true)}
+      ${_filterBtn('urgent',  'Urgentes',   'warning',      'prepStatUrgent',  false)}
+      ${_filterBtn('pending', 'Pendientes', 'schedule',     'prepStatPending', false)}
+      ${_filterBtn('ready',   'Listos',     'check_circle', 'prepStatReady',   false)}
+      ${_filterBtn('mine',    'Míos',       'person',       'prepStatMine',    false)}
     </div>
-
-    <!-- Sort -->
-    <select id="prepSortSelect"
-            style="border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;
-                   font-size:12px;font-family:inherit;color:#334155;background:#fff;outline:none;">
-      <option value="__operational">Orden operativo (prioridad + salida)</option>
-      <option value="fechaSalida:asc">Salida más próxima</option>
-      <option value="orden:asc">Campo orden</option>
-      <option value="mva:asc">MVA A→Z</option>
-      <option value="creadoEn:desc">Alta reciente</option>
-      <option value="creadoEn:asc">Alta antigua</option>
-    </select>
+  </div>
+  <div class="cola-progress">
+    <div class="cola-progress-track"><div id="prepProgressBar" class="cola-progress-fill"></div></div>
+    <span id="prepStatProgress" class="cola-progress-label">0%</span>
   </div>
 
-  <div style="padding:8px 16px 12px;border-bottom:1px solid #f1f5f9;background:#fafafa;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+  <!-- Barra de acciones -->
+  <div class="cola-toolbar">
     <button type="button" id="prepAddBtn" class="prep-primary-btn">
-      <span class="material-symbols-outlined" style="font-size:18px;">playlist_add</span>
+      <span class="material-symbols-outlined">add</span>
       Nueva salida
     </button>
     <button type="button" id="prepBulkCompleteBtn" style="display:none;" class="prep-link-btn" title="Marcar checklist completo en todas las unidades visibles">
-      <span class="material-symbols-outlined" style="font-size:18px;">done_all</span>
-      <span class="prep-btn-label">Todas listas</span>
+      <span class="material-symbols-outlined">done_all</span>
+      Todas listas
     </button>
+    <div class="cola-toolbar-spacer"></div>
+    <label class="cola-sort">
+      <span class="material-symbols-outlined">swap_vert</span>
+      <select id="prepSortSelect">
+        <option value="__operational">Orden operativo</option>
+        <option value="fechaSalida:asc">Salida más próxima</option>
+        <option value="mva:asc">MVA A→Z</option>
+        <option value="creadoEn:desc">Alta reciente</option>
+      </select>
+    </label>
   </div>
 
   <!-- Layout: lista + detalle -->
-  <div style="display:flex;flex:1;overflow:hidden;">
-
-    <!-- Lista -->
-    <div style="flex:1;overflow-y:auto;padding:12px 16px;">
-      <div id="prepList"></div>
+  <div class="cola-body">
+    <div class="cola-list-wrap">
+      <div id="prepList" class="cola-list"></div>
     </div>
-
-    <!-- Panel de detalle (oculto por defecto) -->
-    <div id="prepDetailPanel"
-         style="display:none;width:320px;border-left:1px solid #f1f5f9;
-                overflow-y:auto;background:#fff;flex-shrink:0;">
-    </div>
+    <aside id="prepDetailPanel" class="cola-detail" style="display:none;"></aside>
   </div>
 
 </div>
@@ -1349,44 +1324,17 @@ function _skeleton({ profile, role, company, plaza }) {
     </form>
   </div>
 </div>
-
-<style>
-@keyframes spin { to { transform: rotate(360deg); } }
-[data-prep-filter].active {
-  background: #2b6954 !important;
-  color: #fff !important;
-  border-color: #2b6954 !important;
-}
-.prep-card--selected { box-shadow: 0 0 0 1px #64748b !important; }
-[data-prep-toast-host] > * { pointer-events: auto; }
-</style>
 `;
 }
 
-function _statCell(id, value, label, icon, color, bg) {
+function _filterBtn(value, label, icon, countId, active) {
+  const count = countId
+    ? `<span class="cola-filter-count" id="${countId}">0</span>`
+    : '';
   return `
-<div style="background:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;">
-  <div style="width:36px;height:36px;border-radius:10px;background:${bg};flex-shrink:0;
-              display:flex;align-items:center;justify-content:center;">
-    <span class="material-symbols-outlined" style="font-size:18px;color:${color};">${icon}</span>
-  </div>
-  <div>
-    <div id="${id}" style="font-size:20px;font-weight:900;color:#0f172a;line-height:1;">${value}</div>
-    <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;
-                letter-spacing:0.06em;margin-top:2px;">${esc(label)}</div>
-  </div>
-</div>`;
-}
-
-function _filterBtn(value, label, active) {
-  return `
-<button data-prep-filter="${value}"
-        class="${active ? 'active' : ''}"
-        style="padding:5px 12px;border-radius:8px;border:1px solid #e2e8f0;
-               background:${active ? '#2b6954' : '#fff'};
-               color:${active ? '#fff' : '#64748b'};
-               font-size:11px;font-weight:700;cursor:pointer;
-               font-family:inherit;transition:all .1s;">
+<button type="button" data-prep-filter="${value}" class="cola-filter${active ? ' active' : ''}">
+  <span class="material-symbols-outlined">${icon}</span>
   ${esc(label)}
+  ${count}
 </button>`;
 }

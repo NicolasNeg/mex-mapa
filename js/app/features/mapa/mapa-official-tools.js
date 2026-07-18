@@ -1,4 +1,9 @@
 import { esGlobal } from '/domain/permissions.model.js';
+import {
+  buildExportFilename,
+  exportFooterHtml,
+  getExportIdentity,
+} from '/js/core/export-signing.js';
 
 const GAS_OPTIONS = ['N/A', 'F', '15/16', '7/8', '13/16', '3/4', '11/16', '5/8', '9/16', '1/2', 'H', '7/16', '3/8', '5/16', '1/4', '3/16', '1/8', '1/16', 'E'];
 const STATE_OPTIONS = ['LISTO', 'SUCIO', 'MANTENIMIENTO', 'TRASLADO', 'RESGUARDO', 'NO ARRENDABLE', 'RETENIDA', 'VENTA'];
@@ -256,7 +261,10 @@ export async function openReports({ container, snapshot = {}, ctx = {} }) {
   `).join('');
   const win = window.open('', '_blank');
   if (!win) return { ok: false, message: 'Activa ventanas emergentes para generar el PDF.' };
-  win.document.write(`<!doctype html><html><head><title>Mapa ${esc(ctx.plaza || snapshot.plaza || '')}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111827}h1{font-size:20px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #d1d5db;padding:6px;text-align:left}th{background:#f3f4f6}</style></head><body><h1>Reporte mapa ${esc(ctx.plaza || snapshot.plaza || '')}</h1><p>${new Date().toLocaleString('es-MX')} · ${units.length} unidades</p><table><thead><tr><th>MVA</th><th>Modelo</th><th>Placas</th><th>Estado</th><th>Ubicación</th><th>Pos</th></tr></thead><tbody>${rows}</tbody></table><script>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  const id = getExportIdentity();
+  const title = buildExportFilename('pdf').replace(/\.pdf$/i, '');
+  const firma = exportFooterHtml({ escapeHtml: esc });
+  win.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111827}h1{font-size:20px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #d1d5db;padding:6px;text-align:left}th{background:#f3f4f6}.meta{margin:0 0 12px;font-size:11px;color:#64748b}</style></head><body><h1>Reporte mapa ${esc(ctx.plaza || snapshot.plaza || '')}</h1><p class="meta"><strong>${esc(id.companyName)}</strong> · ${esc(id.dateLabel)} · ${units.length} unidades</p><p class="meta">Exportado por ${esc(id.userName)}</p><table><thead><tr><th>MVA</th><th>Modelo</th><th>Placas</th><th>Estado</th><th>Ubicación</th><th>Pos</th></tr></thead><tbody>${rows}</tbody></table>${firma}<script>setTimeout(()=>window.print(),300)<\/script></body></html>`);
   win.document.close();
   return { ok: true, message: 'PDF listo.' };
 }

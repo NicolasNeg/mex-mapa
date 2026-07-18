@@ -16,6 +16,11 @@
 
 'use strict';
 
+import {
+  exportFooterHtml,
+  getExportIdentity,
+} from '/js/core/export-signing.js';
+
 // ── Helpers de formato ────────────────────────────────────────
 
 function escapeHtml(value) {
@@ -193,15 +198,16 @@ function _resumenActividadCard(titulo, valor, colorFondo, colorTexto) {
 }
 
 export function generarHtmlActividadDiaria(reservas, regresos, vencidos, autor, fechaFront) {
+  const id = getExportIdentity();
   return `
     <div>
       <div class="pdf-header">
         <div>
           <h1 class="pdf-title">Reporte de Actividad Diaria</h1>
-          <div style="font-size:12px; color:#475569; font-weight:700; margin-top:6px;">Reservas, contratos por cerrar y vencidos del día</div>
+          <div style="font-size:12px; color:#475569; font-weight:700; margin-top:6px;">${escapeHtml(id.companyName)} · Reservas, contratos por cerrar y vencidos del día</div>
         </div>
         <div class="pdf-meta">
-          <div><b>Generado por:</b> ${escapeHtml(autor || 'Sistema')}</div>
+          <div><b>Exportado por:</b> ${escapeHtml(autor || id.userName || 'Sistema')} · ${escapeHtml(id.dateLabel)}</div>
           <div><b>Emitido:</b> ${escapeHtml(formatearFechaDocumento(new Date().toISOString()))}</div>
           <div><b>Base:</b> ${escapeHtml(formatearFechaDocumento(fechaFront))}</div>
         </div>
@@ -221,6 +227,7 @@ export function generarHtmlActividadDiaria(reservas, regresos, vencidos, autor, 
 
       <div class="pdf-section-title">3. Vencidos / posibles llegadas (${vencidos.length})</div>
       ${_tablaActividadHtml(vencidos, fechaFront, { vacio: 'No hay vencidos incluidos en este reporte.', colorEncabezado: '#dc2626', forzarUrgente: true })}
+      ${exportFooterHtml({ escapeHtml })}
     </div>`;
 }
 

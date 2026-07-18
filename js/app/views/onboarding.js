@@ -7,6 +7,7 @@ import {
   registrarImportacion,
 } from '/js/app/features/onboarding/onboarding-data.js';
 import { importarDesdeArchivo, generarTemplateCsv } from '/js/app/features/unidades/unidades-data.js';
+import { buildExportFilename } from '/js/core/export-signing.js';
 
 let _container = null;
 let _navigate = null;
@@ -188,7 +189,7 @@ function _renderUnidades() {
       </button>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-      <a id="template-link" href="#" download="plantilla-unidades.csv"
+      <a id="template-link" href="#" download="${buildExportFilename('csv')}"
         style="display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#3b82f6;text-decoration:none;font-weight:500;">
         <span class="material-symbols-outlined" style="font-size:15px;">download</span>
         Descargar plantilla CSV
@@ -387,6 +388,7 @@ function _bindEvents() {
     const templateLink = _container.querySelector('#template-link');
     if (templateLink && _tipoSeleccionado) {
       templateLink.href = _templateDownloadLink(_tipoSeleccionado);
+      templateLink.download = buildExportFilename('csv');
     }
 
     window._onboardingHandleDrop = (file) => {

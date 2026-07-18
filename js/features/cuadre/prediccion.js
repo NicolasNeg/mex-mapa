@@ -18,6 +18,13 @@
 
 'use strict';
 
+import {
+  buildExportFilename,
+  exportExcelMetaHtml,
+  exportFooterHtml,
+  getExportIdentity,
+} from '/js/core/export-signing.js';
+
 // ── Helpers locales ───────────────────────────────────────────
 
 function _escapeHtml(value) {
@@ -84,20 +91,22 @@ function _generarHtmlPrediccionPdf() {
   if (!_htmlTablaPrediccion) return '';
   const total      = _resumenPrediccionActual ? _resumenPrediccionActual.totPred : 0;
   const colorTotal = total < 0 ? '#dc2626' : '#16a34a';
+  const id = getExportIdentity();
   return `
     <div>
       <div class="pdf-header">
         <div>
           <h1 class="pdf-title">Cuadre de Predicción</h1>
-          <div style="font-size:12px; color:#475569; font-weight:700; margin-top:6px;">Comparativo reservas vs regresos vs inventario disponible</div>
+          <div style="font-size:12px; color:#475569; font-weight:700; margin-top:6px;">${_escapeHtml(id.companyName)} · Comparativo reservas vs regresos vs inventario</div>
         </div>
         <div class="pdf-meta">
           <div><b>Fecha objetivo:</b> ${_escapeHtml(_fechaSeleccionadaStr || _fechaSeleccionadaIso || '--')}</div>
-          <div><b>Generado por:</b> ${_escapeHtml(window.USER_NAME || 'Sistema')}</div>
+          <div><b>Exportado por:</b> ${_escapeHtml(id.userName)} · ${_escapeHtml(id.dateLabel)}</div>
           <div><b>Total predicción:</b> <span style="color:${colorTotal}; font-weight:900;">${_escapeHtml(total)}</span></div>
         </div>
       </div>
       <div style="margin-top:8px;">${_htmlTablaPrediccion}</div>
+      ${exportFooterHtml({ escapeHtml: _escapeHtml })}
     </div>
   `;
 }
@@ -297,8 +306,8 @@ export async function crearExcelPrediccion() {
         </head>
         <body>
           <h2>Cuadre de Predicción</h2>
+          ${exportExcelMetaHtml(_escapeHtml)}
           <p><b>Fecha objetivo:</b> ${_escapeHtml(_fechaSeleccionadaStr || _fechaSeleccionadaIso || '--')}</p>
-          <p><b>Generado por:</b> ${_escapeHtml(window.USER_NAME || 'Sistema')}</p>
           <table>
             <thead>
               <tr>
@@ -313,9 +322,8 @@ export async function crearExcelPrediccion() {
         </body>
       </html>`;
 
-    const fechaArchivo = (_fechaSeleccionadaIso || new Date().toISOString().slice(0, 10)).replace(/[^0-9-]/g, '');
     window.descargarArchivoLocal(
-      `prediccion-cuadre-${window.generarSlugArchivo(fechaArchivo)}.xls`,
+      buildExportFilename('xls'),
       contenido,
       'application/vnd.ms-excel;charset=utf-8;'
     );

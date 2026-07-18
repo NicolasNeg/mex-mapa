@@ -8,6 +8,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { normalizeHistorialLog } from '/domain/historial-log.model.js';
+import { buildExportFilename } from '/js/core/export-signing.js';
 
 let _container  = null;
 let _state      = null;
@@ -460,8 +461,7 @@ function _exportCsv(kind) {
   });
   const csv = '\ufeff' + [header.map(_csvCell).join(','), ...body.map(line => line.map(_csvCell).join(','))].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const name = isMov ? 'movimientos' : 'estados';
-  _downloadBlob(blob, `historial-${name}-${_exportDate()}.csv`);
+  _downloadBlob(blob, buildExportFilename('csv'));
   _toast(`Exportados ${rows.length} registros (CSV).`, 'success');
 }
 

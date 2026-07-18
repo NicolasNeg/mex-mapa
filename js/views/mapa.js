@@ -25,6 +25,12 @@ let PLAZA_ACTIVA_MAPA = ''; // declarada al top para evitar TDZ en inicializarCo
 
 import { db, auth, COL, ACCESS_ROLE_META } from '/js/core/database.js';
 import {
+  buildExportFilename,
+  exportExcelMetaHtml,
+  exportFooterHtml,
+  getExportIdentity,
+} from '/js/core/export-signing.js';
+import {
   configureNotifications,
   initNotificationCenter,
   teardownNotificationCenter,
@@ -2326,6 +2332,9 @@ function abrirReporteImpresion(htmlContenido) {
   const originalScrollY = window.scrollY || window.pageYOffset || 0;
   const originalBodyOverflow = document.body.style.overflow;
   const originalHtmlOverflow = document.documentElement.style.overflow;
+  const originalTitle = document.title;
+  const signedTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
+  document.title = signedTitle;
   let cleaned = false;
   let fallbackTimer = null;
   let mediaQueryList = null;
@@ -2349,6 +2358,7 @@ function abrirReporteImpresion(htmlContenido) {
     container.style.display = 'none';
     document.body.style.overflow = originalBodyOverflow;
     document.documentElement.style.overflow = originalHtmlOverflow;
+    document.title = originalTitle;
     window.requestAnimationFrame(() => {
       window.scrollTo(originalScrollX, originalScrollY);
     });
@@ -6124,7 +6134,7 @@ function exportarMapa() {
       // 5. Convertir a imagen y descargar
       let link = document.createElement("a");
       link.href = canvas.toDataURL("image/png");
-      link.download = `Captura_Patio_${new Date().toISOString().slice(0, 10)}.png`;
+      link.download = buildExportFilename('png');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -13816,6 +13826,7 @@ function generarHtmlAuditoriaCuadrePdf(auditList = window.AUDIT_LIST || [], stat
           ${_cuadrePdfFirmaHtml('Agente de ventas', ventas, meta.firmaDataUrl || meta.ventasFirmaUrl || '')}
         </div>
         <div class="cuadre-pdf-final-mark">GENERADO POR MAP GESTION</div>
+        ${exportFooterHtml({ escapeHtml })}
       </section>
     </div>
   `;
@@ -16688,15 +16699,16 @@ function _resumenActividadCard(titulo, valor, colorFondo, colorTexto) {
 }
 
 function generarHtmlActividadDiaria(reservas, regresos, vencidos, autor, fechaFront) {
+  const id = getExportIdentity();
   return `
     <div>
       <div class="pdf-header">
         <div>
           <h1 class="pdf-title">Reporte de Actividad Diaria</h1>
-          <div style="font-size:12px; color:#475569; font-weight:700; margin-top:6px;">Reservas, contratos por cerrar y vencidos del día</div>
+          <div style="font-size:12px; color:#475569; font-weight:700; margin-top:6px;">${escapeHtml(id.companyName)} · Reservas, contratos por cerrar y vencidos del día</div>
         </div>
         <div class="pdf-meta">
-          <div><b>Generado por:</b> ${escapeHtml(autor || 'Sistema')}</div>
+          <div><b>Exportado por:</b> ${escapeHtml(autor || id.userName || 'Sistema')} · ${escapeHtml(id.dateLabel)}</div>
           <div><b>Emitido:</b> ${escapeHtml(formatearFechaDocumento(new Date().toISOString()))}</div>
           <div><b>Base:</b> ${escapeHtml(formatearFechaDocumento(fechaFront))}</div>
         </div>
@@ -16728,6 +16740,7 @@ function generarHtmlActividadDiaria(reservas, regresos, vencidos, autor, fechaFr
     colorEncabezado: '#dc2626',
     forzarUrgente: true
   })}
+      ${exportFooterHtml({ escapeHtml })}
     </div>
   `;
 }
@@ -16968,20 +16981,22 @@ function generarHtmlPrediccionPdf() {
   if (!htmlTablaPrediccion) return '';
   const total = resumenPrediccionActual ? resumenPrediccionActual.totPred : 0;
   const colorTotal = total < 0 ? '#dc2626' : '#16a34a';
+  const id = getExportIdentity();
   return `
     <div>
       <div class="pdf-header">
         <div>
           <h1 class="pdf-title">Cuadre de Predicción</h1>
-          <div style="font-size:12px; color:#475569; font-weight:700; margin-top:6px;">Comparativo reservas vs regresos vs inventario disponible</div>
+          <div style="font-size:12px; color:#475569; font-weight:700; margin-top:6px;">${escapeHtml(id.companyName)} · Comparativo reservas vs regresos vs inventario</div>
         </div>
         <div class="pdf-meta">
           <div><b>Fecha objetivo:</b> ${escapeHtml(fechaSeleccionadaStr || fechaSeleccionadaIso || '--')}</div>
-          <div><b>Generado por:</b> ${escapeHtml(USER_NAME || 'Sistema')}</div>
+          <div><b>Exportado por:</b> ${escapeHtml(id.userName)} · ${escapeHtml(id.dateLabel)}</div>
           <div><b>Total predicción:</b> <span style="color:${colorTotal}; font-weight:900;">${escapeHtml(total)}</span></div>
         </div>
       </div>
       <div style="margin-top:8px;">${htmlTablaPrediccion}</div>
+      ${exportFooterHtml({ escapeHtml })}
     </div>
   `;
 }
@@ -17040,8 +17055,8 @@ async function crearExcelPrediccion() {
         </head>
         <body>
           <h2>Cuadre de Predicción</h2>
+          ${exportExcelMetaHtml(escapeHtml)}
           <p><b>Fecha objetivo:</b> ${escapeHtml(fechaSeleccionadaStr || fechaSeleccionadaIso || '--')}</p>
-          <p><b>Generado por:</b> ${escapeHtml(USER_NAME || 'Sistema')}</p>
           <table>
             <thead>
               <tr>
@@ -17060,8 +17075,7 @@ async function crearExcelPrediccion() {
         </body>
       </html>`;
 
-    const fechaArchivo = (fechaSeleccionadaIso || new Date().toISOString().slice(0, 10)).replace(/[^0-9-]/g, '');
-    descargarArchivoLocal(`prediccion-cuadre-${generarSlugArchivo(fechaArchivo)}.xls`, contenido, 'application/vnd.ms-excel;charset=utf-8;');
+    descargarArchivoLocal(buildExportFilename('xls'), contenido, 'application/vnd.ms-excel;charset=utf-8;');
     await api.generarExcelPrediccion(datosCalculadosParaExcel, fechaSeleccionadaStr, USER_NAME).catch(e => console.warn('No se pudo registrar el Excel de predicción:', e));
     showToast('Hoja compatible con Excel descargada.', 'success');
   } catch (error) {
@@ -25489,7 +25503,10 @@ function exportarMapaPDF() {
       const dataUrl = canvas.toDataURL('image/png');
       const printWin = window.open('', '_blank');
       if (!printWin) { showToast('Activa ventanas emergentes para exportar PDF', 'warning'); return; }
-      printWin.document.write(`<!DOCTYPE html><html><head><title>Mapa Patio ${new Date().toLocaleDateString('es-MX')}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}img{max-width:100%;height:auto;display:block;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body><img src="${dataUrl}" style="width:100%;"><script>setTimeout(()=>{window.print();},400);<\/script></body></html>`);
+      const id = getExportIdentity();
+      const title = buildExportFilename('pdf').replace(/\.pdf$/i, '');
+      const firma = exportFooterHtml();
+      printWin.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;font:12px Inter,system-ui,sans-serif;color:#0f172a;padding:16px;}img{max-width:100%;height:auto;display:block;}.meta{margin:0 0 12px;font-size:11px;color:#64748b}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:0}}</style></head><body><div class="meta"><strong>${id.companyName}</strong> · Mapa patio · ${id.dateLabel}</div><img src="${dataUrl}" style="width:100%;">${firma}<script>setTimeout(()=>{window.print();},400);<\/script></body></html>`);
       printWin.document.close();
       showToast('PDF listo — usa Ctrl+P para guardar', 'success');
     }).catch(() => {

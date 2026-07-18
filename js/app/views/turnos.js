@@ -46,6 +46,11 @@ import {
   rolOperativoDeUsuario,
 } from '/js/app/features/turnos/turnos-view-model.js';
 import { colorDeTurno, contraste } from '/js/app/features/turnos/turno-color.js';
+import {
+  buildExportFilename,
+  exportFooterHtml,
+  getExportIdentity,
+} from '/js/core/export-signing.js';
 
 function _toast(msg, title = 'Turnos') {
   if (typeof window.mexAlert === 'function') {
@@ -1792,6 +1797,8 @@ function _exportarHorarios() {
     try { return _parseSelectValue(sel.value, plantillas); } catch (_) { return null; }
   };
 
+  let totalMin = 0;
+
   const renderExportUser = (u) => {
     const realUid = normalizeUsuarioUid(u);
     const horario = horarios.find(h => h.usuarioId === realUid);
@@ -1817,7 +1824,6 @@ function _exportarHorarios() {
     return `<tr><td class="emp">${esc(nombreUsuario(u))}</td>${celdas}</tr>`;
   };
 
-  let totalMin = 0;
   const sections = agruparPorRolOperativo(lista, rolesOperativos || [], horarios, { compactEmpty: true });
   let rows = '';
   for (const sec of sections) {
@@ -1837,10 +1843,13 @@ function _exportarHorarios() {
   const rangoLabel = `Semana del ${fmt(semana)} al ${fmt(finDisp.toISOString().slice(0, 10))}`;
   const titulo = `Distribución de turnos${plaza ? ` — ${plaza}` : ''}`;
   const cab = _exportCabeceraEmpresa();
+  const id = getExportIdentity();
+  const firma = exportFooterHtml({ escapeHtml: esc });
+  const fileTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
 
   const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
-<title>${esc(titulo)}</title>
+<title>${esc(fileTitle)}</title>
 <style>
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{font:12px Inter,system-ui,-apple-system,sans-serif;margin:22px;color:#0f172a}
@@ -1867,11 +1876,12 @@ function _exportarHorarios() {
 </style></head><body>
 ${cab}
 <h1>${esc(titulo)}</h1>
-<div class="sub"><span>${esc(rangoLabel)}</span><span>Total semana: ${esc(totalHoras)} h</span></div>
+<div class="sub"><span>${esc(rangoLabel)}</span><span>Total semana: ${esc(totalHoras)} h · ${esc(id.companyName)}</span></div>
 <table>
   <thead><tr><th class="emp">Colaborador</th>${thDias}</tr></thead>
   <tbody>${rows}</tbody>
 </table>
+${firma}
 <div class="no-print">
   <button class="btn-print" type="button" onclick="window.print()">Imprimir / Guardar PDF</button>
 </div>

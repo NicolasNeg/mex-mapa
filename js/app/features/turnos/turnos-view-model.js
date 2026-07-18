@@ -220,19 +220,25 @@ export function agruparPorRolOperativo(usuarios, rolesFilas, horarios = [], opts
     else uaSin.push(u);
   }
 
-  // Sin filas definidas: no forzar sección "Sin asignar" — flat list en una sola sección virtual
+  // Sin filas definidas: lista plana (compacta sin horario si aplica)
   if (!filas.length) {
+    if (opts.compactEmpty === false) {
+      return [{
+        id: '_all',
+        nombre: '',
+        esSinAsignar: false,
+        esPlano: true,
+        conHorario: unassigned,
+        sinHorario: [],
+      }];
+    }
     return [{
       id: '_all',
       nombre: '',
       esSinAsignar: false,
       esPlano: true,
       conHorario: uaCon,
-      sinHorario: opts.compactEmpty === false ? [] : uaSin,
-      // si no compactamos, todos van a conHorario vía merge abajo
-      ...(opts.compactEmpty === false
-        ? { conHorario: unassigned, sinHorario: [] }
-        : {}),
+      sinHorario: uaSin,
     }];
   }
 

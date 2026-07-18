@@ -1,0 +1,20 @@
+---
+description: Regla de oro — al terminar una tarea con cambios de código, bump SW + commit + push
+alwaysApply: true
+---
+
+# Cierre de tarea (bump SW + commit + push)
+
+Política completa: [`agente.md`](../../agente.md) en la raíz del proyecto.
+
+**Siempre que se termine una tarea con cambios en el código**, antes de cerrar:
+
+1. **Bump del Service Worker:** `node scripts/bump-sw.js` (incrementa `CACHE_NAME = 'mapa-vXXX'` en `sw.js`).
+2. **Commit:** `git add -A && git commit -m "<mensaje descriptivo>"`.
+3. **Push:** `git push` a la rama actual.
+
+Notas:
+
+- Aplica aunque no se haga deploy (deploy es aparte y también bumpea el SW vía `npm run deploy`).
+- Si el bump ya lo hizo un `npm run deploy`, no volver a bumpear en el mismo cambio.
+- Si la terminal/entorno no responde, avisar que el bump/commit/push quedó pendiente hasta reiniciar el entorno.

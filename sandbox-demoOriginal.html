@@ -2990,16 +2990,21 @@
             try { localStorage.setItem('mex-sandbox-theme', light ? 'light' : 'dark'); } catch (_) { }
         }
 
-        function exportCsv() {
+        async function exportCsv() {
             const rows = [
                 ['MVA', 'Estado', 'Cajon', 'Ubicacion', 'Gasolina', 'Placas', 'Modelo', 'Notas'],
                 ...visibleUnits().map((unit) => [unit.id, unit.status, unit.slot, unit.place, unit.fuel, unit.plates, unit.model, unit.notes]),
             ];
             const csv = rows.map((row) => row.map((value) => `"${String(value || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+            let filename = `USUARIO_${new Date().toISOString().slice(0, 10).replace(/-/g, '_')}_EMPRESA.csv`;
+            try {
+                const mod = await import('/js/core/export-signing.js');
+                filename = mod.buildExportFilename('csv');
+            } catch (_) { /* sandbox standalone */ }
+            const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
             const link = document.createElement('a');
             link.href = url;
-            link.download = `inventario-bjx-${new Date().toISOString().slice(0, 10)}.csv`;
+            link.download = filename;
             link.click();
             URL.revokeObjectURL(url);
             addHistory('Exportacion', `${visibleUnits().length} unidades exportadas a CSV`);

@@ -4,6 +4,22 @@ Reglas duraderas del producto. Los agentes y desarrolladores deben respetarlas a
 
 ---
 
+## Regla de oro — Cierre de tarea (bump SW + commit + push)
+
+**Siempre que se termine una tarea con cambios en el código**, antes de cerrar:
+
+1. **Bump del Service Worker:** ejecutar `node scripts/bump-sw.js` (incrementa `CACHE_NAME = 'mapa-vXXX'` en `sw.js`) para que los usuarios no reciban assets cacheados viejos.
+2. **Commit:** `git add -A && git commit -m "<mensaje descriptivo>"`.
+3. **Push:** `git push` a la rama actual para mantener GitHub sincronizado.
+
+Notas:
+
+- Aplica aunque **no** se haga deploy (deploy es aparte y también bumpea el SW vía `npm run deploy`).
+- Si el bump ya lo hizo un `npm run deploy`, no volver a bumpear en el mismo cambio.
+- Si la terminal/entorno no responde, avisar que el bump/commit/push quedó pendiente hasta reiniciar el entorno.
+
+---
+
 ## Regla de oro — Exportación de documentos
 
 **Todo documento exportado** debe identificar quién lo exporta y la empresa.

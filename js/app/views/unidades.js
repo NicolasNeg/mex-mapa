@@ -20,6 +20,12 @@ import {
   matrixFromOcrText,
   loadXlsxLibrary
 } from '/js/app/features/unidades/unidades-import.js';
+import {
+  buildExportFilename,
+  exportFooterHtml,
+  exportExcelMetaRows,
+  getExportIdentity,
+} from '/js/core/export-signing.js';
 
 let _ctr = null;
 let _navigate = null;
@@ -738,7 +744,7 @@ function _exportCsv() {
   const body = rows.map(row => FIELD_ORDER.map(k => _csv(_field(row, k))));
   const csv = '\ufeff' + [header.map(_csv).join(','), ...body.map(r => r.join(','))].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  _downloadBlob(blob, `unidades-${_exportSlug()}-${_exportDate()}.csv`);
+  _downloadBlob(blob, buildExportFilename('csv'));
   _s.exportRows = null;
   _toast(`Exportadas ${rows.length} unidades filtradas (CSV).`, 'success');
 }
@@ -752,13 +758,17 @@ async function _exportXls() {
     const live = _rowsForExport();
     if (!live) return;
     const header = FIELD_ORDER.map(k => FIELD_LABEL[k]);
-    const aoa = [header, ...live.map(row => FIELD_ORDER.map(k => _field(row, k)))];
+    const aoa = [
+      ...exportExcelMetaRows(),
+      header,
+      ...live.map(row => FIELD_ORDER.map(k => _field(row, k))),
+    ];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Unidades');
     const out = XLSX.write(wb, { bookType: 'xls', type: 'array' });
     const blob = new Blob([out], { type: 'application/vnd.ms-excel' });
-    _downloadBlob(blob, `unidades-${_exportSlug()}-${_exportDate()}.xls`);
+    _downloadBlob(blob, buildExportFilename('xls'));
     _s.exportRows = null;
     _closeModal();
     _toast(`Exportadas ${live.length} unidades filtradas (Excel).`, 'success');
@@ -776,8 +786,11 @@ function _exportPdf() {
     `<tr>${cols.map(k => `<td>${esc(_field(row, k) || '—')}</td>`).join('')}</tr>`
   ).join('');
   const summary = esc(_filterSummary());
+  const id = getExportIdentity();
+  const firma = exportFooterHtml({ escapeHtml: esc });
+  const title = buildExportFilename('pdf').replace(/\.pdf$/i, '');
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
-    <title>Unidades filtradas</title>
+    <title>${esc(title)}</title>
     <style>
       body{font:12px/1.35 Inter,system-ui,sans-serif;color:#0f172a;margin:24px;background:#fff}
       h1{font-size:18px;margin:0 0 4px} p{margin:0 0 16px;color:#64748b}
@@ -788,8 +801,9 @@ function _exportPdf() {
       @page{size:landscape;margin:12mm}
     </style></head><body>
     <h1>Inventario de unidades (filtrado)</h1>
-    <p>${summary} · ${rows.length} registros · ${_exportDate()}</p>
+    <p>${esc(id.companyName)} · ${summary} · ${rows.length} registros · ${esc(id.dateYmd)}</p>
     <table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
+    ${firma}
     <script>window.onload=function(){window.print()}<\/script>
     </body></html>`;
   const win = window.open('', '_blank');
