@@ -29,6 +29,10 @@ const _state = {
   recentNotificationIds: new Map(),
   initialized: false,
   autoConfigured: false,
+  /** App Shell bloquea toast/rutas para que el preload del mapa no las pise. */
+  lockToastAndRoutes: false,
+  /** Primera carga del inbox: no spamear toasts históricos. */
+  inboxBootstrapped: false,
   /** Evita bucle change → persist → render → change al sincronizar checkboxes del centro */
   prefChangeGuard: false
 };
@@ -487,6 +491,7 @@ function _bindForegroundMessaging() {
         if (isVisible) {
           if (!_wasNotificationSeenRecently(notificationId)) {
             _rememberNotificationSeen(notificationId);
+            // Una sola toast en primer plano; el inbox ya lista el resto.
             _state.toast?.(body ? `${_safeText(title)}: ${_safeText(body)}` : _safeText(title), 'info');
           }
           return;
@@ -887,31 +892,56 @@ function _renderNotifList() {
       const text     = _notifFriendlyText(item);
 
       html += `
-        <button class="notif-item${isUnread ? ' unread' : ''}" type="button" data-id="${id}">
-          <div class="notif-item-avatar" style="background:${meta.bg}">
-            <span class="material-icons" style="color:rgba(255,255,255,0.95);font-size:22px;line-height:1;">${meta.icon}</span>
-          </div>
-          <div class="notif-item-copy">
-            <div class="notif-item-head">
-              <span class="notif-item-context">${_safeText(context || _friendlyNotificationKind(item) || 'Sistema')}</span>
-              <time class="notif-item-time" datetime="${ts ? new Date(ts).toISOString() : ''}">${timeStr}</time>
+        <article class="notif-item${isUnread ? ' unread' : ''}" data-id="${id}">
+          <button class="notif-item-main" type="button" data-notif-open="${id}">
+            <div class="notif-item-avatar" style="background:${meta.bg}">
+              <span class="material-icons" style="color:rgba(255,255,255,0.95);font-size:22px;line-height:1;">${meta.icon}</span>
             </div>
-            <p class="notif-item-text">${text}</p>
-            ${_safeText(item?.plaza) ? `<div class="notif-item-meta"><span class="notif-item-tag">${_safeText(item.plaza)}</span></div>` : ''}
+            <div class="notif-item-copy">
+              <div class="notif-item-head">
+                <span class="notif-item-context">${_safeText(context || _friendlyNotificationKind(item) || 'Sistema')}</span>
+                <time class="notif-item-time" datetime="${ts ? new Date(ts).toISOString() : ''}">${timeStr}</time>
+              </div>
+              <p class="notif-item-text">${text}</p>
+              ${_safeText(item?.plaza) ? `<div class="notif-item-meta"><span class="notif-item-tag">${_safeText(item.plaza)}</span></div>` : ''}
+            </div>
+            ${isUnread ? '<div class="notif-unread-dot" aria-hidden="true"></div>' : ''}
+          </button>
+          <div class="notif-item-actions">
+            ${isUnread ? `
+              <button type="button" class="notif-item-action" data-notif-read="${id}" title="Marcar como leída" aria-label="Marcar como leída">
+                <span class="material-icons">done</span>
+              </button>` : ''}
+            <button type="button" class="notif-item-action danger" data-notif-delete="${id}" title="Eliminar" aria-label="Eliminar notificación">
+              <span class="material-icons">delete</span>
+            </button>
           </div>
-          ${isUnread ? '<div class="notif-unread-dot" aria-hidden="true"></div>' : ''}
-        </button>
+        </article>
       `;
     });
   });
 
   listEl.innerHTML = html;
 
-  listEl.querySelectorAll('.notif-item').forEach(button => {
+  listEl.querySelectorAll('[data-notif-open]').forEach(button => {
     button.addEventListener('click', () => {
-      const id   = button.dataset.id;
+      const id = button.getAttribute('data-notif-open');
       const item = _state.inbox.find(entry => (entry.notificationId || entry.id) === id);
       if (item) handleInboxItemAction(item);
+    });
+  });
+  listEl.querySelectorAll('[data-notif-read]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      markNotificationRead(button.getAttribute('data-notif-read')).catch(() => {});
+    });
+  });
+  listEl.querySelectorAll('[data-notif-delete]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      deleteInboxNotification(button.getAttribute('data-notif-delete')).catch(() => {});
     });
   });
 }
@@ -1238,7 +1268,14 @@ function _updateUnreadFromInbox() {
 }
 
 export function configureNotifications(options = {}) {
-  Object.assign(_state, options);
+  const nextLock = options.lockToastAndRoutes === true || _state.lockToastAndRoutes === true;
+  if (_state.lockToastAndRoutes) {
+    const { toast, routeHandlers, lockToastAndRoutes, ...rest } = options;
+    Object.assign(_state, rest);
+  } else {
+    Object.assign(_state, options);
+  }
+  if (nextLock) _state.lockToastAndRoutes = true;
   // Marca configuración explícita o por defecto: evita que initNotificationCenter()
   // vuelva a llamar configureNotifications y pise routeHandlers/toast del host (p. ej. mapa.js).
   _state.autoConfigured = true;
@@ -1323,6 +1360,42 @@ export async function acknowledgeNotification(notificationId) {
   }
 }
 
+function _markLocalRead(notificationId) {
+  const id = _safeText(notificationId);
+  if (!id) return;
+  _state.inbox = _state.inbox.map(entry =>
+    ((entry.notificationId || entry.id) === id)
+      ? { ...entry, read: true, status: 'READ', readAt: Date.now() }
+      : entry
+  );
+  _updateUnreadFromInbox();
+  _renderNotificationCenter();
+}
+
+export async function markNotificationRead(notificationId) {
+  const id = _safeText(notificationId);
+  if (!id) return;
+  _markLocalRead(id);
+  await acknowledgeNotification(id);
+}
+
+export async function deleteInboxNotification(notificationId) {
+  const id = _safeText(notificationId);
+  if (!id) return;
+  _state.inbox = _state.inbox.filter(entry => (entry.notificationId || entry.id) !== id);
+  _updateUnreadFromInbox();
+  _renderNotificationCenter();
+  const ref = _currentUserDocRef();
+  if (!ref) return;
+  try {
+    await ref.collection('inbox').doc(id).delete();
+  } catch (err) {
+    console.warn('[notificaciones] No se pudo eliminar:', err);
+    _state.toast?.('No se pudo eliminar la notificación.', 'error');
+    await resubscribeInbox().catch(() => {});
+  }
+}
+
 function _inferDeepLink(item = {}) {
   const type = _safeText(item.type || '').toLowerCase();
   const existing = _safeText(item.deepLink || '');
@@ -1388,24 +1461,13 @@ function _isPersistentCuadreMission(item = {}) {
 
 export async function handleInboxItemAction(item = {}) {
   const notificationId = item.notificationId || item.id;
-  const keepPending = _isPersistentCuadreMission(item);
-  // Optimista: marcar leído + redirigir DE INMEDIATO, sin esperar el round-trip
-  // al Cloud Function ackNotification (antes bloqueaba: "no actualiza al instante"
-  // y "tarda en redirigir"). El ack se persiste en segundo plano.
-  if (!keepPending) {
-    _state.inbox = _state.inbox.map(entry =>
-      ((entry.notificationId || entry.id) === notificationId)
-        ? { ...entry, read: true, status: 'READ', readAt: Date.now() }
-        : entry
-    );
-    _updateUnreadFromInbox();
-    _renderNotificationCenter();
-  }
+  // Al abrir el destino marcamos leída (incluye misiones de cuadre).
+  // El usuario también puede marcar/eliminar sin navegar desde los botones del item.
+  _markLocalRead(notificationId);
   closeNotificationCenter();
   const link = _inferDeepLink(item);
   if (link) routeDeepLink(link);
-  // Persistencia en background — no bloquea la UI ni la navegación.
-  if (!keepPending) Promise.resolve(acknowledgeNotification(notificationId)).catch(() => {});
+  Promise.resolve(acknowledgeNotification(notificationId)).catch(() => {});
 }
 
 export function routeDeepLink(url = '') {
@@ -1517,20 +1579,32 @@ export async function resubscribeInbox() {
     .onSnapshot(async snap => {
       const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       const prevIds = new Set(_state.inbox.map(item => item.notificationId || item.id));
+      const isBootstrap = !_state.inboxBootstrapped;
       _state.inbox = items;
+      _state.inboxBootstrapped = true;
       _updateUnreadFromInbox();
       _renderNotificationCenter();
 
+      // Primera hidratación: solo indexar IDs. No spamear toasts de histórico.
+      if (isBootstrap) {
+        items.forEach(item => _rememberNotificationSeen(item.notificationId || item.id));
+        return;
+      }
+
       const isVisible = document.visibilityState === 'visible' && document.hasFocus();
+      let toasted = 0;
       for (const item of items) {
         const itemId = item.notificationId || item.id;
         if (prevIds.has(itemId)) continue;
         if (item.read === true || item.status === 'READ') continue;
         if (_wasNotificationSeenRecently(itemId)) continue;
-        if (isVisible && Notification.permission !== 'granted') {
-          _rememberNotificationSeen(itemId);
-          _state.toast?.(`${_safeText(item.title || 'Notificación')}: ${_safeText(item.body || '')}`, 'info');
-        }
+        _rememberNotificationSeen(itemId);
+        if (!isVisible) continue;
+        // Con push activo, el sistema/foreground ya avisa; evita doble toast.
+        if (Notification.permission === 'granted') continue;
+        if (toasted >= 1) continue;
+        toasted += 1;
+        _state.toast?.(`${_safeText(item.title || 'Notificación')}: ${_safeText(item.body || '')}`, 'info');
       }
     }, err => {
       console.error('notifications:inbox', err);
@@ -1631,6 +1705,8 @@ export function teardownNotificationCenter() {
   _state.autoConfigured = false;
   _state.inbox = [];
   _state.unread = 0;
+  _state.inboxBootstrapped = false;
+  _state.lockToastAndRoutes = false;
   _state.currentDevice = null;
 }
 

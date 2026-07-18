@@ -281,9 +281,10 @@
 
   /* Cards: more air, clearer hierarchy, readable date */
   #notifications-center-modal .notif-item {
-    gap: 12px;
+    display: flex;
+    gap: 8px;
     margin: 0 12px 8px;
-    padding: 16px;
+    padding: 12px;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
     border-top: 1px solid #e2e8f0;
@@ -293,6 +294,59 @@
 
   #notifications-center-modal .notif-item:hover {
     background: #f8fafc;
+  }
+
+  #notifications-center-modal .notif-item-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    border: 0;
+    background: transparent;
+    padding: 4px;
+    margin: 0;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+
+  #notifications-center-modal .notif-item-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  #notifications-center-modal .notif-item-action {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  #notifications-center-modal .notif-item-action:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+
+  #notifications-center-modal .notif-item-action.danger:hover {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+  }
+
+  #notifications-center-modal .notif-item-action .material-icons {
+    font-size: 16px;
   }
 
   #notifications-center-modal .notif-item.unread {

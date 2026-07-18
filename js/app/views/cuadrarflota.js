@@ -313,7 +313,7 @@ function _paint() {
 function _coachHtml() {
   return `
     <div class="cf-modal-backdrop cf-coach" data-action="dismiss-coach">
-      <section class="cf-modal cf-coach-card" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+      <section class="cf-modal cf-coach-card" role="dialog" aria-modal="true" data-cf-modal-card>
         <header>
           <h2>Capacitación rápida</h2>
           <button type="button" class="cf-icon-btn" data-action="dismiss-coach" aria-label="Cerrar">
@@ -617,7 +617,7 @@ function _unitFields(unit) {
 function _extraModalHtml() {
   return `
     <div class="cf-modal-backdrop" data-action="close-extra">
-      <section class="cf-modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+      <section class="cf-modal" role="dialog" aria-modal="true" data-cf-modal-card>
         <header>
           <h2>Anadir sobrante</h2>
           <button type="button" class="cf-icon-btn" data-action="close-extra"><span class="material-symbols-outlined">close</span></button>
@@ -684,9 +684,20 @@ function _onChange(event) {
 }
 
 async function _onClick(event) {
+  if (!_s) return;
   const actionEl = event.target.closest('[data-action]');
-  if (!actionEl || !_s) return;
+  if (!actionEl) return;
+
+  // Clic en el cuerpo del modal (sin botón) no debe cerrar por el backdrop.
   const action = actionEl.dataset.action;
+  if (
+    (action === 'dismiss-coach' || action === 'close-extra')
+    && actionEl.classList.contains('cf-modal-backdrop')
+    && event.target.closest('[data-cf-modal-card]')
+  ) {
+    return;
+  }
+
   const mva = actionEl.dataset.mva || '';
 
   if (action === 'reload') { await _load(); return; }

@@ -228,8 +228,11 @@ async function boot() {
     if (!host) {
       host = document.createElement('div');
       host.id = 'mexAppToastHost';
-      host.style.cssText = 'position:fixed;bottom:20px;right:16px;z-index:260;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+      host.style.cssText = 'position:fixed;bottom:20px;right:16px;z-index:13000;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
       root.appendChild(host);
+    }
+    while (host.children.length >= 2) {
+      try { host.firstElementChild?.remove(); } catch (_) {}
     }
     const el = document.createElement('div');
     const tone = type === 'error'
@@ -237,8 +240,18 @@ async function boot() {
       : type === 'warning'
         ? 'background:#fef9c3;border:1px solid #fde047;'
         : 'background:#ecfccb;border:1px solid #bef264;';
-    el.style.cssText = `pointer-events:auto;padding:11px 14px;border-radius:10px;font-size:13px;font-weight:600;max-width:min(360px,calc(100vw - 32px));box-shadow:0 10px 30px rgba(2,6,23,.18);color:#0f172a;${tone}`;
-    el.textContent = text;
+    el.style.cssText = `pointer-events:auto;display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:10px;font-size:13px;font-weight:600;max-width:min(360px,calc(100vw - 32px));box-shadow:0 10px 30px rgba(2,6,23,.18);color:#0f172a;${tone}`;
+    const msg = document.createElement('span');
+    msg.style.cssText = 'flex:1;min-width:0;line-height:1.35;';
+    msg.textContent = text;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Cerrar');
+    close.textContent = '×';
+    close.style.cssText = 'border:0;background:transparent;color:#64748b;font-size:18px;line-height:1;cursor:pointer;padding:0 2px;';
+    close.addEventListener('click', () => { try { el.remove(); } catch (_) {} });
+    el.appendChild(msg);
+    el.appendChild(close);
     host.appendChild(el);
     setTimeout(() => { try { el.remove(); } catch (_) {} }, 4200);
   };
@@ -421,12 +434,13 @@ async function boot() {
   window.__mexWarmAppData = (options = {}) => warmAppData(getState(), { reason: 'manual', force: true, ...options });
   window.__mexAppCacheStatus = () => getAppCacheStatus(getState());
   void refreshNotifSummary({ force: true });
+  // Antes del preload del mapa (~2.5s) para bloquear toast/rutas del shell.
   _runWhenIdle(() => {
     _loadNotificationCenter()
       .then(mod => mod.setupAppNotificationCenter?.({ router, toast: shellToast }))
       .then(() => refreshNotifSummary({ force: true }))
       .catch(err => console.warn('[app/main] Notificaciones diferidas:', err));
-  });
+  }, 400);
   notifTimer = window.setInterval(() => {
     refreshNotifSummary({ force: true });
   }, 90000);

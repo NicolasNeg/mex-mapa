@@ -474,10 +474,19 @@ function showToast(msg, type = 'success') {
     console[method]('[toast]', msg);
     return;
   }
+  while (box.children.length >= 2) {
+    try { box.firstElementChild?.remove(); } catch (_) {}
+  }
   const t = document.createElement('div');
   t.className = `toast ${type}`;
   const _toastIcons = { success: 'check_circle', error: 'error', warning: 'warning', info: 'info', search: 'search', notfound: 'search_off' };
-  t.innerHTML = `<span class="material-icons">${_toastIcons[type] || 'check_circle'}</span> ${msg}`;
+  t.innerHTML = `
+    <span class="material-icons">${_toastIcons[type] || 'check_circle'}</span>
+    <span class="toast-msg">${String(msg || '')}</span>
+    <button type="button" class="toast-close" aria-label="Cerrar">
+      <span class="material-icons">close</span>
+    </button>`;
+  t.querySelector('.toast-close')?.addEventListener('click', () => { try { t.remove(); } catch (_) {} });
   box.appendChild(t);
   setTimeout(() => { if (t.parentElement) t.remove(); }, 3500);
 }

@@ -48,6 +48,7 @@ export async function setupAppNotificationCenter({ router, toast } = {}) {
 
   if (!_appShellNotifSetup) {
     configureNotifications({
+      lockToastAndRoutes: true,
       profileGetter: () => {
         try {
           return getState().profile || window.CURRENT_USER_PROFILE || null;

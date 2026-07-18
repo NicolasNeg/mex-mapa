@@ -821,7 +821,8 @@ service cloud.firestore {
         allow update: if esAccesoTotal()
           || esAdminOperativo()
           || (esDocumentoUsuarioPropio(doc) && (inboxAckValido() || inboxMisionSelfUpdateValido()));
-        allow delete: if esAccesoTotal() || esAdminOperativo();
+        // El dueño puede limpiar su inbox (marcar leídas + eliminar).
+        allow delete: if esAccesoTotal() || esAdminOperativo() || esDocumentoUsuarioPropio(doc);
       }
     }
 
