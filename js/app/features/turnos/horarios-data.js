@@ -299,6 +299,66 @@ export async function copiarSemanaAnterior(plaza, semanaDestino) {
   return { count, semanaOrigen: origen };
 }
 
+/** Semanas (lunes ISO) que intersectan el rango desde..hasta. */
+function _semanasEnRango(desde, hasta) {
+  const out = [];
+  let s = semanaInicio(new Date(`${desde}T00:00:00`));
+  const fin = semanaInicio(new Date(`${hasta}T00:00:00`));
+  let guard = 0;
+  while (s <= fin && guard < 60) { out.push(s); s = moverSemana(s, 1); guard += 1; }
+  return out;
+}
+
+/**
+ * Trae los horarios de una plaza para todas las semanas que cruzan el rango
+ * desde..hasta (one-shot). Alimenta la derivación mensual de asistencia.
+ */
+export async function getHorariosRango(plaza, desde, hasta) {
+  const p = String(plaza || '').toUpperCase().trim();
+  if (!p) return [];
+  const semanas = _semanasEnRango(desde, hasta);
+  if (!semanas.length) return [];
+  try {
+    // Firestore 'in' admite hasta 10 valores; el rango mensual cabe (<=6).
+    const chunks = [];
+    for (let i = 0; i < semanas.length; i += 10) chunks.push(semanas.slice(i, i + 10));
+    const results = await Promise.all(chunks.map(chunk => {
+      let q = db.collection(COL.HORARIOS);
+      if (p !== 'TODAS') q = q.where('plaza', '==', p);
+      return q.where('semanaInicio', 'in', chunk).get();
+    }));
+    const rows = [];
+    for (const snap of results) rows.push(...snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    return rows;
+  } catch (err) {
+    if (isFirestoreIndexError(err)) {
+      const e = new Error('INDEX_MISSING'); e.code = 'INDEX_MISSING'; e.cause = err;
+      throw e;
+    }
+    throw err;
+  }
+}
+
+/** Asistencia de una plaza en un rango (one-shot). Plaza 'TODAS' → todas. */
+export async function getAsistenciaRango(plaza, desde, hasta) {
+  const p = String(plaza || '').toUpperCase().trim();
+  if (!p) return [];
+  try {
+    let q = db.collection(COL.ASISTENCIA);
+    if (p !== 'TODAS') q = q.where('plaza', '==', p);
+    q = q.where('fecha', '>=', String(desde).slice(0, 10))
+         .where('fecha', '<=', String(hasta).slice(0, 10));
+    const snap = await q.get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    if (isFirestoreIndexError(err)) {
+      const e = new Error('INDEX_MISSING'); e.code = 'INDEX_MISSING'; e.cause = err;
+      throw e;
+    }
+    throw err;
+  }
+}
+
 /** Horario de un usuario para una semana (one-shot). */
 export async function getMiHorario(usuarioId, plaza, semana) {
   const docId = horarioDocId(plaza, semana, usuarioId);
@@ -562,6 +622,20 @@ export async function guardarNotaSemana(plaza, semana, diaKey, nota) {
 export async function getUsuariosPlaza(plaza) {
   if (!plaza) return [];
   const plazaUp = String(plaza).toUpperCase().trim();
+
+  // Multi-plaza: todos los usuarios (para el tablero "Todas las plazas").
+  if (plazaUp === 'TODAS') {
+    try {
+      const snap = await db.collection(COL.USERS).limit(400).get();
+      return snap.docs.map(_mapUsuarioDoc).sort(_sortUsuarios);
+    } catch (err) {
+      if (isFirestoreIndexError(err)) {
+        const e = new Error('INDEX_MISSING'); e.code = 'INDEX_MISSING'; e.cause = err;
+        throw e;
+      }
+      throw err;
+    }
+  }
 
   const filterByPlaza = docs =>
     docs

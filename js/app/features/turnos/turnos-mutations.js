@@ -11,7 +11,7 @@ import {
 } from '/js/app/features/turnos/turnos-data.js';
 import { registrarAsistenciaDesdeCheckin, hoy } from '/js/app/features/turnos/horarios-data.js';
 import { formatDuration, turnoInicioDate } from '/js/app/features/turnos/turnos-view-model.js';
-import { runChecadoGate } from '/js/app/features/turnos/checado-gate.js';
+import { runChecadoGate, showChecadoExito } from '/js/app/features/turnos/checado-gate.js';
 import { dataUrlToBlob } from '/js/app/features/turnos/camera.js';
 import { normalizarDescriptor } from '/js/app/features/turnos/face-verify.js';
 
@@ -100,6 +100,24 @@ async function uploadChecadaFoto(fotoDataURL, { uid, tipo }) {
   }
 }
 
+/** Sube la firma digital (PNG) a Storage. Falla silenciosamente → null. */
+async function uploadChecadaFirma(firmaDataURL, { uid, tipo }) {
+  if (!firmaDataURL || !uid) return null;
+  const blob = dataUrlToBlob(firmaDataURL);
+  if (!blob) return null;
+  const sc = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
+  if (!sc?.ref) return null;
+  const path = `turnos_firmas/${uid}/${tipo}_${Date.now()}.png`;
+  try {
+    const ref = sc.ref(path);
+    await ref.put(blob, { contentType: 'image/png' });
+    return await ref.getDownloadURL();
+  } catch (e) {
+    console.warn('[turnos-mutations] firma upload:', e?.code || e?.message);
+    return null;
+  }
+}
+
 async function loadFreshFaceDescriptor(user) {
   const fromUser = normalizarDescriptor(user?.faceDescriptor);
   if (fromUser?.length) return fromUser;
@@ -123,6 +141,7 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
   const nombre = userDisplayName(user);
 
   let meta = {};
+  let exitoFoto = null;
   if (!opts.skipGate) {
     const faceDescriptor = await loadFreshFaceDescriptor(user);
     const gate = await runChecadoGate({
@@ -130,6 +149,7 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
       user: { ...user, faceDescriptor },
       plazaId: plaza,
       requireFace: true,
+      signature: true,
     });
     if (gate?.cancelled) {
       const err = new Error('Cancelado');
@@ -145,7 +165,11 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
       }
     }
 
-    const fotoUrl = await uploadChecadaFoto(gate.fotoDataURL, { uid: firebaseUid, tipo: 'inicio' });
+    exitoFoto = gate.fotoDataURL;
+    const [fotoUrl, firmaUrl] = await Promise.all([
+      uploadChecadaFoto(gate.fotoDataURL, { uid: firebaseUid, tipo: 'inicio' }),
+      uploadChecadaFirma(gate.firmaDataURL, { uid: firebaseUid, tipo: 'inicio' }),
+    ]);
     meta = {
       lat: gate.lat,
       lon: gate.lon,
@@ -155,12 +179,23 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
       viveza: gate.viveza,
       antiSpoof: gate.antiSpoof,
       fotoUrl,
+      firmaUrl,
       geoWarn: !!gate.geoWarn,
       distanciaPlazaM: gate.distanciaPlazaM,
     };
   }
 
   const turnoId = await iniciarTurnoData(user, plazaId, meta);
+
+  const ahora = new Date();
+  showChecadoExito({
+    mode: 'inicio',
+    hora: ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+    fecha: ahora.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }),
+    plaza,
+    direccion: meta.direccion || '',
+    fotoDataURL: exitoFoto,
+  });
 
   const faceTag = meta.faceVerified ? ' · rostro OK' : (meta.faceVerified === false ? ' · sin rostro' : '');
   await registrarLogTurno(
@@ -211,6 +246,7 @@ export async function cerrarTurno(turnoId, opts = {}) {
   const uid = data.usuarioId || opts.usuarioId || authUid(opts.user || {});
 
   let meta = {};
+  let exitoFoto = null;
   if (!opts.skipGate) {
     const faceDescriptor = await loadFreshFaceDescriptor(opts.user || {});
     const gate = await runChecadoGate({
@@ -224,6 +260,7 @@ export async function cerrarTurno(turnoId, opts = {}) {
       err.code = 'GATE_CANCELLED';
       throw err;
     }
+    exitoFoto = gate.fotoDataURL;
     const fotoUrl = await uploadChecadaFoto(gate.fotoDataURL, { uid, tipo: 'cierre' });
     meta = {
       lat: gate.lat,
@@ -243,6 +280,17 @@ export async function cerrarTurno(turnoId, opts = {}) {
 
   const inicio = turnoInicioDate(data);
   const dur = formatDuration(Date.now() - inicio.getTime());
+
+  const ahora = new Date();
+  showChecadoExito({
+    mode: 'cierre',
+    hora: ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+    fecha: ahora.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }),
+    plaza,
+    direccion: meta.direccion || '',
+    fotoDataURL: exitoFoto,
+    duracion: dur,
+  });
 
   await registrarLogTurno(
     `🔴 TURNO FIN: ${nombre} · duración ${dur}`,

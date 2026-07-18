@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 //  checado-gate.js — wizard modal INICIAR / CERRAR TURNO
-//  Cámara + face (Human.js) + geo soft-warn. Sin firma (v1).
+//  Cámara + face (Human.js) + geo soft-warn + firma digital.
+//  Paridad ChecadorGLOBAL: firma en entrada + pantalla de éxito.
 // ═══════════════════════════════════════════════════════════
 
 import {
@@ -59,6 +60,8 @@ export function runChecadoGate(opts = {}) {
   const mode = opts.mode === 'cierre' ? 'cierre' : 'inicio';
   const requireFace = opts.requireFace !== false && mode === 'inicio';
   const faceOptional = mode === 'cierre';
+  // Firma digital obligatoria solo al iniciar turno (config: signature).
+  const requireSigna = opts.signature !== false && mode === 'inicio';
   const user = opts.user || {};
   const plazaId = String(opts.plazaId || '').toUpperCase().trim();
 
@@ -78,6 +81,7 @@ export function runChecadoGate(opts = {}) {
       viveza: null,
       antiSpoof: null,
       fotoDataURL: null,
+      firmaDataURL: null,
       geoWarn: false,
       distanciaPlazaM: null,
       enrolled: false,
@@ -159,7 +163,9 @@ export function runChecadoGate(opts = {}) {
           habilitarShutter();
         }
       } else if (action === 'confirm-photo') void confirmPhoto();
-      else if (action === 'geo-continue') void finalizeGate();
+      else if (action === 'geo-continue') proceedAfterPhoto();
+      else if (action === 'firma-clear') limpiarFirma();
+      else if (action === 'firma-confirm') void confirmarFirma();
     });
 
     // ── Boot ──────────────────────────────────────────────
@@ -412,6 +418,75 @@ export function runChecadoGate(opts = {}) {
         if (dir) dir.textContent = result.direccion || `${result.lat?.toFixed(5)}, ${result.lon?.toFixed(5)}`;
         return;
       }
+      proceedAfterPhoto();
+    }
+
+    /** Tras foto/geo: firma (entrada) o finalizar. */
+    function proceedAfterPhoto() {
+      if (requireSigna) showFirma();
+      else void finalizeGate();
+    }
+
+    // ── Firma digital (canvas) ────────────────────────────
+    let firmaCtx = null;
+    let firmaDibujo = false;
+    let firmaTieneTrazo = false;
+
+    function showFirma() {
+      showStep('firma');
+      const canvas = $('#tuGateFirmaCanvas');
+      if (!canvas) { void finalizeGate(); return; }
+      // Ajustar resolución al tamaño real
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(300, rect.width) * dpr;
+      canvas.height = Math.max(150, rect.height) * dpr;
+      firmaCtx = canvas.getContext('2d');
+      firmaCtx.scale(dpr, dpr);
+      firmaCtx.lineWidth = 2.5;
+      firmaCtx.lineCap = 'round';
+      firmaCtx.lineJoin = 'round';
+      firmaCtx.strokeStyle = '#0f172a';
+      firmaTieneTrazo = false;
+      _setFirmaConfirm(false);
+
+      const pos = (ev) => {
+        const r = canvas.getBoundingClientRect();
+        const p = ev.touches ? ev.touches[0] : ev;
+        return { x: p.clientX - r.left, y: p.clientY - r.top };
+      };
+      const start = (ev) => { ev.preventDefault(); firmaDibujo = true; const { x, y } = pos(ev); firmaCtx.beginPath(); firmaCtx.moveTo(x, y); };
+      const move = (ev) => {
+        if (!firmaDibujo) return;
+        ev.preventDefault();
+        const { x, y } = pos(ev);
+        firmaCtx.lineTo(x, y); firmaCtx.stroke();
+        firmaTieneTrazo = true; _setFirmaConfirm(true);
+      };
+      const end = () => { firmaDibujo = false; };
+
+      canvas.onmousedown = start; canvas.onmousemove = move;
+      window.addEventListener('mouseup', end);
+      canvas.ontouchstart = start; canvas.ontouchmove = move; canvas.ontouchend = end;
+    }
+
+    function _setFirmaConfirm(enabled) {
+      const btn = $('#tuGateFirmaConfirm');
+      if (btn) btn.disabled = !enabled;
+    }
+
+    function limpiarFirma() {
+      const canvas = $('#tuGateFirmaCanvas');
+      if (canvas && firmaCtx) firmaCtx.clearRect(0, 0, canvas.width, canvas.height);
+      firmaTieneTrazo = false;
+      _setFirmaConfirm(false);
+    }
+
+    async function confirmarFirma() {
+      const canvas = $('#tuGateFirmaCanvas');
+      if (!firmaTieneTrazo || !canvas) return;
+      try { result.firmaDataURL = canvas.toDataURL('image/png'); }
+      catch (e) { console.warn('[checado-gate] firma:', e); }
       await finalizeGate();
     }
 
@@ -425,6 +500,37 @@ export function runChecadoGate(opts = {}) {
       });
     }
   });
+}
+
+/**
+ * Overlay de éxito tras registrar el turno (paridad ChecadorGLOBAL).
+ * @param {object} info { mode, hora, fecha, plaza, direccion, fotoDataURL, duracion }
+ */
+export function showChecadoExito(info = {}) {
+  ensureGateCss();
+  const esInicio = info.mode !== 'cierre';
+  const overlay = document.createElement('div');
+  overlay.className = 'tu-gate tu-gate--exito';
+  overlay.setAttribute('role', 'dialog');
+  overlay.innerHTML = `
+<div class="tu-gate__backdrop"></div>
+<div class="tu-gate__panel tu-gate__panel--exito">
+  <div class="tu-exito__check"><span class="material-symbols-outlined">${esInicio ? 'login' : 'logout'}</span></div>
+  <h2 class="tu-exito__title">${esInicio ? 'Turno iniciado' : 'Turno cerrado'}</h2>
+  <p class="tu-exito__sub">${info.hora ? info.hora : ''}${info.fecha ? ` · ${info.fecha}` : ''}</p>
+  ${info.fotoDataURL ? `<img class="tu-exito__foto" src="${info.fotoDataURL}" alt="Selfie">` : ''}
+  <div class="tu-exito__rows">
+    ${info.plaza ? `<div class="tu-exito__row"><span class="material-symbols-outlined">store</span><span>${info.plaza}</span></div>` : ''}
+    ${info.direccion ? `<div class="tu-exito__row"><span class="material-symbols-outlined">location_on</span><span>${info.direccion}</span></div>` : ''}
+    ${info.duracion ? `<div class="tu-exito__row"><span class="material-symbols-outlined">timer</span><span>${info.duracion}</span></div>` : ''}
+  </div>
+  <button type="button" class="tu-btn tu-btn--primary tu-btn--full" data-exito-close>Listo</button>
+</div>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector('[data-exito-close]')?.addEventListener('click', close);
+  overlay.querySelector('.tu-gate__backdrop')?.addEventListener('click', close);
+  setTimeout(close, 6000);
 }
 
 function _shellHtml(mode) {
@@ -502,6 +608,19 @@ function _shellHtml(mode) {
         <button type="button" class="tu-btn tu-btn--ghost" data-gate-action="retake">Repetir</button>
         <button type="button" class="tu-btn tu-btn--primary" data-gate-action="confirm-photo">Continuar</button>
       </div>
+    </div>
+  </div>
+
+  <div data-gate-step="firma" class="tu-gate__body tu-gate__body--firma" hidden>
+    <h3 class="tu-gate__firma-title">Firma para confirmar</h3>
+    <p class="tu-gate__hint">Dibuja tu firma con el dedo o el mouse.</p>
+    <div class="tu-gate-firma">
+      <canvas id="tuGateFirmaCanvas" class="tu-gate-firma__canvas"></canvas>
+      <span class="tu-gate-firma__line"></span>
+    </div>
+    <div class="tu-gate__row">
+      <button type="button" class="tu-btn tu-btn--ghost" data-gate-action="firma-clear">Limpiar</button>
+      <button type="button" id="tuGateFirmaConfirm" class="tu-btn tu-btn--primary" data-gate-action="firma-confirm" disabled>Confirmar</button>
     </div>
   </div>
 

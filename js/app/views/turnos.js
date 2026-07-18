@@ -51,6 +51,22 @@ import {
   exportFooterHtml,
   getExportIdentity,
 } from '/js/core/export-signing.js';
+import { getTurnosRango } from '/js/app/features/turnos/turnos-data.js';
+import {
+  getHorariosRango, getAsistenciaRango,
+} from '/js/app/features/turnos/horarios-data.js';
+import {
+  getNotasRango, getNotasColaborador,
+  guardarNotaAsistencia, eliminarNotaAsistencia, TIPOS_NOTA,
+} from '/js/app/features/turnos/notas-asistencia-data.js';
+import {
+  tableroMes, calendarioEmpleado, matrizCalendarioMes,
+  CAT_META, CAT_ORDEN, ymd,
+} from '/js/app/features/turnos/asistencia-calc.js';
+import {
+  tableroToolbarHtml, tableroBodyHtml,
+} from '/js/app/features/turnos/tablero-asistencia.js';
+import { getHistorialHechos, HECHO_LABEL, registrarHechoTurno } from '/js/app/features/turnos/turnos-audit.js';
 
 function _toast(msg, title = 'Turnos') {
   if (typeof window.mexAlert === 'function') {
@@ -72,6 +88,46 @@ function _isoHaceDias(n) {
   const d = new Date();
   d.setDate(d.getDate() - Math.max(0, Number(n) || 0));
   return d.toISOString().slice(0, 10);
+}
+
+/** Primer día (ISO) del mes que contiene la fecha dada (default hoy). */
+function _mesAncla(date = new Date()) {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+/** Suma n meses al ancla (primer día). */
+function _moverMes(anclaIso, n) {
+  const d = new Date(`${anclaIso}T00:00:00`);
+  d.setMonth(d.getMonth() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+/** Rango { desde, hasta } (primer y último día) del mes del ancla. */
+function _mesRango(anclaIso) {
+  const d = new Date(`${anclaIso}T00:00:00`);
+  const desde = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  const ultimo = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  const hasta = `${ultimo.getFullYear()}-${String(ultimo.getMonth() + 1).padStart(2, '0')}-${String(ultimo.getDate()).padStart(2, '0')}`;
+  return { desde, hasta };
+}
+
+/** Plazas disponibles para el selector del tablero (del app-state + actual). */
+function _plazasDisponibles() {
+  const gs = getState();
+  const set = new Set();
+  const list = Array.isArray(gs.plazas) ? gs.plazas
+    : Array.isArray(gs.plazasDisponibles) ? gs.plazasDisponibles : [];
+  for (const p of list) {
+    const id = String(p?.id || p?.plazaId || p || '').toUpperCase().trim();
+    if (id) set.add(id);
+  }
+  if (_s?.plaza) set.add(_s.plaza);
+  const arr = [...set].sort();
+  // "Todas" solo para roles globales (multi-plaza).
+  const role = String(gs.role || '').toUpperCase();
+  const global = ['CORPORATIVO_USER', 'JEFE_OPERACION', 'JEFE_REGIONAL', 'PROGRAMADOR'].includes(role);
+  return global && arr.length > 1 ? ['TODAS', ...arr] : arr;
 }
 
 function _fmtHistRange(desde, hasta) {
@@ -143,17 +199,35 @@ function _renderHistorialTabla(turnos) {
   </div>`;
 }
 
+function _puestoDeUsuario(u) {
+  return String(u?.puesto || u?.rol || u?.role || '').trim();
+}
+
 function _renderHistorialFiltros() {
-  const { isAdmin, usuarios, usuariosLoading, historialDesde, historialHasta, historialUsuarioId } = _s;
-  const lista = resolveUsuariosLista(usuarios || [], {
+  const { isAdmin, usuarios, usuariosLoading, historialDesde, historialHasta, historialUsuarioId, historialPlaza, historialPuesto } = _s;
+  let lista = resolveUsuariosLista(usuarios || [], {
     isAdmin: Boolean(isAdmin),
     uid: _s.uid,
     profile: _s.profile
   });
+  // Filtro por puesto (afecta el combo de colaboradores)
+  if (historialPuesto) {
+    lista = lista.filter(u => _puestoDeUsuario(u).toUpperCase() === historialPuesto.toUpperCase());
+  }
   const opts = lista.map(u => {
     const uid = normalizeUsuarioUid(u);
     return `<option value="${esc(uid)}"${uid === historialUsuarioId ? ' selected' : ''}>${esc(nombreUsuario(u))}</option>`;
   }).join('');
+
+  const plazas = _plazasDisponibles().filter(p => p !== 'TODAS');
+  const plazaOpts = plazas.map(p =>
+    `<option value="${esc(p)}"${p === historialPlaza ? ' selected' : ''}>${esc(p)}</option>`
+  ).join('');
+
+  const puestos = [...new Set((usuarios || []).map(_puestoDeUsuario).filter(Boolean))].sort();
+  const puestoOpts = puestos.map(p =>
+    `<option value="${esc(p)}"${p === historialPuesto ? ' selected' : ''}>${esc(p)}</option>`
+  ).join('');
 
   return `
   <details class="tu-hist-filters" id="tuHistFilters" open>
@@ -163,10 +237,24 @@ function _renderHistorialFiltros() {
     </summary>
     <div class="tu-hist-filters__grid">
       ${isAdmin ? `
-      <div class="tu-field-group tu-field-group--full">
-        <label class="tu-label" for="tuHistUsuario">Colaborador <span class="tu-req">*</span></label>
+      <div class="tu-field-group">
+        <label class="tu-label" for="tuHistPlaza">Plaza</label>
+        <select class="tu-input" id="tuHistPlaza">
+          <option value="">Seleccionar (todas)</option>
+          ${plazaOpts}
+        </select>
+      </div>
+      <div class="tu-field-group">
+        <label class="tu-label" for="tuHistPuesto">Puesto</label>
+        <select class="tu-input" id="tuHistPuesto">
+          <option value="">Seleccionar (todos)</option>
+          ${puestoOpts}
+        </select>
+      </div>
+      <div class="tu-field-group">
+        <label class="tu-label" for="tuHistUsuario">Empleado <span class="tu-req">*</span></label>
         <select class="tu-input" id="tuHistUsuario"${usuariosLoading ? ' disabled' : ''}>
-          <option value="">Selecciona colaborador…</option>
+          <option value="">Selecciona empleado…</option>
           ${opts}
         </select>
       </div>` : ''}
@@ -181,6 +269,9 @@ function _renderHistorialFiltros() {
     </div>
     <div class="tu-hist-filters__actions">
       <button class="tu-btn tu-btn--ghost" id="tuHistSemana" type="button">Semana</button>
+      <button class="tu-btn tu-btn--ghost" id="tuHistReset" type="button">
+        <span class="material-symbols-outlined">restart_alt</span> Resetear
+      </button>
       <button class="tu-btn tu-btn--primary" id="tuHistVer" type="button">Ver historial</button>
     </div>
   </details>`;
@@ -189,7 +280,8 @@ function _renderHistorialFiltros() {
 function _renderHistorialSubject(usuario, resumen) {
   const nombre = usuario ? nombreUsuario(usuario) : String(_s?.profile?.nombreCompleto || _s?.profile?.nombre || 'Colaborador');
   const rol = usuario?.rol || usuario?.role || _s?.profile?.rol || '';
-  const plaza = _s?.plaza || '';
+  const plaza = _s?.historialPlaza || _s?.plaza || '';
+  const targetUid = _s?.isAdmin ? _s?.historialUsuarioId : _s?.uid;
   return `
   <div class="tu-hist-subj">
     <span class="tu-hist-subj__avatar">${esc(initialUsuario(usuario || _s?.profile || {}))}</span>
@@ -198,15 +290,72 @@ function _renderHistorialSubject(usuario, resumen) {
       <span class="tu-hist-subj__meta">${esc([rol, plaza].filter(Boolean).join(' · '))}</span>
     </div>
     <span class="tu-hist-subj__range">${esc(_fmtHistRange(_s.historialDesde, _s.historialHasta))}</span>
-    <div class="tu-hist-stats">
-      <div class="tu-hist-stat">
-        <span class="tu-hist-stat__val">${resumen.count}</span>
-        <span class="tu-hist-stat__lbl">Turnos</span>
-      </div>
-      <div class="tu-hist-stat">
-        <span class="tu-hist-stat__val">${esc(resumen.horas)}</span>
-        <span class="tu-hist-stat__lbl">Horas</span>
-      </div>
+    <div class="tu-hist-subj__actions">
+      <button class="tu-btn tu-btn--icon" id="tuHistStats" type="button" title="Resumen">
+        <span class="material-symbols-outlined">bar_chart</span>
+      </button>
+      <button class="tu-btn tu-btn--icon" id="tuHistPdf" type="button" title="Descargar PDF">
+        <span class="material-symbols-outlined">download</span>
+      </button>
+      ${_s?.isAdmin ? `
+      <button class="tu-btn tu-btn--primary tu-btn--sm" id="tuHistNota" type="button" data-uid="${esc(targetUid)}" data-nombre="${esc(nombre)}">
+        <span class="material-symbols-outlined">add</span> Nota
+      </button>` : ''}
+    </div>
+  </div>`;
+}
+
+/** Píldoras de resumen (6 categorías) del rango/mes visible. */
+function _renderHistStatsBar(resumen) {
+  if (!resumen) return '';
+  return `<div class="tu-hist-statsbar">
+    ${CAT_ORDEN.map(cat => {
+      const m = CAT_META[cat];
+      return `<div class="tu-hist-pill" style="--pill:${m.color}">
+        <span class="tu-hist-pill__val">${resumen[cat] || 0}</span>
+        <span class="tu-hist-pill__lbl">${esc(m.label)}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+/** Calendario mensual del colaborador (pantalla 2). */
+function _renderCalendarioEmpleado() {
+  const cal = _s.cal;
+  const mesLabel = (() => {
+    const d = new Date(`${cal.ancla}T12:00:00`);
+    const s = d.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
+  const { semanas } = matrizCalendarioMes(cal.ancla);
+  const porFecha = cal.data?.porFecha || {};
+  const dows = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+  const hoyIso = hoy();
+
+  const celdas = semanas.map(sem => `<div class="tu-cal-row">
+    ${sem.map(d => {
+      const est = porFecha[d.fecha];
+      const m = est ? (CAT_META[est.cat] || {}) : {};
+      const esHoy = d.fecha === hoyIso;
+      const pintable = est && est.cat !== 'futuro' && !d.fuera;
+      return `<button type="button" class="tu-cal-cell${d.fuera ? ' tu-cal-cell--out' : ''}${esHoy ? ' tu-cal-cell--today' : ''}"
+        data-cal-fecha="${esc(d.fecha)}"
+        style="${pintable ? `--cellbg:${m.color}1a;--cellbar:${m.color}` : ''}">
+        <span class="tu-cal-num">${d.dia}</span>
+        ${pintable ? `<span class="tu-cal-tag" style="color:${m.color}">${esc(m.label)}</span>` : ''}
+      </button>`;
+    }).join('')}
+  </div>`).join('');
+
+  return `<div class="tu-cal">
+    <div class="tu-cal-nav">
+      <button class="tu-btn tu-btn--icon" id="tuCalPrev" type="button"><span class="material-symbols-outlined">chevron_left</span></button>
+      <span class="tu-cal-month">${esc(mesLabel)}</span>
+      <button class="tu-btn tu-btn--icon" id="tuCalNext" type="button"><span class="material-symbols-outlined">chevron_right</span></button>
+    </div>
+    <div class="tu-cal-grid">
+      <div class="tu-cal-row tu-cal-row--head">${dows.map(d => `<span class="tu-cal-dow">${d}</span>`).join('')}</div>
+      ${cal.loading ? `<div class="tu-loading"><div class="tu-spinner"></div><span>Cargando…</span></div>` : celdas}
     </div>
   </div>`;
 }
@@ -263,6 +412,39 @@ export async function mount({ container }) {
     rolesOperativos: [],
     showGestionRoles: false,
     expandSinHorario: {},
+    // Tablero de Asistencia (heatmap mensual — pantalla 1)
+    asis: {
+      ancla: _mesAncla(),
+      plaza,
+      plazasDisponibles: [],
+      loading: false,
+      error: null,
+      data: null,
+      selUid: '',
+      catFiltro: new Set(),
+      panelOpen: true,
+    },
+    // Calendario historial por empleado (pantalla 2)
+    cal: {
+      ancla: _mesAncla(),
+      data: null,
+      loading: false,
+    },
+    // Filtros de historial extendidos (pantalla 3)
+    historialPlaza: '',
+    historialPuesto: '',
+    // Auditoría de personal (historial de cambios — pantalla 4)
+    aud: {
+      loading: false,
+      rows: [],
+      cargado: false,
+      q: '',
+      tipo: '',
+      desde: '',
+      hasta: '',
+      expand: {},
+    },
+    showHistStats: false,
   };
 
   _render();
@@ -272,10 +454,19 @@ export async function mount({ container }) {
   _offs.push(onPlazaChange(next => {
     if (!_s) return;
     _s.plaza = String(next || '').toUpperCase().trim();
+    // Resetear tablero/calendario a la nueva plaza (si no está en modo "Todas").
+    if (_s.asis && _s.asis.plaza !== 'TODAS') {
+      _s.asis.plaza = _s.plaza;
+      _s.asis.data = null;
+      _s.asis.selUid = '';
+      _s.asis.plazasDisponibles = [];
+    }
+    if (_s.cal) _s.cal.data = null;
     _stopListeners();
     _render();
     _startListeners();
     void _loadUsuarios();
+    if (_s.tab === 'asistencia') void _loadTablero();
   }));
 }
 
@@ -396,7 +587,8 @@ function _restartListenerAsistencia() {
     _s.asistencia = list;
     if (err) _s.listenerErrors.asistencia = err;
     else delete _s.listenerErrors.asistencia;
-    _repaintTab();
+    // El tablero (pantalla 1) carga su propio rango; no repintar aquí para
+    // evitar flicker. Solo repinta si alguna vista legacy lo necesitara.
   });
 }
 
@@ -431,6 +623,7 @@ function _render() {
     ...(isAdmin ? [
       { key: 'asistencia', label: 'Asistencia',     icon: 'fact_check' },
       { key: 'historial',  label: 'Historial',       icon: 'history' },
+      { key: 'auditoria',  label: 'Cambios',         icon: 'manage_history' },
     ] : [
       { key: 'historial',  label: 'Mi historial',   icon: 'history' },
     ]),
@@ -485,6 +678,7 @@ function _renderTabContent() {
     case 'horarios':   return _renderHorarios();
     case 'asistencia': return _renderAsistencia();
     case 'historial':  return _renderHistorial();
+    case 'auditoria':  return _renderAuditoria();
     default:           return '';
   }
 }
@@ -1016,92 +1210,67 @@ function _renderHorarios() {
 </div>`;
 }
 
-// ── Tab Asistencia ────────────────────────────────────────────
+// ── Tab Asistencia (Tablero mensual — pantalla 1) ─────────────
 function _renderAsistencia() {
-  const { asistenciaFecha, asistencia, usuarios, usuariosLoading } = _s;
-  const pendientes = (asistencia || []).filter(a => String(a.estado || '').toUpperCase() === 'PENDIENTE').length;
-
-  let filas = '';
-  if (usuariosLoading) {
-    filas = `<tr><td colspan="5" class="tu-grid-empty">Cargando…</td></tr>`;
-  } else {
-    const lista = resolveUsuariosLista(usuarios, { isAdmin: true, uid: _s.uid, profile: _s.profile });
-    const emptyMsg = usuariosPlazaEmptyMessage({
-      usuariosLoading: false,
-      hasIndexError: !!(_s.listenerErrors?.usuarios || _s.usuariosLoadError?.code === LISTENER_ERROR.INDEX_MISSING),
-      hasUsuarios: lista.length > 0,
-    });
-    if (emptyMsg) {
-      filas = `<tr><td colspan="5" class="tu-grid-empty">${esc(emptyMsg)}</td></tr>`;
-    } else {
-      for (const u of lista) {
-        const uUid = normalizeUsuarioUid(u);
-        const reg = asistencia.find(a => a.usuarioId === uUid);
-        const est = String(reg?.estado || '').toUpperCase();
-        const nota = reg?.nota || '';
-        const isPendiente = est === 'PENDIENTE';
-        const badge = est
-          ? `<span class="tu-asist-badge tu-asist-badge--${esc(est.toLowerCase())}">${esc(ESTADOS_ASISTENCIA[est]?.label || est)}</span>`
-          : '<span class="tu-asist-badge tu-asist-badge--empty">Sin registrar</span>';
-        filas += `<tr class="tu-asist-row${isPendiente ? ' tu-asist-row--pending' : ''}" data-uid="${esc(uUid)}" data-nombre="${esc(nombreUsuario(u))}">
-        <td class="tu-td-main">${esc(nombreUsuario(u))}</td>
-        <td>${badge}</td>
-        <td>
-          <select class="tu-select tu-asist-estado" data-uid="${esc(uUid)}">
-            <option value="">— elegir —</option>
-            ${Object.entries(ESTADOS_ASISTENCIA).map(([k, v]) =>
-              `<option value="${k}" ${est === k ? 'selected' : ''}>${v.label}</option>`
-            ).join('')}
-          </select>
-        </td>
-        <td>
-          <input class="tu-input tu-asist-nota" type="text" placeholder="Nota (opcional)"
-                 value="${esc(nota)}" data-uid="${esc(uUid)}">
-        </td>
-        <td class="tu-td-actions">
-          ${isPendiente ? `
-          <button class="tu-btn tu-btn--sm tu-btn--primary tu-asist-confirm" type="button"
-                  data-uid="${esc(uUid)}" data-nombre="${esc(nombreUsuario(u))}" title="Confirmar presente">
-            Confirmar
-          </button>` : ''}
-          <button class="tu-btn tu-btn--sm tu-btn--ghost tu-asist-save" type="button"
-                  data-uid="${esc(uUid)}" data-nombre="${esc(nombreUsuario(u))}" title="Guardar">
-            Guardar
-          </button>
-        </td>
-      </tr>`;
-      }
-    }
+  if (!_s.asis.plazasDisponibles?.length) {
+    _s.asis.plazasDisponibles = _plazasDisponibles();
   }
-
   return `
-<div class="tu-asistencia tu-formal">
-  <div class="tu-asist-toolbar">
-    <label class="tu-label">Fecha</label>
-    <input class="tu-input" type="date" id="tuAsistFecha" value="${esc(asistenciaFecha)}">
-    ${pendientes ? `<span class="tu-asist-pending-count">${pendientes} por confirmar</span>` : ''}
-    <div class="tu-asist-legend">
-      ${Object.entries(ESTADOS_ASISTENCIA).map(([, v]) =>
-        `<span class="tu-legend-item">
-          <span class="tu-legend-dot" style="background:${v.color}"></span>${v.label}
-         </span>`).join('')}
+<div class="tu-asis-board">
+  <div class="tu-asis-headline">
+    <div>
+      <h2 class="tu-asis-title">Tablero de Asistencia</h2>
+      <p class="tu-asis-sub">Asistencia en tiempo real · ${esc(_s.asis.plaza === 'TODAS' ? 'Todas las plazas' : (_s.asis.plaza || _s.plaza || ''))}</p>
     </div>
   </div>
-  <div class="tu-table-wrap">
-    <table class="tu-table">
-      <thead>
-        <tr>
-          <th>Colaborador</th>
-          <th>Registro</th>
-          <th>Estado</th>
-          <th>Nota</th>
-          <th class="tu-th-actions">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>${filas}</tbody>
-    </table>
+  ${tableroToolbarHtml(_s.asis)}
+  <div class="tu-asis-bodywrap" id="tuAsisBody">${tableroBodyHtml(_s.asis)}</div>
+</div>
+${_marcarDiaModalHtml()}`;
+}
+
+function _marcarDiaModalHtml() {
+  return `
+<div class="tu-nota-modal" id="tuMarcarModal" style="display:none">
+  <div class="tu-nota-modal-inner">
+    <div class="tu-editor-head">
+      <span id="tuMarcarTitle">Marcar día</span>
+      <button class="tu-btn tu-btn--icon" id="tuMarcarClose" type="button">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <input type="hidden" id="tuMarcarUid">
+    <input type="hidden" id="tuMarcarFecha">
+    <input type="hidden" id="tuMarcarNombre">
+    <input type="hidden" id="tuMarcarPlaza">
+    <label class="tu-label">Estado del día</label>
+    <div class="tu-tipo-btns" id="tuMarcarTipos">
+      ${Object.entries(TIPOS_NOTA).map(([k, v]) => {
+        const cat = _catDeTipoMarca(k);
+        const color = CAT_META[cat]?.color || '#94a3b8';
+        return `<button class="tu-tipo-btn" type="button" data-marca="${k}"
+                 style="border-color:${color}55;color:${color}">${esc(v.label)}</button>`;
+      }).join('')}
+    </div>
+    <label class="tu-label" style="margin-top:8px;">Nota (opcional)</label>
+    <input class="tu-input" type="text" id="tuMarcarNota" placeholder="Motivo o detalle…">
+    <div class="tu-hist-filters__actions" style="margin-top:10px;">
+      <button class="tu-btn tu-btn--ghost" id="tuMarcarBorrar" type="button">Quitar marca</button>
+      <button class="tu-btn tu-btn--primary" id="tuMarcarGuardar" type="button">
+        <span class="material-symbols-outlined">save</span> Guardar
+      </button>
+    </div>
   </div>
 </div>`;
+}
+
+function _catDeTipoMarca(tipo) {
+  const map = {
+    presente: 'asistencia', retardo: 'retardo', falta: 'falta',
+    permiso: 'permiso', justificacion: 'permiso', vacaciones: 'permiso',
+    festivo: 'descanso', descanso: 'descanso', nota: 'sinasignar',
+  };
+  return map[tipo] || 'sinasignar';
 }
 
 // ── Tab Historial (por colaborador — patrón CHECADOR) ─────────
@@ -1142,26 +1311,16 @@ function _renderHistorial() {
 
   const targetUid = isAdmin ? _s.historialUsuarioId : uid;
   const usuario = _usuarioHistorial(targetUid);
-  const resumen = _historialResumen(historial);
-
-  if (!historial.length) {
-    return `
-<div class="tu-historial">
-  ${filtros}
-  ${_renderHistorialSubject(usuario, resumen)}
-  <div class="tu-empty-state">
-    <span class="material-symbols-outlined">history</span>
-    <p>No hay turnos cerrados en este rango.</p>
-  </div>
-</div>`;
-  }
+  const resumen = _s.cal?.data?.resumen || null;
 
   return `
 <div class="tu-historial">
   ${filtros}
   ${_renderHistorialSubject(usuario, resumen)}
-  ${_renderHistorialTabla(historial)}
-</div>`;
+  ${_s.showHistStats ? _renderHistStatsBar(resumen) : ''}
+  ${_renderCalendarioEmpleado()}
+</div>
+${_marcarDiaModalHtml()}`;
 }
 
 // ── Bind ──────────────────────────────────────────────────────
@@ -1186,6 +1345,7 @@ function _bindTabBody() {
     case 'horarios':   _bindHorarios();   break;
     case 'asistencia': _bindAsistencia(); break;
     case 'historial':  _bindHistorial();  break;
+    case 'auditoria':  _bindAuditoria();  break;
   }
 }
 
@@ -1452,6 +1612,12 @@ function _bindHorarios() {
         try {
           const cell = _parseSelectValue(sel.value, _s.plantillas);
           await guardarHorarioCelda(uid, _s.plaza, _s.semana, diaKey, cell, { nombre, rol });
+          void registrarHechoTurno({
+            hecho: 'CAMBIO_HORARIO', plaza: _s.plaza, empleado: nombre, empleadoUid: uid,
+            fecha: fechaDia(_s.semana, diaKey),
+            nota: cell?.tipo === 'NORMAL' ? `${cell.inicio}–${cell.fin}` : (cell?.tipo || 'Sin turno'),
+            detalle: { dia: diaKey, semana: _s.semana },
+          });
         } catch (e) {
           console.warn('[turnos] grid-sel:', e);
           _toast(e?.message || 'No se pudo guardar.', 'Error');
@@ -1595,6 +1761,11 @@ function _bindEditor() {
         nombre: editDia.nombre,
         rol: editDia.rol,
       });
+      void registrarHechoTurno({
+        hecho: 'CAMBIO_HORARIO', plaza, empleado: editDia.nombre, empleadoUid: editDia.uid,
+        fecha: fechaDia(semana, editDia.diaKey), nota: 'Turno eliminado',
+        detalle: { dia: editDia.diaKey, semana },
+      });
       editor.style.display = 'none';
       _s.editDia = null;
     } catch (e) {
@@ -1643,6 +1814,12 @@ function _bindEditor() {
         nombre: editDia.nombre,
         rol:    editDia.rol,
       });
+      void registrarHechoTurno({
+        hecho: 'CAMBIO_HORARIO', plaza, empleado: editDia.nombre, empleadoUid: editDia.uid,
+        fecha: fechaDia(semana, editDia.diaKey),
+        nota: cellData?.tipo === 'NORMAL' ? `${cellData.inicio}–${cellData.fin}` : (cellData?.tipo || ''),
+        detalle: { dia: editDia.diaKey, semana },
+      });
 
       editor.style.display = 'none';
       _s.editDia = null;
@@ -1688,62 +1865,192 @@ function _bindNotaModal() {
   });
 }
 
-function _bindAsistencia() {
-  _ctr?.querySelector('#tuAsistFecha')?.addEventListener('change', e => {
+function _repaintAsisBody() {
+  const body = _ctr?.querySelector('#tuAsisBody');
+  if (body && _s) {
+    body.innerHTML = tableroBodyHtml(_s.asis);
+    _bindAsisBody();
+  }
+}
+
+function _repaintAsisToolbar() {
+  // Repinta leyenda (para reflejar filtros activos) sin recargar datos.
+  const board = _ctr?.querySelector('.tu-asis-board');
+  if (!board || !_s) return;
+  _repaintTab();
+}
+
+async function _loadTablero() {
+  if (!_s) return;
+  const a = _s.asis;
+  const plaza = a.plaza || _s.plaza;
+  if (!plaza) return;
+  const { desde, hasta } = _mesRango(a.ancla);
+  a.loading = true;
+  a.error = null;
+  _repaintAsisBody();
+  try {
+    const [usuarios, turnos, asistencia, notas, horarios] = await Promise.all([
+      getUsuariosPlaza(plaza),
+      getTurnosRango(plaza, desde, hasta),
+      getAsistenciaRango(plaza, desde, hasta),
+      getNotasRango(plaza, desde, hasta),
+      getHorariosRango(plaza, desde, hasta),
+    ]);
     if (!_s) return;
-    _s.asistenciaFecha = e.target.value || hoy();
-    _restartListenerAsistencia();
+    const lista = plaza === 'TODAS'
+      ? usuarios
+      : resolveUsuariosLista(usuarios, { isAdmin: true, uid: _s.uid, profile: _s.profile });
+    a.data = tableroMes({
+      usuarios: lista, turnos, asistencia, notas, horarios,
+      desde, hasta, hoyIso: hoy(),
+    });
+    if (!a.selUid && a.data.filas.length) a.selUid = a.data.filas[0].uid;
+    a.loading = false;
+    _repaintAsisBody();
+  } catch (e) {
+    console.warn('[turnos] tablero:', e);
+    if (!_s) return;
+    a.loading = false;
+    a.error = { code: e?.code === 'INDEX_MISSING' ? 'INDEX_MISSING' : 'OTHER' };
+    _repaintAsisBody();
+  }
+}
+
+function _bindAsistencia() {
+  if (!_s.asis.data && !_s.asis.loading) void _loadTablero();
+
+  _ctr?.querySelector('#tuAsisPrev')?.addEventListener('click', () => {
+    _s.asis.ancla = _moverMes(_s.asis.ancla, -1); _s.asis.data = null; _repaintTab(); void _loadTablero();
+  });
+  _ctr?.querySelector('#tuAsisNext')?.addEventListener('click', () => {
+    _s.asis.ancla = _moverMes(_s.asis.ancla, 1); _s.asis.data = null; _repaintTab(); void _loadTablero();
+  });
+  _ctr?.querySelector('#tuAsisMonth')?.addEventListener('change', e => {
+    const v = e.target.value; if (!v) return;
+    _s.asis.ancla = `${v}-01`; _s.asis.data = null; _repaintTab(); void _loadTablero();
+  });
+  _ctr?.querySelector('#tuAsisPlaza')?.addEventListener('change', e => {
+    _s.asis.plaza = e.target.value; _s.asis.data = null; _s.asis.selUid = ''; _repaintTab(); void _loadTablero();
+  });
+  _ctr?.querySelector('#tuAsisReload')?.addEventListener('click', () => {
+    _s.asis.data = null; void _loadTablero();
+  });
+  _ctr?.querySelector('#tuAsisPanel')?.addEventListener('click', () => {
+    _s.asis.panelOpen = !_s.asis.panelOpen; _repaintAsisBody();
+  });
+  _ctr?.querySelector('#tuAsisPdf')?.addEventListener('click', _exportarTablero);
+
+  _bindAsisBody();
+  _bindMarcarModal();
+}
+
+function _bindAsisBody() {
+  // Filtro por leyenda
+  _ctr?.querySelectorAll('#tuAsisLegend [data-leg]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cat = btn.dataset.leg;
+      const set = _s.asis.catFiltro;
+      if (set.has(cat)) set.delete(cat); else set.add(cat);
+      _repaintTab();
+    });
+  });
+  // Seleccionar fila (spotlight)
+  _ctr?.querySelectorAll('.tu-hm-row').forEach(row => {
+    row.querySelector('.tu-hm-emp')?.addEventListener('click', () => {
+      _s.asis.selUid = row.dataset.rowUid || '';
+      _repaintAsisBody();
+    });
+  });
+  // Marcar día (click en celda)
+  _ctr?.querySelectorAll('.tu-hm-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const uid = cell.dataset.uid;
+      const fecha = cell.dataset.fecha;
+      const fila = _s.asis.data?.filas.find(f => f.uid === uid);
+      _openMarcarModal(uid, fecha, fila ? fila.nombre : '');
+    });
+  });
+  // Ver historial completo → tab historial preseleccionando usuario
+  _ctr?.querySelector('#tuAsisVerHist')?.addEventListener('click', (e) => {
+    const uid = e.currentTarget.dataset.uid || _s.asis.selUid;
+    _s.historialUsuarioId = uid;
+    _s.historialMostrado = true;
+    _s.tab = 'historial';
+    _ctr.querySelectorAll('.tu-tab').forEach(b => b.classList.toggle('tu-tab--active', b.dataset.tab === 'historial'));
     _repaintTab();
+    void _loadHistorialUsuario();
   });
+}
 
-  _ctr?.querySelectorAll('.tu-asist-confirm').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const uid = btn.dataset.uid;
-      const nombre = btn.dataset.nombre;
-      const row = btn.closest('.tu-asist-row');
-      const nota = row?.querySelector('.tu-asist-nota')?.value || '';
-      if (!uid) return;
-      btn.disabled = true;
-      try {
-        await confirmarAsistencia(uid, _s.plaza, _s.asistenciaFecha, 'PRESENTE', { nombre, nota });
-        _toast(`Asistencia de ${nombre} confirmada.`, 'Asistencia');
-      } catch (e) {
-        console.warn('[turnos] confirmarAsistencia:', e);
-        _toast(e?.message || 'No se pudo confirmar.', 'Error');
-      } finally {
-        btn.disabled = false;
-      }
+function _openMarcarModal(uid, fecha, nombre, plaza) {
+  if (!_s?.isAdmin) return;
+  const modal = _ctr?.querySelector('#tuMarcarModal');
+  if (!modal || !uid || !fecha) return;
+  _ctr.querySelector('#tuMarcarUid').value = uid;
+  _ctr.querySelector('#tuMarcarFecha').value = fecha;
+  _ctr.querySelector('#tuMarcarNombre').value = nombre || '';
+  const p = String(plaza || (_s.asis?.plaza === 'TODAS' ? _s.plaza : (_s.asis?.plaza || _s.plaza)) || '').toUpperCase();
+  _ctr.querySelector('#tuMarcarPlaza').value = p;
+  _ctr.querySelector('#tuMarcarTitle').textContent = `${nombre || 'Colaborador'} — ${fecha}`;
+  _ctr.querySelector('#tuMarcarNota').value = '';
+  modal.querySelectorAll('.tu-tipo-btn').forEach(b => b.classList.remove('tu-tipo-btn--active'));
+  modal.style.display = '';
+}
+
+function _bindMarcarModal() {
+  const modal = _ctr?.querySelector('#tuMarcarModal');
+  if (!modal) return;
+  modal.querySelector('#tuMarcarClose')?.addEventListener('click', () => { modal.style.display = 'none'; });
+  modal.querySelectorAll('.tu-tipo-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      modal.querySelectorAll('.tu-tipo-btn').forEach(b => b.classList.remove('tu-tipo-btn--active'));
+      btn.classList.add('tu-tipo-btn--active');
     });
   });
-
-  _ctr?.querySelectorAll('.tu-asist-save').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const uid = btn.dataset.uid;
-      const nombre = btn.dataset.nombre;
-      const row = btn.closest('.tu-asist-row');
-      const estado = row?.querySelector('.tu-asist-estado')?.value || '';
-      const nota = row?.querySelector('.tu-asist-nota')?.value || '';
-      if (!estado || !uid) {
-        _toast('Elige un estado antes de guardar.', 'Asistencia');
-        return;
-      }
-      btn.disabled = true;
-      try {
-        const opts = { nombre, nota, origen: 'ADMIN' };
-        if (estado !== 'PENDIENTE') {
-          await confirmarAsistencia(uid, _s.plaza, _s.asistenciaFecha, estado, opts);
-        } else {
-          await registrarAsistencia(uid, _s.plaza, _s.asistenciaFecha, estado, opts);
-        }
-        _toast('Asistencia guardada.', 'Asistencia');
-      } catch (e) {
-        console.warn('[turnos] registrarAsistencia:', e);
-        _toast(e?.message || 'No se pudo guardar.', 'Error');
-      } finally {
-        btn.disabled = false;
-      }
-    });
+  modal.querySelector('#tuMarcarGuardar')?.addEventListener('click', async () => {
+    const uid = _ctr.querySelector('#tuMarcarUid').value;
+    const fecha = _ctr.querySelector('#tuMarcarFecha').value;
+    const nombre = _ctr.querySelector('#tuMarcarNombre').value;
+    const nota = _ctr.querySelector('#tuMarcarNota').value.trim();
+    const tipo = modal.querySelector('.tu-tipo-btn--active')?.dataset.marca;
+    if (!tipo) { _toast('Elige un estado para el día.', 'Marcar'); return; }
+    const plaza = _ctr.querySelector('#tuMarcarPlaza').value || _s.plaza;
+    const btn = modal.querySelector('#tuMarcarGuardar');
+    if (btn) btn.disabled = true;
+    try {
+      await guardarNotaAsistencia({ plaza, usuarioId: uid, usuarioNombre: nombre, fecha, tipo, nota });
+      modal.style.display = 'none';
+      _afterMarcarDia();
+    } catch (e) {
+      console.warn('[turnos] marcarDia:', e);
+      _toast(e?.message || 'No se pudo guardar.', 'Error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   });
+  modal.querySelector('#tuMarcarBorrar')?.addEventListener('click', async () => {
+    const uid = _ctr.querySelector('#tuMarcarUid').value;
+    const fecha = _ctr.querySelector('#tuMarcarFecha').value;
+    const nombre = _ctr.querySelector('#tuMarcarNombre').value;
+    const plaza = _ctr.querySelector('#tuMarcarPlaza').value || _s.plaza;
+    if (!uid || !fecha) return;
+    try {
+      await eliminarNotaAsistencia(plaza, fecha, uid, { usuarioNombre: nombre });
+      modal.style.display = 'none';
+      _afterMarcarDia();
+    } catch (e) {
+      console.warn('[turnos] borrarMarca:', e);
+      _toast(e?.message || 'No se pudo quitar.', 'Error');
+    }
+  });
+}
+
+/** Refresca la vista activa tras marcar/borrar un día. */
+function _afterMarcarDia() {
+  if (!_s) return;
+  if (_s.tab === 'asistencia') { _s.asis.data = null; void _loadTablero(); }
+  else if (_s.tab === 'historial') { void _loadCalendario(); }
 }
 
 function _minutosEntre(inicio, fin, pausaMin = 0) {
@@ -1897,11 +2204,114 @@ ${firma}
   win.document.close();
 }
 
+function _exportarTablero() {
+  if (!_s?.asis?.data) { _toast('Aún no hay datos del tablero.', 'Exportar'); return; }
+  const a = _s.asis;
+  const { data, ancla } = a;
+  const plaza = a.plaza === 'TODAS' ? 'Todas las plazas' : (a.plaza || _s.plaza || '');
+  const mesLabel = (() => {
+    const d = new Date(`${ancla}T12:00:00`);
+    const s = d.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
+
+  const thDias = data.dias.map(d =>
+    `<th class="${d.esFinde ? 'we' : ''}">${esc(d.diaSemana)}<br><small>${d.dia}</small></th>`
+  ).join('');
+
+  const rows = data.filas.map(f => {
+    const celdas = f.celdas.map(c => {
+      if (c.cat === 'futuro') return '<td></td>';
+      const m = CAT_META[c.cat] || {};
+      const ini = (m.label || '?').charAt(0);
+      return `<td style="background:${m.color};color:#fff" title="${esc(c.label)}">${esc(ini)}</td>`;
+    }).join('');
+    const r = f.resumen;
+    return `<tr><td class="emp">${esc(f.nombre)}</td>${celdas}
+      <td class="tot">${r.asistencia}/${r.retardo}/${r.falta}/${r.permiso}</td></tr>`;
+  }).join('');
+
+  const leyenda = CAT_ORDEN.map(cat => {
+    const m = CAT_META[cat];
+    return `<span class="lg"><span class="dot" style="background:${m.color}"></span>${esc(m.label)}</span>`;
+  }).join('');
+
+  const cab = _exportCabeceraEmpresa();
+  const firma = exportFooterHtml({ escapeHtml: esc });
+  const id = getExportIdentity();
+  const fileTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>${esc(fileTitle)}</title>
+<style>
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font:11px Inter,system-ui,sans-serif;margin:20px;color:#0f172a}
+  h1{font-size:16px;margin:0 0 2px}
+  .sub{color:#64748b;font-size:11px;margin:0 0 10px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  table{border-collapse:collapse;width:100%;table-layout:fixed}
+  th,td{border:1px solid #cbd5e1;padding:3px 2px;text-align:center;font-size:9px}
+  th{background:#f1f5f9;text-transform:uppercase}
+  td.emp,th.emp{text-align:left;white-space:nowrap;font-weight:600;background:#f8fafc;width:130px;font-size:10px}
+  td.tot{font-weight:700;background:#f8fafc;white-space:nowrap}
+  .we{background:#e2e8f0}
+  .legend{margin:10px 0;display:flex;gap:14px;flex-wrap:wrap;font-size:10px}
+  .lg{display:inline-flex;align-items:center;gap:5px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .rpt-cab{display:flex;align-items:center;gap:14px;border-bottom:2px solid #0f172a;padding-bottom:10px;margin:0 0 12px}
+  .rpt-logo{height:44px;width:auto;object-fit:contain}
+  .rpt-empresa{display:flex;flex-direction:column}
+  .rpt-empresa strong{font-size:13px}.rpt-empresa span{font-size:10px;color:#64748b}
+  .btn-print{padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;margin-top:14px}
+  @page{size:landscape;margin:10mm}@media print{body{margin:0}.no-print{display:none}}
+</style></head><body>
+${cab}
+<h1>Tablero de asistencia — ${esc(plaza)}</h1>
+<div class="sub"><span>${esc(mesLabel)}</span><span>${esc(id.companyName)}</span></div>
+<div class="legend">${leyenda}</div>
+<table><thead><tr><th class="emp">Empleado</th>${thDias}<th class="tot">A/R/F/P</th></tr></thead>
+<tbody>${rows}</tbody></table>
+${firma}
+<div class="no-print"><button class="btn-print" type="button" onclick="window.print()">Imprimir / Guardar PDF</button></div>
+<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) { _toast('Permite ventanas emergentes para exportar.', 'Exportar'); return; }
+  win.document.write(html); win.document.close();
+}
+
 function _bindHistorial() {
   _ctr?.querySelector('#tuHistSemana')?.addEventListener('click', () => {
     if (!_s) return;
     _s.historialDesde = _isoHaceDias(7);
     _s.historialHasta = hoy();
+    _repaintTab();
+  });
+
+  _ctr?.querySelector('#tuHistReset')?.addEventListener('click', () => {
+    if (!_s) return;
+    _s.historialPlaza = '';
+    _s.historialPuesto = '';
+    _s.historialUsuarioId = '';
+    _s.historialDesde = _isoHaceDias(30);
+    _s.historialHasta = hoy();
+    _s.historialMostrado = false;
+    _s.cal.data = null;
+    // Recargar usuarios de la plaza base
+    void _reloadHistUsuarios(_s.plaza);
+    _repaintTab();
+  });
+
+  _ctr?.querySelector('#tuHistPlaza')?.addEventListener('change', e => {
+    if (!_s) return;
+    _s.historialPlaza = String(e.target.value || '').toUpperCase().trim();
+    _s.historialUsuarioId = '';
+    void _reloadHistUsuarios(_s.historialPlaza || _s.plaza);
+  });
+
+  _ctr?.querySelector('#tuHistPuesto')?.addEventListener('change', e => {
+    if (!_s) return;
+    _s.historialPuesto = String(e.target.value || '').trim();
     _repaintTab();
   });
 
@@ -1924,7 +2334,7 @@ function _bindHistorial() {
   _ctr?.querySelector('#tuHistVer')?.addEventListener('click', () => {
     if (!_s) return;
     if (_s.isAdmin && !_s.historialUsuarioId) {
-      _toast('Selecciona un colaborador.', 'Historial');
+      _toast('Selecciona un empleado.', 'Historial');
       return;
     }
     const desde = _ctr?.querySelector('#tuHistDesde')?.value || _s.historialDesde;
@@ -1939,45 +2349,384 @@ function _bindHistorial() {
       _s.historialUsuarioId = _ctr?.querySelector('#tuHistUsuario')?.value || _s.historialUsuarioId;
     }
     _s.historialMostrado = true;
+    _s.cal.ancla = _mesAncla(new Date(`${_s.historialHasta}T12:00:00`));
     const wrap = _ctr?.querySelector('#tuHistFilters');
     if (wrap) wrap.open = false;
     void _loadHistorialUsuario();
   });
+
+  // Cabecera del empleado
+  _ctr?.querySelector('#tuHistStats')?.addEventListener('click', () => {
+    if (!_s) return;
+    _s.showHistStats = !_s.showHistStats;
+    _repaintTab();
+  });
+  _ctr?.querySelector('#tuHistPdf')?.addEventListener('click', _exportarHistorialEmpleado);
+  _ctr?.querySelector('#tuHistNota')?.addEventListener('click', (e) => {
+    const uid = e.currentTarget.dataset.uid;
+    const nombre = e.currentTarget.dataset.nombre;
+    _openMarcarModal(uid, hoy(), nombre, _s.historialPlaza || _s.plaza);
+  });
+
+  // Navegación del calendario
+  _ctr?.querySelector('#tuCalPrev')?.addEventListener('click', () => {
+    if (!_s) return;
+    _s.cal.ancla = _moverMes(_s.cal.ancla, -1);
+    void _loadCalendario();
+  });
+  _ctr?.querySelector('#tuCalNext')?.addEventListener('click', () => {
+    if (!_s) return;
+    _s.cal.ancla = _moverMes(_s.cal.ancla, 1);
+    void _loadCalendario();
+  });
+  // Click en día → marcar (solo admin)
+  _ctr?.querySelectorAll('.tu-cal-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      if (!_s?.isAdmin) return;
+      const fecha = cell.dataset.calFecha;
+      const uid = _s.isAdmin ? _s.historialUsuarioId : _s.uid;
+      if (!uid) return;
+      const u = _usuarioHistorial(uid);
+      _openMarcarModal(uid, fecha, u ? nombreUsuario(u) : '', _s.historialPlaza || _s.plaza);
+    });
+  });
+
+  _bindMarcarModal();
 }
 
-// ── Historial loader (un colaborador + rango) ─────────────────
+/** Recarga la lista de colaboradores para el filtro de historial. */
+async function _reloadHistUsuarios(plaza) {
+  if (!_s) return;
+  const p = String(plaza || _s.plaza || '').toUpperCase().trim();
+  _s.usuariosLoading = true;
+  _repaintTab();
+  try {
+    _s.usuarios = await getUsuariosPlaza(p);
+  } catch (e) {
+    console.warn('[turnos] reloadHistUsuarios:', e);
+    _s.usuarios = [];
+  }
+  _s.usuariosLoading = false;
+  _repaintTab();
+}
+
+// ── Tab Auditoría (Historial de cambios — pantalla 4) ─────────
+function _hechoColor(hecho) {
+  const h = String(hecho || '').toUpperCase();
+  if (['FALTA', 'AUSENTE', 'NOTA_ELIMINADA'].includes(h)) return '#ef4444';
+  if (['TARDE', 'RETARDO'].includes(h)) return '#f59e0b';
+  if (['PRESENTE', 'TURNO_INICIO'].includes(h)) return '#10b981';
+  if (['PERMISO', 'JUSTIFICADO', 'VACACIONES'].includes(h)) return '#3b82f6';
+  if (['DESCANSO', 'FESTIVO'].includes(h)) return '#94a3b8';
+  if (['CAMBIO_HORARIO'].includes(h)) return '#8b5cf6';
+  return '#64748b';
+}
+
+function _fmtFechaHora(ms) {
+  if (!ms) return '—';
+  try { return new Date(ms).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }); }
+  catch { return '—'; }
+}
+
+function _auditoriaFiltradas() {
+  const a = _s.aud;
+  const q = a.q.trim().toLowerCase();
+  const tipo = a.tipo;
+  const desde = a.desde ? new Date(`${a.desde}T00:00:00`).getTime() : 0;
+  const hasta = a.hasta ? new Date(`${a.hasta}T23:59:59.999`).getTime() : Infinity;
+  return a.rows.filter(r => {
+    if (tipo && r.hecho !== tipo) return false;
+    if (r.timestampMs < desde || r.timestampMs > hasta) return false;
+    if (q) {
+      const hay = `${r.empleado} ${r.responsable} ${r.nota}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function _renderAuditoria() {
+  const a = _s.aud;
+  const tiposPresentes = [...new Set(a.rows.map(r => r.hecho).filter(Boolean))];
+  const tipoOpts = tiposPresentes.map(t =>
+    `<option value="${esc(t)}"${a.tipo === t ? ' selected' : ''}>${esc(HECHO_LABEL[t] || t)}</option>`
+  ).join('');
+
+  const rows = _auditoriaFiltradas();
+
+  let body;
+  if (a.loading) {
+    body = `<div class="tu-loading"><div class="tu-spinner"></div><span>Cargando bitácora…</span></div>`;
+  } else if (!rows.length) {
+    body = `<div class="tu-empty-state"><span class="material-symbols-outlined">fact_check</span>
+      <p>${a.cargado ? 'Sin cambios registrados con estos filtros.' : 'Pulsa Actualizar para cargar la bitácora.'}</p></div>`;
+  } else {
+    body = `<div class="tu-aud-table">
+      <div class="tu-aud-head">
+        <span>Fecha</span><span>Tipo de hecho</span><span>Empleado</span><span>Responsable</span><span></span>
+      </div>
+      ${rows.map(r => {
+        const open = !!a.expand[r.id];
+        const color = _hechoColor(r.hecho);
+        return `<div class="tu-aud-row" data-aud-id="${esc(r.id)}">
+          <div class="tu-aud-main" data-aud-toggle="${esc(r.id)}">
+            <span class="tu-aud-date">${esc(_fmtFechaHora(r.timestampMs))}</span>
+            <span><span class="tu-aud-badge" style="--b:${color}">${esc(r.hechoLabel || HECHO_LABEL[r.hecho] || r.hecho || 'Hecho')}</span></span>
+            <span class="tu-aud-emp">${esc(r.empleado || '—')}${r.fechaHecho ? `<small>${esc(r.fechaHecho)}</small>` : ''}</span>
+            <span class="tu-aud-resp">${esc(r.responsable || '—')}</span>
+            <span class="tu-aud-chev"><span class="material-symbols-outlined">${open ? 'expand_less' : 'expand_more'}</span></span>
+          </div>
+          ${open ? `<div class="tu-aud-detail">
+            ${r.nota ? `<div><strong>Nota:</strong> ${esc(r.nota)}</div>` : ''}
+            ${r.accion ? `<div><strong>Acción:</strong> ${esc(r.accion)}</div>` : ''}
+            <div><strong>Tipo:</strong> ${esc(HECHO_LABEL[r.hecho] || r.hecho || '—')}</div>
+            ${r.fechaHecho ? `<div><strong>Fecha del hecho:</strong> ${esc(r.fechaHecho)}</div>` : ''}
+            ${r.plaza ? `<div><strong>Plaza:</strong> ${esc(r.plaza)}</div>` : ''}
+            ${r.id_empleado ? `<div><strong>ID empleado:</strong> ${esc(r.id_empleado)}</div>` : ''}
+            ${r.created_by ? `<div><strong>Registrado por (uid):</strong> ${esc(r.created_by)}</div>` : ''}
+          </div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  return `
+<div class="tu-aud">
+  <div class="tu-asis-headline">
+    <div>
+      <h2 class="tu-asis-title">Historial de cambios</h2>
+      <p class="tu-asis-sub">Quién marca asistencias y edita horarios${rows.length ? ` · ${rows.length} registros` : ''}</p>
+    </div>
+    <div class="tu-asis-actions">
+      <button class="tu-btn tu-btn--ghost" id="tuAudPdf" type="button"><span class="material-symbols-outlined">picture_as_pdf</span> Generar PDF</button>
+      <button class="tu-btn tu-btn--ghost" id="tuAudReload" type="button"><span class="material-symbols-outlined">refresh</span> Actualizar</button>
+    </div>
+  </div>
+  <div class="tu-aud-filters">
+    <div class="tu-aud-search">
+      <span class="material-symbols-outlined">search</span>
+      <input class="tu-input" type="text" id="tuAudQ" placeholder="Buscar empleado o responsable…" value="${esc(a.q)}">
+    </div>
+    <select class="tu-input" id="tuAudTipo">
+      <option value="">Todos los tipos</option>
+      ${tipoOpts}
+    </select>
+    <input class="tu-input" type="date" id="tuAudDesde" value="${esc(a.desde)}" title="Desde">
+    <input class="tu-input" type="date" id="tuAudHasta" value="${esc(a.hasta)}" title="Hasta">
+  </div>
+  ${body}
+</div>`;
+}
+
+function _bindAuditoria() {
+  if (!_s.aud.cargado && !_s.aud.loading) void _loadAuditoria();
+  _ctr?.querySelector('#tuAudReload')?.addEventListener('click', () => void _loadAuditoria());
+  _ctr?.querySelector('#tuAudPdf')?.addEventListener('click', _exportarAuditoria);
+  _ctr?.querySelector('#tuAudQ')?.addEventListener('input', e => { _s.aud.q = e.target.value; _repaintAudBody(); });
+  _ctr?.querySelector('#tuAudTipo')?.addEventListener('change', e => { _s.aud.tipo = e.target.value; _repaintAudBody(); });
+  _ctr?.querySelector('#tuAudDesde')?.addEventListener('change', e => { _s.aud.desde = e.target.value; _repaintAudBody(); });
+  _ctr?.querySelector('#tuAudHasta')?.addEventListener('change', e => { _s.aud.hasta = e.target.value; _repaintAudBody(); });
+  _bindAudRows();
+}
+
+function _repaintAudBody() { _repaintTab(); }
+
+function _bindAudRows() {
+  _ctr?.querySelectorAll('[data-aud-toggle]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.audToggle;
+      _s.aud.expand[id] = !_s.aud.expand[id];
+      _repaintTab();
+    });
+  });
+}
+
+async function _loadAuditoria() {
+  if (!_s) return;
+  _s.aud.loading = true;
+  _repaintTab();
+  try {
+    const rows = await getHistorialHechos({ plaza: _s.plaza, limit: 500 });
+    if (!_s) return;
+    _s.aud.rows = rows;
+    _s.aud.cargado = true;
+    _s.aud.loading = false;
+    _repaintTab();
+  } catch (e) {
+    console.warn('[turnos] auditoria:', e);
+    if (!_s) return;
+    _s.aud.rows = [];
+    _s.aud.cargado = true;
+    _s.aud.loading = false;
+    if (e?.code === 'INDEX_MISSING' || String(e?.message || '').includes('index')) {
+      _toast('La bitácora requiere un índice de Firestore. Despliega firestore:indexes.', 'Índice requerido');
+    }
+    _repaintTab();
+  }
+}
+
+function _exportarAuditoria() {
+  const rows = _auditoriaFiltradas();
+  if (!rows.length) { _toast('No hay registros para exportar.', 'Exportar'); return; }
+  const cab = _exportCabeceraEmpresa();
+  const firma = exportFooterHtml({ escapeHtml: esc });
+  const id = getExportIdentity();
+  const fileTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
+
+  const trs = rows.map(r => `<tr>
+    <td>${esc(_fmtFechaHora(r.timestampMs))}</td>
+    <td><span class="bg" style="background:${_hechoColor(r.hecho)}">${esc(r.hechoLabel || HECHO_LABEL[r.hecho] || r.hecho)}</span></td>
+    <td>${esc(r.empleado || '—')}${r.fechaHecho ? `<br><small>${esc(r.fechaHecho)}</small>` : ''}</td>
+    <td>${esc(r.responsable || '—')}</td>
+    <td>${esc(r.nota || r.accion || '—')}</td>
+  </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>${esc(fileTitle)}</title>
+<style>
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font:11px Inter,system-ui,sans-serif;margin:22px;color:#0f172a}
+  h1{font-size:16px;margin:0 0 2px}
+  .sub{color:#64748b;font-size:11px;margin:0 0 12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  table{border-collapse:collapse;width:100%}
+  th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left;font-size:10px;vertical-align:top}
+  th{background:#f1f5f9;text-transform:uppercase}
+  .bg{color:#fff;padding:2px 8px;border-radius:9999px;font-size:9px;font-weight:700;white-space:nowrap}
+  .rpt-cab{display:flex;align-items:center;gap:14px;border-bottom:2px solid #0f172a;padding-bottom:10px;margin:0 0 12px}
+  .rpt-logo{height:44px}.rpt-empresa{display:flex;flex-direction:column}.rpt-empresa strong{font-size:13px}.rpt-empresa span{font-size:10px;color:#64748b}
+  .btn-print{padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;margin-top:14px}
+  @media print{body{margin:0}.no-print{display:none}}
+</style></head><body>
+${cab}
+<h1>Historial de cambios de asistencia</h1>
+<div class="sub"><span>${esc(_s.plaza || '')} · ${rows.length} registros</span><span>${esc(id.companyName)}</span></div>
+<table><thead><tr><th>Fecha</th><th>Tipo de hecho</th><th>Empleado</th><th>Responsable</th><th>Detalle</th></tr></thead>
+<tbody>${trs}</tbody></table>
+${firma}
+<div class="no-print"><button class="btn-print" type="button" onclick="window.print()">Imprimir / Guardar PDF</button></div>
+<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) { _toast('Permite ventanas emergentes para exportar.', 'Exportar'); return; }
+  win.document.write(html); win.document.close();
+}
+
+// ── Historial loader (un colaborador → calendario) ────────────
 async function _loadHistorialUsuario() {
   if (!_s) return;
-  const { plaza, isAdmin, uid } = _s;
-  const usuarioId = isAdmin ? _s.historialUsuarioId : uid;
-  if (!usuarioId) return;
+  _s.historialCargado = true;
+  await _loadCalendario();
+}
 
-  _s.historialLoading = true;
+/** Carga y deriva el calendario mensual del colaborador seleccionado. */
+async function _loadCalendario() {
+  if (!_s) return;
+  const isAdmin = _s.isAdmin;
+  const usuarioId = isAdmin ? _s.historialUsuarioId : _s.uid;
+  if (!usuarioId) return;
+  const plaza = String(_s.historialPlaza || _s.plaza || '').toUpperCase().trim();
+  const { desde, hasta } = _mesRango(_s.cal.ancla);
+
+  _s.cal.loading = true;
+  _s.historialLoading = false;
   _repaintTab();
 
   try {
-    const items = await getHistorialTurnos(plaza, {
-      usuarioId,
-      desde: _s.historialDesde,
-      hasta: _s.historialHasta,
-      limit: 120
-    });
+    const [turnos, asistencia, notas, horarios] = await Promise.all([
+      getTurnosRango(plaza, desde, hasta, { usuarioId }),
+      getAsistenciaRango(plaza, desde, hasta),
+      getNotasColaborador(plaza, usuarioId, desde, hasta),
+      getHorariosRango(plaza, desde, hasta),
+    ]);
     if (!_s) return;
     delete _s.listenerErrors.historial;
-    _s.historial = items;
-    _s.historialCargado = true;
-    _s.historialLoading = false;
+    const asisU = (asistencia || []).filter(a => String(a.usuarioId || '') === usuarioId);
+    const horU = (horarios || []).filter(h => String(h.usuarioId || '') === usuarioId);
+    _s.cal.data = calendarioEmpleado({
+      usuarioId, turnos, asistencia: asisU, notas, horarios: horU,
+      desde, hasta, hoyIso: hoy(),
+    });
+    _s.cal.loading = false;
     _repaintTab();
   } catch (e) {
-    console.warn('[turnos] historial:', e);
+    console.warn('[turnos] calendario:', e);
     if (!_s) return;
     if (e?.code === 'INDEX_MISSING') {
       _s.listenerErrors.historial = { code: LISTENER_ERROR.INDEX_MISSING, source: 'historial' };
       _toast('Índice de historial pendiente. Despliega firestore:indexes.', 'Índice requerido');
     }
-    _s.historial = [];
-    _s.historialCargado = true;
-    _s.historialLoading = false;
+    _s.cal.data = null;
+    _s.cal.loading = false;
     _repaintTab();
   }
+}
+
+/** Exporta el calendario del colaborador a PDF firmado. */
+function _exportarHistorialEmpleado() {
+  if (!_s?.cal?.data) { _toast('Primero muestra el historial.', 'Exportar'); return; }
+  const uid = _s.isAdmin ? _s.historialUsuarioId : _s.uid;
+  const usuario = _usuarioHistorial(uid);
+  const nombre = usuario ? nombreUsuario(usuario) : 'Colaborador';
+  const resumen = _s.cal.data.resumen;
+  const { semanas } = matrizCalendarioMes(_s.cal.ancla);
+  const porFecha = _s.cal.data.porFecha || {};
+  const mesLabel = (() => {
+    const d = new Date(`${_s.cal.ancla}T12:00:00`);
+    const s = d.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
+
+  const dows = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+  const filas = semanas.map(sem => `<tr>${sem.map(d => {
+    const est = porFecha[d.fecha];
+    const m = est && est.cat !== 'futuro' ? (CAT_META[est.cat] || {}) : null;
+    if (d.fuera) return '<td class="out"></td>';
+    return `<td${m ? ` style="background:${m.color}22"` : ''}>
+      <div class="dn">${d.dia}</div>${m ? `<div class="dt" style="color:${m.color}">${esc(m.label)}</div>` : ''}
+    </td>`;
+  }).join('')}</tr>`).join('');
+
+  const pills = CAT_ORDEN.map(cat => {
+    const m = CAT_META[cat];
+    return `<span class="pill"><b style="color:${m.color}">${resumen[cat] || 0}</b> ${esc(m.label)}</span>`;
+  }).join('');
+
+  const cab = _exportCabeceraEmpresa();
+  const firma = exportFooterHtml({ escapeHtml: esc });
+  const id = getExportIdentity();
+  const fileTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>${esc(fileTitle)}</title>
+<style>
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font:12px Inter,system-ui,sans-serif;margin:24px;color:#0f172a}
+  h1{font-size:16px;margin:0 0 2px}
+  .sub{color:#64748b;font-size:11px;margin:0 0 12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  .pills{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 12px;font-size:11px}
+  .pill b{font-size:13px}
+  table{border-collapse:collapse;width:100%;table-layout:fixed}
+  th,td{border:1px solid #cbd5e1;height:56px;vertical-align:top;padding:4px;width:14.28%}
+  th{height:auto;background:#f1f5f9;text-transform:uppercase;font-size:10px;padding:6px}
+  td.out{background:#f8fafc}
+  .dn{font-weight:700;font-size:11px}.dt{font-size:9px;font-weight:600;margin-top:4px}
+  .rpt-cab{display:flex;align-items:center;gap:14px;border-bottom:2px solid #0f172a;padding-bottom:10px;margin:0 0 12px}
+  .rpt-logo{height:44px}.rpt-empresa{display:flex;flex-direction:column}.rpt-empresa strong{font-size:13px}.rpt-empresa span{font-size:10px;color:#64748b}
+  .btn-print{padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;margin-top:14px}
+  @media print{body{margin:0}.no-print{display:none}}
+</style></head><body>
+${cab}
+<h1>Historial de asistencia — ${esc(nombre)}</h1>
+<div class="sub"><span>${esc(mesLabel)}${_s.historialPlaza ? ` · ${esc(_s.historialPlaza)}` : ''}</span><span>${esc(id.companyName)}</span></div>
+<div class="pills">${pills}</div>
+<table><thead><tr>${dows.map(d => `<th>${d}</th>`).join('')}</tr></thead><tbody>${filas}</tbody></table>
+${firma}
+<div class="no-print"><button class="btn-print" type="button" onclick="window.print()">Imprimir / Guardar PDF</button></div>
+<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) { _toast('Permite ventanas emergentes para exportar.', 'Exportar'); return; }
+  win.document.write(html); win.document.close();
 }

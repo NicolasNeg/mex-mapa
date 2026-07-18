@@ -1109,6 +1109,14 @@ service cloud.firestore {
     // Notas generales por semana (visibles en la tabla de horarios).
     // Lectura: cualquier usuario autenticado.
     // Escritura: solo admins con perfil.
+    // Incidencias / notas de asistencia por día+empleado (calendario + auditoría).
+    // Lectura: autenticado. Escritura: admins operativos o programador.
+    match /notas_asistencia/{docId} {
+      allow read: if estaAutenticado();
+      allow create, update, delete: if estaAutenticado()
+        && (esAdminOperativo() || esProgramadorBootstrap());
+    }
+
     match /notas_semana/{docId} {
       allow read: if estaAutenticado();
       allow create, update: if tienePerfilActual();
