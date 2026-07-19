@@ -47,11 +47,33 @@ export function descargarArchivoLocal(nombreArchivo, contenido, mimeType) {
 }
 
 export function _gasToPercent(val) {
-  const n = parseFloat(String(val ?? '').replace(/[^0-9.]/g, ''));
-  if (isNaN(n) || n < 0) return null;
-  if (n <= 1) return Math.round(n * 100);
-  if (n <= 100) return Math.round(n);
-  return null;
+  if (val == null) return 0;
+  const s = String(val).trim().toUpperCase();
+  if (!s || s === 'N/A' || s === 'NA' || s === '-') return 0;
+  if (/^(F|FULL|LLENO|LLENA)$/.test(s)) return 100;
+  if (/^(H|HALF|MEDIO|MEDIA|1\/2)$/.test(s)) return 50;
+  if (/^(E|EMPTY|VAC[IÍ]O|VAC[IÍ]A)$/.test(s)) return 0;
+  const frac = s.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+  if (frac) {
+    const den = parseFloat(frac[2]);
+    if (den > 0) {
+      return Math.max(0, Math.min(100, Math.round((parseFloat(frac[1]) / den) * 100)));
+    }
+  }
+  const n = parseFloat(s.replace('%', '').replace(',', '.'));
+  if (!Number.isNaN(n)) {
+    if (n > 0 && n <= 1 && !s.includes('/')) return Math.round(n * 100);
+    return Math.max(0, Math.min(100, Math.round(n)));
+  }
+  return 0;
+}
+
+/** Color de relleno para barra de gasolina en admin/cuadre (verde → ámbar → rojo). */
+export function _gasBarFillColor(pct) {
+  const p = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+  if (p > 60) return '#10b981';
+  if (p > 30) return '#f59e0b';
+  return '#ef4444';
 }
 
 export function formatearFechaDocumento(fechaTexto) {

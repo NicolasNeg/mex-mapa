@@ -15,6 +15,7 @@ import {
   uploadModelImage
 } from '/js/app/features/admin/admin-opciones-data.js';
 import { adminSectionLabel } from '/js/app/features/admin/admin-nav.js';
+import { _gasToPercent, _gasBarFillColor } from '/mapa/features/core/utils.js';
 
 function esc(s) {
   return String(s ?? '')
@@ -64,6 +65,29 @@ function _isOpen(key) {
   return _openKey === key;
 }
 
+function _gasLevelLabel(raw) {
+  if (raw == null) return '';
+  if (typeof raw === 'object') {
+    return String(raw.nombre || raw.valor || raw.id || '').trim();
+  }
+  return String(raw).trim();
+}
+
+function _gasProgressHtml(label, { compact = false } = {}) {
+  const name = String(label || '').trim();
+  const pct = _gasToPercent(name);
+  const color = _gasBarFillColor(pct);
+  const widthClass = compact ? ' adm-gas-bar--compact' : '';
+  const na = !name || /^N\/A$|^NA$|^-$/i.test(name);
+  return `
+    <span class="adm-gas-bar${widthClass}" title="${esc(name || 'Sin nivel')} · ${pct}%">
+      <span class="adm-gas-bar-track">
+        <span class="adm-gas-bar-fill" style="width:${na ? 0 : pct}%;background:${na ? '#94a3b8' : color}"></span>
+      </span>
+      <span class="adm-gas-bar-pct">${na ? 'N/A' : `${pct}%`}</span>
+    </span>`;
+}
+
 function _metaChip(row) {
   const raw = row.raw;
   if (_section === 'estados' && raw && typeof raw === 'object') {
@@ -81,6 +105,9 @@ function _metaChip(row) {
   if (_section === 'categorias' && raw && typeof raw === 'object') {
     const d = String(raw.descripcion || '').trim();
     return esc(d ? d.slice(0, 48) : `Orden ${row.orden}`);
+  }
+  if (_section === 'gasolinas') {
+    return _gasProgressHtml(_gasLevelLabel(raw), { compact: true });
   }
   return esc(`Orden ${row.orden}`);
 }
@@ -176,17 +203,19 @@ function _editorFormFields(fields, editing, rowKey) {
   }
 
   if (_section === 'gasolinas') {
+    const previewLabel = String(fields.nombre || '').trim() || 'Ej: 3/4';
+    const preview = _gasProgressHtml(previewLabel);
     return `
       <label>
-        <span>Nivel / nombre</span>
+        <span>Nivel visible</span>
         ${ro ? `<div class="adm-field-value">${esc(fields.nombre || '—')}</div>`
-          : `<input name="nombre" type="text" value="${esc(fields.nombre || '')}" placeholder="Ej: 1/2">`}
+          : `<input name="nombre" type="text" value="${esc(fields.nombre || '')}" placeholder="Ej: 3/4, F, 7/8" data-gas-preview-input>`}
       </label>
-      <label>
-        <span>Orden</span>
-        ${ro ? `<div class="adm-field-value">${esc(fields.orden || 1)}</div>`
-          : `<input name="orden" type="number" min="1" max="999" value="${esc(fields.orden || 1)}">`}
-      </label>`;
+      <div class="adm-form-full adm-gas-preview-wrap">
+        <span class="adm-label-block">Vista en mapa y cuadre</span>
+        <div class="adm-gas-preview-host" data-gas-preview-host>${preview}</div>
+        <small class="adm-hint">F = lleno, H = medio, E = vacío; fracciones como 7/8 o 15/16.</small>
+      </div>`;
   }
 
   if (_section === 'motivos_traslado') {
@@ -453,6 +482,12 @@ function _bind() {
     });
   }
 
+  _host.querySelector('[data-gas-preview-input]')?.addEventListener('input', (e) => {
+    const host = _host.querySelector('[data-gas-preview-host]');
+    if (!host) return;
+    host.innerHTML = _gasProgressHtml(e.target.value || '');
+  });
+
   _host.querySelector('[data-action="model-file"]')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0] || null;
     _modelPendingFile = file;
@@ -477,11 +512,11 @@ function _bind() {
   });
 }
 
-function _readFields(form) {
+function _readFields(form, itemKey = '') {
   if (!form) return {};
   const fd = new FormData(form);
   const color = String(fd.get('colorText') || fd.get('color') || '#64748b');
-  return {
+  const fields = {
     nombre: String(fd.get('nombre') || ''),
     orden: String(fd.get('orden') || '1'),
     color,
@@ -494,6 +529,11 @@ function _readFields(form) {
     isPlazaFija: form.querySelector('[name="isPlazaFija"]')?.checked === true,
     imagenURL: ''
   };
+  if (_section === 'gasolinas' && itemKey && itemKey !== NEW_KEY) {
+    const row = findCatalogItem(_section, itemKey);
+    if (row) fields.orden = String(row.orden);
+  }
+  return fields;
 }
 
 async function _save(itemKey) {
@@ -501,7 +541,7 @@ async function _save(itemKey) {
   const acc = _host?.querySelector(`.adm-op-acc[data-acc-key="${itemKey}"]`);
   const form = acc?.querySelector('form');
   if (!form) return;
-  const fields = _readFields(form);
+  const fields = _readFields(form, itemKey);
   const entityId = itemKey === NEW_KEY ? 'nuevo' : itemKey;
 
   try {
