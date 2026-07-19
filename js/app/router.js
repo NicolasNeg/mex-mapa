@@ -217,7 +217,7 @@ const ROUTE_STYLES = {
   ],
   "/app/cuadrarflota": [{ href: "/css/app-cuadrarflota.css?v=20260715cf", attr: "data-app-cuadrarflota-css" }],
   "/app/traslados": [{ href: "/css/app-traslados.css", attr: "data-app-traslados-css" }],
-  "/app/admin": [{ href: "/css/app-admin.css?v=20260719f", attr: "data-app-admin-spa-css" }],
+  "/app/admin": [{ href: "/css/app-admin.css?v=20260719g", attr: "data-app-admin-spa-css" }],
   "/app/gestion": [{ href: "/css/app-gestion.css", id: "app-gestion-css" }],
   "/app/alertas": [
     { href: "/css/alertas.css", attr: "data-app-alertas-legacy-css" },

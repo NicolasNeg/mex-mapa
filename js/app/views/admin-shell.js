@@ -16,7 +16,7 @@ import {
 
 const PIN_KEY = 'mex.admin.spa.sidebar.pinned';
 const FRAME_ID = 'mex-admin-legacy-frame';
-const FRAME_VER = '20260719f';
+const FRAME_VER = '20260719g';
 
 let _root = null;
 let _navigate = null;
@@ -33,7 +33,7 @@ function _setPinned(v) {
 }
 
 function _ensureCss() {
-  const href = '/css/app-admin.css?v=20260719f';
+  const href = '/css/app-admin.css?v=20260719g';
   let link = document.querySelector('link[data-app-admin-spa-css="1"]');
   if (!link) {
     link = document.createElement('link');

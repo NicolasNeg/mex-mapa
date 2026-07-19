@@ -42,15 +42,26 @@ export const ADMIN_NAV_GROUPS = [
 /** Secciones ya migradas a SPA nativa (sin iframe). */
 export const ADMIN_NATIVE_SECTIONS = new Set(['usuarios']);
 
+function _decodeSeg(raw = '') {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  try {
+    return decodeURIComponent(s);
+  } catch (_) {
+    return s;
+  }
+}
+
 export function parseAdminRoute(path = '') {
   const clean = String(path || '').split('?')[0].replace(/\/$/, '') || '';
   const parts = clean.split('/').filter(Boolean);
   if (parts[0] !== 'app' || parts[1] !== 'admin') {
     return { section: 'usuarios', entityId: '' };
   }
-  let section = String(parts[2] || 'usuarios').trim().toLowerCase() || 'usuarios';
+  let section = _decodeSeg(parts[2] || 'usuarios').toLowerCase() || 'usuarios';
   if (section === 'users') section = 'usuarios';
-  const entityId = String(parts[3] || '').trim();
+  // Emails llegan como angel%40… — hay que decodificar o no matchea el docId
+  const entityId = _decodeSeg(parts[3] || '');
   return { section, entityId };
 }
 

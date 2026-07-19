@@ -68,8 +68,28 @@ function _filtered() {
   );
 }
 
+function _normKey(v = '') {
+  return String(v || '').trim().toLowerCase();
+}
+
+/** Resuelve selección por id o email (URL puede traer email encodado). */
+function _resolveSelectedId(raw = '') {
+  const key = _normKey(raw);
+  if (!key) return '';
+  const hit = _users.find(u =>
+    _normKey(u.id) === key
+    || _normKey(u.email) === key
+  );
+  return hit ? hit.id : String(raw || '').trim();
+}
+
 function _selected() {
-  return _users.find(u => u.id === _selectedId) || null;
+  if (!_selectedId) return null;
+  const key = _normKey(_selectedId);
+  return _users.find(u =>
+    _normKey(u.id) === key
+    || _normKey(u.email) === key
+  ) || null;
 }
 
 function _paint() {
@@ -96,7 +116,8 @@ function _paint() {
         </div>
         <div class="adm-cards" id="adm-user-cards">
           ${list.length ? list.map(u => {
-            const active = u.id === _selectedId ? ' is-active' : '';
+            const sel = _selected();
+            const active = sel && sel.id === u.id ? ' is-active' : '';
             const photo = u.avatarUrl;
             const av = photo
               ? `<img src="${esc(photo)}" alt="" class="adm-avatar-img">`
@@ -254,11 +275,7 @@ export function mountUsuariosPanel(host, opts = {}) {
   _unsub = subscribeAdminUsers({
     onData: (rows) => {
       _users = Array.isArray(rows) ? rows : [];
-      if (_selectedId && !_users.some(u => u.id === _selectedId)) {
-        // entityId puede ser email
-        const byEmail = _users.find(u => u.email === _selectedId.toLowerCase());
-        if (byEmail) _selectedId = byEmail.id;
-      }
+      if (_selectedId) _selectedId = _resolveSelectedId(_selectedId);
       _paint();
     },
     onError: (err) => {
@@ -276,7 +293,9 @@ export function mountUsuariosPanel(host, opts = {}) {
 }
 
 export function syncUsuariosSelection(entityId = '') {
-  _selectedId = String(entityId || '').trim();
+  let raw = String(entityId || '').trim();
+  try { raw = decodeURIComponent(raw); } catch (_) { /* keep raw */ }
+  _selectedId = _users.length ? _resolveSelectedId(raw) : raw;
   _paint();
 }
 
