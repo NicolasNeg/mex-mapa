@@ -185,6 +185,10 @@ async function boot() {
     return;
   }
 
+  // window.mexPerms resuelve rol via MEX_CONFIG.profile/_userProfile, que la SPA
+  // nunca puebla — sin este init(), mexPerms.canDo() trata a todos como AUXILIAR.
+  window.mexPerms?.init?.(role);
+
   // 5. Inicializar estado global
   initState({
     user,
