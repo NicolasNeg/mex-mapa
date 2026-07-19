@@ -174,12 +174,13 @@ export function buildMapaViewModel(estructura = [], unidades = [], uiState = {},
   const unitList = [...unitMap.values()];
   const cajones = estructura.map(el => buildCajonViewModel(el, unitList));
 
-  // 3. Stats rápidas
+  // 3. Stats rápidas — externos visibles en mapa pero fuera del total operativo
+  const operativas = unidades.filter(u => !estaEnExterno(u));
   const stats = {
-    total:       unidades.length,
-    enPatio:     unidades.filter(estaEnPatio).length,
+    total:       operativas.length,
+    enPatio:     operativas.filter(estaEnPatio).length,
     externos:    unidades.filter(estaEnExterno).length,
-    enLimbo:     unitList.filter(u => u.pos === 'LIMBO').length,
+    enLimbo:     unitList.filter(u => u.pos === 'LIMBO' && !estaEnExterno(u)).length,
     conflictos:  cajones.filter(c => c.categoriaConflict).length,
   };
 

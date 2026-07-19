@@ -2476,16 +2476,12 @@ const API_FUNCTIONS = {
   // ─── RESUMEN FLOTA ──────────────────────────────────────
   async obtenerResumenFlotaPatio(plaza) {
     const plazaUp = _normalizePlazaId(plaza);
-    // [F1.4] Filtrar por plaza en la query cuando sea posible
-    const [cuadreSnap, externosSnap] = await Promise.all([
-      plazaUp ? db.collection(COL.CUADRE).where('plaza','==',plazaUp).get() : db.collection(COL.CUADRE).get(),
-      plazaUp ? db.collection(COL.EXTERNOS).where('plaza','==',plazaUp).get() : db.collection(COL.EXTERNOS).get(),
-    ]);
+    // Solo CUADRE: externos (personal) no entran en resúmenes operativos.
+    const cuadreSnap = plazaUp
+      ? await db.collection(COL.CUADRE).where('plaza','==',plazaUp).get()
+      : await db.collection(COL.CUADRE).get();
     const cuadreUnits = cuadreSnap.docs
       .map(d => ({ ...d.data() }))
-      .filter(u => u.mva && _matchesPlaza(u, plazaUp));
-    const externosUnits = externosSnap.docs
-      .map(d => ({ ...d.data(), ubicacion: "EXTERNO" }))
       .filter(u => u.mva && _matchesPlaza(u, plazaUp));
 
     function _agrupar(units) {
@@ -2507,10 +2503,7 @@ const API_FUNCTIONS = {
     }
 
     const patioUnits = cuadreUnits.filter(u => u.ubicacion === "PATIO" || u.ubicacion === "TALLER");
-    const fueraUnits = [
-      ...cuadreUnits.filter(u => u.ubicacion !== "PATIO" && u.ubicacion !== "TALLER"),
-      ...externosUnits
-    ];
+    const fueraUnits = cuadreUnits.filter(u => u.ubicacion !== "PATIO" && u.ubicacion !== "TALLER");
     return { patio: _agrupar(patioUnits), fuera: _agrupar(fueraUnits) };
   },
 

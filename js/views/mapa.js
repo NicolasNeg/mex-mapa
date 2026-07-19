@@ -47,7 +47,7 @@ import { initErrorTracking, setErrorUser, captureError } from '/js/core/error-tr
 import { initPwaInstall }  from '/js/core/pwa-install.js';
 import * as _pdfReservas   from '/js/features/cuadre/pdf-reservas.js';
 import * as _prediccion    from '/js/features/cuadre/prediccion.js';
-import { normalizarUnidad } from '/domain/unidad.model.js';
+import { normalizarUnidad, esExterno } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
 // Arrendadora: el modo estacionamiento se eliminó. Shims locales que lo dejan
@@ -5997,6 +5997,9 @@ function actualizarContadores() {
   document.querySelectorAll('.car').forEach(car => {
     const estado = (car.dataset.estado || "").toUpperCase();
     const ubicacion = (car.dataset.ubicacion || "").toUpperCase();
+    const tipo = (car.dataset.tipo || "").toLowerCase();
+    // Vehículos de personal: en mapa sí, en KPIs no.
+    if (tipo === 'externo' || ubicacion === 'EXTERNO' || estado === 'EXTERNO') return;
 
     // Clasificar por Estado
     if (estado === "LISTO") listos++;
@@ -6377,6 +6380,8 @@ function cargarFlota() {
     let unicos = [];
     let mvasVistos = new Set();
     (data || []).forEach(u => {
+      // Externos: visibles en mapa, fuera de tabla/KPIs/exports/misión de cuadre.
+      if (esExterno(u)) return;
       if (!mvasVistos.has(u.mva)) {
         mvasVistos.add(u.mva);
         unicos.push(u);
@@ -11119,7 +11124,7 @@ async function _flotaCuadreParaExport() {
   if (!rows || !rows.length) {
     rows = await api.obtenerDatosFlotaConsola(plaza).catch(() => []);
   }
-  return Array.isArray(rows) ? rows.filter(u => u && u.mva) : [];
+  return Array.isArray(rows) ? rows.filter(u => u && u.mva && !esExterno(u)) : [];
 }
 
 async function exportarFlotaCuadreCsv() {
@@ -13074,7 +13079,7 @@ async function cargarFlotaCuadreParaMision(force = false) {
   try {
     const fleet = await api.obtenerDatosFlotaConsola(plaza);
     const unidades = (Array.isArray(fleet) ? fleet : [])
-      .filter(u => u && u.mva)
+      .filter(u => u && u.mva && !esExterno(u))
       .map(_mapUnidadMisionDesdeCuadre)
       .filter(u => u.mva);
     window.UNIDADES_SISTEMA_CORPORATIVO = unidades;
@@ -14224,43 +14229,7 @@ function manejadorFlujoV3() {
     void cargarFlotaCuadreParaMision(true);
   }
   else if (puedeGestionarCuadre && estadoActual === "FINALIZAR CUADRE") {
-    toggleAdminSidebar(false);
-    showToast("Descargando revisión del patio...", "info");
-
-    api.obtenerRevisionAuditoria(_miPlaza()).then(mision => {
-      hacerPingNotificaciones();
-      const unidades = Array.isArray(mision) ? mision : [];
-      const meta = unidades.meta || mision?.meta || {};
-      if (unidades.length > 0) {
-        window.AUDIT_LIST = unidades.map(u => {
-          const gas = String(u.gasolinaCorregida || u.gasolina || 'N/A').toUpperCase();
-          return {
-            ...u,
-            status: u.status || 'PENDIENTE',
-            gasolinaSistema: u.gasolinaSistema || u.gasolina || gas,
-            gasolinaCorregida: gas,
-            gasolina: gas
-          };
-        });
-        _cuadreSetStage('sales-review', {
-          missionId: meta.missionId || meta.cuadreMissionId || '',
-          missionMeta: meta,
-          revisionMeta: meta,
-          auxiliarDocId: meta.auxiliarDocId || meta.destinatarioDocId || '',
-          auxiliarNombre: meta.auxiliarNombre || meta.destinatarioNombre || meta.auxiliar || '',
-          auxiliarFirmaNombre: meta.firmaAuxiliarNombre || meta.firmaNombre || '',
-          auxiliarFirmaUrl: meta.firmaAuxiliarUrl || meta.firmaDataUrl || ''
-        });
-
-        document.getElementById('audit-modal')?.classList.add('active');
-        _cuadreMostrarPaso(2);
-        const title = document.getElementById('titulo-auditoria');
-        if (title) title.innerHTML = '<span class="material-icons">verified_user</span> REVISIÓN DE VENTAS';
-        renderizarPaseLista();
-      } else {
-        showToast("No hay datos del auxiliar.", "error");
-      }
-    }).catch(e => console.error(e));
+    return _abrirRevisionVentasCuadre();
   }
   else if (userRole !== 'admin' && estadoActual === "VERIFICAR INVENTARIO") {
     toggleAdminSidebar(false);
@@ -14533,10 +14502,67 @@ function _syncHistorialFinalizarBtn() {
   if (label) label.textContent = `FINALIZAR CUADRE (${_fechaCortaHoy()})`;
 }
 
+async function _abrirRevisionVentasCuadre() {
+  const puedeGestionarCuadre = userRole === 'admin' || _roleMeta().isAdmin || canViewAdminCuadre();
+  if (!puedeGestionarCuadre) {
+    showToast('No tienes permiso para finalizar el cuadre.', 'error');
+    return;
+  }
+  try { toggleAdminSidebar(false); } catch (_) {}
+  showToast('Descargando revisión del patio...', 'info');
+
+  const auditModal = document.getElementById('audit-modal') || await _ensureLegacyModalElement('audit-modal');
+  if (!auditModal) {
+    showToast('No se pudo abrir el flujo de cierre de cuadre.', 'error');
+    return;
+  }
+
+  try {
+    const mision = await api.obtenerRevisionAuditoria(_miPlaza());
+    hacerPingNotificaciones();
+    const unidades = Array.isArray(mision) ? mision : [];
+    const meta = unidades.meta || mision?.meta || {};
+    const operativas = unidades.filter(u => u && u.mva && !esExterno(u));
+    if (!operativas.length) {
+      showToast('No hay datos del auxiliar.', 'error');
+      return;
+    }
+    window.AUDIT_LIST = operativas.map(u => {
+      const gas = String(u.gasolinaCorregida || u.gasolina || 'N/A').toUpperCase();
+      return {
+        ...u,
+        status: u.status || 'PENDIENTE',
+        gasolinaSistema: u.gasolinaSistema || u.gasolina || gas,
+        gasolinaCorregida: gas,
+        gasolina: gas
+      };
+    });
+    _cuadreSetStage('sales-review', {
+      missionId: meta.missionId || meta.cuadreMissionId || '',
+      missionMeta: meta,
+      revisionMeta: meta,
+      auxiliarDocId: meta.auxiliarDocId || meta.destinatarioDocId || '',
+      auxiliarNombre: meta.auxiliarNombre || meta.destinatarioNombre || meta.auxiliar || '',
+      auxiliarFirmaNombre: meta.firmaAuxiliarNombre || meta.firmaNombre || '',
+      auxiliarFirmaUrl: meta.firmaAuxiliarUrl || meta.firmaDataUrl || ''
+    });
+    auditModal.style.zIndex = '76040';
+    auditModal.classList.add('active');
+    _cuadreMostrarPaso(2);
+    const title = document.getElementById('titulo-auditoria');
+    if (title) title.innerHTML = '<span class="material-icons">verified_user</span> REVISIÓN DE VENTAS';
+    renderizarPaseLista();
+  } catch (e) {
+    console.error('[finalizar-cuadre-historial]', e);
+    showToast('No se pudo abrir la revisión del cuadre.', 'error');
+  }
+}
+
 async function finalizarCuadreDesdeHistorial() {
   const modal = document.getElementById('historial-cuadres-modal');
   if (modal) modal.classList.remove('active');
-  return manejadorFlujoV3();
+  // No depender de txtV3: el historial ya sabe que hay misión en revisión.
+  return _abrirRevisionVentasCuadre();
 }
 window.finalizarCuadreDesdeHistorial = finalizarCuadreDesdeHistorial;
 
@@ -17276,6 +17302,7 @@ async function ejecutarPrediccion() {
 
     let conteoDisponibles = {};
     (inventarioActual || []).forEach(car => {
+      if (esExterno(car)) return;
       let est = (car.estado || "").toUpperCase();
       let cat = (car.categoria || car.categ || "").toUpperCase().trim();
 

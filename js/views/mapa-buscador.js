@@ -432,17 +432,25 @@
       var canView = st.key === 'ok'
         && typeof window.__mexCanViewPlaza === 'function'
         && window.__mexCanViewPlaza(unit.plazaActual);
-      // Sin botones grandes (Ver unidad / Ver en mapa): el badge "En cuadre"
-      // abre el mapa con focus del MVA — es el deep-link de POR ARREGLAR.
+      var kmTxt = (typeof unit.km === 'number' && Number.isFinite(unit.km))
+        ? String(unit.km)
+        : (unit.km != null && String(unit.km).trim() !== '' ? String(unit.km) : '—');
+      var mvaUp = String(unit.mva || '').trim().toUpperCase();
       var cuadreBadge = '<div class="mexbz-cuadre ' + (st.key === 'ok' ? 'ok' : 'no')
-        + (canView ? ' mexbz-cuadre--goto' : '')
         + '" style="' + (st.key === 'err' ? 'background:#fef2f2;color:#dc2626' : '') + '"'
-        + (canView ? ' id="mexbzGoMap" role="button" tabindex="0" title="Abrir en mapa"' : '')
         + '><span class="material-icons" style="font-size:18px">'
         + (st.key === 'ok' ? 'check_circle' : (st.key === 'err' ? 'error' : 'help'))
         + '</span>' + st.txt
-        + (canView ? ' <span class="mexbz-goto-hint">· mapa</span>' : '')
         + '</div>';
+      var actionsHtml =
+        '<div class="mexbz-actions">' +
+          (mvaUp
+            ? '<button type="button" class="mexbz-btn" id="mexbzGoUnidad"><span class="material-icons" style="font-size:18px">folder_open</span>Ver unidad</button>'
+            : '') +
+          (canView
+            ? '<button type="button" class="mexbz-btn ghost" id="mexbzGoMap"><span class="material-icons" style="font-size:18px">map</span>Ver en mapa</button>'
+            : '') +
+        '</div>';
       box.innerHTML =
         '<button class="mexbz-back" id="mexbzBack"><span class="material-icons" style="font-size:16px">arrow_back</span>Resultados</button>' +
         '<div class="mexbz-ficha">' +
@@ -454,13 +462,23 @@
           kv('Estado flota', flota || '—') +
           kv('Estado patio', patio || '—') +
           kv('Ubicación', ubicacionTexto(unit, st)) +
+          kv('KM', kmTxt) +
           kv('Placas', unit.placas || '—') +
           kv('Modelo', unit.modelo || '—') +
           kv('Categoría', unit.categoria || '—') +
           (unit.anio ? kv('Año', unit.anio) : '') +
           (unit.vin ? kv('VIN', unit.vin) : '') +
+          actionsHtml +
         '</div>';
       box.querySelector('#mexbzBack').addEventListener('click', searchUnidades);
+      var goUnidad = box.querySelector('#mexbzGoUnidad');
+      if (goUnidad) {
+        goUnidad.addEventListener('click', function () {
+          close();
+          if (typeof window.__mexGoToUnidad === 'function') window.__mexGoToUnidad(mvaUp);
+          else window.location.assign('/app/cuadre/u/' + encodeURIComponent(mvaUp));
+        });
+      }
       var go = box.querySelector('#mexbzGoMap');
       if (go) {
         var goMap = function () {
@@ -468,14 +486,11 @@
           if (typeof window.__mexGoToMapUnit === 'function') {
             window.__mexGoToMapUnit(unit.mva, unit.plazaActual);
           } else {
-            window.location.assign('/app/mapa?mva=' + encodeURIComponent(String(unit.mva || '').trim().toUpperCase())
+            window.location.assign('/app/mapa?mva=' + encodeURIComponent(mvaUp)
               + (unit.plazaActual ? '&plaza=' + encodeURIComponent(String(unit.plazaActual).trim().toUpperCase()) : ''));
           }
         };
         go.addEventListener('click', goMap);
-        go.addEventListener('keydown', function (ev) {
-          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); goMap(); }
-        });
       }
     });
   }

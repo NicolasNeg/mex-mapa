@@ -79,6 +79,7 @@ export async function mount({ container, navigate }) {
     error: '',
     selectedId: '',
     filtersOpen: false,
+    closing: false,
     detailMode: 'list',
     boot: {
       plaza,
@@ -103,6 +104,7 @@ export async function mount({ container, navigate }) {
     _s.plaza = _normPlaza(next);
     _s.selectedId = '';
     _s.detailMode = 'list';
+    _s.closing = false;
     _s.draft = _newDraft(_s.plaza);
     if (window.location.pathname !== LIST_ROUTE && typeof _navigate === 'function') _navigate(LIST_ROUTE, { replace: true });
     void _load();
@@ -639,22 +641,7 @@ function _formHtml(row) {
             <h3>Unidades</h3>
             ${!isNew ? `<span>Ubicacion actual: <strong>${esc(currentLocation)}</strong></span>` : ''}
           </div>
-          ${isNew ? _unitPickerSectionHtml(draft, unit, gasSalida) : `
-            <div class="tras-form-grid tras-form-grid--unit">
-              <label class="span-all">
-                <span>Unidad</span>
-                <input value="${esc(unitSummary)}" readonly>
-              </label>
-              <label>
-                <span>Kilometros de salida</span>
-                <input value="${esc(String(draft.kmSalida ?? row.kmSalida ?? ''))}" readonly>
-              </label>
-              <label>
-                <span>Combustible de salida</span>
-                <input value="${esc(gasSalida)}" readonly>
-              </label>
-            </div>
-          `}
+          ${isNew ? _unitPickerSectionHtml(draft, unit, gasSalida) : _unitDetailSectionHtml(row, draft, unitSummary, gasSalida, isClosed)}
         </section>
 
         <div class="tras-form-actions tras-form-actions--footer">
@@ -662,30 +649,64 @@ function _formHtml(row) {
             ? `<button type="button" class="tras-btn ghost" data-action="back-list">Volver</button>`
             : `
               <button type="button" class="tras-btn ghost" data-action="back-list">Cancelar</button>
-              ${!isNew ? `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}">Cerrar traslado</button>` : ''}
-              ${(canEdit || isNew) ? `<button type="submit" class="tras-btn primary" ${_s.busy ? 'disabled' : ''}>
+              ${!isNew ? `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}">${_s.closing ? 'Cancelar cierre' : 'Cerrar traslado'}</button>` : ''}
+              ${(canEdit || isNew) && !_s.closing ? `<button type="submit" class="tras-btn primary" ${_s.busy ? 'disabled' : ''}>
                 ${isNew ? 'Guardar' : 'Guardar cambios'}
               </button>` : ''}
             `}
         </div>
       </form>
 
-      ${!isNew && !isClosed ? _closeFormHtml(row) : ''}
+      ${!isNew && !isClosed && _s.closing ? _closeFormHtml(row) : ''}
       ${!isNew ? _timelineHtml(row) : ''}
+    </div>
+  `;
+}
+
+function _unitDetailSectionHtml(row, draft, unitSummary, gasSalida, isClosed) {
+  const kmSalida = draft.kmSalida ?? row.kmSalida ?? '';
+  const showEntrada = isClosed || _s.closing;
+  const kmEntrada = row.kmLlegada ?? '';
+  const gasEntrada = row.gasLlegada || row.gasSalida || gasSalida || 'N/A';
+  const entradaEditable = !isClosed && _s.closing;
+  return `
+    <div class="tras-form-grid tras-form-grid--unit">
+      <label class="span-all">
+        <span>Unidad</span>
+        <input value="${esc(unitSummary)}" readonly>
+      </label>
+      <label>
+        <span>SALIDA · KM</span>
+        <input value="${esc(String(kmSalida))}" readonly>
+      </label>
+      <label>
+        <span>SALIDA · GAS</span>
+        <input value="${esc(gasSalida)}" readonly>
+      </label>
+      ${showEntrada ? `
+        <label>
+          <span>ENTRADA · KM</span>
+          ${entradaEditable
+            ? `<input type="number" min="${esc(String(kmSalida || 0))}" id="tras-close-km" value="${esc(String(kmEntrada))}" required>`
+            : `<input value="${esc(String(kmEntrada || '—'))}" readonly>`}
+        </label>
+        <label>
+          <span>ENTRADA · GAS</span>
+          ${entradaEditable
+            ? `<select id="tras-close-gas">${_gasSelectOptions(gasEntrada)}</select>`
+            : `<input value="${esc(String(gasEntrada || '—'))}" readonly>`}
+        </label>
+      ` : ''}
     </div>
   `;
 }
 
 function _closeFormHtml(row) {
   return `
-    <form class="tras-close-form" id="tras-close-form" data-id="${esc(row.id)}" hidden>
+    <form class="tras-close-form" id="tras-close-form" data-id="${esc(row.id)}">
       <div class="tras-close-head">
         <span class="material-icons">flag</span>
-        <div><strong>Cierre de traslado</strong><small>Registra km de llegada y gas actual.</small></div>
-      </div>
-      <div class="tras-form-pair">
-        <label><span>Km llegada</span><input type="number" min="${esc(String(row.kmSalida || 0))}" id="tras-close-km" value="${esc(String(row.kmLlegada || ''))}" required></label>
-        <label><span>Gas llegada</span><select id="tras-close-gas">${_gasSelectOptions(row.gasLlegada || row.gasSalida || 'N/A')}</select></label>
+        <div><strong>Cierre de traslado</strong><small>Completa ENTRADA · KM · GAS arriba, luego confirma.</small></div>
       </div>
       <label><span>Fecha cierre</span><input type="datetime-local" id="tras-close-fecha" value="${esc(_toDateTimeLocal(Date.now()))}"></label>
       <label><span>Nota de cierre</span><textarea id="tras-close-nota" placeholder="Observaciones de llegada"></textarea></label>
@@ -775,6 +796,7 @@ async function _onClick(event) {
   if (action === 'new') {
     _s.detailMode = 'new';
     _s.selectedId = '';
+    _s.closing = false;
     _s.draft = _newDraft(_s.plaza);
     _go(NEW_ROUTE);
     return;
@@ -784,12 +806,14 @@ async function _onClick(event) {
     if (!id) return;
     _s.selectedId = id;
     _s.detailMode = 'detail';
+    _s.closing = false;
     _go(_viewRoute(id));
     return;
   }
   if (action === 'back-list') {
     _s.selectedId = '';
     _s.detailMode = 'list';
+    _s.closing = false;
     _go(LIST_ROUTE);
     return;
   }
@@ -812,8 +836,8 @@ async function _onClick(event) {
     return;
   }
   if (action === 'show-close') {
-    const form = _ctr.querySelector('#tras-close-form');
-    if (form) form.hidden = !form.hidden;
+    _s.closing = !_s.closing;
+    _paintDetail();
     return;
   }
   if (action === 'close-transfer') {
@@ -1095,21 +1119,30 @@ async function _submitUpdate(id) {
 
 async function _submitClose(id) {
   if (!id) return;
+  const row = (_s.boot.traslados || []).find(t => t.id === id) || {};
+  const kmSalida = Number(row.kmSalida);
+  const kmLlegadaRaw = _val('tras-close-km');
+  const kmLlegada = Number(kmLlegadaRaw);
+  if (!kmLlegadaRaw && kmLlegadaRaw !== 0) return _toast('Captura ENTRADA · KM.', 'error');
+  if (!Number.isFinite(kmLlegada) || kmLlegada < 0) return _toast('ENTRADA · KM invalido.', 'error');
+  if (Number.isFinite(kmSalida) && kmLlegada < kmSalida) {
+    return _toast('ENTRADA · KM no puede ser menor al KM de salida.', 'error');
+  }
   const payload = {
-    kmLlegada: _val('tras-close-km'),
+    kmLlegada,
     gasLlegada: _val('tras-close-gas'),
     fechaCierre: _val('tras-close-fecha'),
     nota: _val('tras-close-nota'),
     usuario: _actor(),
     actorRole: _currentRole()
   };
-  if (!payload.kmLlegada) return _toast('Captura km de llegada.', 'error');
   await _runAction(async () => {
     const res = await cerrarTraslado(id, payload);
     if (!res?.ok) throw new Error(res?.error || 'No se pudo cerrar el traslado.');
     _toast('Traslado cerrado.', 'success');
     _s.selectedId = id;
     _s.detailMode = 'detail';
+    _s.closing = false;
     await _load();
   });
 }

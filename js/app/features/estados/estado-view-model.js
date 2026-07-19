@@ -116,10 +116,16 @@ export function estaEnPatio(unidad) {
   return ubi === 'PATIO' || ubi === 'TALLER';
 }
 
-/** Retorna true si la unidad es externa. */
+/** Retorna true si la unidad es externa (personal / no arrendable). */
 export function estaEnExterno(unidad) {
-  return String(unidad?.tipo || '').toLowerCase() === 'externo'
-    || String(unidad?.ubicacion || '').toUpperCase() === ESTADO_EXTERNO;
+  const tipo = String(unidad?.tipo || '').toLowerCase();
+  const ubi = String(unidad?.ubicacion || '').toUpperCase();
+  const est = String(unidad?.estado || '').toUpperCase();
+  const hoja = String(unidad?.hoja || '').toUpperCase();
+  return tipo === 'externo'
+    || ubi === ESTADO_EXTERNO
+    || est === ESTADO_EXTERNO
+    || hoja === 'EXTERNOS';
 }
 
 /** Catálogo canónico para formularios de Unidades / expediente. */

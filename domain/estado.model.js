@@ -133,8 +133,14 @@ export function estaEnPatio(unidad) {
   return ubi === 'PATIO' || ubi === 'TALLER';
 }
 
-/** Retorna true si la unidad es externa. */
+/** Retorna true si la unidad es externa (personal / no arrendable). */
 export function estaEnExterno(unidad) {
-  return String(unidad?.tipo || '').toLowerCase() === 'externo' ||
-         String(unidad?.ubicacion || '').toUpperCase() === 'EXTERNO';
+  const tipo = String(unidad?.tipo || '').toLowerCase();
+  const ubi = String(unidad?.ubicacion || '').toUpperCase();
+  const est = String(unidad?.estado || '').toUpperCase();
+  const hoja = String(unidad?.hoja || '').toUpperCase();
+  return tipo === 'externo'
+    || ubi === 'EXTERNO'
+    || est === 'EXTERNO'
+    || hoja === 'EXTERNOS';
 }
