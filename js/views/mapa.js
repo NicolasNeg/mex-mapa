@@ -12607,9 +12607,9 @@ function renderizarLogsAuditoria() {
       log.detalles ? escapeHtml(log.detalles) : ''
     ].filter(Boolean);
     const locationHtml = _logExactLocationHtml(log);
-    const metaParts = [...detalles, locationHtml].filter(Boolean);
-    const extraHtml = metaParts.length
-      ? `<div class="log-meta">${metaParts.join('')}</div>`
+    const detailHtml = detalles.length ? `<span>${detalles.join(' · ')}</span>` : '';
+    const extraHtml = (detailHtml || locationHtml)
+      ? `<div class="log-meta">${detailHtml}${locationHtml}</div>`
       : '';
 
     return `
