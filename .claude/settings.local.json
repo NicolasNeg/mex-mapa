@@ -208,7 +208,8 @@
       "Bash(grep -nE '#[0-9a-fA-F]{3,6}|rgba?\\\\\\(' css/app-incidencias.css)",
       "Bash(grep -nE '#[0-9a-fA-F]{3,6}|rgba?\\\\\\(' css/app-admin-chrome.css)",
       "Bash(grep -n \"^/\\\\*\\\\|^\\\\.app-mapa-legacy\\\\|^#app-mapa-legacy\\\\|legacy-port\\\\|@media\\\\|^body\\\\|^html\" css/app-mapa.css)",
-      "Bash(awk -F: '$1>=1600 && $1<=1900')"
+      "Bash(awk -F: '$1>=1600 && $1<=1900')",
+      "Bash(xargs grep -ln \"f59e0b\\\\|fbbf24\\\\|amber\\\\|warning\")"
     ]
   }
 }
