@@ -40,7 +40,7 @@ export const ADMIN_NAV_GROUPS = [
 ];
 
 /** Secciones ya migradas a SPA nativa (sin iframe). */
-export const ADMIN_NATIVE_SECTIONS = new Set(['usuarios', 'choferes']);
+export const ADMIN_NATIVE_SECTIONS = new Set(['usuarios', 'choferes', 'roles', 'solicitudes']);
 
 function _decodeSeg(raw = '') {
   const s = String(raw || '').trim();
@@ -96,7 +96,6 @@ export function getAdminShellNavGroups() {
         route: '/app/dashboard',
         roles: '*'
       }
-      // Programador: no nav link — open /app/programador by URL only.
     ]
   });
   return groups;

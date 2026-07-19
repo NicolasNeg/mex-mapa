@@ -118,6 +118,83 @@ body.dark-theme .adm-listas-detail {
   white-space: nowrap;
 }
 
+.adm-status-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 12px;
+}
+
+.adm-status-tab {
+  flex: 1 1 0;
+  min-height: 36px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.adm-status-tab.is-active {
+  background: #e1f3fe;
+  border-color: #93c5fd;
+  color: #0f172a;
+}
+
+.adm-banner {
+  margin: 0 12px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.adm-matrix-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.adm-perm-matrix {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+
+.adm-perm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+  font-size: 12px;
+  color: #64748b;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.adm-perm-item.is-on {
+  color: var(--text, #0f172a);
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.adm-perm-item .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.adm-perm-item input {
+  margin: 0;
+}
+
 .adm-listas-toolbar {
   padding: 12px 16px;
 }

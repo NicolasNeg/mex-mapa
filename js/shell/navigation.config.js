@@ -175,7 +175,6 @@ export const NAV_GROUPS = [
         route: '/editmap',
         roles: ['CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR']
       }
-      // Programador: no nav link — open /app/programador (or /programador) by URL only.
     ]
   }
 ];

@@ -264,8 +264,7 @@ async function boot() {
   }
 
   // PROGRAMADOR entra a la app de la empresa como cualquier usuario.
-  // Accede al panel de programador desde el item "Programador" del sidebar
-  // (visible solo para ese rol — ver navigation.config.js).
+  // Panel programador: sin link de nav; abrir /app/programador por URL.
 
   // 4. Esperar config global si no está resuelta
   if (window.__mexConfigReadyPromise) {

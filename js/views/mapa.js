@@ -1758,25 +1758,8 @@ function cerrarPanelConfiguracion() {
 }
 
 function _ensureProgrammerRouteButton() {
-  const group = document.getElementById('navGroupPanelAdmin');
-  if (!group) return;
-  let btn = document.getElementById('btnProgrammerRoute');
-  if (!btn) {
-    btn = document.createElement('button');
-    btn.id = 'btnProgrammerRoute';
-    btn.className = 'sb-btn sb-btn-dark';
-    btn.type = 'button';
-    btn.innerHTML = `
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span class="material-icons" style="color:#67e8f9;">terminal</span>
-        <span style="font-weight:800; font-size:11px;">CONSOLA PROGRAMADOR</span>
-      </div>
-      <span class="material-icons sb-chevron">open_in_new</span>
-    `;
-    btn.addEventListener('click', _abrirProgrammerConsoleRoute);
-    group.appendChild(btn);
-  }
-  btn.style.display = canUseProgrammerConfig() ? 'flex' : 'none';
+  const btn = document.getElementById('btnProgrammerRoute');
+  if (btn) btn.style.display = 'none';
 }
 
 function canAssignRole(targetRole) {
@@ -19558,7 +19541,7 @@ function _cfgRefreshQuickTools() {
     'new-plaza': canManageAdvancedConfig,
     'new-item': isCatalogTab && canManageAdvancedConfig,
     'go-map': true,
-    'open-programmer': canUseProgrammerConfig(),
+    'open-programmer': false,
     'publish': canPublishCurrentTab
   };
 
@@ -19566,7 +19549,7 @@ function _cfgRefreshQuickTools() {
     const key = btn.getAttribute('data-tool') || '';
     const enabled = matrix[key] !== false;
     btn.disabled = !enabled;
-    if (key === 'open-programmer') btn.style.display = canUseProgrammerConfig() ? '' : 'none';
+    if (key === 'open-programmer') btn.style.display = 'none';
     if (key === 'new-user') btn.style.display = canManageUsers() ? '' : 'none';
     if (key === 'new-role') btn.style.display = (hasPermission('manage_roles_permissions') || canManageUsers()) ? '' : 'none';
     if (key === 'new-plaza') btn.style.display = canManageAdvancedConfig ? '' : 'none';
@@ -20443,7 +20426,7 @@ function abrirPanelConfiguracion(tabInicial) {
     plazas: canViewAdminStructure(),
     ubicaciones: canViewAdminStructure(),
     empresa: canViewAdminOrganization(),
-    programador: canViewAdminProgrammer()
+    programador: false
   };
   Object.entries(visibilityMap).forEach(([tab, visible]) => {
     const button = document.getElementById(`cfg-tab-${tab}`) || document.querySelector(`.cfg-tab[onclick*="'${tab}'"]`);
@@ -20524,7 +20507,7 @@ function abrirTabConfig(tabName, btnElement, opts = {}) {
   _cfgSyncNavState(TAB_ACTIVA_CFG);
   _cfgUpdateWorkspaceHeader(TAB_ACTIVA_CFG);
   const progTab = document.getElementById('cfg-tab-programador');
-  if (progTab) progTab.style.display = canUseProgrammerConfig() ? 'inline-flex' : 'none';
+  if (progTab) progTab.style.display = 'none';
 
   // Remove any existing extra filter bars
   ['cfg-ubi-plaza-filter-wrap', 'cfg-modelo-cat-filter-wrap'].forEach(id => {

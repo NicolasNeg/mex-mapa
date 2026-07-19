@@ -174,3 +174,73 @@ export async function rejectAccessRequestSafely({
   await target.ref.set(payload, { merge: true });
   return { collectionName: target.collectionName, email: _normEmail(email) };
 }
+
+async function _procesarSolicitudCallable(payload = {}) {
+  if (typeof window.api?.procesarSolicitudAcceso === 'function') {
+    return window.api.procesarSolicitudAcceso(payload);
+  }
+  const functions = window._functions
+    || (typeof window.firebase?.functions === 'function' ? window.firebase.app().functions('us-central1') : null);
+  if (!functions || typeof functions.httpsCallable !== 'function') {
+    throw new Error('Firebase Functions no está disponible para procesar solicitudes.');
+  }
+  const response = await functions.httpsCallable('procesarSolicitudAcceso')(payload);
+  return response?.data || response;
+}
+
+/** Aprobar vía Cloud Function (crea usuario / aplica rol). */
+export async function approveAccessRequest({
+  email = '',
+  collectionHint = '',
+  nombre = '',
+  puesto = '',
+  telefono = '',
+  role = '',
+  plaza = ''
+} = {}) {
+  const deep = await fetchAccessRequestDocDeep(email, collectionHint);
+  if (!deep) throw new Error('La solicitud ya no existe.');
+  const data = deep.data || {};
+  return _procesarSolicitudCallable({
+    action: 'approve',
+    docId: deep.id,
+    collectionName: deep.collectionName,
+    email: _normEmail(email || data.email || deep.id),
+    nombre: _norm(nombre || data.nombre),
+    puesto: _norm(puesto || data.puesto),
+    telefono: _norm(telefono || data.telefono),
+    role: _normUp(role || data.rolSolicitado || data.requestedRole || 'AUXILIAR'),
+    plaza: _normUp(plaza || data.plazaSolicitada || data.requestedPlaza || ''),
+    password: data.password || ''
+  });
+}
+
+/** Rechazar vía Cloud Function (notifica / marca estado). */
+export async function rejectAccessRequest({
+  email = '',
+  collectionHint = '',
+  motivo = ''
+} = {}) {
+  const deep = await fetchAccessRequestDocDeep(email, collectionHint);
+  if (!deep) throw new Error('La solicitud ya no existe.');
+  const data = deep.data || {};
+  try {
+    return await _procesarSolicitudCallable({
+      action: 'reject',
+      docId: deep.id,
+      collectionName: deep.collectionName,
+      email: _normEmail(email || data.email || deep.id),
+      nombre: _norm(data.nombre),
+      puesto: _norm(data.puesto),
+      telefono: _norm(data.telefono),
+      motivo: _norm(motivo) || 'No cumples con los criterios de acceso requeridos en este momento.'
+    });
+  } catch (err) {
+    // Fallback local si el callable no está disponible
+    return rejectAccessRequestSafely({
+      email: email || deep.id,
+      comment: motivo,
+      collectionHint: deep.collectionName
+    });
+  }
+}

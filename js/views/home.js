@@ -131,16 +131,6 @@ const HOME_VARIANTS = {
     ctaTitle: 'Abrir consola tecnica',
     modules: [
       {
-        id: 'programador',
-        title: 'Consola técnica',
-        description: 'Salud del sistema, clientes, cache, errores y herramientas seguras.',
-        route: '/programador',
-        icon: 'terminal',
-        badge: 'Principal',
-        requires: 'programmer',
-        tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
-      },
-      {
         id: 'admin',
         title: 'Panel admin',
         description: 'Configuración administrativa y control de catálogos del sistema.',
@@ -792,14 +782,6 @@ export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '', cur
       description: `${metrics.solicitudesPendientes || 0} solicitudes pendientes`,
       route: '/gestion?tab=usuarios',
       icon: 'admin_panel_settings'
-    });
-  }
-  if (canAccessProgrammer(profile)) {
-    managementItems.push({
-      label: 'Consola',
-      description: `${metrics.incidenciasAbiertas || 0} incidencias abiertas`,
-      route: '/programador',
-      icon: 'terminal'
     });
   }
   if (managementItems.length) {

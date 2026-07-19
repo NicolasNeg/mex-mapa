@@ -1,6 +1,6 @@
 /**
  * Centro Admin — contenido SPA (CONTROLES viven en el sidebar global).
- * Usuarios/Choferes: nativo LISTAS. Resto: iframe legacy hasta migrar.
+ * LISTAS nativas: Usuarios, Choferes, Roles, Solicitudes. Resto: iframe.
  */
 import {
   ADMIN_NATIVE_SECTIONS,
@@ -17,9 +17,19 @@ import {
   unmountChoferesPanel,
   syncChoferesSelection
 } from '/js/app/features/admin/admin-choferes-panel.js';
+import {
+  mountRolesPanel,
+  unmountRolesPanel,
+  syncRolesSelection
+} from '/js/app/features/admin/admin-roles-panel.js';
+import {
+  mountSolicitudesPanel,
+  unmountSolicitudesPanel,
+  syncSolicitudesSelection
+} from '/js/app/features/admin/admin-solicitudes-panel.js';
 
 const FRAME_ID = 'mex-admin-legacy-frame';
-const FRAME_VER = '20260719i';
+const FRAME_VER = '20260719j';
 
 let _root = null;
 let _navigate = null;
@@ -28,7 +38,7 @@ let _entityId = '';
 let _nativeSection = '';
 
 function _ensureCss() {
-  const href = '/css/app-admin.css?v=20260719i';
+  const href = '/css/app-admin.css?v=20260719j';
   let link = document.querySelector('link[data-app-admin-spa-css="1"]');
   if (!link) {
     link = document.createElement('link');
@@ -118,6 +128,8 @@ function _injectLegacyCss(frame) {
 function _unmountNative() {
   unmountUsuariosPanel();
   unmountChoferesPanel();
+  unmountRolesPanel();
+  unmountSolicitudesPanel();
   _nativeSection = '';
 }
 
@@ -160,23 +172,20 @@ function _showNative(section, entityId) {
     _unmountNative();
   }
 
-  if (section === 'usuarios') {
-    if (_nativeSection !== 'usuarios') {
-      mountUsuariosPanel(native, { navigate: _navigate, entityId });
-      _nativeSection = 'usuarios';
-    } else {
-      syncUsuariosSelection(entityId);
-    }
-    return;
-  }
+  const mountMap = {
+    usuarios: { mount: mountUsuariosPanel, sync: syncUsuariosSelection },
+    choferes: { mount: mountChoferesPanel, sync: syncChoferesSelection },
+    roles: { mount: mountRolesPanel, sync: syncRolesSelection },
+    solicitudes: { mount: mountSolicitudesPanel, sync: syncSolicitudesSelection }
+  };
+  const entry = mountMap[section];
+  if (!entry) return;
 
-  if (section === 'choferes') {
-    if (_nativeSection !== 'choferes') {
-      mountChoferesPanel(native, { navigate: _navigate, entityId });
-      _nativeSection = 'choferes';
-    } else {
-      syncChoferesSelection(entityId);
-    }
+  if (_nativeSection !== section) {
+    entry.mount(native, { navigate: _navigate, entityId });
+    _nativeSection = section;
+  } else {
+    entry.sync(entityId);
   }
 }
 
