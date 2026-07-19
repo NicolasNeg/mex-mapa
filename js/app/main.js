@@ -16,14 +16,118 @@
 //  - Rutas fuera de /app/* → window.location.href.
 // ═══════════════════════════════════════════════════════════
 
-import { auth }                     from '/js/core/database.js';
+import { auth, db, COL }            from '/js/core/database.js';
 import { ShellLayout }              from '/js/shell/shell-layout.js';
 import '/js/app/features/unidades/unidades-lookup.js';
-import { initState, getState, setCurrentPlaza, subscribe, resolveAvailablePlazas } from '/js/app/app-state.js';
+import { initState, getState, setCurrentPlaza, subscribe, resolveAvailablePlazas, setState } from '/js/app/app-state.js';
 import { createRouter }             from '/js/app/router.js';
 import { toAppRoute, isMigratedRoute } from '/js/app/route-resolver.js';
 import { getNotificationsSummary } from '/js/app/features/notifications/notifications-summary.js';
 import { warmAppAssets, warmAppData, getAppCacheStatus } from '/js/app/app-cache.js';
+
+let _unsubSessionProfile = null;
+
+function _profileDocId(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function _reloadFlagStorageKey(email) {
+  return `mex.reload.handled.${_profileDocId(email)}`;
+}
+
+function _reloadFlagMarker(profile) {
+  const plazas = Array.isArray(profile?.plazasPermitidas)
+    ? [...profile.plazasPermitidas].filter(Boolean).map(p => String(p).toUpperCase()).sort()
+    : [];
+  return JSON.stringify({
+    rol: String(profile?.rol || '').toUpperCase().trim(),
+    plaza: String(profile?.plazaAsignada || profile?.plaza || '').toUpperCase().trim(),
+    plazasPermitidas: plazas,
+    status: String(profile?.status || '').trim().toUpperCase(),
+    activo: profile?.activo !== false,
+    version: String(profile?._version || profile?.version || ''),
+    updatedAt: String(profile?._updatedAt || profile?.updatedAt || profile?.lastTouchedAt || 0),
+  });
+}
+
+function _clearReloadTracking(email) {
+  try {
+    sessionStorage.removeItem('_reloadGuard');
+    localStorage.removeItem(_reloadFlagStorageKey(email));
+  } catch (_) {}
+}
+
+function _isProfileActive(data) {
+  if (!data) return false;
+  const status = String(data.status || '').toUpperCase();
+  return data.activo !== false
+    && data.autorizado !== false
+    && data.accesoSistema !== false
+    && status !== 'INACTIVO'
+    && status !== 'RECHAZADO'
+    && status !== 'BLOQUEADO';
+}
+
+/** Watcher SPA: kick si inactivo/eliminado; reload anti-loop si `_reloadRequired`. */
+function _bindSessionProfileWatcher(email, shellToast) {
+  const docId = _profileDocId(email);
+  if (!docId || !db?.collection) return;
+  if (_unsubSessionProfile) {
+    try { _unsubSessionProfile(); } catch (_) {}
+    _unsubSessionProfile = null;
+  }
+
+  _unsubSessionProfile = db.collection(COL.USERS).doc(docId).onSnapshot(snap => {
+    if (!snap.exists) {
+      shellToast?.('Tu usuario ya no existe. Cerrando sesión…', 'error');
+      handleLogout();
+      return;
+    }
+    const data = snap.data() || {};
+    if (!_isProfileActive(data)) {
+      shellToast?.('Tu acceso fue desactivado. Cerrando sesión…', 'error');
+      handleLogout();
+      return;
+    }
+
+    // Mantener app-state alineado con Firestore (plaza/rol en vivo).
+    try {
+      const nextRole = String(data.rol || getState().role || 'AUXILIAR').toUpperCase();
+      const nextProfile = { ...(getState().profile || {}), ...data, id: docId, email: docId };
+      const nextPlazas = resolveAvailablePlazas(nextProfile, nextRole);
+      setState({
+        profile: nextProfile,
+        role: nextRole,
+        availablePlazas: nextPlazas,
+        canSwitchPlaza: nextPlazas.length > 1,
+      });
+      window.mexPerms?.init?.(nextRole);
+    } catch (_) {}
+
+    const reloadMarker = _reloadFlagMarker(data);
+    let handledMarker = '';
+    try { handledMarker = localStorage.getItem(_reloadFlagStorageKey(docId)) || ''; } catch (_) {}
+
+    if (data._reloadRequired && !sessionStorage.getItem('_reloadGuard') && handledMarker !== reloadMarker) {
+      try {
+        sessionStorage.setItem('_reloadGuard', '1');
+        localStorage.setItem(_reloadFlagStorageKey(docId), reloadMarker);
+      } catch (_) {}
+
+      db.collection(COL.USERS).doc(docId)
+        .update({ _reloadRequired: false })
+        .catch(err => console.warn('[_reloadRequired SPA] No se pudo limpiar flag:', err?.code || err));
+
+      shellToast?.('Tus permisos fueron actualizados. Recargando…', 'warning');
+      setTimeout(() => { window.location.reload(); }, 1200);
+      return;
+    }
+
+    if (!data._reloadRequired) {
+      _clearReloadTracking(docId);
+    }
+  }, err => console.warn('[app/main] session profile watcher:', err));
+}
 
 let _notifCenterModule = null;
 let _notifCenterPromise = null;
@@ -201,6 +305,16 @@ async function boot() {
     company,
   });
 
+  // 5b. Gate de ubicación (sesión SPA) — bloqueante hasta permitir.
+  _setBootStatus('Verificando ubicación…');
+  if (typeof window.__mexRequireLocationAccess === 'function' && !qaAuthBypass) {
+    try {
+      await window.__mexRequireLocationAccess({ allowLogout: true });
+    } catch (err) {
+      console.warn('[app/main] location gate:', err);
+    }
+  }
+
   // 5. Revelar root y montar shell
   _setBootStatus('Preparando panel…');
   const appRoot     = document.getElementById('appRoot');
@@ -338,6 +452,11 @@ async function boot() {
 
   loadSpinner?.remove();
 
+  // Watcher de sesión: kick / reload anti-loop (paridad con mapa.js).
+  if (!qaAuthBypass) {
+    _bindSessionProfileWatcher(user.email || profile.email || profile.id, shellToast);
+  }
+
   // (Banner de programador eliminado — single-tenant, sin contexto multi-empresa)
 
   // 6. Crear router — renderiza la vista inicial automáticamente
@@ -462,6 +581,10 @@ async function boot() {
   });
   window.addEventListener('beforeunload', () => {
     if (notifTimer) clearInterval(notifTimer);
+    if (_unsubSessionProfile) {
+      try { _unsubSessionProfile(); } catch (_) {}
+      _unsubSessionProfile = null;
+    }
     try { _notifCenterModule?.teardownAppNotificationShell?.(); } catch (_) {}
   }, { once: true });
 }
