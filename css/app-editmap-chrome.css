@@ -348,7 +348,7 @@
 
 #modal-editor-mapa .mapa-no-sel .material-symbols-outlined {
   font-size: 40px;
-  color: #94a3b8;
+  color: var(--ed-muted);
   display: block;
   margin-bottom: 12px;
 }

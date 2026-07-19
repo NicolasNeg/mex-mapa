@@ -305,7 +305,7 @@ body[data-editmap-standalone="1"] #modal-editor-mapa .mapa-editor-body {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
 }
 .editmap-loading span { font-size: 14px; font-weight: 600; }
 
@@ -326,14 +326,14 @@ body[data-editmap-standalone="1"] #modal-editor-mapa .mapa-editor-body {
 .editmap-inspector-title {
   font-size: 10px;
   font-weight: 800;
-  color: #475569;
+  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 12px;
 }
 
 .editmap-field { margin-bottom: 10px; }
-.editmap-field label { display: block; font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.editmap-field label { display: block; font-size: 10px; font-weight: 700; color: #94a3b8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 
 .editmap-input, .editmap-select {
   width: 100%;
@@ -392,7 +392,7 @@ body[data-editmap-standalone="1"] #modal-editor-mapa .mapa-editor-body {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #334155;
+  color: #94a3b8;
 }
 
 /* ── Zoom bar ── */
@@ -425,13 +425,13 @@ body[data-editmap-standalone="1"] #modal-editor-mapa .mapa-editor-body {
   transition: background 0.15s;
 }
 .editmap-zoom-bar button:hover { background: rgba(255,255,255,0.12); color: #e2e8f0; }
-.editmap-zoom-label { font-size: 12px; font-weight: 700; color: #64748b; min-width: 38px; text-align: center; }
+.editmap-zoom-label { font-size: 12px; font-weight: 700; color: #94a3b8; min-width: 38px; text-align: center; }
 
 /* ── Estado vacío del inspector ── */
 .editmap-inspector-empty {
   text-align: center;
   padding: 16px 0;
-  color: #334155;
+  color: #94a3b8;
 }
 .editmap-inspector-empty span { font-size: 36px; display: block; margin-bottom: 8px; }
 .editmap-inspector-empty p { font-size: 12px; line-height: 1.5; }
