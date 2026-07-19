@@ -1,6 +1,15 @@
 /* ==========================================================================
    LUMINOUS ADMIN — Panel administrativo
    Guía: minimalista, Inter, tokens Material-inspired
+
+   SUPERSEDIDO (Ciclo A "Corporate Registry", ver docs/superpowers/specs/
+   2026-07-15-admin-panel-restyle-design.md): css/app-admin-chrome.css se
+   carga después de este archivo en global.css y sobre-escribe con mayor
+   especificidad/!important las reglas de #modal-config-global.admin-registry
+   que entran en conflicto (header, tabs, tray, sidebar, forms). Este archivo
+   se deja intacto por ahora (no borrado en A1, ver plan) pero sus reglas
+   para .admin-registry ya no son la fuente de verdad visual — antes de
+   editarlo, revisa si app-admin-chrome.css ya cubre el selector.
    ========================================================================== */
 
 .cfg-modal-v2.luminous-admin {

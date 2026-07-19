@@ -453,7 +453,7 @@
 
 #modal-config-global.admin-registry .cfg-v2-tool-btn:hover {
   transform: translateY(-1px);
-  border-color: #cbd5e1;
+  border-color: var(--border-md);
 }
 
 #modal-config-global.admin-registry .cfg-v2-tool-btn.success {
@@ -584,7 +584,7 @@
 }
 
 #modal-config-global.admin-registry .um-card:hover {
-  border-color: #cbd5e1 !important;
+  border-color: var(--border-md) !important;
 }
 
 #modal-config-global.admin-registry .um-card.active {
@@ -844,7 +844,7 @@ body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
 }
 
 #modal-config-global.admin-registry .um-toolbar-btn:hover {
-  border-color: #cbd5e1 !important;
+  border-color: var(--border-md) !important;
   box-shadow: none !important;
   transform: translateY(-1px);
 }
@@ -886,7 +886,7 @@ body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
   background: var(--admin-bg) !important;
   transform: none !important;
   box-shadow: none !important;
-  border-color: #cbd5e1 !important;
+  border-color: var(--border-md) !important;
 }
 
 #modal-config-global.admin-registry .um-card.active {
@@ -1054,7 +1054,7 @@ body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
 }
 
 #modal-config-global.admin-registry .cfg-item:hover {
-  border-color: #cbd5e1 !important;
+  border-color: var(--border-md) !important;
   background: var(--admin-bg) !important;
   transform: none !important;
   box-shadow: none !important;
@@ -1101,6 +1101,28 @@ body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
   border-radius: 10px !important;
 }
 
+/* Field stack — label arriba del input, sin peso 800 ni hex sin token (ESTILO). */
+#modal-config-global.admin-registry .cfg-add-label {
+  color: var(--admin-muted) !important;
+  font-weight: 600 !important;
+}
+
+#modal-config-global.admin-registry .cfg-add-input,
+#modal-config-global.admin-registry .cfg-add-select {
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 12px !important;
+  background: var(--admin-bg) !important;
+  color: var(--admin-text) !important;
+  font-weight: 500 !important;
+}
+
+#modal-config-global.admin-registry .cfg-add-input:focus,
+#modal-config-global.admin-registry .cfg-add-select:focus {
+  border-color: var(--admin-accent) !important;
+  background: var(--admin-surface) !important;
+  box-shadow: 0 0 0 3px var(--admin-accent-pale) !important;
+}
+
 /* ── A4 Estructura / empresa / programador ────────────────── */
 
 #modal-config-global.admin-registry .cfg-plazas-body {
@@ -1139,7 +1161,7 @@ body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
 }
 
 #modal-config-global.admin-registry .cfg-plaza-card:hover {
-  border-color: #cbd5e1;
+  border-color: var(--border-md);
   background: var(--admin-bg);
 }
 
@@ -1188,7 +1210,7 @@ body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
 #modal-config-global.admin-registry .cfg-plaza-placeholder .material-icons,
 #modal-config-global.admin-registry .cfg-plaza-placeholder .material-symbols-outlined {
   font-size: 40px;
-  color: #cbd5e1;
+  color: var(--border-md);
 }
 
 #modal-config-global.admin-registry #cfg-plaza-search {
