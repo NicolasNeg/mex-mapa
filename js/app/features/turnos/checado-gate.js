@@ -304,12 +304,13 @@ export function runChecadoGate(opts = {}) {
       const needsFace = !skipFace && ((requireFace && faceDescriptor) || (faceOptional && faceDescriptor));
       if (needsFace) {
         startVerifyLoop();
-      } else if (faceOptional && !faceDescriptor) {
-        // Cierre sin enrolar: solo foto
+      } else if (skipFace || (faceOptional && !faceDescriptor)) {
+        // Motor facial no cargó (skipFace) o cierre sin enrolar: solo foto.
+        // No forzar al usuario a encontrar el botón "saltar" — degradar directo.
         setFaceEstado('sincara');
         const chip = $('#tuGateChip');
         if (chip) {
-          chip.querySelector('.tu-gate__status-txt').textContent = 'Toma una foto para cerrar';
+          chip.querySelector('.tu-gate__status-txt').textContent = 'Toma una foto para continuar';
         }
         habilitarShutter();
       } else {

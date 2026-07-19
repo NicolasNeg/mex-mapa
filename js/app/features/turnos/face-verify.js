@@ -29,16 +29,34 @@ const CFG = {
 
 let _human = null;
 
+const MOTOR_TIMEOUT_MS = 15000;
+
 /** Carga diferida del motor (~10MB CDN, cacheable). */
 export async function cargarMotor() {
   if (_human) return _human;
-  const { default: Human } = await import(
-    'https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.esm.js'
-  );
-  _human = new Human(CFG);
-  await _human.load();
-  await _human.warmup();
-  return _human;
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new Error('Tiempo de espera agotado cargando el motor facial.')),
+      MOTOR_TIMEOUT_MS
+    );
+  });
+  try {
+    return await Promise.race([
+      (async () => {
+        const { default: Human } = await import(
+          'https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.esm.js'
+        );
+        _human = new Human(CFG);
+        await _human.load();
+        await _human.warmup();
+        return _human;
+      })(),
+      timeout,
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /** Analiza un frame de video. Devuelve null si no hay cara con embedding. */
