@@ -209,7 +209,10 @@
       "Bash(grep -nE '#[0-9a-fA-F]{3,6}|rgba?\\\\\\(' css/app-admin-chrome.css)",
       "Bash(grep -n \"^/\\\\*\\\\|^\\\\.app-mapa-legacy\\\\|^#app-mapa-legacy\\\\|legacy-port\\\\|@media\\\\|^body\\\\|^html\" css/app-mapa.css)",
       "Bash(awk -F: '$1>=1600 && $1<=1900')",
-      "Bash(xargs grep -ln \"f59e0b\\\\|fbbf24\\\\|amber\\\\|warning\")"
+      "Bash(xargs grep -ln \"f59e0b\\\\|fbbf24\\\\|amber\\\\|warning\")",
+      "Bash(grep -n \"gina 1\\\\|gina \\\\${\" js/views/mapa.js -i)",
+      "Bash(grep -n \"Mostrando 1\\\\|Mostrando \\\\${\" js/views/mapa.js -i)",
+      "Bash(awk '/@media.*max-width.*950|@media.*max-width.*1024/{print NR\": \"$0}' css/mapa.css)"
     ]
   }
 }
