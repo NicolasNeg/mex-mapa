@@ -4,7 +4,8 @@
 > **Alcance:** Rediseño industrial del overlay de geolocalización + endurecer reload de perfil/sesión (anti-loop) en SPA y legacy.  
 > **Fuente Obsidian:** `MapGestion/(3)PETICION DE UBICACION.md`, `MapGestion/LOCALSTORAGE.md`  
 > **Referencias visuales:** `assets/ubicacion-web-01-gate-pedir.png`, `assets/ubicacion-web-02-gate-denegado.png`, `assets/ubicacion-mobile-01-pedir.png`, `assets/ubicacion-mobile-02-denegado.png`  
-> **Approach:** 1 — Parche en lo existente (`app-bootstrap.js` + watcher en SPA)
+> **Approach:** 1 — Parche en lo existente (`app-bootstrap.js` + watcher en SPA)  
+> **Estado:** implementado (`mapa-v601`)
 
 ## 1. Decisiones aprobadas
 
