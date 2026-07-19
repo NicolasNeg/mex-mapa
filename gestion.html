@@ -169,7 +169,7 @@
     <div class="cfg-v2-body">
 
       <!-- SIDEBAR -->
-      <div class="cfg-v2-sidebar shell-sidebar-surface is-pinned" id="cfg-admin-sidebar">
+      <div class="cfg-v2-sidebar is-pinned" id="cfg-admin-sidebar">
         <div class="cfg-v2-sidebar-top shell-sidebar-brand">
           <div>
             <div class="cfg-v2-sidebar-label">
@@ -336,7 +336,7 @@
       <!-- MAIN PANEL -->
       <div class="cfg-v2-main shell-main-stage">
 
-        <div class="cfg-v2-workspace-header">
+        <div class="cfg-v2-workspace-header" hidden>
           <div class="cfg-v2-workspace-copy">
             <div class="cfg-v2-workspace-kicker" id="cfg-module-breadcrumb">Accesos · Centro Admin</div>
             <div class="cfg-v2-workspace-title-row">
@@ -383,7 +383,7 @@
           </div>
         </div>
 
-        <div id="cfg-v2-tools" class="cfg-v2-tools">
+        <div id="cfg-v2-tools" class="cfg-v2-tools" hidden>
           <button type="button" class="cfg-v2-tool-btn" data-tool="refresh" onclick="_cfgQuickAction('refresh')">
             <span class="material-symbols-outlined">refresh</span>
             Actualizar contexto

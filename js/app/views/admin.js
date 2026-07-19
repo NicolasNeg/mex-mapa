@@ -14,9 +14,9 @@ function _getOrCreateFrame() {
     if (!main) return null;
     f = document.createElement('iframe');
     f.id = FRAME_ID;
-    f.src = '/gestion.html';
+    f.src = '/gestion.html?admin=1&v=20260719c';
     f.setAttribute('data-admin-frame', '1');
-    f.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;z-index:20;display:none;background:#f1f5f9;';
+    f.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;z-index:20;display:none;background:#f8fafc;';
     main.appendChild(f);
   }
   return (_frame = f);
@@ -25,6 +25,11 @@ function _getOrCreateFrame() {
 export function mount(_ctx) {
   const frame = _getOrCreateFrame();
   if (!frame) return;
+  // Forzar recarga si el iframe quedó con markup/CSS viejo en caché
+  const want = '/gestion.html?admin=1&v=20260719c';
+  if (!String(frame.src || '').includes('v=20260719c')) {
+    frame.src = want;
+  }
   frame.style.display = 'block';
   window.dispatchEvent(new Event('resize'));
 }

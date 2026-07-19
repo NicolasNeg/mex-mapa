@@ -334,15 +334,7 @@
 }
 
 #modal-config-global.admin-registry .cfg-v2-workspace-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  /* !important: admin-luminous.css fuerza padding/borde/fondo con !important */
-  padding: 20px 24px 12px !important;
-  border-bottom: 1px solid var(--admin-border) !important;
-  background: var(--admin-surface) !important;
+  display: none !important;
 }
 
 #modal-config-global.admin-registry .cfg-v2-workspace-kicker {
@@ -452,13 +444,9 @@
   font-weight: 500;
 }
 
-#modal-config-global.admin-registry .cfg-v2-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--admin-border);
-  background: var(--admin-surface);
+#modal-config-global.admin-registry .cfg-v2-tools,
+#modal-config-global.admin-registry #cfg-v2-tools {
+  display: none !important;
 }
 
 #modal-config-global.admin-registry .cfg-v2-tool-btn {
@@ -1303,11 +1291,39 @@ body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
   }
 }
 
-/* ── Contraste sidebar (vence luminous / config !important) ── */
+/* ── Contraste sidebar (vence luminous / config / shell-sidebar !important) ── */
 #modal-config-global.admin-registry.luminous-admin #cfg-admin-sidebar,
 #modal-config-global.admin-registry #cfg-admin-sidebar,
+#modal-config-global.admin-registry .cfg-v2-sidebar,
 #modal-config-global.admin-registry.luminous-admin .cfg-v2-sidebar.shell-sidebar-surface {
   background: var(--admin-sidebar) !important;
+  color: var(--admin-sidebar-text) !important;
+  border-right: 1px solid var(--admin-sidebar-border) !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+}
+
+#modal-config-global.admin-registry .cfg-v2-sidebar::before,
+#modal-config-global.admin-registry .cfg-v2-sidebar::after,
+#modal-config-global.admin-registry #cfg-admin-sidebar::before,
+#modal-config-global.admin-registry #cfg-admin-sidebar::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* config.css html.light fuerza texto blanco pensado para sidebar oscuro */
+html.light #modal-config-global.admin-registry .cfg-nav-group-toggle,
+html.light #modal-config-global.admin-registry .cfg-nav-group-copy strong,
+html.light #modal-config-global.admin-registry .cfg-nav-group-copy small,
+html.light #modal-config-global.admin-registry .cfg-nav-group-body .cfg-tab,
+html.light #modal-config-global.admin-registry .cfg-nav-group-body .cfg-tab span,
+html.light #modal-config-global.admin-registry .cfg-v2-sidebar-label,
+html.light #modal-config-global.admin-registry .cfg-v2-sidebar-sublabel,
+html.light #modal-config-global.admin-registry .cfg-tab,
+html.light #modal-config-global.admin-registry .cfg-tab-icon,
+html.light #modal-config-global.admin-registry .cfg-tab-icon .material-symbols-outlined,
+html.light #modal-config-global.admin-registry .cfg-tab-icon .material-icons {
   color: var(--admin-sidebar-text) !important;
 }
 

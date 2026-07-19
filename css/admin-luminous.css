@@ -112,14 +112,23 @@
 
 /* ── Sidebar (#cfg-admin-sidebar — gestion + mapa) ───────── */
 .luminous-admin #cfg-admin-sidebar,
+.luminous-admin .cfg-v2-sidebar,
 .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface {
-  background: var(--lum-surface-low) !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
   border: none !important;
-  border-right: 1px solid var(--lum-border) !important;
+  border-right: 1px solid #e2e8f0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
   padding: 20px 12px !important;
   gap: var(--lum-gap) !important;
+}
+
+body.dark-theme .luminous-admin #cfg-admin-sidebar,
+body.dark-theme .luminous-admin .cfg-v2-sidebar {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-right-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 .luminous-admin #cfg-admin-sidebar.is-pinned,
@@ -290,10 +299,11 @@
   box-shadow: none !important;
 }
 
-.luminous-admin .cfg-v2-workspace-header {
-  padding: 24px 28px 0 !important;
-  border-bottom: none !important;
-  background: transparent !important;
+.luminous-admin .cfg-v2-workspace-header,
+.luminous-admin .admin-metric-ribbon,
+.luminous-admin .cfg-v2-tools,
+.luminous-admin #cfg-v2-tools {
+  display: none !important;
 }
 
 .luminous-admin .cfg-v2-workspace-kicker {
@@ -426,14 +436,10 @@
   box-shadow: none !important;
 }
 
-/* ── Horizontal line tabs (tools / sub-nav) ───────────────── */
-.luminous-admin .cfg-v2-tools {
-  display: flex !important;
-  gap: 0 !important;
-  padding: 0 28px !important;
-  border-bottom: 1px solid var(--lum-border) !important;
-  background: var(--lum-bg) !important;
-  overflow-x: auto;
+/* ── Horizontal tools: ocultos en chrome global ───────────── */
+.luminous-admin .cfg-v2-tools,
+.luminous-admin #cfg-v2-tools {
+  display: none !important;
 }
 
 .luminous-admin .cfg-v2-tool-btn {
