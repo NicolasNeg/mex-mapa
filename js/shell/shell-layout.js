@@ -191,8 +191,12 @@ export class ShellLayout {
     this._header?.setSearchPlaceholder();
     this._bottomNav?.setRoute(route);
     // route-mapa: el mapa llena bajo el footer (footer transparente lo deja ver).
-    const isMapa = String(route).split('?')[0].replace(/\.html$/, '').replace(/\/+$/, '') === '/mapa';
+    const normalizedRoute = String(route).split('?')[0].replace(/\.html$/, '').replace(/\/+$/, '');
+    const isMapa = normalizedRoute === '/mapa';
     this._containerEl?.classList.toggle('route-mapa', isMapa);
+    // route-editmap: modo enfoque — el editor de mapa oculta sidebar/header
+    // del shell y ocupa toda la pantalla (es una herramienta, no una vista de navegación).
+    this._containerEl?.classList.toggle('route-editmap', normalizedRoute === '/editmap');
   }
 
   /**

@@ -196,6 +196,8 @@ function _dynamicAppRoute(pathname, tail = '') {
   const path = String(pathname || '');
   if (path.startsWith('/app/mensajes/')) return path + tail;
   if (path.startsWith('/mensajes/')) return '/app' + path + tail;
+  if (path.startsWith('/app/editmap/')) return path + tail;
+  if (path.startsWith('/editmap/')) return '/app' + path + tail;
   return '';
 }
 
@@ -205,6 +207,8 @@ function _dynamicRouteEntry(pathname) {
   if (!path) path = '/';
   if (path.startsWith('/app/mensajes/')) return ROUTE_MAP.mensajes;
   if (path.startsWith('/mensajes/')) return ROUTE_MAP.mensajes;
+  if (path.startsWith('/app/editmap/')) return ROUTE_MAP.editmap;
+  if (path.startsWith('/editmap/')) return ROUTE_MAP.editmap;
   return null;
 }
 

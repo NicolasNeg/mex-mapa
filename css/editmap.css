@@ -5,10 +5,22 @@
 html, body {
   margin: 0;
   height: 100%;
-  background: #071224;
+  background: var(--bg, #f1f5f9);
   overflow: hidden;
   font-family: 'Inter', sans-serif;
-  color: #e2e8f0;
+  color: var(--text, #1e293b);
+}
+
+body.dark-theme {
+  background: var(--bg-viewport, #020617);
+  color: var(--text, #f1f5f9);
+}
+
+/* Sin topbar propio en modo shell-embedded (Task 15) — la pantalla de carga
+   ya no reserva los 56px superiores para él. */
+html.shell-embedded .editmap-route-shell,
+html.shell-embedded .editmap-workspace {
+  inset: 0 !important;
 }
 
 /* ── Topbar ── */
@@ -18,9 +30,8 @@ html, body {
   left: 0;
   right: 0;
   height: 56px;
-  background: rgba(7,18,36,0.95);
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-  backdrop-filter: blur(12px);
+  background: var(--surface, #ffffff);
+  border-bottom: 1px solid var(--border, #e2e8f0);
   display: flex;
   align-items: center;
   padding: 0 16px;
@@ -29,10 +40,10 @@ html, body {
 }
 
 .editmap-topbar-back {
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--bg, #f1f5f9);
+  border: 1px solid var(--border, #e2e8f0);
   border-radius: 10px;
-  color: #94a3b8;
+  color: var(--text-muted, #64748b);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -44,12 +55,12 @@ html, body {
   font-family: inherit;
   text-decoration: none;
 }
-.editmap-topbar-back:hover { background: rgba(255,255,255,0.12); color: #e2e8f0; }
+.editmap-topbar-back:hover { background: var(--border, #e2e8f0); color: var(--text, #1e293b); }
 
 .editmap-topbar-title {
   font-size: 15px;
   font-weight: 800;
-  color: #f1f5f9;
+  color: var(--text, #0f172a);
   flex: 1;
 }
 
@@ -58,12 +69,12 @@ html, body {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: rgba(37,99,235,0.14);
-  border: 1px solid rgba(96,165,250,0.25);
+  background: var(--accent-pale, rgba(59,130,246,0.14));
+  border: 1px solid var(--accent, #3b82f6);
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
-  color: #60a5fa;
+  color: var(--accent-hover, #2563eb);
 }
 
 .editmap-route-shell {
@@ -74,23 +85,22 @@ html, body {
   justify-content: center;
   padding: 32px 20px;
   background:
-    radial-gradient(circle at top, rgba(37,99,235,0.14), transparent 42%),
-    linear-gradient(180deg, rgba(7,18,36,0.98) 0%, rgba(7,18,36,1) 100%);
+    radial-gradient(circle at top, var(--accent-pale, rgba(59,130,246,0.14)), transparent 42%),
+    var(--bg, #f1f5f9);
 }
 
 .editmap-route-card {
   width: min(720px, 100%);
-  background: rgba(11,26,52,0.88);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
   border-radius: 24px;
   padding: 32px;
-  box-shadow: 0 28px 80px rgba(2,6,23,0.35);
-  backdrop-filter: blur(18px);
+  box-shadow: 0 28px 80px rgba(2,6,23,0.18);
 }
 
 .editmap-route-icon {
   font-size: 54px;
-  color: #38bdf8;
+  color: var(--accent, #3b82f6);
   display: inline-flex;
   margin-bottom: 16px;
 }
@@ -99,14 +109,14 @@ html, body {
   margin: 0 0 10px;
   font-size: 28px;
   line-height: 1.1;
-  color: #f8fafc;
+  color: var(--text, #0f172a);
 }
 
 .editmap-route-copy p {
   margin: 0;
   font-size: 14px;
   line-height: 1.7;
-  color: #94a3b8;
+  color: var(--text-muted, #64748b);
 }
 
 .editmap-route-actions {
@@ -125,9 +135,9 @@ html, body {
   min-width: 156px;
   padding: 12px 18px;
   border-radius: 12px;
-  border: 1px solid rgba(96,165,250,0.28);
-  background: rgba(37,99,235,0.14);
-  color: #dbeafe;
+  border: 1px solid var(--accent, #3b82f6);
+  background: var(--accent-pale, rgba(59,130,246,0.14));
+  color: var(--accent-hover, #2563eb);
   font-size: 13px;
   font-weight: 800;
   text-decoration: none;
@@ -139,14 +149,14 @@ html, body {
 .editmap-route-btn:hover,
 .editmap-route-link:hover {
   transform: translateY(-1px);
-  background: rgba(37,99,235,0.22);
-  border-color: rgba(96,165,250,0.42);
+  background: var(--accent-pale, rgba(59,130,246,0.22));
+  border-color: var(--accent-hover, #2563eb);
 }
 
 .editmap-route-btn.secondary {
-  border-color: rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
-  color: #e2e8f0;
+  border-color: var(--border, #e2e8f0);
+  background: var(--bg, #f1f5f9);
+  color: var(--text, #1e293b);
 }
 
 body[data-editmap-standalone="1"] #modal-editor-mapa {

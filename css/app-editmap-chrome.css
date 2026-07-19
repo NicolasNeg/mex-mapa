@@ -1,12 +1,12 @@
 /* Editor mapa — chrome ESTILO (ciclo A). Scope: #modal-editor-mapa */
 #modal-editor-mapa {
-  --ed-accent: #3b82f6;
-  --ed-accent-hover: #2563eb;
+  --ed-accent: var(--accent, #3b82f6);
+  --ed-accent-hover: var(--accent-hover, #2563eb);
   --ed-surface: var(--surface, #ffffff);
   --ed-bg: var(--bg, #f8fafc);
   --ed-border: var(--border, #e2e8f0);
   --ed-text: var(--text, #0f172a);
-  --ed-muted: #64748b;
+  --ed-muted: var(--text-muted, #64748b);
   font-family: Inter, sans-serif;
   padding: 0 !important;
   align-items: stretch !important;
@@ -114,7 +114,7 @@
 #modal-editor-mapa .ed-tool:hover,
 #modal-editor-mapa .ed-tool.is-active,
 #modal-editor-mapa .ed-tool.active {
-  background: rgba(59, 130, 246, 0.12);
+  background: var(--accent-pale, rgba(59, 130, 246, 0.12));
   color: var(--ed-accent);
   border-color: rgba(59, 130, 246, 0.25);
 }
@@ -139,7 +139,7 @@
 #modal-editor-mapa .mapa-editor-canvas {
   position: relative;
   min-width: 0;
-  background: #f1f5f9;
+  background: var(--ed-bg);
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -260,7 +260,7 @@
     linear-gradient(to right, rgba(148, 163, 184, 0.18) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(148, 163, 184, 0.18) 1px, transparent 1px);
   background-size: 16px 16px;
-  background-color: #f1f5f9;
+  background-color: var(--ed-bg);
 }
 
 #modal-editor-mapa .editor-live-canvas {
@@ -280,7 +280,7 @@
 }
 
 #modal-editor-mapa .ed-celda-multi {
-  background: rgba(59, 130, 246, 0.12) !important;
+  background: var(--accent-pale, rgba(59, 130, 246, 0.12)) !important;
   border-color: rgba(59, 130, 246, 0.45) !important;
   outline-color: rgba(59, 130, 246, 0.55) !important;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.28) !important;
@@ -374,19 +374,15 @@
   cursor: pointer;
 }
 
-body.dark-theme #modal-editor-mapa {
-  --ed-surface: var(--surface, #111827);
-  --ed-bg: var(--bg, #0b1220);
-  --ed-border: var(--border, #1f2937);
-  --ed-text: var(--text, #e5e7eb);
-  --ed-muted: #94a3b8;
-}
-
+/* --ed-* ya heredan correctamente en dark-theme via var(--surface/--bg/--border/
+   --text/--text-muted) definidos arriba — no hace falta redefinirlos aquí.
+   El lienzo sí es una decisión de diseño deliberada: mesa de dibujo en negro
+   real (--bg-viewport), no el --surface/--bg genérico del resto del chrome. */
 body.dark-theme #modal-editor-mapa #editor-canvas-libre {
-  background-color: #0f172a;
+  background-color: var(--bg-viewport, #020617);
   background-image:
-    linear-gradient(to right, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+    linear-gradient(to right, rgba(148, 163, 184, 0.14) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.14) 1px, transparent 1px);
 }
 
 @media (max-width: 1023px) {

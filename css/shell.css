@@ -1168,6 +1168,19 @@ body.dark-theme {
 .mex-shell.sidebar-compact .mex-main {
   margin-left: var(--sh-sidebar-compact-w);
 }
+
+/* route-editmap: modo enfoque — el editor de mapa es una herramienta de
+   pantalla completa, no una vista de navegación con sidebar/header. */
+.mex-shell.route-editmap #mexShellSidebar,
+.mex-shell.route-editmap #mexShellHeader,
+.mex-shell.route-editmap #mexBottomNavWrap {
+  display: none !important;
+}
+.mex-shell.route-editmap .mex-main {
+  margin-left: 0;
+  margin-top: 0;
+  height: 100vh;
+}
 @media (max-width: 1024px) {
   .mex-main {
     margin-left: 0 !important;

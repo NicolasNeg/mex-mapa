@@ -198,7 +198,15 @@
       "Bash(awk -F: '$1>3537')",
       "Bash(awk 'NR>=24500 && NR<=24560 && /=|function|const|window/' js/views/mapa.js)",
       "Bash(grep -n \"^Object.assign\\(window\\\\|window\\\\.mex.*=.*{$\\\\|^const _mexApi\\\\|EXPORTS\\\\s*=\\\\|^}\\)\" js/views/mapa.js)",
-      "Bash(grep -n \"#[0-9a-fA-F]\\\\{3,6\\\\}\\\\b\" css/app-admin-chrome.css)"
+      "Bash(grep -n \"#[0-9a-fA-F]\\\\{3,6\\\\}\\\\b\" css/app-admin-chrome.css)",
+      "Bash(grep -oE \"#[0-9a-fA-F]{3,8}\\\\b\" css/app-mapa.css)",
+      "Bash(grep -oE \"#[0-9a-fA-F]{3,8}\\\\b\" css/app-unidades.css)",
+      "Bash(grep -oE \"#[0-9a-fA-F]{3,8}\\\\b\" css/app-unidad-expediente.css)",
+      "Bash(grep -nE '#[0-9a-fA-F]{3,6}|rgba?\\\\\\(' css/editmap.css)",
+      "Bash(grep -vE 'var\\\\\\(--|/\\\\*')",
+      "Bash(grep -nE '#[0-9a-fA-F]{3,6}|rgba?\\\\\\(' css/app-editmap-chrome.css)",
+      "Bash(grep -nE '#[0-9a-fA-F]{3,6}|rgba?\\\\\\(' css/app-incidencias.css)",
+      "Bash(grep -nE '#[0-9a-fA-F]{3,6}|rgba?\\\\\\(' css/app-admin-chrome.css)"
     ]
   }
 }

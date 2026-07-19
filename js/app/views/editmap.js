@@ -1,10 +1,13 @@
 // ═══════════════════════════════════════════════════════════
 //  /js/app/views/editmap.js
-//  Vista nativa /app/editmap — Configuración de patio.
-//  Carga /editmap/PLAZA en iframe; sincroniza plaza via App Shell.
+//  Vista nativa /app/editmap/:plaza — Configuración de patio.
+//  Carga /editmap/PLAZA en iframe; la plaza vive en la URL visible
+//  (/app/editmap/{plaza}) y se sincroniza con el selector del App Shell.
 // ═══════════════════════════════════════════════════════════
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
+
+const ROUTE_PREFIX = '/app/editmap/';
 
 let _container = null;
 let _iframe = null;
@@ -16,10 +19,27 @@ function _editUrl(plaza) {
   return `${base}?shell=1&appStage=1`;
 }
 
+function _plazaFromPath() {
+  const path = String(window.location.pathname || '').replace(/\/+$/, '');
+  if (!path.startsWith(ROUTE_PREFIX)) return '';
+  return decodeURIComponent(path.slice(ROUTE_PREFIX.length) || '').trim();
+}
+
+/** Mantiene la URL visible en /app/editmap/{plaza} sin forzar un remount. */
+function _syncCanonicalUrl(plaza) {
+  const p = String(plaza || '').trim();
+  if (!p) return;
+  const nextPath = `${ROUTE_PREFIX}${encodeURIComponent(p)}`;
+  if (window.location.pathname.replace(/\/+$/, '') !== nextPath) {
+    window.history.replaceState(null, '', nextPath + window.location.search);
+  }
+}
+
 export function mount({ container }) {
   unmount();
   _container = container;
-  const plaza = getCurrentPlaza() || getState()?.profile?.plazaAsignada || '';
+  const plaza = _plazaFromPath() || getCurrentPlaza() || getState()?.profile?.plazaAsignada || '';
+  _syncCanonicalUrl(plaza);
   _render(plaza);
   _offPlaza = onPlazaChange(async nextPlaza => {
     if (!_iframe) return;
@@ -38,6 +58,7 @@ export function mount({ container }) {
       }
     } catch (_) { /* cross-origin / unloaded iframe */ }
     _iframe.src = url;
+    _syncCanonicalUrl(nextPlaza);
   });
 }
 
