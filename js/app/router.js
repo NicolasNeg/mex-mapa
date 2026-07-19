@@ -138,7 +138,10 @@ const ROUTE_TABLE = {
     feature: 'cuadre'
   },
   "/app/traslados": { loader: () => import("/js/app/views/traslados.js"), navRoute: "/app/traslados" },
-  '/app/admin':    legacyStage('admin', '/app/admin'),
+  '/app/admin': {
+    loader:   () => import('/js/app/views/admin-shell.js'),
+    navRoute: '/app/admin',
+  },
   '/app/gestion':           { loader: () => import('/js/app/views/gestion.js'), navRoute: '/app/gestion', feature: 'gestion_usuarios' },
   '/app/usuarios':          { redirect: '/app/admin/usuarios' },
   '/app/gestion/usuarios':  { redirect: '/app/admin/usuarios' },
@@ -214,7 +217,7 @@ const ROUTE_STYLES = {
   ],
   "/app/cuadrarflota": [{ href: "/css/app-cuadrarflota.css?v=20260715cf", attr: "data-app-cuadrarflota-css" }],
   "/app/traslados": [{ href: "/css/app-traslados.css", attr: "data-app-traslados-css" }],
-  "/app/admin": [{ href: "/css/app-admin-chrome.css?v=20260719a", attr: "data-app-admin-chrome-css" }, { href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
+  "/app/admin": [{ href: "/css/app-admin.css?v=20260719f", attr: "data-app-admin-spa-css" }],
   "/app/gestion": [{ href: "/css/app-gestion.css", id: "app-gestion-css" }],
   "/app/alertas": [
     { href: "/css/alertas.css", attr: "data-app-alertas-legacy-css" },
@@ -380,27 +383,24 @@ export function createRouter({ shell }) {
     // Cerrar drawer mobile si está abierto
     shell.sidebar?.closeMobileDrawer?.();
 
-    // Admin ↔ admin: solo cambiar pestaña dentro del iframe keep-alive.
-    // Remount + _syncAdminShellRoute creaban un loop (URL oscilando entre secciones).
-    // `soft` solo aplica si ya estábamos en admin (nunca “secuestrar” otra vista).
+    // Admin ↔ admin: soft sync en shell SPA (sin remount).
     const softAdmin =
       _isAdminAppPath(path) &&
       _isAdminAppPath(prevPath) &&
       typeof _currentUnmount === 'function';
     if (softAdmin) {
       try {
-        const mod = await import('/js/app/views/legacy-stage.js');
+        const mod = await import('/js/app/views/admin-shell.js');
         if (renderSeq !== _renderSeq) return;
-        if (typeof mod.softSyncAdmin === 'function' && mod.softSyncAdmin({
+        if (typeof mod.softSync === 'function' && mod.softSync({
           navigate,
           shell,
-          state: getState(),
-          legacyId: 'admin',
+          state: { ...getState(), currentRoute: path },
         })) {
           return;
         }
       } catch (err) {
-        console.warn('[router] softSyncAdmin falló, remount completo:', err);
+        console.warn('[router] admin softSync falló, remount completo:', err);
       }
     }
 

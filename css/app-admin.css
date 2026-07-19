@@ -1,228 +1,553 @@
-/* ================================================================
-   App Admin View — Enhancement layer for #appAdminRoot
-   Adds hover, focus, transitions — things inline styles can't do.
-   ================================================================ */
+/* Centro Admin SPA — shell CONTROLES + LISTAS/OPCIONES */
 
-/* ── Page root ──────────────────────────────────────────────── */
-#appAdminRoot {
-  background: var(--bg);
-  min-height: 100%;
-  box-sizing: border-box;
+.adm-shell-root,
+#admShellRoot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-height: 0;
+  background: var(--bg, #f8fafc);
+  color: var(--text, #0f172a);
+  font-family: Inter, system-ui, sans-serif;
 }
-#appAdminRoot h1 {
-  font-size: 22px !important;
+
+.adm-shell {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  transition: grid-template-columns 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.adm-shell.is-rail-pinned,
+.adm-shell:has(.adm-rail.is-pinned) {
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+/* ── Rail ─────────────────────────────────────────────────── */
+.adm-rail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #ffffff;
+  border-right: 1px solid var(--border, #e2e8f0);
+  color: #0f172a;
+  overflow: hidden;
+}
+
+body.dark-theme .adm-rail {
+  background: #0f172a;
+  border-right-color: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}
+
+.adm-rail-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  min-height: 52px;
+}
+
+body.dark-theme .adm-rail-top {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+.adm-rail-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.adm-rail:not(.is-pinned) .adm-rail-title,
+.adm-rail:not(.is-pinned) .adm-nav-text,
+.adm-rail:not(.is-pinned) .adm-nav-label {
+  display: none;
+}
+
+.adm-rail:not(.is-pinned) .adm-rail-top {
+  justify-content: center;
+}
+
+.adm-rail:not(.is-pinned) .adm-nav-item {
+  justify-content: center;
+  padding: 10px;
+}
+
+.adm-rail-toggle {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.adm-rail-toggle:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+body.dark-theme .adm-rail-toggle {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.dark-theme .adm-rail-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.adm-rail-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.adm-nav-group {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 8px 6px;
+}
+
+body.dark-theme .adm-nav-group {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.adm-nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  padding: 4px 8px 8px;
+}
+
+.adm-nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.adm-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.adm-nav-item .material-symbols-outlined {
+  font-size: 20px;
+  color: inherit;
+}
+
+.adm-nav-item:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+body.dark-theme .adm-nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.adm-nav-item.is-active {
+  background: #e1f3fe;
+  color: #0f172a;
+}
+
+.adm-nav-item.is-active .material-symbols-outlined {
+  color: #3b82f6;
+}
+
+body.dark-theme .adm-nav-item.is-active {
+  background: rgba(59, 130, 246, 0.22);
+  color: #f1f5f9;
+}
+
+.adm-rail-foot {
+  padding: 8px;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+body.dark-theme .adm-rail-foot {
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Main ─────────────────────────────────────────────────── */
+.adm-main {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg, #f8fafc);
+}
+
+body.dark-theme .adm-main {
+  background: var(--bg, #0b1220);
+}
+
+.adm-native,
+.adm-legacy-wrap {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.adm-legacy-wrap iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--bg, #f8fafc);
+}
+
+/* ── LISTAS layout ────────────────────────────────────────── */
+.adm-listas {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  gap: 0;
+  padding: 12px;
+}
+
+.adm-listas-dir,
+.adm-listas-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  overflow: hidden;
+}
+
+body.dark-theme .adm-listas-dir,
+body.dark-theme .adm-listas-detail {
+  background: var(--surface, #111827);
+  border-color: var(--border, #1e293b);
+}
+
+.adm-listas-dir {
+  border-radius: 12px 0 0 12px;
+  border-right: 0;
+}
+
+.adm-listas-detail {
+  border-radius: 0 12px 12px 0;
+}
+
+.adm-listas-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.adm-kicker {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  margin-bottom: 6px;
+}
+
+.adm-listas-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
-/* ── Info paragraph ─────────────────────────────────────────── */
-#appAdminRoot > p {
-  border-left: 3px solid #6366f1 !important;
-  background: linear-gradient(to right, var(--surface), var(--bg)) !important;
-  border-radius: 0 10px 10px 0 !important;
-}
-
-/* ── Tab pills ──────────────────────────────────────────────── */
-#appAdminRoot [data-admin-tab] {
-  transition: box-shadow 0.15s ease, transform 0.1s ease, background 0.15s ease;
-  text-transform: capitalize;
-  letter-spacing: 0.01em;
-}
-#appAdminRoot [data-admin-tab]:hover {
-  box-shadow: 0 0 0 2px var(--border-md);
-}
-#appAdminRoot [data-admin-tab][aria-selected="true"] {
-  box-shadow: 0 2px 8px rgba(15,23,42,.25);
-}
-#appAdminRoot [data-admin-tab]:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
-}
-#appAdminRoot [data-admin-tab]:active {
-  transform: scale(0.96);
-}
-
-/* ── Pane card containers ───────────────────────────────────── */
-#adminUsuariosPane > div:first-child,
-#adminRolesPane > div:first-child,
-#adminPlazasPane > div:first-child,
-#adminCatalogosPane > div:first-child,
-#adminSolicitudesPane > div:first-child {
-  box-shadow: 0 1px 4px rgba(15,23,42,.06);
-}
-#adminUsuariosPane > aside,
-#adminRolesPane > aside,
-#adminPlazasPane > aside,
-#adminCatalogosPane > aside,
-#adminSolicitudesPane > aside {
-  box-shadow: 0 1px 4px rgba(15,23,42,.06);
-  transition: box-shadow 0.2s;
-}
-#adminUsuariosPane > aside:hover,
-#adminRolesPane > aside:hover,
-#adminPlazasPane > aside:hover,
-#adminCatalogosPane > aside:hover,
-#adminSolicitudesPane > aside:hover {
-  box-shadow: 0 4px 16px rgba(15,23,42,.1);
-}
-
-/* ── Table rows ─────────────────────────────────────────────── */
-#appAdminRoot [data-admin-user],
-#appAdminRoot [data-admin-role],
-#appAdminRoot [data-admin-plaza],
-#appAdminRoot [data-admin-catalog],
-#appAdminRoot [data-admin-req] {
-  transition: background 0.1s;
-}
-#appAdminRoot [data-admin-user]:hover td,
-#appAdminRoot [data-admin-role]:hover td,
-#appAdminRoot [data-admin-plaza]:hover td,
-#appAdminRoot [data-admin-catalog]:hover td,
-#appAdminRoot [data-admin-req]:hover td {
-  background: #f0f9ff !important;
-}
-#appAdminRoot [data-admin-user][aria-selected="true"] td,
-#appAdminRoot [data-admin-role][aria-selected="true"] td,
-#appAdminRoot [data-admin-plaza][aria-selected="true"] td,
-#appAdminRoot [data-admin-catalog][aria-selected="true"] td,
-#appAdminRoot [data-admin-req][aria-selected="true"] td {
-  background: #eff6ff !important;
-}
-body.dark-theme #appAdminRoot [data-admin-user]:hover td,
-body.dark-theme #appAdminRoot [data-admin-role]:hover td,
-body.dark-theme #appAdminRoot [data-admin-plaza]:hover td,
-body.dark-theme #appAdminRoot [data-admin-catalog]:hover td,
-body.dark-theme #appAdminRoot [data-admin-req]:hover td {
-  background: rgba(59, 130, 246, 0.1) !important;
-  color: var(--text) !important;
-}
-body.dark-theme #appAdminRoot [data-admin-user][aria-selected="true"] td,
-body.dark-theme #appAdminRoot [data-admin-role][aria-selected="true"] td,
-body.dark-theme #appAdminRoot [data-admin-plaza][aria-selected="true"] td,
-body.dark-theme #appAdminRoot [data-admin-catalog][aria-selected="true"] td,
-body.dark-theme #appAdminRoot [data-admin-req][aria-selected="true"] td {
-  background: rgba(59, 130, 246, 0.18) !important;
-  color: #93c5fd !important;
-}
-
-/* ── Table cells ────────────────────────────────────────────── */
-#appAdminRoot tbody td {
+.adm-count {
   font-size: 12px;
-  color: var(--text);
-}
-#appAdminRoot tbody td:first-child {
-  font-weight: 700;
-  color: var(--text);
-}
-
-/* ── Sticky table headers ───────────────────────────────────── */
-#appAdminRoot thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-weight: 500;
+  color: #64748b;
   white-space: nowrap;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
 }
 
-/* ── Status badges in table ─────────────────────────────────── */
-#appAdminRoot [data-admin-user] td span[style*="background:#e2e8f0"] {
-  font-size: 10px;
-  letter-spacing: 0.04em;
+.adm-listas-toolbar {
+  padding: 12px 16px;
 }
 
-/* ── Scrollbars ─────────────────────────────────────────────── */
-#appAdminRoot ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-#appAdminRoot ::-webkit-scrollbar-track {
-  background: var(--bg);
-  border-radius: 3px;
-}
-#appAdminRoot ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-#appAdminRoot ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-md);
+.adm-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg, #f8fafc);
 }
 
-/* ── Select / inputs ────────────────────────────────────────── */
-#appAdminRoot select {
-  transition: border-color 0.15s, box-shadow 0.15s;
-  cursor: pointer;
-  font-size: 12px;
-}
-#appAdminRoot select:hover {
-  border-color: var(--border-md) !important;
-}
-#appAdminRoot select:focus {
-  outline: none;
-  border-color: #2563eb !important;
-  box-shadow: 0 0 0 3px rgba(37,99,235,.15);
-}
-#appAdminRoot input[type="text"],
-#appAdminRoot input[type="url"],
-#appAdminRoot input[type="email"],
-#appAdminRoot textarea {
-  transition: border-color 0.15s, box-shadow 0.15s;
+.adm-search input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
   font-size: 13px;
 }
-#appAdminRoot input[type="text"]:focus,
-#appAdminRoot input[type="url"]:focus,
-#appAdminRoot input[type="email"]:focus,
-#appAdminRoot textarea:focus {
-  outline: none;
-  border-color: #2563eb !important;
-  box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+
+.adm-cards {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-/* ── Action buttons ─────────────────────────────────────────── */
-#appAdminRoot button {
-  transition: opacity 0.15s, box-shadow 0.15s, transform 0.1s;
-  font-family: Inter, sans-serif;
-}
-#appAdminRoot button:not([data-admin-tab]):hover {
-  opacity: 0.88;
-  box-shadow: 0 2px 8px rgba(15,23,42,.14);
-}
-#appAdminRoot button:active {
-  transform: scale(0.96);
-}
-#appAdminRoot button:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
+.adm-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--bg, #f8fafc);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-/* ── Detail panel ───────────────────────────────────────────── */
-#appAdminRoot aside {
-  transition: box-shadow 0.2s;
-}
-#appAdminDetail,
-#appAdminRoleDetail,
-#appAdminPlazaDetail,
-#appAdminCatalogDetail,
-#appAdminRequestDetail {
-  min-height: 120px;
-  position: sticky;
-  top: 0;
-}
-#appAdminDetail:not(:empty),
-#appAdminRoleDetail:not(:empty),
-#appAdminPlazaDetail:not(:empty),
-#appAdminCatalogDetail:not(:empty),
-#appAdminRequestDetail:not(:empty) {
-  padding: 14px;
-  box-shadow: 0 4px 16px rgba(15,23,42,.08);
+.adm-card:hover {
+  border-color: #cbd5e1;
 }
 
-/* ── Session footer ─────────────────────────────────────────── */
-#appAdminRoot > div:last-child {
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-  margin-top: 14px !important;
+.adm-card.is-active {
+  background: #e1f3fe;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+body.dark-theme .adm-card {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+body.dark-theme .adm-card.is-active {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+.adm-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.adm-card-copy strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.adm-card-copy small,
+.adm-card-copy span {
+  font-size: 12px;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.adm-avatar--lg {
+  width: 56px;
+  height: 56px;
+  font-size: 16px;
+}
+
+.adm-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.adm-empty,
+.adm-loading {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  color: #64748b;
+}
+
+.adm-empty .material-symbols-outlined,
+.adm-loading .material-symbols-outlined {
+  font-size: 36px;
+}
+
+.adm-empty--panel {
+  height: 100%;
+}
+
+.adm-detail {
+  padding: 20px;
+  overflow: auto;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.adm-detail-hero {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.adm-detail-hero h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.adm-detail-hero p {
+  margin: 0 0 8px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.adm-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.adm-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.adm-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.adm-form-full,
+.adm-form-actions {
+  grid-column: 1 / -1;
+}
+
+.adm-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.adm-form input,
+.adm-form select,
+.adm-form textarea {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg, #f8fafc);
+  color: var(--text, #0f172a);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.adm-form textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.adm-btn {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.adm-btn.primary {
+  background: #0f172a;
+  color: #fff;
+}
+
+body.dark-theme .adm-btn.primary {
+  background: #3b82f6;
+}
+
+.adm-hint {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: #64748b;
+}
+
+@media (max-width: 900px) {
+  .adm-shell,
+  .adm-shell.is-rail-pinned,
+  .adm-shell:has(.adm-rail.is-pinned) {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .adm-rail {
+    max-height: 200px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+  }
+
+  .adm-listas {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .adm-listas-dir,
+  .adm-listas-detail {
+    border-radius: 12px;
+    border: 1px solid var(--border, #e2e8f0);
+    min-height: 320px;
+  }
+
+  .adm-form {
+    grid-template-columns: 1fr;
+  }
 }
