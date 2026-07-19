@@ -95,14 +95,8 @@ export function getAdminShellNavGroups() {
         icon: 'arrow_back',
         route: '/app/dashboard',
         roles: '*'
-      },
-      {
-        id: 'adm-programador',
-        label: 'Programador',
-        icon: 'terminal',
-        route: '/app/programador',
-        roles: ['PROGRAMADOR']
       }
+      // Programador: no nav link — open /app/programador by URL only.
     ]
   });
   return groups;
@@ -111,4 +105,27 @@ export function getAdminShellNavGroups() {
 export function isAdminAppRoute(route = '') {
   const path = String(route || '').split('?')[0].replace(/\/$/, '') || '';
   return path === '/app/admin' || path.startsWith('/app/admin/') || path === '/gestion';
+}
+
+/** Label de sección admin (Usuarios, Choferes, …) o '' si no existe. */
+export function adminSectionLabel(sectionId = '') {
+  const id = String(sectionId || '').trim().toLowerCase();
+  if (!id) return '';
+  for (const group of ADMIN_NAV_GROUPS) {
+    const item = group.items.find(i => i.id === id);
+    if (item) return item.label;
+  }
+  return '';
+}
+
+/**
+ * Título del header para rutas /app/admin/:section(/:id)?.
+ * Bare /app/admin (o /gestion) → "Panel admin"; con sección → label del nav.
+ */
+export function adminRouteTitle(route = '') {
+  const path = String(route || '').split('?')[0].replace(/\/+$/, '') || '';
+  if (path === '/app/admin' || path === '/gestion') return 'Panel admin';
+  if (!path.startsWith('/app/admin/')) return '';
+  const { section } = parseAdminRoute(path);
+  return adminSectionLabel(section) || 'Panel admin';
 }

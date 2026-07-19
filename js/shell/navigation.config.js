@@ -4,6 +4,8 @@
 //  Usado por sidebar.js para construir el menú dinámicamente.
 // ═══════════════════════════════════════════════════════════
 
+import { adminRouteTitle } from '../app/features/admin/admin-nav.js';
+
 // Jerarquía numérica para comparación de nivel mínimo
 const ROLE_LEVEL = {
   AUXILIAR:       1,
@@ -172,14 +174,8 @@ export const NAV_GROUPS = [
         icon: 'map',
         route: '/editmap',
         roles: ['CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR']
-      },
-      {
-        id: 'programador',
-        label: 'Programador',
-        icon: 'terminal',
-        route: '/programador',
-        roles: ['PROGRAMADOR']
       }
+      // Programador: no nav link — open /app/programador (or /programador) by URL only.
     ]
   }
 ];
@@ -248,10 +244,16 @@ export const ROUTE_TITLES = {
   '/app/onboarding':       'Configuración inicial',
   '/app/turnos':                   'Turnos y horarios',
   '/app/historial-operativo':      'Historial de cambios',
+  '/programador':                  'Programador',
+  '/app/programador':              'Programador',
 };
 
 export function routeTitle(route = '') {
   const [path] = String(route).split('?');
   const normalized = path.replace(/\.html$/, '').replace(/\/+$/, '') || '/';
-  return ROUTE_TITLES[normalized] || 'MAPA';
+  if (ROUTE_TITLES[normalized]) return ROUTE_TITLES[normalized];
+  // /app/admin/:section(/:id)? → label de ADMIN_NAV_GROUPS (Usuarios, Choferes, …)
+  const adminTitle = adminRouteTitle(normalized);
+  if (adminTitle) return adminTitle;
+  return 'MAPA';
 }
