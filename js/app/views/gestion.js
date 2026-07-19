@@ -66,7 +66,7 @@ export function mount({ container }) {
         </button>
       </form>
 
-      <div class="gestion-card">
+      <div class="gestion-card gestion-table-wrap">
         <table class="gestion-table" id="inv-table">
           <thead>
             <tr>
@@ -79,16 +79,54 @@ export function mount({ container }) {
           </tbody>
         </table>
       </div>
-    </section>`;
 
-  const tbody = container.querySelector('#inv-tbody');
-  const form  = container.querySelector('#inv-form');
+      <div class="gestion-card gestion-list" id="inv-list" aria-live="polite">
+        <div class="t-empty">Cargando…</div>
+      </div>
+    </section>
+
+    <div class="gestion-sheet-overlay" id="inv-sheet" hidden>
+      <div class="gestion-sheet" role="dialog" aria-modal="true" aria-labelledby="inv-sheet-title">
+        <p class="gestion-sheet-title" id="inv-sheet-title"></p>
+        <button type="button" class="gestion-sheet-action" data-sheet="copy">
+          <span class="material-symbols-outlined">content_copy</span> Copiar código
+        </button>
+        <button type="button" class="gestion-sheet-action danger" data-sheet="revoke" hidden>
+          <span class="material-symbols-outlined">block</span> Revocar
+        </button>
+        <button type="button" class="gestion-sheet-cancel" data-sheet="close">Cancelar</button>
+      </div>
+    </div>`;
+
+  const tbody  = container.querySelector('#inv-tbody');
+  const listEl = container.querySelector('#inv-list');
+  const sheet  = container.querySelector('#inv-sheet');
+  const form   = container.querySelector('#inv-form');
+  let _sheetCodigo = null;
+  let _sheetPuedeRevocar = false;
+
+  function openSheet(codigo, puedeRevocar) {
+    _sheetCodigo = codigo;
+    _sheetPuedeRevocar = puedeRevocar;
+    sheet.querySelector('#inv-sheet-title').textContent = codigo;
+    sheet.querySelector('[data-sheet="revoke"]').hidden = !puedeRevocar;
+    sheet.hidden = false;
+    requestAnimationFrame(() => sheet.classList.add('open'));
+  }
+
+  function closeSheet() {
+    sheet.classList.remove('open');
+    setTimeout(() => { sheet.hidden = true; _sheetCodigo = null; }, 200);
+  }
 
   function render(items) {
     if (!items.length) {
       tbody.innerHTML = `<tr><td colspan="6" class="t-empty">
         <span class="material-symbols-outlined">mail</span>
         Aún no hay invitaciones. Genera la primera arriba.</td></tr>`;
+      listEl.innerHTML = `<div class="t-empty">
+        <span class="material-symbols-outlined">mail</span>
+        Aún no hay invitaciones. Genera la primera arriba.</div>`;
       return;
     }
     const ahora = Date.now();
@@ -111,6 +149,23 @@ export function mount({ container }) {
           ? `<button class="btn-danger-ghost" data-revoke="${it.codigo}">Revocar</button>`
           : ''}</td>
       </tr>`;
+    }).join('');
+    listEl.innerHTML = items.map(it => {
+      const est = estadoInvitacion(it, ahora);
+      const chip = ESTADO_CHIP[est];
+      return `<div class="gestion-row" data-codigo="${it.codigo}" data-estado="${est}">
+        <div class="gestion-row-main">
+          <div class="gestion-row-code"><code>${it.codigo}</code></div>
+          <div class="gestion-row-meta">${it.plaza} · ${it.rol} · ${fmtFecha(it.expiraEnMs)}</div>
+        </div>
+        <div class="gestion-row-side">
+          <span class="chip ${chip.cls}">
+            <span class="material-symbols-outlined">${chip.icon}</span>${est}</span>
+          <button type="button" class="btn-more" data-more="${it.codigo}" aria-label="Acciones">
+            <span class="material-symbols-outlined">more_vert</span>
+          </button>
+        </div>
+      </div>`;
     }).join('');
   }
 
@@ -147,6 +202,36 @@ export function mount({ container }) {
       revBtn.disabled = true;
       try { await revocarInvitacion(revBtn.dataset.revoke); }
       catch (err) { await mexAlert(err?.message || 'No se pudo revocar.', 'Error'); revBtn.disabled = false; }
+    }
+  });
+
+  listEl.addEventListener('click', (e) => {
+    const more = e.target.closest('[data-more]');
+    if (!more) return;
+    const row = more.closest('.gestion-row');
+    openSheet(more.dataset.more, row?.dataset.estado === 'VIGENTE');
+  });
+
+  sheet.addEventListener('click', async (e) => {
+    if (e.target === sheet) { closeSheet(); return; }
+    const act = e.target.closest('[data-sheet]');
+    if (!act) return;
+    const kind = act.dataset.sheet;
+    if (kind === 'close') { closeSheet(); return; }
+    if (kind === 'copy' && _sheetCodigo) {
+      await navigator.clipboard.writeText(_sheetCodigo).catch(() => {});
+      closeSheet();
+      return;
+    }
+    if (kind === 'revoke' && _sheetCodigo && _sheetPuedeRevocar) {
+      const ok = await mexConfirm('¿Revocar este código? No podrá usarse para registrarse.', 'Revocar invitación');
+      if (!ok) return;
+      try {
+        await revocarInvitacion(_sheetCodigo);
+        closeSheet();
+      } catch (err) {
+        await mexAlert(err?.message || 'No se pudo revocar.', 'Error');
+      }
     }
   });
 }
