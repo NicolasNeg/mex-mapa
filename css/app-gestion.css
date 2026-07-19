@@ -78,11 +78,11 @@ body.dark-theme .btn-danger-ghost:hover { background: rgba(239,68,68,.12); }
 .gestion-row-side {
   display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
 }
-.btn-more {
+.gestion-btn-more {
   background: none; border: 0; padding: 8px; border-radius: 8px;
   color: var(--text-muted, #64748b); cursor: pointer;
 }
-.btn-more:hover { background: var(--bg); color: var(--text); }
+.gestion-btn-more:hover { background: var(--bg); color: var(--text); }
 
 .gestion-sheet-overlay {
   position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
@@ -106,12 +106,13 @@ body.dark-theme .btn-danger-ghost:hover { background: rgba(239,68,68,.12); }
   margin: 0 0 12px; letter-spacing: 1px;
 }
 .gestion-sheet-action {
-  width: 100%; text-align: left; padding: 14px 12px;
+  width: 100%; text-align: left; padding: 12px;
   border: 0; border-radius: 8px; background: transparent;
   color: var(--text); font: inherit; font-weight: 500; cursor: pointer;
   display: flex; align-items: center; gap: 12px;
 }
 .gestion-sheet-action:hover { background: var(--bg); }
+.gestion-sheet-action.copied { color: #16a34a; }
 .gestion-sheet-action.danger { color: #dc2626; }
 .gestion-sheet-cancel {
   width: 100%; margin-top: 8px; padding: 14px;

@@ -7,6 +7,14 @@ const mexAlert   = (...a) => window.mexAlert(...a);
 
 let _unsub = null;
 let _sheetCloseTimer = null;
+let _sheetKeydownHandler = null;
+
+function removeSheetKeydown() {
+  if (_sheetKeydownHandler) {
+    document.removeEventListener('keydown', _sheetKeydownHandler);
+    _sheetKeydownHandler = null;
+  }
+}
 const ESTADO_CHIP = {
   VIGENTE:  { cls: 'chip-ok',   icon: 'check_circle' },
   USADA:    { cls: 'chip-mut',  icon: 'how_to_reg' },
@@ -114,11 +122,18 @@ export function mount({ container }) {
     _sheetCodigo = codigo;
     _sheetPuedeRevocar = puedeRevocar;
     sheet.querySelector('#inv-sheet-title').textContent = codigo;
+    const copyBtn = sheet.querySelector('[data-sheet="copy"]');
+    copyBtn.classList.remove('copied');
     const revokeBtn = sheet.querySelector('[data-sheet="revoke"]');
     revokeBtn.hidden = !puedeRevocar;
     revokeBtn.disabled = false;
     sheet.hidden = false;
     requestAnimationFrame(() => sheet.classList.add('open'));
+    removeSheetKeydown();
+    _sheetKeydownHandler = (e) => {
+      if (e.key === 'Escape') closeSheet();
+    };
+    document.addEventListener('keydown', _sheetKeydownHandler);
   }
 
   function closeSheet() {
@@ -126,6 +141,7 @@ export function mount({ container }) {
       clearTimeout(_sheetCloseTimer);
       _sheetCloseTimer = null;
     }
+    removeSheetKeydown();
     sheet.classList.remove('open');
     _sheetCloseTimer = setTimeout(() => {
       _sheetCloseTimer = null;
@@ -177,7 +193,7 @@ export function mount({ container }) {
         <div class="gestion-row-side">
           <span class="chip ${chip.cls}">
             <span class="material-symbols-outlined">${chip.icon}</span>${est}</span>
-          <button type="button" class="btn-more" data-more="${it.codigo}" aria-label="Acciones">
+          <button type="button" class="gestion-btn-more" data-more="${it.codigo}" aria-label="Acciones">
             <span class="material-symbols-outlined">more_vert</span>
           </button>
         </div>
@@ -236,7 +252,11 @@ export function mount({ container }) {
     if (kind === 'close') { closeSheet(); return; }
     if (kind === 'copy' && _sheetCodigo) {
       await navigator.clipboard.writeText(_sheetCodigo).catch(() => {});
-      closeSheet();
+      act.classList.add('copied');
+      setTimeout(() => {
+        act.classList.remove('copied');
+        closeSheet();
+      }, 600);
       return;
     }
     if (kind === 'revoke' && _sheetCodigo && _sheetPuedeRevocar) {
@@ -260,5 +280,6 @@ export function unmount() {
     clearTimeout(_sheetCloseTimer);
     _sheetCloseTimer = null;
   }
+  removeSheetKeydown();
   if (_unsub) { _unsub(); _unsub = null; }
 }
