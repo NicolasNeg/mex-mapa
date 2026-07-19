@@ -3,19 +3,10 @@
 //  Helpers puros para la vista de turnos (sin Firestore).
 // ═══════════════════════════════════════════════════════════
 
-export const ROLES_ADMIN = new Set([
-  'SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA',
-  'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR',
-]);
-
 export const LISTENER_ERROR = Object.freeze({
   INDEX_MISSING: 'INDEX_MISSING',
   OTHER: 'OTHER',
 });
-
-export function isTurnosAdmin(role) {
-  return ROLES_ADMIN.has(String(role || '').toUpperCase());
-}
 
 export function isFirestoreIndexError(err) {
   const code = String(err?.code || '').toLowerCase();

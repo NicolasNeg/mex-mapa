@@ -67,6 +67,8 @@ export const PERMISSION_KEYS = Object.freeze([
   'emit_alerts', 'delete_alerts',
   // Sistema
   'manage_settings', 'km_corregir', 'traslados_gestionar',
+  // Turnos
+  'view_turnos', 'manage_turnos',
 ]);
 
 /**
@@ -87,6 +89,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     emit_alerts: false, delete_alerts: false, manage_settings: false,
     km_corregir: false,
     traslados_gestionar: false,
+    view_turnos: true, manage_turnos: false,
   },
   VENTAS: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -99,6 +102,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     emit_alerts: false, delete_alerts: false, manage_settings: false,
     km_corregir: false,
     traslados_gestionar: true,
+    view_turnos: true, manage_turnos: false,
   },
   SUPERVISOR: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -111,6 +115,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     emit_alerts: true, delete_alerts: false, manage_settings: false,
     km_corregir: false,
     traslados_gestionar: true,
+    view_turnos: true, manage_turnos: true,
   },
   JEFE_PATIO: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -123,6 +128,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     emit_alerts: true, delete_alerts: true, manage_settings: false,
     km_corregir: false,
     traslados_gestionar: true,
+    view_turnos: true, manage_turnos: true,
   },
   GERENTE_PLAZA: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -135,6 +141,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     emit_alerts: true, delete_alerts: true, manage_settings: true,
     km_corregir: true,
     traslados_gestionar: true,
+    view_turnos: true, manage_turnos: true,
   },
   JEFE_REGIONAL: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -147,6 +154,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     emit_alerts: true, delete_alerts: true, manage_settings: true,
     km_corregir: true,
     traslados_gestionar: true,
+    view_turnos: true, manage_turnos: true,
   },
 });
 

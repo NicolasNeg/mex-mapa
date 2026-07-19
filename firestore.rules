@@ -128,6 +128,8 @@ service cloud.firestore {
           ? (conf != null && ((conf.fullAccess != null && conf.fullAccess == true) || hasPerm))
         : permiso == "km_corregir"
           ? (role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL" || hasPerm)
+        : permiso == "manage_turnos"
+          ? (role == "SUPERVISOR" || role == "JEFE_PATIO" || role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL" || hasPerm)
         : permiso == "traslados_gestionar"
           ? (role == "VENTAS" || role == "SUPERVISOR" || role == "JEFE_PATIO" || role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL" || hasPerm)
         : hasPerm;
@@ -194,6 +196,14 @@ service cloud.firestore {
             tienePermiso(perfilActual(), "view_admin_cuadre")
             || tienePermiso(perfilActual(), "edit_admin_cuadre")
           )
+        );
+    }
+
+    function puedeGestionarTurnos() {
+      return esProgramadorBootstrap()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "manage_turnos")
         );
     }
 
@@ -1039,7 +1049,7 @@ service cloud.firestore {
       allow update: if estaAutenticado()
         && (
           resource.data.usuarioId == request.auth.uid
-          || esAdminOperativo()
+          || puedeGestionarTurnos()
           || esProgramadorBootstrap()
         )
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -1059,7 +1069,7 @@ service cloud.firestore {
     match /horarios/{horarioId} {
       allow read: if estaAutenticado();
       allow create, update: if estaAutenticado()
-        && (esAdminOperativo() || esProgramadorBootstrap());
+        && (puedeGestionarTurnos() || esProgramadorBootstrap());
       allow delete: if esProgramadorBootstrap();
     }
 
@@ -1070,7 +1080,7 @@ service cloud.firestore {
     match /asistencia/{asistenciaId} {
       allow read: if estaAutenticado();
       allow create: if estaAutenticado() && (
-        esAdminOperativo()
+        puedeGestionarTurnos()
         || esProgramadorBootstrap()
         || (
           request.auth.uid == request.resource.data.usuarioId
@@ -1078,7 +1088,7 @@ service cloud.firestore {
         )
       );
       allow update: if estaAutenticado() && (
-        esAdminOperativo()
+        puedeGestionarTurnos()
         || esProgramadorBootstrap()
         || (
           request.auth.uid == resource.data.usuarioId
@@ -1115,7 +1125,7 @@ service cloud.firestore {
     match /notas_asistencia/{docId} {
       allow read: if estaAutenticado();
       allow create, update, delete: if estaAutenticado()
-        && (esAdminOperativo() || esProgramadorBootstrap());
+        && (puedeGestionarTurnos() || esProgramadorBootstrap());
     }
 
     match /notas_semana/{docId} {
@@ -1129,7 +1139,7 @@ service cloud.firestore {
     match /turnos_roles_operativos/{plazaDoc} {
       allow read: if estaAutenticado();
       allow create, update, delete: if estaAutenticado()
-        && (esAdminOperativo() || esProgramadorBootstrap());
+        && (puedeGestionarTurnos() || esProgramadorBootstrap());
     }
   }
 }

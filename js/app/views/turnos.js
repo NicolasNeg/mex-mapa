@@ -25,7 +25,6 @@ import {
   asignarUsuarioARol,
 } from '/js/app/features/turnos/roles-operativos-data.js';
 import {
-  isTurnosAdmin,
   LISTENER_ERROR,
   nombreUsuario,
   initialUsuario,
@@ -378,6 +377,14 @@ export async function mount({ container }) {
   _ctr = container;
   _ensureCss();
 
+  if (typeof window.mexPerms?.canDo === 'function' && !window.mexPerms.canDo('view_turnos')) {
+    _ctr.innerHTML = `<div class="tu-empty-state">
+      <span class="material-symbols-outlined">lock</span>
+      <p>No tienes permiso para ver turnos y horarios.</p>
+    </div>`;
+    return;
+  }
+
   const gs      = getState();
   const role    = String(gs.role || 'AUXILIAR').toUpperCase();
   const plaza   = String(getCurrentPlaza() || gs.profile?.plazaAsignada || '').toUpperCase().trim();
@@ -386,7 +393,7 @@ export async function mount({ container }) {
 
   _s = {
     role, plaza, profile, uid,
-    isAdmin: isTurnosAdmin(role),
+    isAdmin: !!(window.mexPerms?.canDo?.('manage_turnos')),
     tab: 'activos',
     turnosActivos: [],
     miTurno: null,
