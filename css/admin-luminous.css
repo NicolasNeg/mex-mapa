@@ -146,19 +146,36 @@ body.dark-theme .luminous-admin .cfg-v2-sidebar {
   padding: 16px 8px !important;
 }
 
-/* El título del sidebar se elimina (el header del shell ya lo muestra);
-   solo queda el botón de colapsar alineado a la derecha. */
+/* Título compacto CONTROLES + toggle de colapso */
 .luminous-admin .cfg-v2-sidebar-top {
-  padding: 0 4px 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 4px 4px 12px !important;
   border-bottom: 1px solid var(--lum-border);
   margin-bottom: 4px;
-  justify-content: flex-end !important;
+  min-height: 0 !important;
 }
 
-.luminous-admin .cfg-v2-sidebar-top > div:first-child,
-.luminous-admin .cfg-v2-sidebar-label,
+.luminous-admin .cfg-v2-sidebar-label {
+  display: flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+  padding: 0 4px !important;
+  color: #0f172a !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
 .luminous-admin .cfg-v2-sidebar-sublabel {
   display: none !important;
+}
+
+body.dark-theme .luminous-admin .cfg-v2-sidebar-label {
+  color: #f1f5f9 !important;
 }
 
 .luminous-admin .cfg-v2-sidebar-toggle {

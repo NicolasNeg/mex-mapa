@@ -93,35 +93,31 @@
 
 #modal-config-global.admin-registry .cfg-v2-sidebar-top,
 #modal-config-global.admin-registry .cfg-v2-sidebar-top.shell-sidebar-brand {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
   gap: 8px;
-  padding: 4px 6px 12px;
+  padding: 4px 6px 12px !important;
   border-bottom: 1px solid var(--admin-sidebar-border);
   margin-bottom: 4px;
+  min-height: 0 !important;
 }
 
 #modal-config-global.admin-registry .cfg-v2-sidebar-label {
-  display: flex;
+  display: flex !important;
   align-items: center;
-  gap: 8px;
-  color: var(--admin-sidebar-text);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-#modal-config-global.admin-registry .cfg-v2-sidebar-label .material-symbols-outlined {
-  font-size: 20px;
-  color: var(--admin-sidebar-text);
+  gap: 0;
+  margin: 0 !important;
+  padding: 0 4px !important;
+  color: var(--admin-sidebar-text) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
 }
 
 #modal-config-global.admin-registry .cfg-v2-sidebar-sublabel {
-  margin-top: 4px;
-  color: var(--admin-sidebar-muted);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  display: none !important;
 }
 
 #modal-config-global.admin-registry .cfg-v2-sidebar-toggle {
