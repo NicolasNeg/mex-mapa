@@ -177,7 +177,22 @@
       "Bash(npm ls *)",
       "Bash(npm view *)",
       "Bash(firebase --version)",
-      "Bash(firebase projects:list)"
+      "Bash(firebase projects:list)",
+      "Bash(firebase firestore:indexes --project production)",
+      "Bash(NODE_PATH=\"$\\(pwd\\)/node_modules\" node \"C:\\\\Users\\\\Pc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Pc-Documents-mis-documentos-MYPROYECT-mex-mapa\\\\1897d407-3d87-43ed-85a5-d250808c082d\\\\scratchpad\\\\test-turnos-smoke.js\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:5000/login --max-time 10)",
+      "Bash(curl -s http://localhost:5000/login --max-time 10)",
+      "Bash(curl *)",
+      "Bash(NODE_PATH=__CMDSUB_OUTPUT__/node_modules node -e ' *)",
+      "Bash(env)",
+      "Bash(firebase emulators:exec --only firestore --project mex-mapa-bjx \"node scripts/test-turnos-rules.js\")",
+      "Bash(mkdir -p \"C:/Users/Pc/AppData/Local/Temp/claude/portable-jre\")",
+      "Read(//c/Users/Pc/AppData/Local/Temp/claude/**)",
+      "Bash(unzip -q jre.zip)",
+      "Bash(export JAVA_HOME=\"C:/Users/Pc/AppData/Local/Temp/claude/portable-jre/jdk-17.0.19+10-jre\")",
+      "Bash(C:/Users/Pc/AppData/Local/Temp/claude/portable-jre/jdk-17.0.19+10-jre/bin/java.exe -version)",
+      "Bash(rm -rf jre.zip \"jdk-17.0.19+10-jre\")",
+      "Bash(unzip -q jre21.zip)"
     ]
   }
 }
