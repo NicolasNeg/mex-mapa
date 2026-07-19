@@ -5466,6 +5466,7 @@ document.addEventListener('click', (e) => {
 
 // Traduce niveles de gasolina a % — lee F/H/E, palabras, fracciones y números.
 // F=Full=100, H=Half=50, E=Empty=0; "8/8"=100, "1/2"=50; números → % (0–100).
+// El % es solo interno (ancho de barra); la UI muestra fracciones.
 function _fuelToPct(raw) {
   if (raw == null) return null;
   const s = String(raw).trim().toUpperCase();
@@ -5478,6 +5479,23 @@ function _fuelToPct(raw) {
   const n = parseFloat(s.replace('%', '').replace(',', '.'));
   if (!isNaN(n)) return Math.max(0, Math.min(100, Math.round(n)));
   return null;
+}
+
+/** Si solo hay un % interno, aproxima a la fracción canónica de dieciseisavos (p. ej. 88 → 7/8). */
+function _fuelToFractionLabel(pct) {
+  if (pct == null || !Number.isFinite(pct)) return 'N/A';
+  const p = Math.max(0, Math.min(100, Math.round(pct)));
+  if (p >= 100) return 'F';
+  if (p <= 0) return 'E';
+  if (p === 50) return 'H';
+  let n = Math.round(p / 100 * 16);
+  if (n <= 0) return 'E';
+  if (n >= 16) return 'F';
+  let d = 16;
+  let a = n, b = d;
+  while (b) { const t = b; b = a % b; a = t; }
+  const gcd = a || 1;
+  return `${n / gcd}/${d / gcd}`;
 }
 
 // Color de gasolina en tabla cuadre: ≥80% azul, baja hacia rojo.
@@ -5520,11 +5538,14 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   const esApartado = notesUpper.includes("RESERVAD") || notesUpper.includes("APARTAD");
   const esManto = d.estado === "MANTENIMIENTO" || d.estado === "TALLER";
 
-  // Gasolina → medidor vertical (traduce F/H/E, fracciones y números)
+  // Gasolina: UI en fracciones (7/8, F, H…); el % solo alimenta el ancho de la barra.
+  const _gasRaw = String(d.gasolina || '').trim().toUpperCase();
   const _gasPctRaw = _fuelToPct(d.gasolina);
   const _gasValid = _gasPctRaw != null;
   const _gasPct = _gasValid ? _gasPctRaw : 0;
-  const _gasLabel = _gasValid ? `${_gasPct}%` : 'N/A';
+  const _gasLabel = (_gasRaw && _gasRaw !== 'N/A' && _gasRaw !== 'NA' && _gasRaw !== '-')
+    ? _gasRaw
+    : (_gasValid ? _fuelToFractionLabel(_gasPct) : 'N/A');
   const _gasCls = !_gasValid ? '' : (_gasPct < 20 ? 'is-low' : _gasPct < 50 ? 'is-mid' : '');
 
   // Extra (flags especiales) e ícono de fila
