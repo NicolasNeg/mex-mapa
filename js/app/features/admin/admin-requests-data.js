@@ -103,7 +103,12 @@ export function subscribeAdminRequests({ status = 'PENDIENTE', onData, onError }
       readyPrimary = true;
       emit();
     },
-    err => fail(err)
+    err => {
+      readyPrimary = true;
+      primary = [];
+      if ((err?.code || '') !== 'permission-denied') fail(err);
+      emit();
+    }
   );
 
   let qLegacy = db.collection(LEGACY).where('estado', '==', normalizedStatus);

@@ -145,7 +145,7 @@ const ROUTE_TABLE = {
   '/app/gestion':           { loader: () => import('/js/app/views/gestion.js'), navRoute: '/app/gestion', feature: 'gestion_usuarios' },
   '/app/usuarios':          { redirect: '/app/admin/usuarios' },
   '/app/gestion/usuarios':  { redirect: '/app/admin/usuarios' },
-  '/app/gestion/choferes':  { redirect: '/app/admin/choferes' },
+  '/app/gestion/choferes':  { redirect: '/app/admin/usuarios' },
   '/app/gestion/roles':     { redirect: '/app/admin/roles' },
   '/app/gestion/plazas':    { redirect: '/app/admin/plazas' },
   '/app/gestion/catalogos': { redirect: '/app/admin/catalogos' },

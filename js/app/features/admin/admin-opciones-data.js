@@ -1,15 +1,17 @@
 /**
- * Catálogos OPCIONES (estados, categorías, modelos, gasolinas, motivos).
+ * Catálogos OPCIONES (estados, categorías, modelos, gasolinas, motivos, ubicaciones).
  * Persistencia vía window.api.guardarConfiguracionListas + MEX_CONFIG.listas.
  */
 import { hasAppPermission } from '/js/app/features/admin/admin-permissions.js';
+import { storage } from '/js/core/database.js';
 
 export const OPCIONES_SECTIONS = new Set([
   'estados',
   'categorias',
   'modelos',
   'gasolinas',
-  'motivos_traslado'
+  'motivos_traslado',
+  'ubicaciones'
 ]);
 
 export function canEditOpciones(profile, role) {
@@ -30,6 +32,7 @@ export function catalogDisplayName(section, item) {
   }
   if (tab === 'modelos') return String(item.nombre || item.id || '').trim();
   if (tab === 'categorias') return String(item.nombre || item.id || '').trim();
+  if (tab === 'ubicaciones') return String(item.nombre || item.id || item).trim();
   return String(item.nombre || item.id || '').trim();
 }
 
@@ -87,6 +90,27 @@ export function findCatalogItem(section, entityId = '') {
 
 export function categoryOptions() {
   return getCatalogList('categorias').map(r => r.name).filter(Boolean);
+}
+
+export function plazaOptionsForUbicaciones() {
+  const plazas = (window.MEX_CONFIG?.empresa?.plazas || [])
+    .map(p => String(p || '').trim().toUpperCase())
+    .filter(Boolean);
+  return ['ALL', ...plazas];
+}
+
+/** Sube imagen de modelo a Storage (solo archivo local). */
+export async function uploadModelImage(file) {
+  if (!file) throw new Error('Selecciona una imagen.');
+  const type = String(file.type || '');
+  if (!type.startsWith('image/')) throw new Error('Solo se permiten imágenes desde tu equipo.');
+  if (!storage?.ref) throw new Error('Firebase Storage no está disponible.');
+  const extRaw = (String(file.name || '').split('.').pop() || 'png').toLowerCase();
+  const ext = extRaw.replace(/[^a-z0-9]/g, '') || 'png';
+  const path = `catalogo_modelos/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const ref = storage.ref(path);
+  const snap = await ref.put(file, { contentType: type || 'image/png' });
+  return snap.ref.getDownloadURL();
 }
 
 function _buildItem(section, fields = {}, fallbackOrder = 1) {
@@ -153,6 +177,18 @@ function _buildItem(section, fields = {}, fallbackOrder = 1) {
         descripcion: String(fields.descripcion || '').trim(),
         orden,
         activo: fields.activo !== false
+      },
+      key: name,
+      orden
+    };
+  }
+  if (tab === 'ubicaciones') {
+    return {
+      item: {
+        nombre: name,
+        isPlazaFija: fields.isPlazaFija === true,
+        plazaId: String(fields.plazaId || 'ALL').trim().toUpperCase() || 'ALL',
+        orden
       },
       key: name,
       orden
@@ -265,6 +301,13 @@ export function editorFieldsFromItem(section, item) {
       etiqueta: String(obj.etiqueta || obj.nombre || name),
       descripcion: String(obj.descripcion || ''),
       activo: obj.activo !== false
+    };
+  }
+  if (tab === 'ubicaciones') {
+    return {
+      ...base,
+      isPlazaFija: obj.isPlazaFija === true,
+      plazaId: String(obj.plazaId || 'ALL').trim().toUpperCase() || 'ALL'
     };
   }
   return base;

@@ -13,11 +13,6 @@ import {
   syncUsuariosSelection
 } from '/js/app/features/admin/admin-usuarios-panel.js';
 import {
-  mountChoferesPanel,
-  unmountChoferesPanel,
-  syncChoferesSelection
-} from '/js/app/features/admin/admin-choferes-panel.js';
-import {
   mountRolesPanel,
   unmountRolesPanel,
   syncRolesSelection
@@ -35,7 +30,7 @@ import {
 import { OPCIONES_SECTIONS } from '/js/app/features/admin/admin-opciones-data.js';
 
 const FRAME_ID = 'mex-admin-legacy-frame';
-const FRAME_VER = '20260719k';
+const FRAME_VER = '20260719m';
 
 let _root = null;
 let _navigate = null;
@@ -44,7 +39,7 @@ let _entityId = '';
 let _nativeSection = '';
 
 function _ensureCss() {
-  const href = '/css/app-admin.css?v=20260719k';
+  const href = '/css/app-admin.css?v=20260719m';
   let link = document.querySelector('link[data-app-admin-spa-css="1"]');
   if (!link) {
     link = document.createElement('link');
@@ -133,7 +128,6 @@ function _injectLegacyCss(frame) {
 
 function _unmountNative() {
   unmountUsuariosPanel();
-  unmountChoferesPanel();
   unmountRolesPanel();
   unmountSolicitudesPanel();
   unmountOpcionesPanel();
@@ -182,7 +176,7 @@ function _showNative(section, entityId) {
   // OPCIONES: un solo panel reutilizable por sección de catálogo
   if (OPCIONES_SECTIONS.has(section)) {
     if (_nativeSection !== section) {
-      mountOpcionesPanel(native, { navigate: _navigate, entityId, section });
+      mountOpcionesPanel(native, { section, entityId });
       _nativeSection = section;
     } else {
       syncOpcionesSelection(entityId, section);
@@ -192,7 +186,6 @@ function _showNative(section, entityId) {
 
   const mountMap = {
     usuarios: { mount: mountUsuariosPanel, sync: syncUsuariosSelection },
-    choferes: { mount: mountChoferesPanel, sync: syncChoferesSelection },
     roles: { mount: mountRolesPanel, sync: syncRolesSelection },
     solicitudes: { mount: mountSolicitudesPanel, sync: syncSolicitudesSelection }
   };

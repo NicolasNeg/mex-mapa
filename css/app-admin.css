@@ -577,6 +577,167 @@ body.dark-theme .adm-btn.ghost:hover {
   gap: 10px;
 }
 
+.adm-op-acc-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 16px;
+}
+
+.adm-op-acc {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  overflow: hidden;
+}
+
+body.dark-theme .adm-op-acc {
+  background: var(--surface, #111827);
+  border-color: var(--border, #1e293b);
+}
+
+.adm-op-acc.is-open {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.12);
+}
+
+.adm-op-acc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.adm-op-acc-head:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.adm-op-acc-chevron {
+  color: #94a3b8;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.adm-op-acc-body {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.adm-op-acc-form {
+  padding-top: 12px;
+  max-width: 720px;
+}
+
+.adm-btn-add-minimal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text, #334155);
+  cursor: pointer;
+}
+
+.adm-btn-add-minimal:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.adm-btn-add-minimal .material-symbols-outlined {
+  font-size: 20px;
+}
+
+.adm-model-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 120px;
+  margin: 8px 0 12px;
+  padding: 12px;
+  border: 1px dashed var(--border, #cbd5e1);
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.08);
+  color: #64748b;
+}
+
+.adm-model-preview.is-empty .material-symbols-outlined {
+  font-size: 32px;
+}
+
+.adm-model-preview-img {
+  max-width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.adm-file-minimal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #3b82f6;
+}
+
+.adm-file-minimal input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.adm-label-block {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.adm-subsection {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.adm-subsection-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.adm-subsection-head h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.adm-empty--compact {
+  padding: 16px;
+}
+
 .adm-opciones-list {
   flex: 1 1 auto;
   min-height: 0;

@@ -6,7 +6,6 @@ export const ADMIN_NAV_GROUPS = [
     label: 'Accesos y permisos',
     items: [
       { id: 'usuarios', label: 'Usuarios', icon: 'manage_accounts', kind: 'listas' },
-      { id: 'choferes', label: 'Choferes', icon: 'badge', kind: 'listas' },
       { id: 'roles', label: 'Roles', icon: 'verified_user', kind: 'listas' },
       { id: 'solicitudes', label: 'Solicitudes', icon: 'how_to_reg', kind: 'listas' }
     ]
@@ -19,15 +18,15 @@ export const ADMIN_NAV_GROUPS = [
       { id: 'categorias', label: 'Categorías', icon: 'directions_car', kind: 'opciones' },
       { id: 'modelos', label: 'Modelos', icon: 'no_crash', kind: 'opciones' },
       { id: 'gasolinas', label: 'Gasolinas', icon: 'local_gas_station', kind: 'opciones' },
-      { id: 'motivos_traslado', label: 'Motivos traslado', icon: 'route', kind: 'opciones' }
+      { id: 'motivos_traslado', label: 'Motivos traslado', icon: 'route', kind: 'opciones' },
+      { id: 'ubicaciones', label: 'Ubicaciones', icon: 'place', kind: 'opciones' }
     ]
   },
   {
     id: 'estructura',
     label: 'Estructura',
     items: [
-      { id: 'plazas', label: 'Plazas', icon: 'location_city', kind: 'opciones' },
-      { id: 'ubicaciones', label: 'Ubicaciones', icon: 'place', kind: 'opciones' }
+      { id: 'plazas', label: 'Plazas', icon: 'location_city', kind: 'opciones' }
     ]
   },
   {
@@ -42,14 +41,14 @@ export const ADMIN_NAV_GROUPS = [
 /** Secciones ya migradas a SPA nativa (sin iframe). */
 export const ADMIN_NATIVE_SECTIONS = new Set([
   'usuarios',
-  'choferes',
   'roles',
   'solicitudes',
   'estados',
   'categorias',
   'modelos',
   'gasolinas',
-  'motivos_traslado'
+  'motivos_traslado',
+  'ubicaciones'
 ]);
 
 function _decodeSeg(raw = '') {
@@ -70,6 +69,7 @@ export function parseAdminRoute(path = '') {
   }
   let section = _decodeSeg(parts[2] || 'usuarios').toLowerCase() || 'usuarios';
   if (section === 'users') section = 'usuarios';
+  if (section === 'choferes') section = 'usuarios';
   // Emails llegan como angel%40… — hay que decodificar o no matchea el docId
   const entityId = _decodeSeg(parts[3] || '');
   return { section, entityId };

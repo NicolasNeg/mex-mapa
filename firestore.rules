@@ -118,6 +118,8 @@ service cloud.firestore {
           ? hasPerm
         : permiso == "process_access_requests"
           ? hasPerm
+        : permiso == "view_admin_requests"
+          ? hasPerm
         : permiso == "manage_global_fleet"
           ? (role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL" || hasPerm)
         : permiso == "manage_system_settings"
@@ -1140,6 +1142,50 @@ service cloud.firestore {
       allow read: if estaAutenticado();
       allow create, update, delete: if estaAutenticado()
         && (puedeGestionarTurnos() || esProgramadorBootstrap());
+    }
+
+    // Solicitudes de acceso (colección principal + legacy).
+    function puedeVerSolicitudesAcceso() {
+      return esProgramadorBootstrap()
+        || (
+          tienePerfilActual()
+          && (
+            rolActual() == "PROGRAMADOR"
+            || rolActual() == "JEFE_OPERACION"
+            || rolActual() == "CORPORATIVO_USER"
+            || tienePermiso(perfilActual(), "view_admin_requests")
+            || tienePermiso(perfilActual(), "process_access_requests")
+            || tienePermiso(perfilActual(), "manage_users")
+          )
+        );
+    }
+
+    function puedeProcesarSolicitudesAcceso() {
+      return esProgramadorBootstrap()
+        || (
+          tienePerfilActual()
+          && (
+            rolActual() == "PROGRAMADOR"
+            || rolActual() == "JEFE_OPERACION"
+            || rolActual() == "CORPORATIVO_USER"
+            || tienePermiso(perfilActual(), "process_access_requests")
+            || tienePermiso(perfilActual(), "manage_users")
+          )
+        );
+    }
+
+    match /solicitudes/{docId} {
+      allow read: if puedeVerSolicitudesAcceso();
+      allow create: if false;
+      allow update: if puedeProcesarSolicitudesAcceso();
+      allow delete: if esProgramadorBootstrap();
+    }
+
+    match /solicitudes_acceso/{docId} {
+      allow read: if puedeVerSolicitudesAcceso();
+      allow create: if false;
+      allow update: if puedeProcesarSolicitudesAcceso();
+      allow delete: if esProgramadorBootstrap();
     }
   }
 }

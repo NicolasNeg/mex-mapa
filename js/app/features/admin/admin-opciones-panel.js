@@ -1,6 +1,5 @@
 /**
- * OPCIONES — índice de catálogo + editor full por ruta.
- * /app/admin/{sección} | /app/admin/{sección}/{id}|nuevo
+ * OPCIONES — catálogos con acordeón (un panel abierto a la vez).
  */
 import { getState } from '/js/app/app-state.js';
 import {
@@ -11,9 +10,11 @@ import {
   saveCatalogItem,
   deleteCatalogItem,
   editorFieldsFromItem,
-  categoryOptions
+  categoryOptions,
+  plazaOptionsForUbicaciones,
+  uploadModelImage
 } from '/js/app/features/admin/admin-opciones-data.js';
-import { adminSectionPath, adminSectionLabel } from '/js/app/features/admin/admin-nav.js';
+import { adminSectionLabel } from '/js/app/features/admin/admin-nav.js';
 
 function esc(s) {
   return String(s ?? '')
@@ -33,12 +34,18 @@ function _confirm(title, text, tipo = 'danger') {
   return Promise.resolve(window.confirm(`${title}\n\n${text}`));
 }
 
+const NEW_KEY = '__nuevo__';
+
 let _host = null;
-let _navigate = null;
 let _section = 'estados';
-let _entityId = '';
 let _query = '';
+/** Clave del acordeón abierto (NEW_KEY = alta). */
+let _openKey = '';
+/** Modo edición dentro del acordeón abierto. */
 let _editing = false;
+/** Vista previa local de imagen de modelo. */
+let _modelPreviewUrl = '';
+let _modelPendingFile = null;
 
 function _actor() {
   const st = getState() || {};
@@ -53,8 +60,8 @@ function _canEdit() {
   return canEditOpciones(profile, role);
 }
 
-function _isNew() {
-  return String(_entityId || '').toUpperCase() === 'NUEVO';
+function _isOpen(key) {
+  return _openKey === key;
 }
 
 function _metaChip(row) {
@@ -64,6 +71,9 @@ function _metaChip(row) {
   }
   if (_section === 'modelos' && raw && typeof raw === 'object') {
     return esc(raw.categoria || 'Sin categoría');
+  }
+  if (_section === 'ubicaciones' && raw && typeof raw === 'object') {
+    return esc(`${raw.plazaId || 'ALL'} · ${raw.isPlazaFija ? 'Plaza fija' : 'Móvil'}`);
   }
   if (_section === 'motivos_traslado' && raw && typeof raw === 'object') {
     return esc(raw.activo === false ? 'Inactivo' : 'Activo');
@@ -75,60 +85,15 @@ function _metaChip(row) {
   return esc(`Orden ${row.orden}`);
 }
 
-function _indexHtml() {
-  const label = adminSectionLabel(_section) || _section;
-  const canEdit = _canEdit();
-  const list = getCatalogList(_section).filter(row => {
-    const q = _query.trim().toLowerCase();
-    if (!q) return true;
-    return row.name.toLowerCase().includes(q) || String(row.key).toLowerCase().includes(q);
-  });
-
-  return `
-    <div class="adm-opciones">
-      <div class="adm-opciones-head">
-        <div>
-          <span class="adm-kicker">Catálogo</span>
-          <h2>${esc(label)}</h2>
-        </div>
-        <div class="adm-opciones-head-actions">
-          <span class="adm-count">${list.length} elementos</span>
-          ${canEdit ? `
-            <button type="button" class="adm-btn primary" data-action="new-item">
-              <span class="material-symbols-outlined" style="font-size:18px;">add</span>
-              Agregar
-            </button>` : ''}
-        </div>
-      </div>
-      <div class="adm-listas-toolbar">
-        <label class="adm-search">
-          <span class="material-symbols-outlined">search</span>
-          <input type="search" id="adm-op-search" placeholder="Buscar en ${esc(label.toLowerCase())}…" value="${esc(_query)}">
-        </label>
-      </div>
-      <div class="adm-opciones-list">
-        ${list.length ? list.map(row => `
-          <button type="button" class="adm-op-row" data-entity-id="${esc(row.key)}">
-            <span class="adm-op-row-main">
-              <strong>${esc(row.name || 'Sin nombre')}</strong>
-              <small>${_metaChip(row)}</small>
-            </span>
-            <span class="material-symbols-outlined adm-op-row-chevron">chevron_right</span>
-          </button>
-        `).join('') : `
-          <div class="adm-empty">
-            <span class="material-symbols-outlined">list_alt</span>
-            <strong>Sin elementos</strong>
-            <small>${canEdit ? 'Agrega el primero con el botón Agregar.' : 'No hay elementos en este módulo.'}</small>
-          </div>`}
-      </div>
-    </div>
-  `;
+function _modelPreviewSrc(fields) {
+  if (_modelPreviewUrl) return _modelPreviewUrl;
+  return String(fields.imagenURL || '').trim();
 }
 
-function _editorFormFields(fields, editing) {
+function _editorFormFields(fields, editing, rowKey) {
   const ro = !editing;
   const cats = categoryOptions();
+  const plazas = plazaOptionsForUbicaciones();
 
   if (_section === 'estados') {
     return `
@@ -168,11 +133,12 @@ function _editorFormFields(fields, editing) {
       <label class="adm-form-full">
         <span>Descripción</span>
         ${ro ? `<div class="adm-field-value">${esc(fields.descripcion || 'Sin descripción')}</div>`
-          : `<textarea name="descripcion" rows="4">${esc(fields.descripcion || '')}</textarea>`}
+          : `<textarea name="descripcion" rows="3">${esc(fields.descripcion || '')}</textarea>`}
       </label>`;
   }
 
   if (_section === 'modelos') {
+    const preview = _modelPreviewSrc(fields);
     return `
       <label>
         <span>Modelo</span>
@@ -192,14 +158,21 @@ function _editorFormFields(fields, editing) {
         ${ro ? `<div class="adm-field-value">${esc(fields.orden || 1)}</div>`
           : `<input name="orden" type="number" min="1" max="999" value="${esc(fields.orden || 1)}">`}
       </label>
-      <label class="adm-form-full">
-        <span>URL de imagen</span>
-        ${ro
-          ? (fields.imagenURL
-            ? `<div class="adm-field-value"><a class="adm-link" href="${esc(fields.imagenURL)}" target="_blank" rel="noopener">${esc(fields.imagenURL)}</a></div>`
-            : `<div class="adm-field-value is-muted">Sin imagen</div>`)
-          : `<input name="imagenURL" type="url" value="${esc(fields.imagenURL || '')}" placeholder="https://…">`}
-      </label>`;
+      <div class="adm-form-full adm-model-media">
+        <span class="adm-label-block">Imagen del modelo</span>
+        <div class="adm-model-preview${preview ? '' : ' is-empty'}" data-preview-key="${esc(rowKey)}">
+          ${preview
+            ? `<img src="${esc(preview)}" alt="" class="adm-model-preview-img">`
+            : `<span class="material-symbols-outlined">image</span><small>Sin imagen</small>`}
+        </div>
+        ${editing ? `
+          <label class="adm-file-minimal">
+            <input name="modeloFile" type="file" accept="image/*" data-action="model-file">
+            <span>Seleccionar imagen desde tu PC</span>
+          </label>
+          <small class="adm-hint">No se aceptan enlaces; solo archivos de imagen.</small>
+        ` : (preview ? '' : `<div class="adm-field-value is-muted">Sin imagen cargada</div>`)}
+      </div>`;
   }
 
   if (_section === 'gasolinas') {
@@ -242,75 +215,183 @@ function _editorFormFields(fields, editing) {
       <label class="adm-form-full">
         <span>Descripción</span>
         ${ro ? `<div class="adm-field-value">${esc(fields.descripcion || 'Sin descripción')}</div>`
-          : `<textarea name="descripcion" rows="4">${esc(fields.descripcion || '')}</textarea>`}
+          : `<textarea name="descripcion" rows="3">${esc(fields.descripcion || '')}</textarea>`}
+      </label>`;
+  }
+
+  if (_section === 'ubicaciones') {
+    return `
+      <label>
+        <span>Nombre visible</span>
+        ${ro ? `<div class="adm-field-value">${esc(fields.nombre || '—')}</div>`
+          : `<input name="nombre" type="text" value="${esc(fields.nombre || '')}" placeholder="Ej: PATIO">`}
+      </label>
+      <label>
+        <span>Plaza visible</span>
+        ${ro ? `<div class="adm-field-value">${esc(fields.plazaId || 'ALL')}</div>`
+          : `<select name="plazaId">
+               ${plazas.map(p => `<option value="${esc(p)}" ${String(fields.plazaId || 'ALL').toUpperCase() === p ? 'selected' : ''}>${esc(p === 'ALL' ? 'Todas las plazas' : p)}</option>`).join('')}
+             </select>`}
+      </label>
+      <label>
+        <span>Orden</span>
+        ${ro ? `<div class="adm-field-value">${esc(fields.orden || 1)}</div>`
+          : `<input name="orden" type="number" min="1" max="999" value="${esc(fields.orden || 1)}">`}
+      </label>
+      <label>
+        <span>Plaza fija</span>
+        ${ro
+          ? `<div class="adm-field-value">${fields.isPlazaFija ? 'Sí' : 'No'}</div>`
+          : `<label class="adm-check"><input name="isPlazaFija" type="checkbox" ${fields.isPlazaFija ? 'checked' : ''}> Es plaza fija</label>`}
       </label>`;
   }
 
   return '';
 }
 
-function _editorHtml() {
-  const label = adminSectionLabel(_section) || _section;
-  const canEdit = _canEdit();
-  const isNew = _isNew();
-  const row = isNew ? null : findCatalogItem(_section, _entityId);
-  if (!isNew && !row) {
-    return `
-      <div class="adm-opciones">
-        <button type="button" class="adm-btn ghost" data-action="back-list">
-          <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>
-          Volver
-        </button>
-        <div class="adm-empty adm-empty--panel">
-          <span class="material-symbols-outlined">search_off</span>
-          <strong>Elemento no encontrado</strong>
-          <small>Regresa al listado e inténtalo de nuevo.</small>
-        </div>
-      </div>`;
+function _fieldsForKey(key) {
+  if (key === NEW_KEY) {
+    return {
+      nombre: '',
+      orden: getCatalogList(_section).length + 1,
+      color: '#64748b',
+      activo: true,
+      categoria: '',
+      descripcion: '',
+      codigo: '',
+      imagenURL: '',
+      plazaId: 'ALL',
+      isPlazaFija: false
+    };
   }
+  const row = findCatalogItem(_section, key);
+  if (!row) return null;
+  return editorFieldsFromItem(_section, row.raw);
+}
 
-  const fields = isNew
-    ? { nombre: '', orden: getCatalogList(_section).length + 1, color: '#64748b', activo: true, categoria: '', descripcion: '', codigo: '', imagenURL: '' }
-    : editorFieldsFromItem(_section, row.raw);
+function _accordionBodyHtml(key) {
+  const fields = _fieldsForKey(key);
+  if (!fields) {
+    return `<div class="adm-empty adm-empty--compact"><small>Elemento no encontrado.</small></div>`;
+  }
+  const canEdit = _canEdit();
+  const isNew = key === NEW_KEY;
   const editing = canEdit && (_editing || isNew);
-  const title = isNew ? `Nuevo · ${label}` : (fields.nombre || label);
+  const title = isNew ? 'Nuevo elemento' : (fields.nombre || key);
 
   return `
-    <div class="adm-opciones adm-opciones--editor">
+    <form class="adm-form adm-op-acc-form${editing ? '' : ' is-readonly'}" data-form-key="${esc(key)}" onsubmit="return false;">
+      ${_editorFormFields(fields, editing, key)}
+      <div class="adm-form-actions">
+        ${canEdit && !editing ? `
+          <button type="button" class="adm-btn ghost" data-action="edit-item" data-item-key="${esc(key)}">Editar</button>
+          ${!isNew ? `<button type="button" class="adm-btn danger" data-action="delete-item" data-item-key="${esc(key)}">Eliminar</button>` : ''}
+        ` : ''}
+        ${canEdit && editing ? `
+          ${!isNew ? `<button type="button" class="adm-btn ghost" data-action="cancel-edit" data-item-key="${esc(key)}">Cancelar</button>` : `
+            <button type="button" class="adm-btn ghost" data-action="close-acc">Descartar</button>`}
+          <button type="button" class="adm-btn primary" data-action="save-item" data-item-key="${esc(key)}">Guardar</button>
+        ` : ''}
+      </div>
+    </form>`;
+}
+
+function _paintHtml() {
+  const label = adminSectionLabel(_section) || _section;
+  const canEdit = _canEdit();
+  const list = getCatalogList(_section).filter(row => {
+    const q = _query.trim().toLowerCase();
+    if (!q) return true;
+    return row.name.toLowerCase().includes(q) || String(row.key).toLowerCase().includes(q);
+  });
+
+  const rowsHtml = list.map(row => {
+    const open = _isOpen(row.key);
+    return `
+      <div class="adm-op-acc${open ? ' is-open' : ''}" data-acc-key="${esc(row.key)}">
+        <button type="button" class="adm-op-acc-head" data-toggle-key="${esc(row.key)}" aria-expanded="${open ? 'true' : 'false'}">
+          <span class="adm-op-row-main">
+            <strong>${esc(row.name || 'Sin nombre')}</strong>
+            <small>${_metaChip(row)}</small>
+          </span>
+          <span class="material-symbols-outlined adm-op-acc-chevron">${open ? 'expand_less' : 'expand_more'}</span>
+        </button>
+        <div class="adm-op-acc-body"${open ? '' : ' hidden'}>
+          ${open ? _accordionBodyHtml(row.key) : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  const newOpen = _isOpen(NEW_KEY);
+  const newBlock = newOpen ? `
+    <div class="adm-op-acc is-open is-new" data-acc-key="${NEW_KEY}">
+      <button type="button" class="adm-op-acc-head" data-toggle-key="${NEW_KEY}" aria-expanded="true">
+        <span class="adm-op-row-main"><strong>Nuevo elemento</strong></span>
+        <span class="material-symbols-outlined adm-op-acc-chevron">expand_less</span>
+      </button>
+      <div class="adm-op-acc-body">
+        ${_accordionBodyHtml(NEW_KEY)}
+      </div>
+    </div>` : '';
+
+  return `
+    <div class="adm-opciones">
       <div class="adm-opciones-head">
-        <div class="adm-opciones-title-row">
-          <button type="button" class="adm-btn ghost" data-action="back-list" title="Volver al listado">
-            <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>
-          </button>
-          <div>
-            <span class="adm-kicker">${esc(label)}</span>
-            <h2>${esc(title)}</h2>
-          </div>
+        <div>
+          <span class="adm-kicker">Catálogo</span>
+          <h2>${esc(label)}</h2>
+        </div>
+        <div class="adm-opciones-head-actions">
+          <span class="adm-count">${list.length} elementos</span>
+          ${canEdit ? `
+            <button type="button" class="adm-btn-add-minimal" data-action="new-item" title="Agregar">
+              <span class="material-symbols-outlined">add</span>
+            </button>` : ''}
         </div>
       </div>
-      <form class="adm-form adm-opciones-form${editing ? '' : ' is-readonly'}" id="adm-op-form" onsubmit="return false;">
-        ${_editorFormFields(fields, editing)}
-        <div class="adm-form-actions">
-          ${canEdit && !editing ? `
-            <button type="button" class="adm-btn primary" data-action="edit-item">Editar</button>
-            <button type="button" class="adm-btn danger" data-action="delete-item">Eliminar</button>
-          ` : ''}
-          ${canEdit && editing ? `
-            ${!isNew ? `<button type="button" class="adm-btn ghost" data-action="cancel-edit">Cancelar</button>` : `
-              <button type="button" class="adm-btn ghost" data-action="back-list">Cancelar</button>`}
-            <button type="button" class="adm-btn primary" data-action="save-item">Guardar</button>
-          ` : ''}
-        </div>
-      </form>
+      <div class="adm-listas-toolbar">
+        <label class="adm-search">
+          <span class="material-symbols-outlined">search</span>
+          <input type="search" id="adm-op-search" placeholder="Buscar en ${esc(label.toLowerCase())}…" value="${esc(_query)}">
+        </label>
+      </div>
+      <div class="adm-op-acc-list">
+        ${newBlock}
+        ${rowsHtml || (!newOpen ? `
+          <div class="adm-empty">
+            <span class="material-symbols-outlined">list_alt</span>
+            <strong>Sin elementos</strong>
+            <small>${canEdit ? 'Usa + para agregar el primero.' : 'No hay elementos en este módulo.'}</small>
+          </div>` : '')}
+      </div>
     </div>
   `;
 }
 
 function _paint() {
   if (!_host) return;
-  const showEditor = Boolean(_entityId);
-  _host.innerHTML = showEditor ? _editorHtml() : _indexHtml();
+  _host.innerHTML = _paintHtml();
   _bind();
+}
+
+function _toggleKey(key) {
+  if (_openKey === key) {
+    _openKey = '';
+    _editing = false;
+    _clearModelPreview();
+    return;
+  }
+  _openKey = key;
+  _editing = key === NEW_KEY;
+  _clearModelPreview();
+}
+
+function _clearModelPreview() {
+  if (_modelPreviewUrl && _modelPreviewUrl.startsWith('blob:')) {
+    try { URL.revokeObjectURL(_modelPreviewUrl); } catch (_) { /* ignore */ }
+  }
+  _modelPreviewUrl = '';
+  _modelPendingFile = null;
 }
 
 function _bind() {
@@ -325,40 +406,42 @@ function _bind() {
     }
   });
 
-  _host.querySelectorAll('[data-entity-id]').forEach(btn => {
+  _host.querySelectorAll('[data-toggle-key]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-entity-id') || '';
-      _entityId = id;
-      _editing = false;
-      _navigate?.(adminSectionPath(_section, id), { soft: true });
+      _toggleKey(btn.getAttribute('data-toggle-key') || '');
       _paint();
     });
   });
 
   _host.querySelector('[data-action="new-item"]')?.addEventListener('click', () => {
     if (!_canEdit()) return;
-    _entityId = 'nuevo';
+    _openKey = NEW_KEY;
     _editing = true;
-    _navigate?.(adminSectionPath(_section, 'nuevo'), { soft: true });
+    _clearModelPreview();
     _paint();
   });
 
-  _host.querySelector('[data-action="back-list"]')?.addEventListener('click', () => {
-    _entityId = '';
+  _host.querySelector('[data-action="close-acc"]')?.addEventListener('click', () => {
+    _openKey = '';
     _editing = false;
-    _navigate?.(adminSectionPath(_section), { soft: true });
+    _clearModelPreview();
     _paint();
   });
 
-  _host.querySelector('[data-action="edit-item"]')?.addEventListener('click', () => {
-    if (!_canEdit()) return;
-    _editing = true;
-    _paint();
+  _host.querySelectorAll('[data-action="edit-item"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_canEdit()) return;
+      _editing = true;
+      _paint();
+    });
   });
 
-  _host.querySelector('[data-action="cancel-edit"]')?.addEventListener('click', () => {
-    _editing = false;
-    _paint();
+  _host.querySelectorAll('[data-action="cancel-edit"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _editing = false;
+      _clearModelPreview();
+      _paint();
+    });
   });
 
   const color = _host.querySelector('input[name="color"]');
@@ -370,12 +453,31 @@ function _bind() {
     });
   }
 
-  _host.querySelector('[data-action="save-item"]')?.addEventListener('click', () => _save());
-  _host.querySelector('[data-action="delete-item"]')?.addEventListener('click', () => _delete());
+  _host.querySelector('[data-action="model-file"]')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0] || null;
+    _modelPendingFile = file;
+    if (_modelPreviewUrl && _modelPreviewUrl.startsWith('blob:')) {
+      try { URL.revokeObjectURL(_modelPreviewUrl); } catch (_) { /* ignore */ }
+    }
+    if (file && file.type.startsWith('image/')) {
+      _modelPreviewUrl = URL.createObjectURL(file);
+      const box = _host.querySelector('.adm-model-preview');
+      if (box) {
+        box.classList.remove('is-empty');
+        box.innerHTML = `<img src="${esc(_modelPreviewUrl)}" alt="" class="adm-model-preview-img">`;
+      }
+    }
+  });
+
+  _host.querySelectorAll('[data-action="save-item"]').forEach(btn => {
+    btn.addEventListener('click', () => _save(btn.getAttribute('data-item-key') || ''));
+  });
+  _host.querySelectorAll('[data-action="delete-item"]').forEach(btn => {
+    btn.addEventListener('click', () => _delete(btn.getAttribute('data-item-key') || ''));
+  });
 }
 
-function _readFields() {
-  const form = _host?.querySelector('#adm-op-form');
+function _readFields(form) {
   if (!form) return {};
   const fd = new FormData(form);
   const color = String(fd.get('colorText') || fd.get('color') || '#64748b');
@@ -385,26 +487,37 @@ function _readFields() {
     color,
     descripcion: String(fd.get('descripcion') || ''),
     categoria: String(fd.get('categoria') || ''),
-    imagenURL: String(fd.get('imagenURL') || ''),
     codigo: String(fd.get('codigo') || ''),
     etiqueta: String(fd.get('nombre') || ''),
-    activo: form.querySelector('[name="activo"]')?.checked !== false
+    activo: form.querySelector('[name="activo"]')?.checked !== false,
+    plazaId: String(fd.get('plazaId') || 'ALL'),
+    isPlazaFija: form.querySelector('[name="isPlazaFija"]')?.checked === true,
+    imagenURL: ''
   };
 }
 
-async function _save() {
+async function _save(itemKey) {
   if (!_canEdit()) return;
+  const acc = _host?.querySelector(`.adm-op-acc[data-acc-key="${itemKey}"]`);
+  const form = acc?.querySelector('form');
+  if (!form) return;
+  const fields = _readFields(form);
+  const entityId = itemKey === NEW_KEY ? 'nuevo' : itemKey;
+
   try {
-    const key = await saveCatalogItem(
-      _section,
-      _entityId,
-      _readFields(),
-      _actor().email
-    );
+    if (_section === 'modelos') {
+      if (_modelPendingFile) {
+        fields.imagenURL = await uploadModelImage(_modelPendingFile);
+      } else if (itemKey !== NEW_KEY) {
+        const prev = editorFieldsFromItem(_section, findCatalogItem(_section, itemKey)?.raw);
+        fields.imagenURL = String(prev?.imagenURL || '');
+      }
+    }
+    const key = await saveCatalogItem(_section, entityId, fields, _actor().email);
     _editing = false;
-    _entityId = key;
+    _openKey = key;
+    _clearModelPreview();
     toast('Catálogo actualizado.', 'success');
-    _navigate?.(adminSectionPath(_section, key), { replace: true, soft: true });
     _paint();
   } catch (err) {
     console.error('[admin-opciones] save:', err);
@@ -412,18 +525,18 @@ async function _save() {
   }
 }
 
-async function _delete() {
-  if (!_canEdit() || _isNew()) return;
-  const row = findCatalogItem(_section, _entityId);
-  const name = row?.name || _entityId;
+async function _delete(itemKey) {
+  if (!_canEdit() || !itemKey || itemKey === NEW_KEY) return;
+  const row = findCatalogItem(_section, itemKey);
+  const name = row?.name || itemKey;
   const ok = await _confirm(`Eliminar "${name}"`, '¿Estás seguro? Esta acción no se puede deshacer.', 'danger');
   if (!ok) return;
   try {
-    await deleteCatalogItem(_section, _entityId, _actor().email);
+    await deleteCatalogItem(_section, itemKey, _actor().email);
     toast('Elemento eliminado.', 'success');
-    _entityId = '';
+    _openKey = '';
     _editing = false;
-    _navigate?.(adminSectionPath(_section), { soft: true });
+    _clearModelPreview();
     _paint();
   } catch (err) {
     console.error('[admin-opciones] delete:', err);
@@ -433,41 +546,39 @@ async function _delete() {
 
 /**
  * @param {HTMLElement} host
- * @param {{ navigate?: Function, entityId?: string, section?: string }} opts
+ * @param {{ section?: string }} opts
  */
 export function mountOpcionesPanel(host, opts = {}) {
   unmountOpcionesPanel();
   _host = host;
-  _navigate = opts.navigate || null;
   _section = String(opts.section || 'estados').toLowerCase();
   if (!OPCIONES_SECTIONS.has(_section)) _section = 'estados';
-  _entityId = String(opts.entityId || '').trim();
-  try { _entityId = _entityId ? decodeURIComponent(_entityId) : ''; } catch (_) { /* keep */ }
   _query = '';
-  _editing = _isNew();
+  _openKey = '';
+  _editing = false;
+  _clearModelPreview();
   _paint();
 }
 
-export function syncOpcionesSelection(entityId = '', section = '') {
+export function syncOpcionesSelection(_entityId = '', section = '') {
   if (section && OPCIONES_SECTIONS.has(String(section).toLowerCase())) {
     const nextSec = String(section).toLowerCase();
     if (nextSec !== _section) {
       _section = nextSec;
       _query = '';
+      _openKey = '';
+      _editing = false;
+      _clearModelPreview();
     }
   }
-  let raw = String(entityId || '').trim();
-  try { raw = raw ? decodeURIComponent(raw) : ''; } catch (_) { /* keep */ }
-  if (raw !== _entityId) _editing = String(raw).toUpperCase() === 'NUEVO';
-  _entityId = raw;
   _paint();
 }
 
 export function unmountOpcionesPanel() {
+  _clearModelPreview();
   _host = null;
-  _navigate = null;
   _section = 'estados';
-  _entityId = '';
   _query = '';
+  _openKey = '';
   _editing = false;
 }

@@ -212,7 +212,9 @@
       "Bash(xargs grep -ln \"f59e0b\\\\|fbbf24\\\\|amber\\\\|warning\")",
       "Bash(grep -n \"gina 1\\\\|gina \\\\${\" js/views/mapa.js -i)",
       "Bash(grep -n \"Mostrando 1\\\\|Mostrando \\\\${\" js/views/mapa.js -i)",
-      "Bash(awk '/@media.*max-width.*950|@media.*max-width.*1024/{print NR\": \"$0}' css/mapa.css)"
+      "Bash(awk '/@media.*max-width.*950|@media.*max-width.*1024/{print NR\": \"$0}' css/mapa.css)",
+      "Bash(xxd)",
+      "Bash(perl -i -pe 's/\\\\xcc\\\\x80-\\\\xcd\\\\xaf/\\\\\\\\u0300-\\\\\\\\u036f/' \"docs/superpowers/plans/2026-07-19-cuadre-revision-ventas.md\")"
     ]
   }
 }
