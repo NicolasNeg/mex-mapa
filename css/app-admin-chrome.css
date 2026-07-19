@@ -263,6 +263,23 @@
   font-size: 18px;
 }
 
+/* Live count pill — vacío por defecto; JS puede poblarlo desde los insights */
+#modal-config-global.admin-registry .cfg-tab-count {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: var(--admin-accent-pale);
+  color: var(--admin-accent);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+#modal-config-global.admin-registry .cfg-tab-count:empty {
+  display: none;
+}
+
 #modal-config-global.admin-registry .cfg-tab-action {
   color: #fca5a5;
 }
@@ -296,13 +313,15 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 24px 12px;
-  border-bottom: 1px solid var(--admin-border);
-  background: var(--admin-surface);
+  /* !important: admin-luminous.css fuerza padding/borde/fondo con !important */
+  padding: 20px 24px 12px !important;
+  border-bottom: 1px solid var(--admin-border) !important;
+  background: var(--admin-surface) !important;
 }
 
 #modal-config-global.admin-registry .cfg-v2-workspace-kicker {
-  color: var(--admin-muted);
+  /* !important: admin-luminous.css fija color claro sin variante dark */
+  color: var(--admin-muted) !important;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.06em;
@@ -318,18 +337,20 @@
 
 #modal-config-global.admin-registry #cfg-module-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 20px !important;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--admin-text);
+  /* !important: admin-luminous.css fija #1a1c1e — ilegible en dark theme */
+  color: var(--admin-text) !important;
   text-transform: none;
 }
 
 #modal-config-global.admin-registry .cfg-v2-module-badge {
   padding: 4px 8px;
-  border-radius: 9999px;
-  background: var(--admin-accent-pale);
-  color: var(--admin-accent);
+  /* !important: admin-luminous.css fuerza radius 6px y colores propios */
+  border-radius: 9999px !important;
+  background: var(--admin-accent-pale) !important;
+  color: var(--admin-accent) !important;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -338,7 +359,8 @@
 #modal-config-global.admin-registry #cfg-module-subtitle {
   margin: 8px 0 0;
   max-width: 56ch;
-  color: var(--admin-muted);
+  /* !important: admin-luminous.css fija color claro sin variante dark */
+  color: var(--admin-muted) !important;
   font-size: 14px;
   font-weight: 400;
   line-height: 1.5;
@@ -1279,16 +1301,16 @@ body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
   color: #3b82f6 !important;
 }
 
-#modal-config-global.admin-registry.luminous-admin .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse),
-#modal-config-global.admin-registry .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+#modal-config-global.admin-registry.luminous-admin .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse):not(.cfg-tab-count),
+#modal-config-global.admin-registry .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse):not(.cfg-tab-count) {
   color: inherit !important;
   opacity: 1 !important;
 }
 
-/* ── Layout: solo contenido scrolleable, sin títulos redundantes ── */
-#modal-config-global.admin-registry .cfg-v2-workspace-header,
+/* ── Layout: solo contenido scrolleable, sin títulos redundantes ──
+   Nota: .cfg-v2-workspace-header y .admin-metric-ribbon permanecen visibles
+   (título + insights viven en el workspace header, no en el hero). */
 #modal-config-global.admin-registry .cfg-v2-hero,
-#modal-config-global.admin-registry .admin-metric-ribbon,
 #modal-config-global.admin-registry .um-page-header,
 #modal-config-global.admin-registry .cfg-plazas-list-col > header,
 #modal-config-global.admin-registry .cfg-plazas-list-col .um-column-head,
