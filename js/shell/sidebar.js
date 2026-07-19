@@ -4,7 +4,8 @@
 //  Fase 1: componente standalone, sin cambiar la navegación actual.
 // ═══════════════════════════════════════════════════════════
 
-import { filterNavForRole, ROLE_LABELS } from './navigation.config.js';
+import { filterNavForRole, ROLE_LABELS, hasNavAccess } from './navigation.config.js';
+import { getAdminShellNavGroups, isAdminAppRoute } from '/js/app/features/admin/admin-nav.js';
 
 const COLLAPSED_KEY = 'mex.shell.sidebar.collapsed.v2';
 
@@ -49,12 +50,25 @@ export class ShellSidebar {
     this._collapsed    = this._readCollapsed();
     this._mobileOpen   = false;
     this._openSubmenus = new Set();
+    this._adminMode    = isAdminAppRoute(this._currentRoute);
 
     this._el      = null;
     this._overlay = null;
 
     // Auto-open submenu whose child is active on load
     this._syncOpenSubmenus();
+  }
+
+  _navGroups() {
+    if (this._adminMode) {
+      return getAdminShellNavGroups()
+        .map(group => ({
+          ...group,
+          items: group.items.filter(item => hasNavAccess(this._role, item.roles))
+        }))
+        .filter(group => group.items.length > 0);
+    }
+    return filterNavForRole(this._role);
   }
 
   // ── Private helpers ─────────────────────────────────────
@@ -75,7 +89,7 @@ export class ShellSidebar {
   }
 
   _syncOpenSubmenus() {
-    const navGroups = filterNavForRole(this._role);
+    const navGroups = this._navGroups();
     const currentPath = normalizeRoutePath(this._currentRoute);
     navGroups.forEach(group => {
       group.items.forEach(item => {
@@ -96,10 +110,18 @@ export class ShellSidebar {
     const targetPath = normalizeRoutePath(route);
     const currentPath = normalizeRoutePath(this._currentRoute);
     if (targetPath === currentPath) return true;
-    // Panel admin: /app/admin/usuarios debe quedar activo en cualquier /app/admin/*
+    // En modo admin: /app/admin/usuarios activo también con /app/admin/usuarios/:id
+    if (this._adminMode && targetPath.startsWith('/app/admin/')) {
+      const section = targetPath.slice('/app/admin/'.length).split('/')[0];
+      if (section && (currentPath === targetPath || currentPath.startsWith(`${targetPath}/`))) {
+        return true;
+      }
+    }
+    // Fuera de admin: item "Panel admin" activo en cualquier /app/admin/*
     if (
-      (targetPath === '/app/admin' || targetPath === '/app/admin/usuarios') &&
-      (currentPath === '/app/admin' || currentPath.startsWith('/app/admin/') || currentPath === '/gestion')
+      !this._adminMode
+      && (targetPath === '/app/admin' || targetPath === '/app/admin/usuarios')
+      && (currentPath === '/app/admin' || currentPath.startsWith('/app/admin/') || currentPath === '/gestion')
     ) {
       return true;
     }
@@ -157,24 +179,25 @@ export class ShellSidebar {
   }
 
   _buildHTML() {
-    const groups    = filterNavForRole(this._role);
+    const groups    = this._navGroups();
     const userName  = this._userName();
     const roleLabel = this._roleLabel();
     const avatarUrl = this._profile.avatarUrl || this._profile.photoURL || this._profile.fotoURL || '';
+    const modeLabel = this._adminMode ? 'Panel admin' : roleLabel;
 
     return `
       <div class="mex-sidebar-logo">
         <div class="mex-sidebar-logo-mark">M</div>
         <div class="mex-sidebar-logo-text">
           <h2>${esc(this._company)}</h2>
-          <p>${esc(roleLabel)}</p>
+          <p>${esc(modeLabel)}</p>
         </div>
         <button class="mex-sidebar-close" data-action="close-drawer" type="button" aria-label="Cerrar menú">
           <span class="material-icons">close</span>
         </button>
       </div>
 
-      <nav class="mex-sidebar-nav" role="menu" aria-label="Navegación principal">
+      <nav class="mex-sidebar-nav" role="menu" aria-label="${this._adminMode ? 'Controles admin' : 'Navegación principal'}">
         ${groups.map(group => `
           <div class="mex-nav-group" role="group" aria-label="${esc(group.label)}">
             <div class="mex-nav-group-label">${esc(group.label)}</div>
@@ -311,8 +334,10 @@ export class ShellSidebar {
     // Elemento principal
     this._el = document.createElement('nav');
     this._el.id = 'mexShellSidebar';
-    this._el.className = 'mex-sidebar' + (this._collapsed ? ' compact' : '');
-    this._el.setAttribute('aria-label', 'Navegación principal');
+    this._el.className = 'mex-sidebar'
+      + (this._collapsed ? ' compact' : '')
+      + (this._adminMode ? ' mex-sidebar--admin' : '');
+    this._el.setAttribute('aria-label', this._adminMode ? 'Controles admin' : 'Navegación principal');
 
     this._el.innerHTML = this._buildHTML();
     container.appendChild(this._el);
@@ -329,12 +354,22 @@ export class ShellSidebar {
     return this;
   }
 
-  /** Actualiza la ruta activa y re-renderiza el estado activo de los items. */
+  /** Actualiza la ruta activa; reconstruye nav al entrar/salir de panel admin. */
   setRoute(route) {
+    const nextAdmin = isAdminAppRoute(route);
+    const modeChanged = nextAdmin !== this._adminMode;
     this._currentRoute = route;
+    this._adminMode = nextAdmin;
     this._syncOpenSubmenus();
     if (!this._el) return;
-    // Actualiza solo los estados activos sin reconstruir todo el DOM
+
+    if (modeChanged) {
+      this._el.innerHTML = this._buildHTML();
+      this._el.classList.toggle('mex-sidebar--admin', this._adminMode);
+      this._el.setAttribute('aria-label', this._adminMode ? 'Controles admin' : 'Navegación principal');
+      return;
+    }
+
     this._el.querySelectorAll('[data-route]').forEach(el => {
       const itemRoute = el.dataset.route || '';
       const isActive = this._isItemActive(itemRoute);
@@ -342,12 +377,13 @@ export class ShellSidebar {
     });
     this._el.querySelectorAll('[data-nav-id]').forEach(el => {
       const id = el.dataset.navId;
-      const navGroups = filterNavForRole(this._role);
+      const navGroups = this._navGroups();
       let hasActiveChild = false;
       navGroups.forEach(g => g.items.forEach(item => {
         if (item.id === id && this._isAnyChildActive(item)) hasActiveChild = true;
       }));
       if (hasActiveChild) el.classList.add('active');
+      else if (!this._isItemActive(el.dataset.route || '')) el.classList.remove('active');
     });
     this._el.querySelectorAll('.mex-submenu-item').forEach(el => {
       el.classList.toggle('active', this._isItemActive(el.dataset.route || ''));

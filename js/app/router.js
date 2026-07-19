@@ -378,6 +378,8 @@ export function createRouter({ shell }) {
       const tab = new URLSearchParams(searchIdx === -1 ? '' : String(rawPath).slice(searchIdx)).get('tab');
       if (tab) navRoute = `/gestion?tab=${encodeURIComponent(tab)}`;
     }
+    // Admin: pasar ruta completa para modo CONTROLES en sidebar global + item activo
+    if (_isAdminAppPath(path)) navRoute = path;
     shell.setRoute(navRoute);
 
     // Cerrar drawer mobile si está abierto

@@ -47,6 +47,18 @@ export function canEditUsersBasics(profile, role) {
   return hasAppPermission(profile, role, 'manage_users');
 }
 
+/**
+ * Lectura del directorio de usuarios.
+ * Hoy: cualquiera con acceso al panel puede ver.
+ * Futuro: acotar con permiso dedicado `view_users` (o matriz por rol).
+ */
+export function canViewUsersBasics(profile, role) {
+  const ov = permissionOverride(profile, 'view_users');
+  if (typeof ov === 'boolean') return ov;
+  // Placeholder: no restringimos lectura hasta definir la matriz
+  return true;
+}
+
 export function canAssignPlazaAsGlobal(profile, role) {
   if (profile?.isGlobal === true) return true;
   return esGlobal(String(role || '').trim().toUpperCase());

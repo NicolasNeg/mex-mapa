@@ -42,6 +42,8 @@ let _selectedId = '';
 let _query = '';
 let _host = null;
 let _navigate = null;
+/** Modo edición (solo si hay permiso manage_users). Default: solo lectura. */
+let _editing = false;
 
 function _actor() {
   const st = getState() || {};
@@ -164,6 +166,7 @@ function _paint() {
   _host.querySelectorAll('[data-user-id]').forEach(btn => {
     btn.addEventListener('click', () => {
       _selectedId = btn.getAttribute('data-user-id') || '';
+      _editing = false;
       if (typeof _navigate === 'function') {
         _navigate(adminSectionPath('usuarios', _selectedId), { replace: true, soft: true });
       }
@@ -171,15 +174,23 @@ function _paint() {
     });
   });
 
-  const saveBtn = _host.querySelector('[data-action="save-user"]');
-  if (saveBtn) {
-    saveBtn.addEventListener('click', () => _saveSelected());
-  }
+  _host.querySelector('[data-action="edit-user"]')?.addEventListener('click', () => {
+    if (!_canEdit()) return;
+    _editing = true;
+    _paint();
+  });
+  _host.querySelector('[data-action="cancel-edit-user"]')?.addEventListener('click', () => {
+    _editing = false;
+    _paint();
+  });
+  _host.querySelector('[data-action="save-user"]')?.addEventListener('click', () => _saveSelected());
 }
 
-function _detailHtml(user, editable) {
+function _detailHtml(user, canEdit) {
   const plazas = (window.MEX_CONFIG?.empresa?.plazas || []).map(p => String(p || '').toUpperCase());
   const canPlaza = canAssignPlazaAsGlobal(_actor().profile, _actor().role);
+  const editing = canEdit && _editing;
+  const ro = editing ? '' : 'readonly disabled';
   return `
     <div class="adm-detail">
       <div class="adm-detail-hero">
@@ -196,42 +207,46 @@ function _detailHtml(user, editable) {
           </div>
         </div>
       </div>
-      <form class="adm-form" id="adm-user-form" onsubmit="return false;">
+      <form class="adm-form${editing ? '' : ' is-readonly'}" id="adm-user-form" onsubmit="return false;">
         <label>
           <span>Nombre completo</span>
-          <input name="nombre" type="text" value="${esc(user.nombre)}" ${editable ? '' : 'disabled'}>
+          <input name="nombre" type="text" value="${esc(user.nombre)}" ${ro}>
         </label>
         <label>
           <span>Correo</span>
-          <input type="email" value="${esc(user.email)}" disabled>
+          <input type="email" value="${esc(user.email)}" readonly disabled>
         </label>
         <label>
           <span>Teléfono</span>
-          <input name="telefono" type="tel" value="${esc(user.telefono)}" ${editable ? '' : 'disabled'}>
+          <input name="telefono" type="tel" value="${esc(user.telefono)}" ${ro}>
         </label>
         <label>
           <span>Plaza base</span>
-          <select name="plazaAsignada" ${editable && canPlaza ? '' : 'disabled'}>
+          <select name="plazaAsignada" ${editing && canPlaza ? '' : 'disabled'}>
             <option value="">Sin plaza</option>
             ${plazas.map(p => `<option value="${esc(p)}" ${user.plaza === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
           </select>
         </label>
         <label>
           <span>Estado</span>
-          <select name="status" ${editable ? '' : 'disabled'}>
+          <select name="status" ${editing ? '' : 'disabled'}>
             ${['ACTIVO', 'INACTIVO', 'SUSPENDIDO'].map(s =>
               `<option value="${s}" ${user.status === s ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
         </label>
         <label class="adm-form-full">
           <span>Notas internas</span>
-          <textarea name="notasInternas" rows="3" ${editable ? '' : 'disabled'}>${esc(user.notasInternas)}</textarea>
+          <textarea name="notasInternas" rows="3" ${ro}>${esc(user.notasInternas)}</textarea>
         </label>
-        ${editable ? `
-          <div class="adm-form-actions">
+        <div class="adm-form-actions">
+          ${canEdit && !editing ? `
+            <button type="button" class="adm-btn primary" data-action="edit-user">Editar</button>
+          ` : ''}
+          ${canEdit && editing ? `
+            <button type="button" class="adm-btn ghost" data-action="cancel-edit-user">Cancelar</button>
             <button type="button" class="adm-btn primary" data-action="save-user">Guardar cambios</button>
-          </div>` : `
-          <p class="adm-hint">Tu rol no puede editar usuarios.</p>`}
+          ` : ''}
+        </div>
       </form>
     </div>
   `;
@@ -253,7 +268,9 @@ async function _saveSelected() {
   const allowPlaza = canAssignPlazaAsGlobal(_actor().profile, _actor().role);
   try {
     await mergeAdminUserBasics(user.id, patch, _actor().email, { allowPlaza });
+    _editing = false;
     toast('Usuario actualizado.', 'success');
+    _paint();
   } catch (err) {
     console.error('[admin-usuarios] save:', err);
     toast(err?.message || 'No se pudo guardar.', 'error');
@@ -270,6 +287,7 @@ export function mountUsuariosPanel(host, opts = {}) {
   _navigate = opts.navigate || null;
   _selectedId = String(opts.entityId || '').trim();
   _query = '';
+  _editing = false;
   _host.innerHTML = `<div class="adm-loading"><span class="material-symbols-outlined">progress_activity</span> Cargando usuarios…</div>`;
 
   _unsub = subscribeAdminUsers({
@@ -295,7 +313,9 @@ export function mountUsuariosPanel(host, opts = {}) {
 export function syncUsuariosSelection(entityId = '') {
   let raw = String(entityId || '').trim();
   try { raw = decodeURIComponent(raw); } catch (_) { /* keep raw */ }
-  _selectedId = _users.length ? _resolveSelectedId(raw) : raw;
+  const next = _users.length ? _resolveSelectedId(raw) : raw;
+  if (next !== _selectedId) _editing = false;
+  _selectedId = next;
   _paint();
 }
 

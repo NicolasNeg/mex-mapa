@@ -1,9 +1,8 @@
 /**
- * Centro Admin — shell SPA (CONTROLES + contenido).
+ * Centro Admin — contenido SPA (CONTROLES viven en el sidebar global).
  * Usuarios: nativo LISTAS. Resto: iframe legacy hasta migrar.
  */
 import {
-  ADMIN_NAV_GROUPS,
   ADMIN_NATIVE_SECTIONS,
   parseAdminRoute,
   adminSectionPath
@@ -14,9 +13,8 @@ import {
   syncUsuariosSelection
 } from '/js/app/features/admin/admin-usuarios-panel.js';
 
-const PIN_KEY = 'mex.admin.spa.sidebar.pinned';
 const FRAME_ID = 'mex-admin-legacy-frame';
-const FRAME_VER = '20260719g';
+const FRAME_VER = '20260719h';
 
 let _root = null;
 let _navigate = null;
@@ -24,16 +22,8 @@ let _section = 'usuarios';
 let _entityId = '';
 let _nativeMounted = false;
 
-function _pinned() {
-  return localStorage.getItem(PIN_KEY) !== '0';
-}
-
-function _setPinned(v) {
-  localStorage.setItem(PIN_KEY, v ? '1' : '0');
-}
-
 function _ensureCss() {
-  const href = '/css/app-admin.css?v=20260719g';
+  const href = '/css/app-admin.css?v=20260719h';
   let link = document.querySelector('link[data-app-admin-spa-css="1"]');
   if (!link) {
     link = document.createElement('link');
@@ -44,57 +34,6 @@ function _ensureCss() {
   } else if (link.getAttribute('href') !== href) {
     link.href = href;
   }
-}
-
-function _railHtml(active, pinned) {
-  const groups = ADMIN_NAV_GROUPS.map(g => `
-    <section class="adm-nav-group">
-      <div class="adm-nav-label">${g.label}</div>
-      <div class="adm-nav-items">
-        ${g.items.map(item => {
-          const isOn = item.id === active ? ' is-active' : '';
-          return `
-            <a class="adm-nav-item${isOn}" href="${adminSectionPath(item.id)}" data-admin-section="${item.id}" data-app-route="${adminSectionPath(item.id)}">
-              <span class="material-symbols-outlined">${item.icon}</span>
-              <span class="adm-nav-text">${item.label}</span>
-            </a>`;
-        }).join('')}
-      </div>
-    </section>
-  `).join('');
-
-  return `
-    <aside class="adm-rail${pinned ? ' is-pinned' : ''}" id="adm-rail">
-      <div class="adm-rail-top">
-        <div class="adm-rail-title">CONTROLES</div>
-        <button type="button" class="adm-rail-toggle" id="adm-rail-toggle" title="${pinned ? 'Colapsar' : 'Expandir'}" aria-pressed="${pinned ? 'true' : 'false'}">
-          <span class="material-symbols-outlined">${pinned ? 'chevron_left' : 'chevron_right'}</span>
-        </button>
-      </div>
-      <nav class="adm-rail-nav">${groups}</nav>
-      <div class="adm-rail-foot">
-        <a class="adm-nav-item" href="/app/programador" data-app-route="/app/programador">
-          <span class="material-symbols-outlined">terminal</span>
-          <span class="adm-nav-text">Programador</span>
-        </a>
-      </div>
-    </aside>
-  `;
-}
-
-function _bindRail() {
-  const toggle = _root?.querySelector('#adm-rail-toggle');
-  const rail = _root?.querySelector('#adm-rail');
-  toggle?.addEventListener('click', () => {
-    const next = !_pinned();
-    _setPinned(next);
-    rail?.classList.toggle('is-pinned', next);
-    _root?.querySelector('.adm-shell')?.classList.toggle('is-rail-pinned', next);
-    toggle.title = next ? 'Colapsar' : 'Expandir';
-    toggle.setAttribute('aria-pressed', next ? 'true' : 'false');
-    const icon = toggle.querySelector('.material-symbols-outlined');
-    if (icon) icon.textContent = next ? 'chevron_left' : 'chevron_right';
-  });
 }
 
 function _legacySrc(section, entityId) {
@@ -170,11 +109,6 @@ function _applySection(section, entityId) {
   _section = section || 'usuarios';
   _entityId = entityId || '';
 
-  // Update active nav
-  _root?.querySelectorAll('.adm-nav-item[data-admin-section]').forEach(a => {
-    a.classList.toggle('is-active', a.getAttribute('data-admin-section') === _section);
-  });
-
   if (ADMIN_NATIVE_SECTIONS.has(_section)) {
     if (_section === 'usuarios') _showNativeUsuarios(_entityId);
   } else {
@@ -183,17 +117,14 @@ function _applySection(section, entityId) {
 }
 
 function _renderShell() {
-  const pinned = _pinned();
   _root.innerHTML = `
-    <div class="adm-shell${pinned ? ' is-rail-pinned' : ''}">
-      ${_railHtml(_section, pinned)}
+    <div class="adm-shell">
       <div class="adm-main">
         <div id="adm-native" class="adm-native" hidden></div>
         <div id="adm-legacy-wrap" class="adm-legacy-wrap" hidden></div>
       </div>
     </div>
   `;
-  _bindRail();
 }
 
 /**

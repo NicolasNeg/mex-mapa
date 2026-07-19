@@ -71,3 +71,44 @@ export function adminSectionPath(section = 'usuarios', entityId = '') {
   if (!id) return `/app/admin/${sec}`;
   return `/app/admin/${sec}/${encodeURIComponent(id)}`;
 }
+
+/** Nav groups for global shell while in /app/admin/* */
+export function getAdminShellNavGroups() {
+  const groups = ADMIN_NAV_GROUPS.map(g => ({
+    id: `adm-${g.id}`,
+    label: g.label,
+    items: g.items.map(item => ({
+      id: `adm-${item.id}`,
+      label: item.label,
+      icon: item.icon,
+      route: adminSectionPath(item.id),
+      roles: '*'
+    }))
+  }));
+  groups.push({
+    id: 'adm-exit',
+    label: 'Salir',
+    items: [
+      {
+        id: 'adm-exit-panel',
+        label: 'Salir del panel admin',
+        icon: 'arrow_back',
+        route: '/app/dashboard',
+        roles: '*'
+      },
+      {
+        id: 'adm-programador',
+        label: 'Programador',
+        icon: 'terminal',
+        route: '/app/programador',
+        roles: ['PROGRAMADOR']
+      }
+    ]
+  });
+  return groups;
+}
+
+export function isAdminAppRoute(route = '') {
+  const path = String(route || '').split('?')[0].replace(/\/$/, '') || '';
+  return path === '/app/admin' || path.startsWith('/app/admin/') || path === '/gestion';
+}
