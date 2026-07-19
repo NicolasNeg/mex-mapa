@@ -87,6 +87,22 @@
 #appAdminRoot [data-admin-req][aria-selected="true"] td {
   background: #eff6ff !important;
 }
+body.dark-theme #appAdminRoot [data-admin-user]:hover td,
+body.dark-theme #appAdminRoot [data-admin-role]:hover td,
+body.dark-theme #appAdminRoot [data-admin-plaza]:hover td,
+body.dark-theme #appAdminRoot [data-admin-catalog]:hover td,
+body.dark-theme #appAdminRoot [data-admin-req]:hover td {
+  background: rgba(59, 130, 246, 0.1) !important;
+  color: var(--text) !important;
+}
+body.dark-theme #appAdminRoot [data-admin-user][aria-selected="true"] td,
+body.dark-theme #appAdminRoot [data-admin-role][aria-selected="true"] td,
+body.dark-theme #appAdminRoot [data-admin-plaza][aria-selected="true"] td,
+body.dark-theme #appAdminRoot [data-admin-catalog][aria-selected="true"] td,
+body.dark-theme #appAdminRoot [data-admin-req][aria-selected="true"] td {
+  background: rgba(59, 130, 246, 0.18) !important;
+  color: #93c5fd !important;
+}
 
 /* ── Table cells ────────────────────────────────────────────── */
 #appAdminRoot tbody td {

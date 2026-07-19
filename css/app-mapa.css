@@ -709,6 +709,15 @@
   border-color: #2b6954;
   background: #ecfdf5;
 }
+body.dark-theme .app-mapa-unit.is-selected {
+  border-color: #34d399;
+  background: rgba(16, 185, 129, 0.16);
+}
+body.dark-theme .app-mapa-unit.is-selected .app-mapa-unit-top strong,
+body.dark-theme .app-mapa-unit.is-selected .app-mapa-unit-meta,
+body.dark-theme .app-mapa-unit.is-selected .app-mapa-unit-zona {
+  color: var(--text);
+}
 
 .app-mapa-unit-top {
   display: flex;
@@ -1054,6 +1063,12 @@ button.app-mapa-view.is-active {
 
 .app-mapa-list-row.is-selected {
   background: #ecfdf5;
+}
+body.dark-theme .app-mapa-list-row.is-selected {
+  background: rgba(16, 185, 129, 0.16);
+}
+body.dark-theme .app-mapa-list-row.is-selected td {
+  color: var(--text);
 }
 
 .app-mapa-list-actions {

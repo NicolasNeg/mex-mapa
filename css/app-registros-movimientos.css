@@ -14,6 +14,34 @@
   --rm-hazard: #ef4444;
 }
 
+/* --rm-ink se deja fijo (oscuro): header/boton/borde del modal son un
+   "sello industrial" siempre oscuro por diseno, no reactivo al tema.
+   Solo el texto sobre el papel/tarjetas (--rm-muted/--rm-line/--rm-paper/
+   --rm-surface) y los badges semanticos oscuros necesitan variante dark. */
+body.dark-theme #modal-registros-movimientos.log-overlay,
+body.dark-theme #modal-registros-movimientos.modal-overlay {
+  --rm-muted: var(--text-muted, #94a3b8);
+  --rm-line: var(--border, #334155);
+  --rm-paper: var(--bg, #0f172a);
+  --rm-surface: var(--surface, #1e293b);
+}
+body.dark-theme .log-author,
+body.dark-theme .log-action-text,
+body.dark-theme .log-search-box,
+body.dark-theme .log-select-box,
+body.dark-theme .log-btn-load,
+body.dark-theme .log-meta-loc {
+  color: var(--text);
+}
+body.dark-theme .log-card:hover {
+  border-color: var(--border-md);
+}
+body.dark-theme .log-badge-in { color: #34d399; }
+body.dark-theme .log-badge-baja { color: #f87171; }
+body.dark-theme .log-badge-modif { color: #fbbf24; }
+body.dark-theme .log-badge-default { color: #94a3b8; }
+body.dark-theme .mc-section-registros .mc-item small { color: #4ade80; }
+
 .log-container {
   width: min(100%, 640px);
   max-height: 88vh;

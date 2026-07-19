@@ -555,6 +555,12 @@ body.dark-theme .tras {
 .tras-table tbody tr.selected {
   background: #eff6ff;
 }
+body.dark-theme .tras-table tbody tr.selected {
+  background: rgba(59, 130, 246, 0.18);
+}
+body.dark-theme .tras-table tbody tr.selected td {
+  color: #93c5fd;
+}
 
 .tras-table td {
   padding: 10px 12px;
@@ -824,6 +830,11 @@ body.dark-theme .tras {
 .tras-picker-option:focus {
   background: #eff6ff;
   outline: none;
+}
+body.dark-theme .tras-picker-option:hover,
+body.dark-theme .tras-picker-option:focus {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
 }
 
 .tras-picker-option strong {

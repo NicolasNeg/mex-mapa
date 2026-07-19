@@ -7,11 +7,11 @@
   letter-spacing: 0.05em;
   font-size: 11px;
   font-weight: 500;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 #notifications-center-modal .notif-center-summary.is-empty-copy {
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 #notifications-center-modal .notif-center-unread-badge[hidden],
@@ -27,9 +27,9 @@
   gap: 8px;
   margin: 16px 16px 24px;
   padding: 40px 24px;
-  border: 1px dashed #e2e8f0;
+  border: 1px dashed var(--border);
   border-radius: 16px;
-  background: #f8fafc;
+  background: var(--bg);
   box-shadow: none;
 }
 
@@ -60,7 +60,7 @@
 }
 
 #notifications-center-modal .notif-center-empty strong {
-  color: #0f172a;
+  color: var(--text);
   font-size: 16px;
   font-weight: 600;
 }
@@ -68,7 +68,7 @@
 #notifications-center-modal .notif-center-empty p {
   margin: 0;
   max-width: 28ch;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 400;
   line-height: 1.5;
@@ -80,7 +80,7 @@
 }
 
 #notifications-center-modal .notif-item-time {
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -91,7 +91,7 @@
 
 #notifications-center-modal .notif-item-text strong {
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text);
 }
 
 /* ── Mobile sheet redesign ── */
@@ -109,9 +109,9 @@
     max-height: min(94dvh, 820px);
     border-radius: 16px 16px 0 0;
     border: none;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid var(--border);
     box-shadow: 0 -8px 40px rgba(15, 23, 42, 0.18);
-    background: #ffffff;
+    background: var(--surface);
   }
 
   /* Drag-feel handle */
@@ -122,13 +122,13 @@
     height: 4px;
     margin: 10px auto 0;
     border-radius: 9999px;
-    background: #cbd5e1;
+    background: var(--border-md);
     flex-shrink: 0;
   }
 
   #notifications-center-modal .notif-center-header {
     padding: 12px 20px 12px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--border);
     gap: 12px;
   }
 
@@ -137,7 +137,7 @@
     padding: 0;
     background: transparent;
     min-height: auto;
-    color: #64748b;
+    color: var(--text-muted);
   }
 
   #notifications-center-modal .notif-center-title-row {
@@ -150,7 +150,7 @@
   #notifications-center-modal .notif-center-title {
     font-size: 20px;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--text);
     letter-spacing: -0.01em;
   }
 
@@ -159,8 +159,8 @@
     padding: 0 10px;
     border-radius: 9999px;
     border: none;
-    background: #f1f5f9;
-    color: #475569;
+    background: var(--bg);
+    color: var(--text);
     font-size: 11px;
     font-weight: 600;
   }
@@ -176,32 +176,32 @@
     max-width: none;
     font-size: 13px;
     line-height: 1.45;
-    color: #64748b;
+    color: var(--text-muted);
   }
 
   #notifications-center-modal .notif-center-close {
     width: 36px;
     height: 36px;
     border-radius: 9999px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    color: #475569;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
   }
 
   #notifications-center-modal .notif-filter-bar {
     gap: 8px;
     padding: 12px 20px;
-    background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
   }
 
   #notifications-center-modal .notif-filter-chip {
     min-height: 36px;
     padding: 0 14px;
     border-radius: 9999px;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
-    color: #475569;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
     font-size: 13px;
     font-weight: 600;
   }
@@ -230,8 +230,8 @@
   #notifications-center-modal .notif-center-toolbar {
     gap: 8px;
     padding: 12px 20px;
-    border-bottom: 1px solid #f1f5f9;
-    background: #f8fafc;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
   }
 
   #notifications-center-modal .notif-center-device-pill,
@@ -245,9 +245,9 @@
   #notifications-center-modal .notif-center-device-pill {
     flex: 1 1 auto;
     flex-basis: auto;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
-    color: #475569;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
   }
 
   #notifications-center-modal .notif-center-btn.primary {
@@ -259,7 +259,7 @@
   #notifications-center-modal .notif-center-list {
     padding: 4px 0 8px;
     min-height: 160px;
-    background: #ffffff;
+    background: var(--surface);
   }
 
   #notifications-center-modal .notif-date-group {
@@ -272,8 +272,8 @@
     min-height: 24px;
     padding: 0 10px;
     border-radius: 9999px;
-    background: #f1f5f9;
-    color: #64748b;
+    background: var(--bg);
+    color: var(--text-muted);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -285,15 +285,15 @@
     gap: 8px;
     margin: 0 12px 8px;
     padding: 12px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border);
     border-radius: 12px;
-    border-top: 1px solid #e2e8f0;
-    background: #ffffff;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
     align-items: flex-start;
   }
 
   #notifications-center-modal .notif-item:hover {
-    background: #f8fafc;
+    background: var(--bg);
   }
 
   #notifications-center-modal .notif-item-main {
@@ -326,17 +326,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border);
     border-radius: 8px;
-    background: #ffffff;
-    color: #475569;
+    background: var(--surface);
+    color: var(--text);
     cursor: pointer;
     padding: 0;
   }
 
   #notifications-center-modal .notif-item-action:hover {
-    background: #f1f5f9;
-    color: #0f172a;
+    background: var(--bg);
+    color: var(--text);
   }
 
   #notifications-center-modal .notif-item-action.danger:hover {
@@ -353,6 +353,10 @@
     background: #f8fbff;
     border-color: #bfdbfe;
     box-shadow: inset 3px 0 0 #3b82f6;
+  }
+  body.dark-theme #notifications-center-modal .notif-item.unread {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.35);
   }
 
   #notifications-center-modal .notif-item-avatar {
@@ -380,7 +384,7 @@
   }
 
   #notifications-center-modal .notif-item-context {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -389,13 +393,13 @@
 
   #notifications-center-modal .notif-item-time {
     flex-shrink: 0;
-    color: #475569;
+    color: var(--text);
     font-size: 12px;
     font-weight: 500;
   }
 
   #notifications-center-modal .notif-item-text {
-    color: #0f172a;
+    color: var(--text);
     font-size: 14px;
     font-weight: 400;
     line-height: 1.45;
@@ -411,9 +415,9 @@
 
   #notifications-center-modal .notif-item-tag {
     border-radius: 8px;
-    border-color: #e2e8f0;
-    background: #f1f5f9;
-    color: #475569;
+    border-color: var(--border);
+    background: var(--bg);
+    color: var(--text);
     font-weight: 600;
   }
 
@@ -427,14 +431,14 @@
   }
 
   #notifications-center-modal .notif-settings-section {
-    border-top: 1px solid #e2e8f0;
-    background: #ffffff;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
   }
 
   #notifications-center-modal .notif-settings-toggle {
     min-height: 52px;
     padding: 14px 20px;
-    color: #334155;
+    color: var(--text);
     font-size: 14px;
     font-weight: 600;
   }
@@ -451,12 +455,12 @@
   #notifications-center-modal .notif-pref-row strong {
     font-size: 14px;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--text);
   }
 
   #notifications-center-modal .notif-pref-row small {
     font-size: 12px;
-    color: #64748b;
+    color: var(--text-muted);
   }
 
   /* Empty list: evitar duplicar "Todo al día" en header + empty state */
