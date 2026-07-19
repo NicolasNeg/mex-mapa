@@ -6,6 +6,7 @@ const mexConfirm = (...a) => window.mexConfirm(...a);
 const mexAlert   = (...a) => window.mexAlert(...a);
 
 let _unsub = null;
+let _sheetCloseTimer = null;
 const ESTADO_CHIP = {
   VIGENTE:  { cls: 'chip-ok',   icon: 'check_circle' },
   USADA:    { cls: 'chip-mut',  icon: 'how_to_reg' },
@@ -104,7 +105,6 @@ export function mount({ container }) {
   const form   = container.querySelector('#inv-form');
   let _sheetCodigo = null;
   let _sheetPuedeRevocar = false;
-  let _sheetCloseTimer = null;
 
   function openSheet(codigo, puedeRevocar) {
     if (_sheetCloseTimer) {
@@ -256,5 +256,9 @@ export function mount({ container }) {
 }
 
 export function unmount() {
+  if (_sheetCloseTimer) {
+    clearTimeout(_sheetCloseTimer);
+    _sheetCloseTimer = null;
+  }
   if (_unsub) { _unsub(); _unsub = null; }
 }

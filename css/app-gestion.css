@@ -86,9 +86,14 @@ body.dark-theme .btn-danger-ghost:hover { background: rgba(239,68,68,.12); }
 
 .gestion-sheet-overlay {
   position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
-  z-index: 80; display: none;
+  z-index: 80;
+  opacity: 0; pointer-events: none; visibility: hidden;
+  transition: opacity 180ms ease, visibility 0s linear 180ms;
 }
-.gestion-sheet-overlay.open { display: block; }
+.gestion-sheet-overlay.open {
+  opacity: 1; pointer-events: auto; visibility: visible;
+  transition: opacity 180ms ease, visibility 0s;
+}
 .gestion-sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 81;
   background: var(--surface); border-radius: 16px 16px 0 0;
