@@ -21,15 +21,15 @@
           </button>
 
           <div id="moreControlsDropdown" class="more-controls-dropdown">
-            <div class="mc-item" onclick="abrirRegistrosMovimientos()"><span class="material-icons">manage_search</span>
-              Registros / Movimientos</div>
-
-            <div id="mcHistorialCuadre" class="mc-item" onclick="abrirHistorialCuadres()"
-              style="display: flex; flex-direction: column; align-items: flex-start;">
-              <div><span class="material-icons">history</span> Historial de Cuadre</div>
-              <small id="lblUltimoCuadre"
-                style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">--/-- 00:00
-                (Nadie)</small>
+            <div class="mc-section-registros">
+              <div class="mc-section-label"><span class="material-icons">manage_search</span> Registros / Movimientos</div>
+              <div class="mc-item" onclick="abrirRegistrosMovimientos()">
+                <span class="material-icons">fact_check</span> Auditoría operativa
+              </div>
+              <div id="mcHistorialCuadre" class="mc-item" onclick="abrirHistorialCuadres()">
+                <span class="material-icons">history</span> Historial de Cuadre
+                <small id="lblUltimoCuadre">--/-- 00:00 (Nadie)</small>
+              </div>
             </div>
 
             <div class="mc-item" onclick="abrirResumenFlota()"><span class="material-icons">pie_chart</span> Resumen

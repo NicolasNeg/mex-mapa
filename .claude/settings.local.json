@@ -192,7 +192,13 @@
       "Bash(export JAVA_HOME=\"C:/Users/Pc/AppData/Local/Temp/claude/portable-jre/jdk-17.0.19+10-jre\")",
       "Bash(C:/Users/Pc/AppData/Local/Temp/claude/portable-jre/jdk-17.0.19+10-jre/bin/java.exe -version)",
       "Bash(rm -rf jre.zip \"jdk-17.0.19+10-jre\")",
-      "Bash(unzip -q jre21.zip)"
+      "Bash(unzip -q jre21.zip)",
+      "Bash(awk 'NR==150,NR==1000' gestion.html)",
+      "Bash(grep -n \"^  </div>$\")",
+      "Bash(awk -F: '$1>3537')",
+      "Bash(awk 'NR>=24500 && NR<=24560 && /=|function|const|window/' js/views/mapa.js)",
+      "Bash(grep -n \"^Object.assign\\(window\\\\|window\\\\.mex.*=.*{$\\\\|^const _mexApi\\\\|EXPORTS\\\\s*=\\\\|^}\\)\" js/views/mapa.js)",
+      "Bash(grep -n \"#[0-9a-fA-F]\\\\{3,6\\\\}\\\\b\" css/app-admin-chrome.css)"
     ]
   }
 }

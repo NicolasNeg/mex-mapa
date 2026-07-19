@@ -1664,24 +1664,23 @@
 
 <!-- ── modal-registros-movimientos ─────────────────────────────── -->
   <div id="modal-registros-movimientos" class="modal-overlay" style="z-index: 6000;">
-    <div class="log-container">
-
-      <button onclick="document.getElementById('modal-registros-movimientos').classList.remove('active')"
-        style="position:absolute; right:15px; top:25px; background:rgba(255,255,255,0.15); color:white; border:none; border-radius:50%; width:35px; height:35px; cursor:pointer; font-weight:900; z-index:20; display:flex; align-items:center; justify-content:center; backdrop-filter: blur(5px);">✕</button>
+    <div class="log-container" role="dialog" aria-labelledby="auditTitle" aria-modal="true">
+      <button type="button" class="log-close" onclick="document.getElementById('modal-registros-movimientos').classList.remove('active')" aria-label="Cerrar">
+        <span class="material-icons">close</span>
+      </button>
 
       <div class="log-header">
         <div class="log-header-text">
+          <p class="log-kicker">Registros / Movimientos</p>
           <h2 id="auditTitle">AUDITORÍA DEL SISTEMA</h2>
-          <p id="auditSubtitle">Historial de Movimientos Globales</p>
+          <p id="auditSubtitle">Historial operativo del mapa y la flota</p>
         </div>
-        <div class="header-actions" style="margin-right: 40px; display:flex; align-items:center; gap:10px;">
-          <div style="display:flex; gap:8px; padding:4px; border-radius:999px; background:rgba(255,255,255,0.08);">
-            <button id="auditModeOperacion" onclick="cambiarModoAuditoria('OPERACION')"
-              style="border:none; border-radius:999px; padding:9px 14px; font-weight:900; font-size:11px; cursor:pointer; background:rgba(255,255,255,0.18); color:white; letter-spacing:0.6px;">OPERACIÓN</button>
-            <button id="auditModeGestion" onclick="cambiarModoAuditoria('GESTION')"
-              style="border:none; border-radius:999px; padding:9px 14px; font-weight:900; font-size:11px; cursor:pointer; background:rgba(255,255,255,0.08); color:#cbd5e1; letter-spacing:0.6px;">GESTIÓN</button>
+        <div class="log-header-actions">
+          <div class="log-mode-switch" role="tablist" aria-label="Modo de bitácora">
+            <button type="button" id="auditModeOperacion" class="log-mode-btn is-active" role="tab" aria-selected="true" onclick="cambiarModoAuditoria('OPERACION')">Operación</button>
+            <button type="button" id="auditModeGestion" class="log-mode-btn" role="tab" aria-selected="false" onclick="cambiarModoAuditoria('GESTION')">Gestión</button>
           </div>
-          <button class="log-action-btn" onclick="cargarLogsAuditoria()" title="Actualizar Logs">
+          <button type="button" class="log-action-btn" onclick="cargarLogsAuditoria()" title="Actualizar">
             <span class="material-icons" id="logRefreshIcon">sync</span>
           </button>
         </div>
@@ -1689,8 +1688,8 @@
 
       <div class="log-main-content">
         <div class="log-filter-container">
-          <input type="text" id="logBuscador" class="log-search-box" placeholder="Buscar unidad, fecha o autor..."
-            onkeyup="aplicarFiltrosLogs(true)">
+          <input type="search" id="logBuscador" class="log-search-box" placeholder="Buscar unidad, fecha o autor..."
+            onkeyup="aplicarFiltrosLogs(true)" autocomplete="off">
           <select id="logFiltroTipo" class="log-select-box" onchange="aplicarFiltrosLogs(true)">
             <option value="TODOS">Todas las acciones</option>
             <option value="IN">Solo Entradas (IN)</option>
@@ -1701,11 +1700,10 @@
 
         <div id="listaLogsAuditoria"></div>
 
-        <button id="btnCargarMasLogs" class="log-btn-load" onclick="cargarMasLogs()" style="display: none;">
-          <span class="material-icons">expand_more</span> Cargar movimientos más antiguos
+        <button type="button" id="btnCargarMasLogs" class="log-btn-load" onclick="cargarMasLogs()">
+          <span class="material-icons">expand_more</span> Cargar más antiguos
         </button>
       </div>
-
     </div>
   </div>
 

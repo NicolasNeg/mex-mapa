@@ -22,7 +22,7 @@ function _ensureCss() {
   // el SPA no carga global.css, así que hay que inyectarla aquí o salen sin estilo).
   // Cada hoja se verifica por separado: si solo existe mapa.css no debemos
   // early-return y saltarnos alertas.css (carrera al montar desde cuadre).
-  ['/css/mapa.css', '/css/alertas.css'].forEach(href => {
+  ['/css/mapa.css', '/css/alertas.css', '/css/app-registros-movimientos.css'].forEach(href => {
     if (document.querySelector(`link[href="${href}"]`)) return;
     const link = document.createElement('link');
     link.rel = 'stylesheet';

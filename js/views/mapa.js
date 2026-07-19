@@ -935,7 +935,8 @@ const BASE_ROLE_META = Object.freeze({
       view_admin_cuadre: true,
       edit_admin_cuadre: true,
       insert_external_units: true,
-      manage_global_fleet: true
+      manage_global_fleet: true,
+      view_exact_location_logs: true
     }
   },
   JEFE_REGIONAL: {
@@ -952,7 +953,8 @@ const BASE_ROLE_META = Object.freeze({
       view_admin_cuadre: true,
       edit_admin_cuadre: true,
       insert_external_units: true,
-      manage_global_fleet: true
+      manage_global_fleet: true,
+      view_exact_location_logs: true
     }
   },
   CORPORATIVO_USER: {
@@ -1660,6 +1662,12 @@ function canViewExactLocationLogs() { return hasPermission('view_exact_location_
 function canLockMap() { return hasPermission('lock_map') || _roleMeta().fullAccess; }
 function canInsertExternalUnits() { return hasPermission('insert_external_units') || _roleMeta().level >= (_roleMeta('GERENTE_PLAZA').level || 25); }
 function hasFullAccess() { return hasPermission('platform_full_access') || _roleMeta().fullAccess; }
+/** Pestaña Gestión: solo acceso total (PROGRAMADOR / JEFE_OPERACION / CORPORATIVO). */
+function canAccessAuditoriaGestion() { return hasFullAccess(); }
+/** Botón Ver ubi: permiso de ubicación + rol admin. */
+function canAccessAuditoriaVerUbi() {
+  return canViewExactLocationLogs() && (_roleMeta().isAdmin === true || hasFullAccess());
+}
 function canViewAdminUsers() { return hasPermission('view_admin_users') || canManageUsers(); }
 function canViewAdminRoles() { return hasPermission('view_admin_roles') || hasPermission('manage_roles_permissions') || canManageUsers(); }
 function canViewAdminRequests() { return hasPermission('view_admin_requests') || canProcessAccessRequests() || canManageUsers() || canUseProgrammerConfig(); }
@@ -12409,6 +12417,9 @@ function actualizarModoAuditoriaUI() {
   const filter = document.getElementById('logFiltroTipo');
   const tabOperacion = document.getElementById('auditModeOperacion');
   const tabGestion = document.getElementById('auditModeGestion');
+  const canGestion = canAccessAuditoriaGestion();
+
+  if (!canGestion && aud_modoActual === 'GESTION') aud_modoActual = 'OPERACION';
 
   if (title) title.innerText = meta.title;
   if (subtitle) subtitle.innerText = meta.subtitle;
@@ -12418,20 +12429,22 @@ function actualizarModoAuditoriaUI() {
   }
 
   if (tabOperacion) {
-    tabOperacion.style.background = aud_modoActual === 'OPERACION' ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
-    tabOperacion.style.color = aud_modoActual === 'OPERACION' ? 'white' : '#cbd5e1';
+    const on = aud_modoActual === 'OPERACION';
+    tabOperacion.classList.toggle('is-active', on);
+    tabOperacion.setAttribute('aria-selected', on ? 'true' : 'false');
   }
 
   if (tabGestion) {
-    tabGestion.style.display = hasFullAccess() ? 'inline-flex' : 'none';
-    tabGestion.style.background = aud_modoActual === 'GESTION' ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
-    tabGestion.style.color = aud_modoActual === 'GESTION' ? 'white' : '#cbd5e1';
+    tabGestion.style.display = canGestion ? 'inline-flex' : 'none';
+    const on = aud_modoActual === 'GESTION';
+    tabGestion.classList.toggle('is-active', on);
+    tabGestion.setAttribute('aria-selected', on ? 'true' : 'false');
   }
 }
 
 function cambiarModoAuditoria(mode) {
-  if (mode === 'GESTION' && !hasFullAccess()) {
-    showToast('Solo los roles de acceso total pueden ver la bitácora de gestión.', 'error');
+  if (mode === 'GESTION' && !canAccessAuditoriaGestion()) {
+    showToast('Solo administradores con acceso total pueden ver la bitácora de gestión.', 'error');
     return;
   }
   aud_modoActual = mode === 'GESTION' ? 'GESTION' : 'OPERACION';
@@ -12464,21 +12477,21 @@ function cargarLogsAuditoria() {
 
   icon.classList.add('spinner');
   btnMas.style.display = 'none';
-  contenedor.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><span class="material-icons spinner" style="font-size:30px;">sync</span><br>${meta.loadingText}</div>`;
+  contenedor.innerHTML = `<div class="log-loading"><span class="material-icons spinner">sync</span><br>${escapeHtml(meta.loadingText)}</div>`;
 
   const fetcher = aud_modoActual === 'GESTION' ? api.obtenerEventosGestion() : api.obtenerLogsServer();
   fetcher.then(data => {
     icon.classList.remove('spinner');
     aud_logsGlobales = Array.isArray(data) ? data : [];
     if (aud_logsGlobales.length === 0) {
-      contenedor.innerHTML = `<div style="text-align:center; padding:30px; font-weight:700; color:#64748b;">${meta.emptyText}</div>`;
+      contenedor.innerHTML = `<div class="log-empty">${escapeHtml(meta.emptyText)}</div>`;
       return;
     }
     aplicarFiltrosLogs(true);
   }).catch(error => {
     icon.classList.remove('spinner');
     console.error(error);
-    contenedor.innerHTML = `<div style="text-align:center; padding:30px; color:#ef4444; font-weight:700;">No se pudieron cargar los registros.</div>`;
+    contenedor.innerHTML = `<div class="log-empty" style="color:#ef4444;">No se pudieron cargar los registros.</div>`;
   });
 }
 
@@ -12522,47 +12535,27 @@ function _resolveLogExactLocation(log = {}) {
   return { latitude, longitude, accuracy, mapsUrl, status, city, state, addressLabel };
 }
 
-function _logExactLocationHtml(log = {}, compact = false) {
-  if (!canViewExactLocationLogs()) {
-    return compact
-      ? '<span style="color:#94a3b8;font-weight:800;">Ubicación protegida</span>'
-      : '<span style="display:inline-flex;align-items:center;gap:6px;color:#94a3b8;font-weight:800;"><span class="material-icons" style="font-size:14px;">lock</span>Ubicación protegida</span>';
-  }
+function _logExactLocationHtml(log = {}) {
+  // Sin permiso admin: no revelar ubicación ni CTA (solo info operativa normal).
+  if (!canAccessAuditoriaVerUbi()) return '';
 
   const { latitude, longitude, mapsUrl, status, addressLabel, city, state } = _resolveLogExactLocation(log);
   const summaryLabel = addressLabel || [city, state].filter(Boolean).join(', ') || 'Ubicación disponible';
+  const locLabel = `<span class="log-meta-loc"><span class="material-icons">location_on</span>${escapeHtml(summaryLabel)}</span>`;
+
   if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
     const href = mapsUrl || `https://maps.google.com/?q=${latitude},${longitude}`;
-    const buttonHtml = `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 12px;border-radius:999px;background:#0f766e;color:#fff;font-weight:900;text-decoration:none;">
-      <span class="material-icons" style="font-size:15px;">map</span>Ver ubi
-    </a>`;
-    if (compact) {
-      return `<span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="color:#0f172a;font-weight:800;">${escapeHtml(summaryLabel)}</span>
-        ${buttonHtml}
-      </span>`;
-    }
-    return `<span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <span style="display:inline-flex;align-items:center;gap:6px;color:#0f172a;font-weight:800;">
-        <span class="material-icons" style="font-size:15px;color:#0f766e;">location_on</span>${escapeHtml(summaryLabel)}
-      </span>
-      ${buttonHtml}
-    </span>`;
+    return `${locLabel}<a class="log-ubi-btn" href="${escapeHtml(href)}" target="_blank" rel="noopener"><span class="material-icons">map</span>Ver ubi</a>`;
   }
 
   if (mapsUrl) {
-    return `<span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <span style="color:#0f172a;font-weight:800;">${escapeHtml(summaryLabel)}</span>
-      <a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 12px;border-radius:999px;background:#0f766e;color:#fff;font-weight:900;text-decoration:none;">
-        <span class="material-icons" style="font-size:15px;">map</span>Ver ubi
-      </a>
-    </span>`;
+    return `${locLabel}<a class="log-ubi-btn" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener"><span class="material-icons">map</span>Ver ubi</a>`;
   }
 
-  if (status === 'denied') return '<span style="color:#b45309;font-weight:800;">Permiso denegado</span>';
-  if (status === 'unsupported') return '<span style="color:#64748b;font-weight:800;">Sin soporte</span>';
-  if (status === 'error') return '<span style="color:#dc2626;font-weight:800;">Error de ubicación</span>';
-  return '<span style="color:#94a3b8;font-weight:800;">Sin ubicación exacta</span>';
+  if (status === 'denied') return '<span class="log-meta-loc">Permiso denegado</span>';
+  if (status === 'unsupported') return '<span class="log-meta-loc">Sin soporte</span>';
+  if (status === 'error') return '<span class="log-meta-loc">Error de ubicación</span>';
+  return '';
 }
 
 function _visualLogAuditoria(log) {
@@ -12590,7 +12583,7 @@ function renderizarLogsAuditoria() {
   const meta = _metaModoAuditoria();
 
   if (aud_logsFiltrados.length === 0) {
-    contenedor.innerHTML = `<div style="text-align:center; padding:30px; color:#64748b; font-weight:700;">No se encontraron movimientos.</div>`;
+    contenedor.innerHTML = `<div class="log-empty">No se encontraron movimientos.</div>`;
     btnMas.style.display = 'none';
     return;
   }
@@ -12598,8 +12591,12 @@ function renderizarLogsAuditoria() {
   const recortes = aud_logsFiltrados.slice(0, aud_paginaActual * AUD_ITEMS_POR_PAGINA);
   btnMas.style.display = (aud_logsFiltrados.length > recortes.length) ? 'flex' : 'none';
 
-  contenedor.innerHTML = recortes.map((log, index) => {
+  contenedor.innerHTML = recortes.map((log) => {
     const visual = _visualLogAuditoria(log);
+    const tipo = String(log.tipo || '').toUpperCase();
+    const toneClass = aud_modoActual === 'GESTION'
+      ? 'is-gestion'
+      : (tipo === 'IN' ? 'is-in' : tipo === 'BAJA' ? 'is-baja' : (tipo === 'MODIF' || tipo === 'MODIFICACION') ? 'is-modif' : '');
     const detalles = [
       log.entidad ? `Entidad: ${escapeHtml(log.entidad)}` : '',
       log.referencia ? `Ref: ${escapeHtml(log.referencia)}` : '',
@@ -12609,13 +12606,14 @@ function renderizarLogsAuditoria() {
       log.resultado ? `Resultado: ${escapeHtml(log.resultado)}` : '',
       log.detalles ? escapeHtml(log.detalles) : ''
     ].filter(Boolean);
-    const locationHtml = _logExactLocationHtml(log, true);
-    const extraHtml = detalles.length
-      ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #dbe4ee; color:#64748b; font-size:11px; line-height:1.5;">${detalles.join(' · ')}${locationHtml ? ` · ${locationHtml}` : ''}</div>`
-      : (locationHtml ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #dbe4ee; color:#64748b; font-size:11px; line-height:1.5;">${locationHtml}</div>` : '');
+    const locationHtml = _logExactLocationHtml(log);
+    const metaParts = [...detalles, locationHtml].filter(Boolean);
+    const extraHtml = metaParts.length
+      ? `<div class="log-meta">${metaParts.join('')}</div>`
+      : '';
 
     return `
-      <div class="log-card" style="animation-delay: ${index * 0.03}s">
+      <article class="log-card ${toneClass}">
         <div class="log-card-header">
           <div>
             <div class="log-author">
@@ -12626,11 +12624,11 @@ function renderizarLogsAuditoria() {
           </div>
           <div class="log-badge ${visual.colorClass}">${escapeHtml(log.tipo || 'INFO')}</div>
         </div>
-        <div class="log-action-text" style="border-left-color: ${visual.borderLeft}">
+        <div class="log-action-text">
           ${escapeHtml(log.accion || meta.emptyText)}
         </div>
         ${extraHtml}
-      </div>
+      </article>
     `;
   }).join('');
 }

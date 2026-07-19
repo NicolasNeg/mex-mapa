@@ -204,8 +204,12 @@ const ROUTE_STYLES = {
   "/app/mapa": [
     { href: "/css/mapa.css", attr: "data-lmapa-css" },
     { href: "/css/alertas.css", attr: "data-lmapa-alertas-css" },
+    { href: "/css/app-registros-movimientos.css", attr: "data-lmapa-rm-css" },
   ],
-  "/app/cuadre": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
+  "/app/cuadre": [
+    { href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" },
+    { href: "/css/app-registros-movimientos.css", attr: "data-lmapa-rm-css" },
+  ],
   "/app/cuadrarflota": [{ href: "/css/app-cuadrarflota.css?v=20260715cf", attr: "data-app-cuadrarflota-css" }],
   "/app/traslados": [{ href: "/css/app-traslados.css", attr: "data-app-traslados-css" }],
   "/app/admin": [{ href: "/css/app-admin-chrome.css?v=20260718a", attr: "data-app-admin-chrome-css" }, { href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
