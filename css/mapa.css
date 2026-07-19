@@ -3824,6 +3824,22 @@
       border-radius: 4px;
     }
 
+    .td-notas {
+      max-width: 200px;
+    }
+
+    .td-notas-text {
+      display: block;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      cursor: help;
+    }
+
     .td-gas {
       font-weight: 800;
       background: var(--bg);

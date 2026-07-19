@@ -6541,7 +6541,7 @@ function renderFlota(data) {
   const thAutor = document.getElementById('th-autor');
 
   if (thAutor) {
-    thAutor.style.display = (VISTA_ACTUAL_FLOTA === 'ADMINS') ? 'table-cell' : 'none';
+    thAutor.style.display = 'table-cell';
     thAutor.innerText = 'Notas / Responsable';
   }
 
@@ -6556,20 +6556,14 @@ function renderFlota(data) {
 
     const responsable = _resolverResponsableCuadreAdmin(u);
     const adminResponsable = String(u.adminResponsable || u._updatedBy || u._createdBy || '').trim();
-    const notaResumen = escapeHtml(_resumirTextoCuadreAdmin(u.notas || ''));
-    const responsableLabel = escapeHtml(responsable || adminResponsable || 'Sin responsable');
-    const extraAdminLine = adminResponsable && adminResponsable !== responsable
-      ? `<span style="font-size:10px; color:#94a3b8; font-weight:800;">Capturó: ${escapeHtml(adminResponsable)}</span>`
-      : '';
-    const tdAutor = (VISTA_ACTUAL_FLOTA === 'ADMINS')
-      ? `<td style="min-width:220px;">
-          <div style="display:flex; flex-direction:column; gap:5px;">
-            <span style="font-size:10px; font-weight:900; color:#0f172a;">${notaResumen}</span>
-            <span style="font-size:10px; color:#64748b; font-weight:800;">Responsable: ${responsableLabel}</span>
-            ${extraAdminLine}
-          </div>
-        </td>`
-      : '';
+    const responsableLabel = responsable || adminResponsable || 'Sin responsable';
+    const notaCruda = String(u.notas || '').trim();
+    // Logica facil: si tiene nota se muestra la nota, si no hay nota se muestra el responsable.
+    const notaOrResponsable = notaCruda
+      ? _resumirTextoCuadreAdmin(notaCruda, 60)
+      : `Responsable: ${responsableLabel}`;
+    const tdAutorTitle = escapeHtml(notaCruda || `Responsable: ${responsableLabel}`);
+    const tdAutor = `<td class="td-notas"><span class="td-notas-text" title="${tdAutorTitle}">${escapeHtml(notaOrResponsable)}</span></td>`;
 
     const isMobileOrAdmin = (typeof userRole !== 'undefined' && userRole === 'admin');
     const isMobileVisual = window.innerWidth <= 950;
