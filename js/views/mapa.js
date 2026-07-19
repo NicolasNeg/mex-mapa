@@ -13418,10 +13418,13 @@ function _cuadreRenderFirmaPaso(kind = 'aux') {
   if (faltEl) faltEl.innerText = String(summary.faltantes);
   if (extraEl) extraEl.innerText = String(summary.extras);
 
-  if (input && !String(input.value || '').trim()) {
-    input.value = kind === 'sales'
-      ? (USER_NAME || ctx.ventasFirmaNombre || '')
-      : (ctx.auxiliarNombre || USER_NAME || '');
+  if (input) {
+    if (kind === 'sales') {
+      // No editable: siempre es quien tiene la sesion abierta cerrando el cuadre.
+      input.value = USER_NAME || ctx.ventasFirmaNombre || '';
+    } else if (!String(input.value || '').trim()) {
+      input.value = ctx.auxiliarNombre || USER_NAME || '';
+    }
   }
   if (summaryEl) {
     const auxLabel = ctx.auxiliarNombre || ctx.revisionMeta?.auxiliarNombre || 'auxiliar';
