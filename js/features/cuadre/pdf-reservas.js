@@ -416,6 +416,12 @@ async function _callGeminiActivityCallable(dataUrl, mimeType) {
 /**
  * Imagen (captura) → Gemini → texto + filas para proyección en modal Análisis de Reservas.
  */
+function _actividadRowCount(data = {}) {
+  return (data.reservas?.length || 0)
+    + (data.regresos?.length || 0)
+    + (data.vencidos?.length || 0);
+}
+
 export async function procesarAnalisisReservasDesdeImagen(file) {
   if (!file) return null;
   const isImage = String(file.type || '').startsWith('image/')
@@ -425,8 +431,14 @@ export async function procesarAnalisisReservasDesdeImagen(file) {
   }
   const { dataUrl, mimeType } = await _compressImageFile(file);
   const data = await _callGeminiActivityCallable(dataUrl, mimeType);
+  if (!_actividadRowCount(data)) {
+    throw new Error('No se detectaron filas en la captura.');
+  }
   const text = _actividadToPlainText(data);
   const reservas = actividadGeminiToReservas(data);
+  if (!reservas.length) {
+    throw new Error('No se detectaron filas en la captura.');
+  }
   return { text, reservas, data, previewUrl: dataUrl };
 }
 
@@ -448,6 +460,9 @@ export async function procesarActividadDesdeImagen(eventOrFile) {
     const reservas = _sortReservas(data.reservas || []);
     const regresos = _sortRegresos(data.regresos || []);
     const vencidos = (data.vencidos || []).slice().sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    if (!reservas.length && !regresos.length && !vencidos.length) {
+      throw new Error('No se detectaron filas en la captura.');
+    }
     const fechaFront = data.fechaBase
       ? new Date(`${data.fechaBase}T12:00:00`).toISOString()
       : new Date().toISOString();

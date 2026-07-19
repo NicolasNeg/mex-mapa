@@ -547,6 +547,24 @@ function _rebuildImportRows() {
   _s.importRows = plain.map(row => _unitPayload(row)).filter(r => r.mva);
 }
 
+/** Rechazo duro: OCR/PDF sin ≥1 fila con MVA. */
+function _rejectImportOcrNoRows(kind = 'imagen') {
+  _s.importRaw = null;
+  _s.importMapping = {};
+  _s.importRows = [];
+  _s.importFileName = '';
+  const paste = _ctr?.querySelector('#uni-import-paste');
+  if (paste) paste.value = '';
+  const input = _ctr?.querySelector('#uni-import-file');
+  if (input) input.value = '';
+  const msg = kind === 'pdf'
+    ? 'No se detectaron filas en el PDF. Prueba otro archivo o pega filas manualmente.'
+    : 'No se detectaron filas en la imagen. Prueba otra captura.';
+  _s.importMessage = msg;
+  _toast(msg, 'error');
+  _paintImportPreview();
+}
+
 async function _readImportFile(file) {
   if (!file) return;
   _s.importFileName = file.name;
@@ -564,15 +582,14 @@ async function _readImportFile(file) {
         _s.importMessage = `Leyendo PDF… ${pct}%`;
         _paintImportPreview();
       });
-      const paste = _ctr.querySelector('#uni-import-paste');
-      if (paste) paste.value = text;
       _setImportRaw(matrixFromOcrText(text), file.name);
       _rebuildImportRows();
-      if (!_s.importRows.length && text) {
-        _s.importMessage = 'Se extrajo texto del PDF, pero no se detectaron filas tabulares. Revisa el cuadro de texto y pulsa Previsualizar.';
-        _paintImportPreview();
+      if (!_s.importRows.length) {
+        _rejectImportOcrNoRows('pdf');
         return;
       }
+      const paste = _ctr.querySelector('#uni-import-paste');
+      if (paste) paste.value = text;
     } else if (/\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name) || /^image\//i.test(file.type || '')) {
       _s.importMessage = `Leyendo imagen con OCR…`;
       _paintImportPreview();
@@ -580,17 +597,14 @@ async function _readImportFile(file) {
         _s.importMessage = `OCR en progreso… ${pct}%`;
         _paintImportPreview();
       });
-      const paste = _ctr.querySelector('#uni-import-paste');
-      if (paste) paste.value = text;
       _setImportRaw(matrixFromOcrText(text), file.name);
       _rebuildImportRows();
       if (!_s.importRows.length) {
-        _s.importMessage = text
-          ? 'OCR listo: revisa el texto pegado, ajusta filas si hace falta y pulsa Previsualizar.'
-          : 'No se pudo leer texto en la imagen. Prueba una captura más nítida o pega filas manualmente.';
-        _paintImportPreview();
+        _rejectImportOcrNoRows('imagen');
         return;
       }
+      const paste = _ctr.querySelector('#uni-import-paste');
+      if (paste) paste.value = text;
     } else {
       _s.importRaw = null;
       _s.importMapping = {};
