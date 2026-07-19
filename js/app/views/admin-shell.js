@@ -1,6 +1,6 @@
 /**
  * Centro Admin — contenido SPA (CONTROLES viven en el sidebar global).
- * LISTAS nativas: Usuarios, Choferes, Roles, Solicitudes. Resto: iframe.
+ * LISTAS + OPCIONES operación nativas. Plazas/Ubicaciones/Empresa: iframe.
  */
 import {
   ADMIN_NATIVE_SECTIONS,
@@ -27,9 +27,15 @@ import {
   unmountSolicitudesPanel,
   syncSolicitudesSelection
 } from '/js/app/features/admin/admin-solicitudes-panel.js';
+import {
+  mountOpcionesPanel,
+  unmountOpcionesPanel,
+  syncOpcionesSelection
+} from '/js/app/features/admin/admin-opciones-panel.js';
+import { OPCIONES_SECTIONS } from '/js/app/features/admin/admin-opciones-data.js';
 
 const FRAME_ID = 'mex-admin-legacy-frame';
-const FRAME_VER = '20260719j';
+const FRAME_VER = '20260719k';
 
 let _root = null;
 let _navigate = null;
@@ -38,7 +44,7 @@ let _entityId = '';
 let _nativeSection = '';
 
 function _ensureCss() {
-  const href = '/css/app-admin.css?v=20260719j';
+  const href = '/css/app-admin.css?v=20260719k';
   let link = document.querySelector('link[data-app-admin-spa-css="1"]');
   if (!link) {
     link = document.createElement('link');
@@ -130,6 +136,7 @@ function _unmountNative() {
   unmountChoferesPanel();
   unmountRolesPanel();
   unmountSolicitudesPanel();
+  unmountOpcionesPanel();
   _nativeSection = '';
 }
 
@@ -170,6 +177,17 @@ function _showNative(section, entityId) {
 
   if (_nativeSection && _nativeSection !== section) {
     _unmountNative();
+  }
+
+  // OPCIONES: un solo panel reutilizable por sección de catálogo
+  if (OPCIONES_SECTIONS.has(section)) {
+    if (_nativeSection !== section) {
+      mountOpcionesPanel(native, { navigate: _navigate, entityId, section });
+      _nativeSection = section;
+    } else {
+      syncOpcionesSelection(entityId, section);
+    }
+    return;
   }
 
   const mountMap = {

@@ -40,7 +40,17 @@ export const ADMIN_NAV_GROUPS = [
 ];
 
 /** Secciones ya migradas a SPA nativa (sin iframe). */
-export const ADMIN_NATIVE_SECTIONS = new Set(['usuarios', 'choferes', 'roles', 'solicitudes']);
+export const ADMIN_NATIVE_SECTIONS = new Set([
+  'usuarios',
+  'choferes',
+  'roles',
+  'solicitudes',
+  'estados',
+  'categorias',
+  'modelos',
+  'gasolinas',
+  'motivos_traslado'
+]);
 
 function _decodeSeg(raw = '') {
   const s = String(raw || '').trim();
