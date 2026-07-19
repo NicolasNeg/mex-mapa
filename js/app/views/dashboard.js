@@ -208,6 +208,7 @@ function _renderHtml() {
           </div>
         </div>` : ''}
 
+        ${window.mexPerms?.canDo?.('view_turnos') !== false ? `
         <!-- Mi turno (expandido) -->
         <div class="dash-widget dash-turno-widget">
           <div class="dash-widget-head">
@@ -229,7 +230,7 @@ function _renderHtml() {
           <div class="dash-widget-body" id="dashEquipoBody">
             <p class="dash-widget-empty">Sin compañeros activos</p>
           </div>
-        </div>
+        </div>` : ''}
 
       </div><!-- /dash-sidebar -->
     </div><!-- /dash-body -->

@@ -4352,7 +4352,9 @@
       }
     }
 
-    /* ESTILOS DIÁLOGOS MODALES */
+    /* ESTILOS DIÁLOGOS MODALES
+       display:none por defecto (no opacity:0 + display:flex) para evitar el flash
+       de diálogos ocultos al cargar el mapa antes de que el CSS/JS aplique .active. */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -4360,7 +4362,7 @@
       box-sizing: border-box;
       background: rgba(15, 23, 42, 0.7);
       z-index: 9999;
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(4px);
@@ -4372,17 +4374,17 @@
     }
 
     .modal-overlay.active {
+      display: flex;
       opacity: 1;
       pointer-events: auto;
     }
 
     #reserveModal.modal-overlay {
       z-index: 2147483000 !important;
-      display: flex;
-      visibility: visible;
     }
 
     #reserveModal.modal-overlay.active {
+      display: flex !important;
       opacity: 1 !important;
       pointer-events: auto !important;
     }

@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { db, COL } from '/js/core/database.js';
-import { isFirestoreIndexError, listenerErrorFrom, normalizePlazaUsuario } from '/js/app/features/turnos/turnos-view-model.js';
+import { isFirestoreIndexError, listenerErrorFrom, usuarioPerteneceAPlaza, normalizeUsuarioUid } from '/js/app/features/turnos/turnos-view-model.js';
 import { PALETA } from '/js/app/features/turnos/turno-color.js';
 
 export { isFirestoreIndexError, listenerErrorFrom };
@@ -637,21 +637,33 @@ export async function getUsuariosPlaza(plaza) {
     }
   }
 
-  const filterByPlaza = docs =>
-    docs
-      .map(_mapUsuarioDoc)
-      .filter(u => normalizePlazaUsuario(u) === plazaUp)
-      .sort(_sortUsuarios);
+  const mergeByUid = (docsLists) => {
+    const map = new Map();
+    for (const docs of docsLists) {
+      for (const d of docs || []) {
+        const u = _mapUsuarioDoc(d);
+        const id = normalizeUsuarioUid(u);
+        if (!id || map.has(id)) continue;
+        if (!usuarioPerteneceAPlaza(u, plazaUp)) continue;
+        map.set(id, u);
+      }
+    }
+    return [...map.values()].sort(_sortUsuarios);
+  };
 
   try {
-    let snap = await db.collection(COL.USERS).where('plazaAsignada', '==', plazaUp).limit(150).get();
-    if (!snap.empty) return filterByPlaza(snap.docs);
+    const snaps = await Promise.all([
+      db.collection(COL.USERS).where('plazaAsignada', '==', plazaUp).limit(150).get().catch(() => null),
+      db.collection(COL.USERS).where('plaza', '==', plazaUp).limit(150).get().catch(() => null),
+      db.collection(COL.USERS).where('plazasPermitidas', 'array-contains', plazaUp).limit(150).get().catch(() => null),
+    ]);
+    const docsLists = snaps.filter(Boolean).map(s => s.docs);
+    let merged = mergeByUid(docsLists);
+    if (merged.length) return merged;
 
-    snap = await db.collection(COL.USERS).where('plaza', '==', plazaUp).limit(150).get();
-    if (!snap.empty) return filterByPlaza(snap.docs);
-
-    snap = await db.collection(COL.USERS).limit(150).get();
-    return filterByPlaza(snap.docs);
+    // Fallback: escaneo acotado (multi-plaza / campos legacy).
+    const snap = await db.collection(COL.USERS).limit(200).get();
+    return mergeByUid([snap.docs]);
   } catch (err) {
     if (isFirestoreIndexError(err)) {
       const e = new Error('INDEX_MISSING');

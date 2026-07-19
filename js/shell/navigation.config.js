@@ -129,6 +129,7 @@ export const NAV_GROUPS = [
         icon: 'schedule',
         route: '/app/turnos',
         roles: '*',
+        permission: 'view_turnos',
       },
       {
         id: 'historial-operativo',
@@ -191,6 +192,12 @@ function _featureEnabled(feature) {
   return !feature || !window.mexFeatures || window.mexFeatures.puedeUsar(feature);
 }
 
+function _permissionEnabled(permission) {
+  if (!permission) return true;
+  if (!window.mexPerms?.canDo) return true;
+  return window.mexPerms.canDo(permission) === true;
+}
+
 export function filterNavForRole(userRole) {
   return NAV_GROUPS
     .map(group => ({
@@ -198,10 +205,11 @@ export function filterNavForRole(userRole) {
       items: group.items
         .filter(item => hasNavAccess(userRole, item.roles))
         .filter(item => _featureEnabled(item.feature))
+        .filter(item => _permissionEnabled(item.permission))
         .map(item => ({
           ...item,
           children: Array.isArray(item.children)
-            ? item.children.filter(child => _featureEnabled(child.feature))
+            ? item.children.filter(child => _featureEnabled(child.feature) && _permissionEnabled(child.permission))
             : item.children
         }))
     }))

@@ -30,6 +30,16 @@ export function normalizePlazaUsuario(u) {
   return String(u?.plazaAsignada || u?.plaza || u?.plazaId || '').toUpperCase().trim();
 }
 
+/** ¿El usuario pertenece a la plaza? (plaza asignada O plazasPermitidas). */
+export function usuarioPerteneceAPlaza(u, plaza) {
+  const p = String(plaza || '').toUpperCase().trim();
+  if (!p || !u) return false;
+  if (normalizePlazaUsuario(u) === p) return true;
+  const list = Array.isArray(u.plazasPermitidas) ? u.plazasPermitidas
+    : Array.isArray(u.plazas) ? u.plazas : [];
+  return list.some(x => String(x || '').toUpperCase().trim() === p);
+}
+
 export function nombreUsuario(u) {
   return String(u?.nombreCompleto || u?.nombre || u?.email || u?.id || '—')
     .split(/\s+/).slice(0, 2).join(' ');

@@ -179,6 +179,8 @@ const ROUTE_TABLE = {
   '/app/turnos': {
     loader:   () => import('/js/app/views/turnos.js'),
     navRoute: '/app/turnos',
+    // Gate por permiso (mexPerms.view_turnos); feature-gates de empresa siempre on en single-tenant.
+    permission: 'view_turnos',
   },
   '/app/historial-operativo': {
     loader:   () => import('/js/app/views/historial-operativo.js'),
@@ -272,6 +274,7 @@ function _routeForPath(path) {
   if (key.startsWith('/app/mensajes/')) return ROUTE_TABLE['/app/mensajes'];
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return ROUTE_TABLE['/app/traslados'];
   if (key.startsWith('/app/cuadre/u/')) return ROUTE_TABLE['/app/cuadre/u'];
+  if (key.startsWith('/app/editmap/')) return ROUTE_TABLE['/app/editmap'];
   return ROUTE_TABLE[key];
 }
 
@@ -281,6 +284,7 @@ function _styleKeyForPath(path) {
   if (key.startsWith('/app/mensajes/')) return '/app/mensajes';
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return '/app/traslados';
   if (key.startsWith('/app/cuadre/u/')) return '/app/cuadre/u';
+  if (key.startsWith('/app/editmap/')) return '/app/editmap';
   return key;
 }
 
@@ -423,6 +427,12 @@ export function createRouter({ shell }) {
     // Feature gate check — block access if empresa has the feature disabled
     if (route?.feature && window.mexFeatures && !window.mexFeatures.puedeUsar(route.feature)) {
       _renderFeatureDisabled(contentEl, route.feature);
+      return;
+    }
+
+    // Permiso por rol (mexPerms) — p.ej. view_turnos
+    if (route?.permission && window.mexPerms?.canDo && !window.mexPerms.canDo(route.permission)) {
+      _renderFeatureDisabled(contentEl, route.permission);
       return;
     }
 

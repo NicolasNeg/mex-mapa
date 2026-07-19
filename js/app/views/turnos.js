@@ -377,6 +377,15 @@ export async function mount({ container }) {
   _ctr = container;
   _ensureCss();
 
+  if (window.mexPerms?.canDo && !window.mexPerms.canDo('view_turnos')) {
+    container.innerHTML = `<section class="tu-view"><div class="tu-empty-state">
+      <span class="material-symbols-outlined">lock</span>
+      <h2>Sin acceso a Turnos</h2>
+      <p>Tu rol no tiene permiso para ver turnos y horarios.</p>
+    </div></section>`;
+    return;
+  }
+
   const gs      = getState();
   const role    = String(gs.role || 'AUXILIAR').toUpperCase();
   const plaza   = String(getCurrentPlaza() || gs.profile?.plazaAsignada || '').toUpperCase().trim();
