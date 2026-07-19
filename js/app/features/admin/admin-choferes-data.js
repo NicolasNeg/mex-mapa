@@ -1,0 +1,100 @@
+import { db, COL, storage } from '/js/core/database.js';
+
+function _fv() {
+  return window.firebase?.firestore?.FieldValue || null;
+}
+
+function _safeSegment(value) {
+  return String(value || '').trim().replace(/[^a-zA-Z0-9_.@-]/g, '_') || 'usuario';
+}
+
+export function isChoferRegistrado(user = {}) {
+  return user.isChofer === true
+    && Boolean(String(user.licenciaVencimiento || '').trim())
+    && Boolean(String(user.licenciaArchivoUrl || user.licenciaArchivoPath || '').trim());
+}
+
+export function validateLicenciaFile(file) {
+  if (!file) return 'Sube una foto o PDF de la licencia.';
+  const type = String(file.type || '').toLowerCase();
+  const name = String(file.name || '').toLowerCase();
+  const ok = type.startsWith('image/') || type === 'application/pdf' || name.endsWith('.pdf');
+  if (!ok) return 'La licencia debe ser imagen o PDF.';
+  if (file.size > 12 * 1024 * 1024) return 'La licencia no puede pesar más de 12 MB.';
+  return '';
+}
+
+async function _uploadLicencia(user, file) {
+  const root = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
+  if (!root || typeof root.ref !== 'function') throw new Error('Storage no está disponible.');
+  const safeUser = _safeSegment(user.id || user.email || user.nombre);
+  const safeName = _safeSegment(file.name || 'licencia');
+  const path = `licencias_choferes/${safeUser}/licencia_${Date.now()}_${safeName}`;
+  const ref = root.ref(path);
+  const contentType = file.type
+    || (String(file.name || '').toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+  const snap = await ref.put(file, { contentType });
+  const url = await snap.ref.getDownloadURL();
+  return { path, url, contentType };
+}
+
+export async function saveChoferRegistro(user, { licenciaVencimiento, file, actorEmail = '' }) {
+  const venc = String(licenciaVencimiento || '').trim().slice(0, 10);
+  if (!venc) throw new Error('Captura el vencimiento de licencia.');
+  const hasExisting = Boolean(user.licenciaArchivoUrl || user.licenciaArchivoPath);
+  if (!file && !hasExisting) throw new Error('Sube la foto o PDF de la licencia vigente.');
+  if (file) {
+    const err = validateLicenciaFile(file);
+    if (err) throw new Error(err);
+  }
+
+  const fv = _fv();
+  const updateData = {
+    isChofer: true,
+    licenciaVencimiento: venc,
+    licenciaSubidaPor: String(actorEmail || '').trim().toLowerCase() || 'Sistema',
+    licenciaActualizadaAt: fv ? fv.serverTimestamp() : new Date().toISOString(),
+    actualizadoAt: fv ? fv.serverTimestamp() : new Date().toISOString(),
+    actualizadoPor: String(actorEmail || '').trim().toLowerCase(),
+    updatedFrom: 'app_admin_choferes'
+  };
+
+  if (file) {
+    const uploaded = await _uploadLicencia(user, file);
+    updateData.licenciaArchivoUrl = uploaded.url;
+    updateData.licenciaArchivoPath = uploaded.path;
+    updateData.licenciaArchivoNombre = file.name || 'licencia';
+    updateData.licenciaArchivoTipo = uploaded.contentType || file.type || '';
+    updateData.licenciaSubidaAt = fv ? fv.serverTimestamp() : new Date().toISOString();
+    if (user.licenciaArchivoPath) {
+      const root = storage || window._storage;
+      try { root?.ref(user.licenciaArchivoPath)?.delete()?.catch(() => {}); } catch (_) { /* ignore */ }
+    }
+  }
+
+  await db.collection(COL.USERS).doc(user.id).set(updateData, { merge: true });
+}
+
+export async function disableChoferRegistro(user, actorEmail = '') {
+  const fv = _fv();
+  const del = fv?.delete ? fv.delete() : null;
+  const clear = {
+    isChofer: false,
+    licenciaVencimiento: del || '',
+    licenciaArchivoUrl: del || '',
+    licenciaArchivoPath: del || '',
+    licenciaArchivoNombre: del || '',
+    licenciaArchivoTipo: del || '',
+    licenciaSubidaAt: del || '',
+    licenciaActualizadaAt: del || '',
+    licenciaSubidaPor: del || '',
+    actualizadoAt: fv ? fv.serverTimestamp() : new Date().toISOString(),
+    actualizadoPor: String(actorEmail || '').trim().toLowerCase(),
+    updatedFrom: 'app_admin_choferes'
+  };
+  await db.collection(COL.USERS).doc(user.id).set(clear, { merge: true });
+  if (user.licenciaArchivoPath) {
+    const root = storage || window._storage;
+    try { root?.ref(user.licenciaArchivoPath)?.delete()?.catch(() => {}); } catch (_) { /* ignore */ }
+  }
+}

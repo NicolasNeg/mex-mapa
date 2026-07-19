@@ -186,11 +186,16 @@ function _paint() {
   _host.querySelector('[data-action="save-user"]')?.addEventListener('click', () => _saveSelected());
 }
 
+function _roValue(text, empty = '—') {
+  const v = String(text || '').trim();
+  if (!v) return `<div class="adm-field-value is-muted">${esc(empty)}</div>`;
+  return `<div class="adm-field-value">${esc(v)}</div>`;
+}
+
 function _detailHtml(user, canEdit) {
   const plazas = (window.MEX_CONFIG?.empresa?.plazas || []).map(p => String(p || '').toUpperCase());
   const canPlaza = canAssignPlazaAsGlobal(_actor().profile, _actor().role);
   const editing = canEdit && _editing;
-  const ro = editing ? '' : 'readonly disabled';
   return `
     <div class="adm-detail">
       <div class="adm-detail-hero">
@@ -210,33 +215,43 @@ function _detailHtml(user, canEdit) {
       <form class="adm-form${editing ? '' : ' is-readonly'}" id="adm-user-form" onsubmit="return false;">
         <label>
           <span>Nombre completo</span>
-          <input name="nombre" type="text" value="${esc(user.nombre)}" ${ro}>
+          ${editing
+            ? `<input name="nombre" type="text" value="${esc(user.nombre)}">`
+            : _roValue(user.nombre, 'Sin nombre')}
         </label>
         <label>
           <span>Correo</span>
-          <input type="email" value="${esc(user.email)}" readonly disabled>
+          ${_roValue(user.email, 'Sin correo')}
         </label>
         <label>
           <span>Teléfono</span>
-          <input name="telefono" type="tel" value="${esc(user.telefono)}" ${ro}>
+          ${editing
+            ? `<input name="telefono" type="tel" value="${esc(user.telefono)}">`
+            : _roValue(user.telefono, 'Sin teléfono')}
         </label>
         <label>
           <span>Plaza base</span>
-          <select name="plazaAsignada" ${editing && canPlaza ? '' : 'disabled'}>
-            <option value="">Sin plaza</option>
-            ${plazas.map(p => `<option value="${esc(p)}" ${user.plaza === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
-          </select>
+          ${editing
+            ? `<select name="plazaAsignada" ${canPlaza ? '' : 'disabled'}>
+                <option value="">Sin plaza</option>
+                ${plazas.map(p => `<option value="${esc(p)}" ${user.plaza === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
+              </select>`
+            : _roValue(user.plaza, 'Sin plaza')}
         </label>
         <label>
           <span>Estado</span>
-          <select name="status" ${editing ? '' : 'disabled'}>
-            ${['ACTIVO', 'INACTIVO', 'SUSPENDIDO'].map(s =>
-              `<option value="${s}" ${user.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-          </select>
+          ${editing
+            ? `<select name="status">
+                ${['ACTIVO', 'INACTIVO', 'SUSPENDIDO'].map(s =>
+                  `<option value="${s}" ${user.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+              </select>`
+            : _roValue(user.status, 'ACTIVO')}
         </label>
         <label class="adm-form-full">
           <span>Notas internas</span>
-          <textarea name="notasInternas" rows="3" ${ro}>${esc(user.notasInternas)}</textarea>
+          ${editing
+            ? `<textarea name="notasInternas" rows="3">${esc(user.notasInternas)}</textarea>`
+            : _roValue(user.notasInternas, 'Sin notas')}
         </label>
         <div class="adm-form-actions">
           ${canEdit && !editing ? `

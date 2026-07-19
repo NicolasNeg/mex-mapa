@@ -47,6 +47,12 @@ export function canEditUsersBasics(profile, role) {
   return hasAppPermission(profile, role, 'manage_users');
 }
 
+/** Editar registro de chofer (licencia) sobre un usuario concreto. */
+export function canEditChoferRecord(profile, role, targetRole) {
+  if (!canEditUsersBasics(profile, role)) return false;
+  return canAssignTargetRole(role, targetRole);
+}
+
 /**
  * Lectura del directorio de usuarios.
  * Hoy: cualquiera con acceso al panel puede ver.

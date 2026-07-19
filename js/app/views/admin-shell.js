@@ -1,6 +1,6 @@
 /**
  * Centro Admin — contenido SPA (CONTROLES viven en el sidebar global).
- * Usuarios: nativo LISTAS. Resto: iframe legacy hasta migrar.
+ * Usuarios/Choferes: nativo LISTAS. Resto: iframe legacy hasta migrar.
  */
 import {
   ADMIN_NATIVE_SECTIONS,
@@ -12,18 +12,23 @@ import {
   unmountUsuariosPanel,
   syncUsuariosSelection
 } from '/js/app/features/admin/admin-usuarios-panel.js';
+import {
+  mountChoferesPanel,
+  unmountChoferesPanel,
+  syncChoferesSelection
+} from '/js/app/features/admin/admin-choferes-panel.js';
 
 const FRAME_ID = 'mex-admin-legacy-frame';
-const FRAME_VER = '20260719h';
+const FRAME_VER = '20260719i';
 
 let _root = null;
 let _navigate = null;
 let _section = 'usuarios';
 let _entityId = '';
-let _nativeMounted = false;
+let _nativeSection = '';
 
 function _ensureCss() {
-  const href = '/css/app-admin.css?v=20260719h';
+  const href = '/css/app-admin.css?v=20260719i';
   let link = document.querySelector('link[data-app-admin-spa-css="1"]');
   if (!link) {
     link = document.createElement('link');
@@ -46,19 +51,74 @@ function _legacySrc(section, entityId) {
   return `/gestion.html?${params.toString()}`;
 }
 
+/** CSS inyectado: debe ganar a app-admin-chrome (misma especificidad ID+clase). */
+const LEGACY_SHELL_CSS = `
+  #modal-config-global.admin-registry #cfg-admin-sidebar,
+  #modal-config-global.admin-registry .cfg-v2-sidebar,
+  #modal-config-global.admin-registry .cfg-v2-sidebar.shell-sidebar-surface {
+    display: none !important;
+  }
+  #modal-config-global.admin-registry .cfg-v2-body,
+  #modal-config-global.admin-registry .cfg-v2-body:has(#cfg-admin-sidebar.is-pinned),
+  #modal-config-global.admin-registry .cfg-v2-body:has(.cfg-v2-sidebar.is-pinned) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  #modal-config-global.admin-registry .cfg-v2-main,
+  #modal-config-global.admin-registry .cfg-v2-main.shell-main-stage {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+  #modal-config-global.admin-registry .cfg-v2-workspace-header,
+  #modal-config-global.admin-registry .cfg-v2-tools,
+  #modal-config-global.admin-registry #cfg-v2-tools,
+  #modal-config-global.admin-registry .admin-metric-ribbon {
+    display: none !important;
+  }
+  #modal-config-global.admin-registry .admin-tray-shell,
+  #modal-config-global.admin-registry #cfg-lista-items,
+  #modal-config-global.admin-registry .cfg-v2-list,
+  #modal-config-global.admin-registry .um-workspace,
+  #modal-config-global.admin-registry .um-workspace-lite,
+  #modal-config-global.admin-registry .um-workspace-shell,
+  #modal-config-global.admin-registry .um-workspace-shell-lite {
+    width: 100% !important;
+    max-width: none !important;
+  }
+  #modal-config-global.admin-registry,
+  #modal-config-global.admin-registry * {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+  #modal-config-global.admin-registry button,
+  #modal-config-global.admin-registry .cfg-tab,
+  #modal-config-global.admin-registry .um-card,
+  #modal-config-global.admin-registry .cfg-item {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
+`;
+
 function _injectLegacyCss(frame) {
   try {
     const doc = frame?.contentDocument;
-    if (!doc || doc.getElementById('admSpaLegacyHide')) return;
-    const style = doc.createElement('style');
-    style.id = 'admSpaLegacyHide';
-    style.textContent = `
-      #cfg-admin-sidebar, .cfg-v2-sidebar { display:none!important; }
-      .cfg-v2-body { grid-template-columns:minmax(0,1fr)!important; }
-      .cfg-v2-workspace-header, .cfg-v2-tools, #cfg-v2-tools, .admin-metric-ribbon { display:none!important; }
-    `;
-    doc.head?.appendChild(style);
+    if (!doc) return;
+    let style = doc.getElementById('admSpaLegacyHide');
+    if (!style) {
+      style = doc.createElement('style');
+      style.id = 'admSpaLegacyHide';
+      doc.head?.appendChild(style);
+    }
+    style.textContent = LEGACY_SHELL_CSS;
   } catch (_) { /* cross-origin / not ready */ }
+}
+
+function _unmountNative() {
+  unmountUsuariosPanel();
+  unmountChoferesPanel();
+  _nativeSection = '';
 }
 
 function _showLegacy(section, entityId) {
@@ -66,8 +126,7 @@ function _showLegacy(section, entityId) {
   const wrap = _root?.querySelector('#adm-legacy-wrap');
   if (native) native.hidden = true;
   if (wrap) wrap.hidden = false;
-  unmountUsuariosPanel();
-  _nativeMounted = false;
+  _unmountNative();
 
   let frame = document.getElementById(FRAME_ID);
   if (!frame && wrap) {
@@ -91,17 +150,33 @@ function _showLegacy(section, entityId) {
   }
 }
 
-function _showNativeUsuarios(entityId) {
+function _showNative(section, entityId) {
   const native = _root?.querySelector('#adm-native');
   const wrap = _root?.querySelector('#adm-legacy-wrap');
   if (wrap) wrap.hidden = true;
   if (native) native.hidden = false;
 
-  if (!_nativeMounted) {
-    mountUsuariosPanel(native, { navigate: _navigate, entityId });
-    _nativeMounted = true;
-  } else {
-    syncUsuariosSelection(entityId);
+  if (_nativeSection && _nativeSection !== section) {
+    _unmountNative();
+  }
+
+  if (section === 'usuarios') {
+    if (_nativeSection !== 'usuarios') {
+      mountUsuariosPanel(native, { navigate: _navigate, entityId });
+      _nativeSection = 'usuarios';
+    } else {
+      syncUsuariosSelection(entityId);
+    }
+    return;
+  }
+
+  if (section === 'choferes') {
+    if (_nativeSection !== 'choferes') {
+      mountChoferesPanel(native, { navigate: _navigate, entityId });
+      _nativeSection = 'choferes';
+    } else {
+      syncChoferesSelection(entityId);
+    }
   }
 }
 
@@ -110,7 +185,7 @@ function _applySection(section, entityId) {
   _entityId = entityId || '';
 
   if (ADMIN_NATIVE_SECTIONS.has(_section)) {
-    if (_section === 'usuarios') _showNativeUsuarios(_entityId);
+    _showNative(_section, _entityId);
   } else {
     _showLegacy(_section, _entityId);
   }
@@ -146,7 +221,6 @@ export function mount(ctx = {}) {
   const container = ctx.container || document.getElementById('mexShellMain');
   if (!container) return;
 
-  // Clear previous absolute frames from old admin.js
   const old = document.getElementById('mex-admin-frame');
   if (old) {
     try { old.remove(); } catch (_) { old.style.display = 'none'; }
@@ -164,7 +238,6 @@ export function mount(ctx = {}) {
   _section = parsed.section || 'usuarios';
   _entityId = parsed.entityId || '';
 
-  // /app/admin → /app/admin/usuarios
   if (path.replace(/\/$/, '') === '/app/admin') {
     _section = 'usuarios';
     _navigate?.(adminSectionPath('usuarios'), { replace: true });
@@ -175,8 +248,7 @@ export function mount(ctx = {}) {
 }
 
 export function unmount() {
-  unmountUsuariosPanel();
-  _nativeMounted = false;
+  _unmountNative();
   const frame = document.getElementById(FRAME_ID);
   if (frame) frame.remove();
   if (_root) {
