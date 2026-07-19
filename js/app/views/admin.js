@@ -14,7 +14,7 @@ function _getOrCreateFrame() {
     if (!main) return null;
     f = document.createElement('iframe');
     f.id = FRAME_ID;
-    f.src = '/gestion.html?admin=1&v=20260719d';
+    f.src = '/gestion.html?admin=1&v=20260719e';
     f.setAttribute('data-admin-frame', '1');
     f.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;z-index:20;display:none;background:#f8fafc;';
     main.appendChild(f);
@@ -26,8 +26,8 @@ export function mount(_ctx) {
   const frame = _getOrCreateFrame();
   if (!frame) return;
   // Forzar recarga si el iframe quedó con markup/CSS viejo en caché
-  const want = '/gestion.html?admin=1&v=20260719d';
-  if (!String(frame.src || '').includes('v=20260719d')) {
+  const want = '/gestion.html?admin=1&v=20260719e';
+  if (!String(frame.src || '').includes('v=20260719e')) {
     frame.src = want;
   }
   frame.style.display = 'block';

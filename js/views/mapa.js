@@ -7421,23 +7421,30 @@ function cerrarUsuariosModal() {
 function _umIniciar() {
   if (_unsubUsuarios) _unsubUsuarios();
   const host = document.getElementById('um-cards-container');
-  if (host) host.innerHTML = '<tr><td colspan="6" class="um-empty">Cargando usuarios…</td></tr>';
+  if (host) {
+    host.innerHTML = `
+      <div class="um-loading">
+        <span class="material-icons spinner" style="vertical-align:middle;">sync</span>
+        Cargando usuarios…
+      </div>`;
+  }
 
-  let _qUm = db.collection(COL.USERS);
-  _unsubUsuarios = _qUm.onSnapshot(snap => {
-    const currentDocId = String(
-      currentUserProfile?.id
-      || currentUserProfile?.email
-      || auth.currentUser?.email
-      || ''
-    ).trim().toLowerCase();
+  if (!db || !COL?.USERS) {
+    if (host) {
+      host.innerHTML = `
+        <div class="um-loading um-loading-empty">
+          <span class="material-icons">error</span>
+          <strong>Firestore no disponible</strong>
+          <small>Recarga el panel admin e intenta de nuevo.</small>
+        </div>`;
+    }
+    return;
+  }
+
+  _unsubUsuarios = db.collection(COL.USERS).onSnapshot(snap => {
     _umUsers = snap.docs
       .map(d => _normalizeUserProfile({ id: d.id, ...d.data() }))
-      .filter(profile => {
-        const candidateId = String(profile?.id || profile?.email || '').trim().toLowerCase();
-        return !currentDocId || candidateId !== currentDocId;
-      })
-      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+      .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || '')));
 
     _umRenderCards();
     _cfgRefreshAdminHeroStats(true).catch(() => {});
@@ -7446,7 +7453,18 @@ function _umIniciar() {
       const updated = _umUsers.find(u => u.id === _umSelectedId);
       if (updated) _umRenderEditForm(updated);
     }
-  }, err => console.error('onSnapshot usuarios:', err));
+  }, err => {
+    console.error('onSnapshot usuarios:', err);
+    const list = document.getElementById('um-cards-container');
+    if (list) {
+      list.innerHTML = `
+        <div class="um-loading um-loading-empty">
+          <span class="material-icons">error</span>
+          <strong>No se pudieron cargar usuarios</strong>
+          <small>${escapeHtml(err?.message || 'Error de permisos o red')}</small>
+        </div>`;
+    }
+  });
 }
 
 function _umAvatarStyle(nombre) {
@@ -7486,29 +7504,32 @@ function _umRenderCards() {
 
   if (list.length === 0) {
     container.innerHTML = `
-      <tr><td colspan="6" class="um-empty">No hay usuarios con ese criterio.</td></tr>
-    `;
+      <div class="um-loading um-loading-empty">
+        <span class="material-icons">person_search</span>
+        <strong>No hay usuarios</strong>
+        <small>Ajusta el buscador o crea un usuario nuevo.</small>
+      </div>`;
     return;
   }
 
+  // LISTAS: 2–3 datos clave (avatar, nombre, correo + plaza) → detalle a la derecha
   container.innerHTML = list.map(u => {
     const badge = _umRoleBadge(u.rol);
-    const active = u.id === _umSelectedId ? ' is-selected' : '';
-    const plazaLabel = escapeHtml(u.plazaAsignada || 'Sin plaza');
-    const statusRaw = String(u.status || 'ACTIVO').toUpperCase();
-    const statusOk = statusRaw === 'ACTIVO';
-    const statusCls = statusOk ? 'um-status-text yes' : 'um-status-text no';
+    const active = u.id === _umSelectedId ? ' active' : '';
     const idArg = String(u.id || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    return `<tr class="um-row${active}" onclick="umSeleccionar('${idArg}')">
-      <td class="um-td-main">${escapeHtml(u.nombre || 'Sin nombre')}</td>
-      <td>${escapeHtml(u.email || '(heredado)')}</td>
-      <td>${escapeHtml(badge.label)}</td>
-      <td>${plazaLabel}</td>
-      <td><span class="${statusCls}">${escapeHtml(statusRaw)}</span></td>
-      <td class="um-td-actions">
-        <button type="button" class="um-link-btn" onclick="event.stopPropagation(); umSeleccionar('${idArg}')">Ver</button>
-      </td>
-    </tr>`;
+    const photo = String(u.photoURL || u.fotoUrl || u.avatarUrl || '').trim();
+    const avatarInner = photo
+      ? `<img src="${escapeHtml(photo)}" alt="" class="um-avatar-img">`
+      : escapeHtml(_umInitials(u.nombre || u.email || 'U'));
+    return `
+      <button type="button" class="um-card${active}" onclick="umSeleccionar('${idArg}')">
+        <span class="um-avatar" style="${photo ? '' : _umAvatarStyle(u.nombre || u.email || 'U')}">${avatarInner}</span>
+        <span class="um-card-copy">
+          <strong class="um-card-name">${escapeHtml(u.nombre || 'Sin nombre')}</strong>
+          <small class="um-card-email">${escapeHtml(u.email || '(heredado)')}</small>
+          <span class="um-card-meta">${escapeHtml(u.plazaAsignada || 'Sin plaza')} · ${escapeHtml(badge.label)}</span>
+        </span>
+      </button>`;
   }).join('');
 }
 
@@ -7542,8 +7563,10 @@ function _umRenderEditForm(user) {
     ? `<button type="button" class="um-link-btn um-field-edit" onclick="_umToggleField('${fieldId}')">Editar</button>`
     : '';
 
-  document.getElementById('um-placeholder').style.display = 'none';
+  const placeholder = document.getElementById('um-placeholder');
+  if (placeholder) placeholder.style.display = 'none';
   const container = document.getElementById('um-form-container');
+  if (!container) return;
   container.style.display = 'block';
   container.innerHTML = `<div class="um-detail-card">
         <div class="um-detail-head">
@@ -22031,65 +22054,56 @@ async function guardarEmpresaConfig(actionType = 'EMPRESA_ACTUALIZADA', message 
 
 // ─── LÓGICA DE USUARIOS EN CONFIGURACIÓN ──────────────────────
 function renderizarTabConfigUsuarios(container) {
+  if (!canViewAdminUsers()) {
+    container.innerHTML = '<div style="padding:28px; text-align:center; color:#ef4444; font-weight:800;">Sin permiso para abrir usuarios.</div>';
+    return;
+  }
   container.innerHTML = `
-    <div class="um-formal">
-      <header class="um-page-header">
-        <div class="um-page-title">
-          <h1>Usuarios</h1>
-          <p>Cuentas, roles y alcance operativo</p>
-        </div>
-        <div class="um-page-actions">
-          <button id="btn-nuevo-usuario" type="button" class="um-btn primary" onclick="_umNuevoUsuarioConAnim()" ${canManageUsers() ? '' : 'hidden'}>
-            Nuevo usuario
-          </button>
-        </div>
-      </header>
-
-      <div class="um-controls">
-        <div class="um-controls-row">
-          <label class="um-search">
-            <span>Buscar</span>
-            <input type="text" id="um-search" placeholder="Nombre, correo o rol" oninput="umFiltrar()">
-          </label>
-          <label>
-            <span>Plaza</span>
-            <select id="um-plaza-filter" onchange="_umOnPlazaFilterChange()">
-              <option value="">Todas</option>
+    <div class="um-workspace um-workspace-lite">
+      <div class="um-body um-workspace-shell um-workspace-shell-lite">
+        <div class="um-list-col">
+          <div class="um-column-head um-column-head-lite">
+            <div>
+              <span class="um-column-kicker">Directorio</span>
+              <h4>Usuarios del sistema</h4>
+              <p>Selecciona una cuenta para editar rol, plaza y permisos.</p>
+            </div>
+            <div class="um-column-head-actions">
+              <span id="um-directory-count" class="cfg-catalog-count">0 visibles</span>
+              <button id="btn-nuevo-usuario" type="button" class="um-btn primary um-btn-compact" onclick="_umNuevoUsuarioConAnim()" ${canManageUsers() ? '' : 'hidden'}>
+                Nuevo
+              </button>
+            </div>
+          </div>
+          <div class="um-list-toolbar">
+            <div class="um-search-wrap">
+              <span class="material-icons um-search-icon">search</span>
+              <input type="text" id="um-search" placeholder="Buscar nombre, correo o rol..." oninput="umFiltrar()">
+            </div>
+            <select id="um-plaza-filter" class="um-plaza-select" onchange="_umOnPlazaFilterChange()" title="Filtrar por plaza">
+              <option value="">Todas las plazas</option>
             </select>
-          </label>
-        </div>
-      </div>
-
-      <p class="um-meta" id="um-directory-count">0 registros</p>
-
-      <div class="um-split">
-        <div class="um-table-section">
-          <div class="um-table-wrap">
-            <table class="um-table">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Correo</th>
-                  <th>Rol</th>
-                  <th>Plaza</th>
-                  <th>Estado</th>
-                  <th class="um-th-actions">Acción</th>
-                </tr>
-              </thead>
-              <tbody id="um-cards-container">
-                <tr><td colspan="6" class="um-empty">Cargando usuarios…</td></tr>
-              </tbody>
-            </table>
           </div>
+          <div id="um-cards-container" class="um-cards-stack"></div>
         </div>
 
-        <aside class="um-detail-col">
-          <div id="um-placeholder" class="um-detail-placeholder">
-            <p>Selecciona un usuario</p>
-            <span>Edita identidad, rol, plaza y permisos en el panel de detalle.</span>
+        <div class="um-edit-col">
+          <div class="um-column-head um-column-head-lite">
+            <div>
+              <span class="um-column-kicker">Perfil</span>
+              <h4>Detalle del usuario</h4>
+              <p>Identidad, rol, plaza base y permisos operativos.</p>
+            </div>
           </div>
-          <div id="um-form-container" class="um-form-container" style="display:none;"></div>
-        </aside>
+          <div class="um-editor-stage">
+            <div id="um-placeholder" class="um-placeholder">
+              <span class="material-icons">manage_accounts</span>
+              <h5>Selecciona un usuario</h5>
+              <p>Al elegir una cuenta del directorio verás aquí el formulario completo.</p>
+            </div>
+            <div id="um-form-container" class="um-form-container" style="display:none;"></div>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -22214,44 +22228,24 @@ function _choferesRenderList() {
     `;
     return;
   }
-  host.innerHTML = `
-    <div class="um-table-wrap">
-      <table class="um-table" aria-label="Choferes">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Plaza</th>
-            <th>Rol</th>
-            <th>Estado</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${list.map(user => {
-            const active = user.id === _choferesSelectedId ? ' is-active' : '';
-            const badge = _umRoleBadge(user.rol);
-            const registered = _choferesEstaRegistrado(user);
-            const idArg = _choferesJsArg(user.id);
-            return `<tr class="um-row${active}" onclick="_choferesSelectUser('${idArg}')">
-              <td>
-                <div class="um-row-user">
-                  <span class="um-avatar um-avatar-sm" style="${_umAvatarStyle(user.nombre || user.email || 'U')}">${_umInitials(user.nombre || user.email || 'U')}</span>
-                  <div>
-                    <strong>${escapeHtml(user.nombre || 'SIN NOMBRE')}</strong>
-                    <small>${escapeHtml(user.email || '(usuario heredado)')}</small>
-                  </div>
-                </div>
-              </td>
-              <td>${escapeHtml(user.plazaAsignada || 'Sin plaza')}</td>
-              <td><span class="um-role-badge" style="${badge.style}">${escapeHtml(badge.label)}</span></td>
-              <td><span class="um-role-badge ${registered ? 'success' : 'um-role-badge-muted'}">${registered ? 'CHOFER' : 'SIN ALTA'}</span></td>
-              <td><button type="button" class="um-link-btn" onclick="event.stopPropagation(); _choferesSelectUser('${idArg}')">Ver</button></td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
+  host.innerHTML = list.map(user => {
+    const active = user.id === _choferesSelectedId ? ' active' : '';
+    const registered = _choferesEstaRegistrado(user);
+    const idArg = _choferesJsArg(user.id);
+    const photo = String(user.photoURL || user.fotoUrl || user.avatarUrl || '').trim();
+    const avatarInner = photo
+      ? `<img src="${escapeHtml(photo)}" alt="" class="um-avatar-img">`
+      : escapeHtml(_umInitials(user.nombre || user.email || 'U'));
+    return `
+      <button type="button" class="um-card${active}" onclick="_choferesSelectUser('${idArg}')">
+        <span class="um-avatar" style="${photo ? '' : _umAvatarStyle(user.nombre || user.email || 'U')}">${avatarInner}</span>
+        <span class="um-card-copy">
+          <strong class="um-card-name">${escapeHtml(user.nombre || 'SIN NOMBRE')}</strong>
+          <small class="um-card-email">${escapeHtml(user.email || '(usuario heredado)')}</small>
+          <span class="um-card-meta">${escapeHtml(user.plazaAsignada || 'Sin plaza')} · ${registered ? 'Chofer' : 'Sin alta'}</span>
+        </span>
+      </button>`;
+  }).join('');
 }
 
 function _choferesSelectUser(id, opts = {}) {
@@ -22562,7 +22556,7 @@ function _umGetFilteredUsers() {
 function _umRenderWorkspaceInsights(list = _umGetFilteredUsers()) {
   const summary = document.getElementById('um-summary-strip');
   const countBadge = document.getElementById('um-directory-count');
-  if (countBadge) countBadge.textContent = `${list.length} registros`;
+  if (countBadge) countBadge.textContent = `${list.length} visibles`;
   if (!summary) return;
 
   const total = _umUsers.length;
