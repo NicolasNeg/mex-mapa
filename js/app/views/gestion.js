@@ -104,19 +104,35 @@ export function mount({ container }) {
   const form   = container.querySelector('#inv-form');
   let _sheetCodigo = null;
   let _sheetPuedeRevocar = false;
+  let _sheetCloseTimer = null;
 
   function openSheet(codigo, puedeRevocar) {
+    if (_sheetCloseTimer) {
+      clearTimeout(_sheetCloseTimer);
+      _sheetCloseTimer = null;
+    }
     _sheetCodigo = codigo;
     _sheetPuedeRevocar = puedeRevocar;
     sheet.querySelector('#inv-sheet-title').textContent = codigo;
-    sheet.querySelector('[data-sheet="revoke"]').hidden = !puedeRevocar;
+    const revokeBtn = sheet.querySelector('[data-sheet="revoke"]');
+    revokeBtn.hidden = !puedeRevocar;
+    revokeBtn.disabled = false;
     sheet.hidden = false;
     requestAnimationFrame(() => sheet.classList.add('open'));
   }
 
   function closeSheet() {
+    if (_sheetCloseTimer) {
+      clearTimeout(_sheetCloseTimer);
+      _sheetCloseTimer = null;
+    }
     sheet.classList.remove('open');
-    setTimeout(() => { sheet.hidden = true; _sheetCodigo = null; }, 200);
+    _sheetCloseTimer = setTimeout(() => {
+      _sheetCloseTimer = null;
+      sheet.hidden = true;
+      _sheetCodigo = null;
+      _sheetPuedeRevocar = false;
+    }, 200);
   }
 
   function render(items) {
@@ -226,11 +242,14 @@ export function mount({ container }) {
     if (kind === 'revoke' && _sheetCodigo && _sheetPuedeRevocar) {
       const ok = await mexConfirm('¿Revocar este código? No podrá usarse para registrarse.', 'Revocar invitación');
       if (!ok) return;
+      const revokeBtn = sheet.querySelector('[data-sheet="revoke"]');
+      revokeBtn.disabled = true;
       try {
         await revocarInvitacion(_sheetCodigo);
         closeSheet();
       } catch (err) {
         await mexAlert(err?.message || 'No se pudo revocar.', 'Error');
+        revokeBtn.disabled = false;
       }
     }
   });
