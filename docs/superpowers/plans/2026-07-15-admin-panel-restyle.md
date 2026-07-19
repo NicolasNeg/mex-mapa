@@ -3,6 +3,15 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` task-by-task.  
 > **Spec:** `docs/superpowers/specs/2026-07-15-admin-panel-restyle-design.md`
 
+> **Estado (2026-07-18): Ciclo A completo.** Tasks 1–4 (A1–A2) y buena parte de 5–8 ya habían aterrizado en sesiones previas (commits `c3973cb`, `ecf0893`, `cc66592`) sin marcarse aquí. Esta sesión auditó el estado real contra el código (no contra estos checkboxes, que estaban desactualizados) y cerró lo que faltaba:
+> - **Task 2/3 (gap real):** el header de workspace + metric ribbon estaban construidos pero ocultos por un `display:none !important` posterior — restaurados. Pill `.cfg-tab-count` agregada (CSS-only, sin JS nuevo).
+> - **Task 5/6:** revisado — el gap real era solo tokens (peso 800, hex sin variable) en los campos del modal agregar/editar; Programador y bloqueo patio ya heredaban estilo correcto, no había gap ahí.
+> - **Task 7 (gap real, el más importante):** `gestion.html` — lo que `/app/admin` renderiza en producción vía iframe — estaba desincronizado de `mapa.html`/`mapa-core.html` (idénticos entre sí, más completos). Se nivela `gestion.html` hacia arriba: meta chips + toolbar de 8 acciones portados. El botón `.cfg-v2-close` NO se portó — gestion.html ya lo oculta a propósito (usa su propio botón "Volver al mapa").
+> - **Task 8:** hover-border hardcodeado sin variante dark en 7 selectores → `var(--border-md)`. `admin-luminous.css` anotado con nota de supersesión (no comentario por regla).
+> - **Task 9:** este bloque de estado + deploy a producción.
+>
+> Commits: `61bc816`, `0aa700b`, `807e77f`.
+
 **Goal:** Restyle Centro Admin to corporate “Registry Ledger” chrome (ESTILO + distinctive rail/counts/trays) without migrating JS or removing iframe.
 
 **Architecture:** New `css/app-admin-chrome.css` scoped to `#modal-config-global`. Update markup in `gestion.html` (canonical) and mirror in `mapa.html` / `mapa/templates/mapa-core.html`. Override conflicting rules in `admin-luminous.css`; avoid bulk edits to `config.css`.

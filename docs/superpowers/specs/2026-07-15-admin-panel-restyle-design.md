@@ -1,7 +1,7 @@
 # Design: Panel Admin — restyle corporativo con toque distintivo (Ciclo A)
 
-**Date:** 2026-07-15  
-**Status:** in progress (A1–A4 chrome shipped)  
+**Date:** 2026-07-15 (implementado A1–A5: 2026-07-18)  
+**Status:** implementado — Ciclo A completo (ver `docs/superpowers/plans/2026-07-15-admin-panel-restyle.md` para el detalle de los 9 tasks y qué quedó fuera a propósito: `.cfg-v2-close` en gestion.html permanece oculto por decisión existente, no por gap).  
 **Cycle:** A — restyle visual (CSS + markup ESTILO), **sin migrar JS** ni quitar iframe  
 **Out of cycle:** SPA nativa `/app/admin`, edición avanzada de roles/plazas fuera de legacy, redirect `/gestion → /app/admin`  
 **Related:**  
