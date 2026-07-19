@@ -15,6 +15,7 @@ import {
   loadPlazaUsers,
   loadPlazaUnits
 } from '/js/app/features/cola-preparacion/cola-data.js';
+import { onTurnosActivos } from '/js/app/features/turnos/turnos-data.js';
 import {
   enqueueUnit,
   patchItem,
@@ -46,6 +47,8 @@ let _unsub     = null;   // listener Firestore activo
 let _container = null;   // nodo DOM activo
 let _state     = null;   // estado local de esta vista
 let _unsubPlaza = null;  // listener de plaza global
+let _unsubTurnos = null; // listener de turnos activos (badge/orden "en turno")
+let _turnoActivoKeys = new Set(); // claves normalizadas (email/nombre) de quienes tienen turno ACTIVO
 let _offGlobalSearch = null;
 let _cssInjected = false;
 let _queueSubSeq = 0;
@@ -113,10 +116,45 @@ async function _loadPlazaUnits() {
   _renderDatalists();
 }
 
+function _normNombre(s) {
+  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** ¿El texto de "asignado" corresponde a alguien con turno ACTIVO ahora? Best-effort por nombre. */
+function _estaEnTurno(asignadoStr) {
+  const norm = _normNombre(asignadoStr);
+  if (!norm) return false;
+  for (const key of _turnoActivoKeys) {
+    if (norm === key || norm.includes(key) || key.includes(norm)) return true;
+  }
+  return false;
+}
+
+function _subscribeTurnosActivos(plaza) {
+  if (typeof _unsubTurnos === 'function') { try { _unsubTurnos(); } catch (_) {} }
+  _unsubTurnos = null;
+  _turnoActivoKeys = new Set();
+  if (!plaza) return;
+  _unsubTurnos = onTurnosActivos(plaza, (turnos) => {
+    _turnoActivoKeys = new Set(
+      (turnos || []).map(t => _normNombre(t.usuarioNombre)).filter(Boolean)
+    );
+    _renderDatalists();
+    _renderListByState();
+  });
+}
+
 function _renderDatalists() {
   const udl = _container?.querySelector('#prepUsersDatalist');
   if (udl) {
-    udl.innerHTML = _plazaUsers.map(u => `<option value="${escAttr(u.value)}">${esc(u.label)}</option>`).join('');
+    const ordered = [..._plazaUsers].sort((a, b) => {
+      const aOn = _estaEnTurno(a.label) ? 0 : 1;
+      const bOn = _estaEnTurno(b.label) ? 0 : 1;
+      return aOn - bOn;
+    });
+    udl.innerHTML = ordered
+      .map(u => `<option value="${escAttr(u.value)}">${esc(_estaEnTurno(u.label) ? `${u.label} — En turno` : u.label)}</option>`)
+      .join('');
   }
   const mdl = _container?.querySelector('#prepMvaDatalist');
   if (mdl) {
@@ -572,6 +610,7 @@ export async function mount({ container, navigate, shell }) {
 
   void _loadPlazaUsers();
   void _loadPlazaUnits();
+  _subscribeTurnosActivos(plaza);
   _bindPrepExtendedUi();
   _syncBulkButtonVisibility();
 
@@ -590,9 +629,12 @@ export function unmount() {
 function _doCleanup() {
   if (typeof _unsub === 'function') { try { _unsub(); } catch (_) {} _trackListener('cleanup', 'data-sub'); }
   if (typeof _unsubPlaza === 'function') { try { _unsubPlaza(); } catch (_) {} _trackListener('cleanup', 'plaza-sub'); }
+  if (typeof _unsubTurnos === 'function') { try { _unsubTurnos(); } catch (_) {} }
   if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (_) {} }
   _unsub     = null;
   _unsubPlaza = null;
+  _unsubTurnos = null;
+  _turnoActivoKeys = new Set();
   _offGlobalSearch = null;
   _container = null;
   _state     = null;
@@ -636,6 +678,7 @@ function _reloadForPlaza(nextPlaza) {
   _subscribeQueue(normalized);
   void _loadPlazaUsers();
   void _loadPlazaUnits();
+  _subscribeTurnosActivos(normalized);
 }
 
 // ── CSS injection ────────────────────────────────────────────
@@ -955,7 +998,7 @@ function _itemCard(it) {
       <span class="cola-card-checks">${progress.done}/${progress.total}</span>
     </div>
     <div class="cola-card-foot">
-      <span><span class="material-symbols-outlined">person</span>${esc(it.asignado || 'Sin responsable')}</span>
+      <span><span class="material-symbols-outlined">person</span>${esc(it.asignado || 'Sin responsable')}${_estaEnTurno(it.asignado) ? ' <span class="cola-badge-turno">En turno</span>' : ''}</span>
       <span><span class="material-symbols-outlined">event</span>${esc(departureLabel(it.fechaSalida))}</span>
     </div>
   </div>
@@ -1015,7 +1058,7 @@ function _showDetail(it) {
     <input id="prepDetailDeparture" class="cola-input" type="datetime-local" value="${esc(_toDatetimeLocal(it.fechaSalida))}" />
   </div>
   <div class="cola-field">
-    <label class="cola-field-label" for="prepDetailAssigned">Responsable asignado</label>
+    <label class="cola-field-label" for="prepDetailAssigned">Responsable asignado ${_estaEnTurno(it.asignado) ? '<span class="cola-badge-turno">En turno</span>' : ''}</label>
     <div class="cola-field-row">
       <input id="prepDetailAssigned" class="cola-input" type="text" value="${esc(it.asignado || '')}"
              placeholder="Correo o nombre" list="prepUsersDatalist" />
