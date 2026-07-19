@@ -7,7 +7,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: var(--bg-surface, #f8fafc);
+  background: var(--bg);
 }
 
 /* ── Tabs ──────────────────────────────────────────────────── */
@@ -28,7 +28,7 @@
   border: none;
   border-bottom: 3px solid transparent;
   background: none;
-  color: #64748b;
+  color: var(--text-muted);
   font-family: 'Inter', sans-serif;
   font-size: 13px;
   font-weight: 700;
@@ -38,7 +38,7 @@
   letter-spacing: 0.02em;
 }
 
-.hist-op-tab:hover  { color: #1e293b; background: #f1f5f9; }
+.hist-op-tab:hover  { color: var(--text); background: var(--bg); }
 .hist-op-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; background: #eff6ff; }
 .hist-op-tab .material-icons { font-size: 17px; }
 
@@ -72,9 +72,9 @@
   font-family: 'Inter', sans-serif;
   font-size: 12px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text);
   outline: none;
-  background: #fff;
+  background: var(--surface);
   transition: border-color 0.15s;
 }
 
@@ -86,15 +86,15 @@
   padding: 8px 14px;
   border: none;
   border-radius: 10px;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--bg);
+  color: var(--text);
   font-weight: 800;
   font-size: 11px;
   cursor: pointer;
   transition: background 0.15s;
   letter-spacing: 0.3px;
 }
-.hist-op-btn-clear:hover { background: #e2e8f0; }
+.hist-op-btn-clear:hover { background: var(--border); }
 
 .hist-op-btn-refresh {
   display: flex;
@@ -114,7 +114,7 @@
 .hist-op-counter {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: var(--text-muted);
   white-space: nowrap;
   margin-left: auto;
 }
@@ -125,7 +125,7 @@
   overflow: auto;
   border-radius: 12px;
   border: 1px solid var(--border, #e2e8f0);
-  background: #fff;
+  background: var(--surface);
 }
 
 .hist-op-table {
@@ -137,32 +137,32 @@
 .hist-op-table thead th {
   position: sticky;
   top: 0;
-  background: #f8fafc;
+  background: var(--bg);
   padding: 10px 14px;
   text-align: left;
   font-size: 10px;
   font-weight: 800;
-  color: #64748b;
+  color: var(--text-muted);
   letter-spacing: 0.6px;
   text-transform: uppercase;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .hist-op-table tbody tr {
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border);
   transition: background 0.12s;
 }
-.hist-op-table tbody tr:hover { background: #f8fafc; }
+.hist-op-table tbody tr:hover { background: var(--bg); }
 .hist-op-table tbody tr:last-child { border-bottom: none; }
 
 .hist-op-table td {
   padding: 9px 14px;
   vertical-align: middle;
-  color: #1e293b;
+  color: var(--text);
 }
 
-.hist-op-cell-date { color: #64748b; font-weight: 700; white-space: nowrap; }
+.hist-op-cell-date { color: var(--text-muted); font-weight: 700; white-space: nowrap; }
 .hist-op-cell-mva  { color: #3b82f6; font-weight: 900; font-size: 13px; }
 
 /* ── Badges tipo ────────────────────────────────────────────── */
@@ -192,7 +192,7 @@
   justify-content: center;
   gap: 8px;
   padding: 48px 24px;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-weight: 700;
   font-size: 13px;
 }
@@ -209,8 +209,8 @@
 .hist-move-pop {
   position: fixed;
   z-index: 9999;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
   padding: 14px 16px 10px;
@@ -231,20 +231,20 @@
   width: 76px;
   height: 52px;
   flex-shrink: 0;
-  border: 2px solid #cbd5e1;
+  border: 2px solid var(--border);
   border-radius: 10px;
-  background: #f8fafc;
+  background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 800;
-  color: #475569;
+  color: var(--text);
 }
 .hmp-box span { padding: 0 4px; text-align: center; word-break: break-all; }
-.hmp-box-limbo { border-style: dashed; background: #fff; color: #94a3b8; }
+.hmp-box-limbo { border-style: dashed; background: var(--surface); color: var(--text-muted); }
 
-.hmp-arrow { color: #94a3b8; font-size: 20px; }
+.hmp-arrow { color: var(--text-muted); font-size: 20px; }
 
 /* Unidad que se desliza de origen (left:8) a destino (+124px).
    Geometría fija: cajones de 76px, unidad de 60px centrada sobre cada uno. */
@@ -299,14 +299,14 @@
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.5px;
-  color: #64748b;
+  color: var(--text-muted);
   text-transform: uppercase;
 }
 
 /* Obsidian redesign - historial de cambios */
 .hist-op-root {
-  background: #f6f8fb;
-  color: #111827;
+  background: var(--bg);
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -316,13 +316,13 @@
   justify-content: space-between;
   gap: 18px;
   padding: 18px 24px 14px;
-  background: #ffffff;
-  border-bottom: 1px solid #dbe4f0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
 .hist-op-kicker {
   margin: 0 0 4px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 10px;
   font-weight: 900;
   letter-spacing: .08em;
@@ -331,7 +331,7 @@
 
 .hist-op-header h1 {
   margin: 0;
-  color: #101828;
+  color: var(--text);
   font-size: 23px;
   font-weight: 900;
   line-height: 1.08;
@@ -339,7 +339,7 @@
 }
 
 .hist-op-header-note {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 700;
 }
@@ -347,7 +347,7 @@
 .hist-op-tabs {
   padding: 10px 24px 0;
   gap: 8px;
-  border-bottom-color: #dbe4f0;
+  border-bottom-color: var(--border);
 }
 
 .hist-op-tab {
@@ -356,7 +356,7 @@
   border: 1px solid transparent;
   border-bottom: 2px solid transparent;
   border-radius: 8px 8px 0 0;
-  color: #475569;
+  color: var(--text);
   font-size: 12px;
   font-weight: 850;
   letter-spacing: 0;
@@ -390,10 +390,10 @@
 .hist-op-filters input[type="date"],
 .hist-op-filters select {
   min-height: 40px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
-  color: #111827;
+  background: var(--surface);
+  color: var(--text);
   font-size: 12px;
   font-weight: 700;
   box-shadow: none;
@@ -410,31 +410,31 @@
 .hist-op-btn-refresh {
   min-height: 40px;
   border-radius: 8px;
-  border: 1px solid #dbe4f0;
+  border: 1px solid var(--border);
   box-shadow: none;
 }
 
-.hist-op-btn-clear { background: #ffffff; color: #475569; }
+.hist-op-btn-clear { background: var(--surface); color: var(--text); }
 .hist-op-btn-refresh { background: #eef6ff; color: #0b74b8; }
-.hist-op-counter { color: #64748b; font-size: 11px; font-weight: 800; }
+.hist-op-counter { color: var(--text-muted); font-size: 11px; font-weight: 800; }
 
 .hist-op-table-wrap {
   border-radius: 8px;
-  border-color: #dbe4f0;
+  border-color: var(--border);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
 }
 
 .hist-op-table { font-size: 12px; }
 .hist-op-table thead th {
   padding: 11px 14px;
-  background: #f4f7fa;
-  color: #52637a;
+  background: var(--bg);
+  color: var(--text-muted);
   font-size: 10px;
   letter-spacing: .04em;
 }
 .hist-op-table td { padding: 11px 14px; }
-.hist-op-table tbody tr:hover { background: #f9fbfd; }
-.hist-op-cell-date { color: #0f172a; font-weight: 850; }
+.hist-op-table tbody tr:hover { background: var(--bg); }
+.hist-op-cell-date { color: var(--text); font-weight: 850; }
 .hist-op-cell-mva { color: #0b5cab; }
 
 .hist-op-badge {
@@ -472,9 +472,9 @@
   gap: 12px;
   min-height: 82px;
   padding: 13px 16px;
-  border: 1px solid #dbe4f0;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
   animation: hist-state-in .24s cubic-bezier(.16, 1, .3, 1) both;
 }
 
@@ -486,8 +486,8 @@
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--bg);
+  color: var(--text);
 }
 .hist-op-state-mark .material-icons { font-size: 20px; }
 .hist-op-state-card.is-in .hist-op-state-mark { background: #ecfdf3; color: #067647; }
@@ -503,7 +503,7 @@
   min-width: 0;
 }
 .hist-op-state-top strong {
-  color: #0f172a;
+  color: var(--text);
   font-size: 13px;
   font-weight: 900;
   white-space: nowrap;
@@ -512,14 +512,14 @@
 }
 .hist-op-state-top time {
   margin-left: auto;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
 }
 .hist-op-state-body p {
   margin: 7px 0 6px;
-  color: #334155;
+  color: var(--text);
   font-size: 12px;
   font-weight: 650;
   line-height: 1.45;
@@ -528,7 +528,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 800;
 }
@@ -537,7 +537,7 @@
 
 .hist-move-pop {
   border-radius: 8px;
-  border-color: #dbe4f0;
+  border-color: var(--border);
   box-shadow: 0 18px 44px rgba(15, 23, 42, .18);
 }
 .hmp-track { width: 228px; height: 64px; }
@@ -583,8 +583,8 @@
   min-height: 40px;
   padding: 0 12px;
   border-radius: 8px;
-  border: 1px solid #dbe4f0;
-  background: #ffffff;
+  border: 1px solid var(--border);
+  background: var(--surface);
   color: #0b5cab;
   font: 700 12px/1 Inter, sans-serif;
   cursor: pointer;
@@ -604,9 +604,9 @@
 
 .hist-op-table-scroll {
   overflow: auto;
-  border: 1px solid #dbe4f0;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   min-height: 0;
   flex: 1;
 }
@@ -625,7 +625,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -635,15 +635,15 @@
 .hist-op-page-size select {
   min-height: 32px;
   padding: 0 8px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: #fff;
-  color: #111827;
+  background: var(--surface);
+  color: var(--text);
   font: 700 12px/1 Inter, sans-serif;
 }
 
 .hist-op-pager-label {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 700;
 }
@@ -656,14 +656,14 @@
 .hist-op-btn-page {
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid #dbe4f0;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: #fff;
-  color: #374151;
+  background: var(--surface);
+  color: var(--text);
   font: 600 12px/1 Inter, sans-serif;
   cursor: pointer;
 }
-.hist-op-btn-page:hover:not(:disabled) { background: #f8fafc; }
+.hist-op-btn-page:hover:not(:disabled) { background: var(--bg); }
 .hist-op-btn-page:disabled { opacity: .45; cursor: default; }
 
 .hist-op-table--dense {
@@ -679,7 +679,7 @@
   padding: 8px 12px;
   vertical-align: top;
 }
-.hist-op-table--dense tbody tr:nth-child(even) { background: #fafbfc; }
+.hist-op-table--dense tbody tr:nth-child(even) { background: var(--bg); }
 
 .hist-op-table--estado th:nth-child(4),
 .hist-op-table--estado td.hist-op-cell-cambio {
@@ -688,7 +688,7 @@
 }
 
 .hist-op-cell-cambio {
-  color: #1e293b;
+  color: var(--text);
   font-weight: 650;
   line-height: 1.4;
 }
@@ -710,9 +710,9 @@
   display: inline-block;
   padding: 3px 8px;
   border-radius: 4px;
-  border: 1px solid #dbe4f0;
-  background: #f8fafc;
-  color: #334155;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -726,13 +726,13 @@
 }
 
 .hist-op-estado-arrow {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-weight: 800;
   font-size: 12px;
 }
 
 .hist-op-estado-empty {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-weight: 700;
 }
 

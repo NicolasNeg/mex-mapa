@@ -2224,16 +2224,16 @@
   padding: 9px 14px;
   cursor: pointer;
   font-size: 13px;
-  color: #0f172a;
-  border-bottom: 1px solid #f1f5f9;
+  color: var(--fg);
+  border-bottom: 1px solid var(--border-soft);
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 .inc-mva-suggestion:last-child { border-bottom: none; }
-.inc-mva-suggestion:hover { background: #f8fafc; }
+.inc-mva-suggestion:hover { background: var(--bg-hover); }
 .inc-mva-suggestion .sug-mva { font-weight: 700; font-family: monospace; }
-.inc-mva-suggestion .sug-meta { font-size: 11px; color: #64748b; }
+.inc-mva-suggestion .sug-meta { font-size: 11px; color: var(--fg-muted); }
 .inc-module .ci-label {
   font-size: 11px;
   font-weight: 600;
@@ -2506,7 +2506,7 @@
 
 /* Adjunto preview — alineado con tarjeta de Unidades expediente */
 .inc-module .ci-prev-card--adjunto {
-  background: #fafafa;
+  background: var(--bg-sub);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
@@ -2554,7 +2554,7 @@
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg-panel);
   color: #2563eb;
   font-size: 12px;
   font-weight: 600;
@@ -2586,7 +2586,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
-  background: #fafafa;
+  background: var(--bg-sub);
 }
 .inc-module .dp-adjunto-desc {
   margin: 0 0 8px;
@@ -2614,7 +2614,7 @@
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg-panel);
   color: #2563eb;
   font-size: 12px;
   font-weight: 600;
@@ -2748,8 +2748,8 @@
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
-  background: var(--bg-card, #f8fafc);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg-sub);
+  border: 1px solid var(--border);
   border-radius: 8px;
 }
 .inc-module .ci-assign-clear {
@@ -2768,13 +2768,13 @@
   align-items: center;
   gap: 6px;
   padding: 7px 10px;
-  background: var(--bg-card, #f8fafc);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg-sub);
+  border: 1px solid var(--border);
   border-radius: 8px;
   transition: border-color .15s;
 }
 .inc-module .ci-assign-search-wrap:focus-within {
-  border-color: var(--accent, #3b82f6);
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(59,130,246,.12);
 }
 .inc-module .ci-assign-search-input {
@@ -2792,8 +2792,8 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: var(--bg-overlay, #fff);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(15,23,42,.13);
   z-index: 200;
@@ -2812,11 +2812,11 @@
   border: none;
   cursor: pointer;
   font: inherit;
-  border-bottom: 1px solid var(--border, #e2e8f0);
+  border-bottom: 1px solid var(--border);
   transition: background .1s;
 }
 .inc-module .ci-assign-result:last-child { border-bottom: none; }
-.inc-module .ci-assign-result:hover { background: var(--bg-hover, #f1f5f9); }
+.inc-module .ci-assign-result:hover { background: var(--bg-hover); }
 .inc-module .ci-assign-result-name {
   flex: 1;
   font-size: 13px;
@@ -2840,8 +2840,8 @@
   border-radius: 7px;
   overflow: hidden;
   aspect-ratio: 1;
-  background: var(--bg-hover, #f1f5f9);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
   transition: transform .15s, box-shadow .15s;
 }
 .inc-module .dp-image-thumb:hover {
@@ -2865,7 +2865,7 @@
 .inc-module .dp-seg-more {
   font-size: 11px;
   color: var(--fg-muted);
-  background: var(--bg-hover, #f1f5f9);
+  background: var(--bg-hover);
   border-radius: 50px;
   padding: 2px 7px;
 }
@@ -2875,18 +2875,18 @@
   gap: 5px;
   padding: 5px 10px;
   border-radius: 6px;
-  border: 1px solid var(--border, #e2e8f0);
-  background: var(--bg-card, #f8fafc);
+  border: 1px solid var(--border);
+  background: var(--bg-sub);
   color: var(--fg-strong);
   font: 600 11.5px/1 var(--font, Inter, sans-serif);
   cursor: pointer;
   transition: background .15s, border-color .15s;
 }
-.inc-module .dp-seguir-btn:hover { background: var(--bg-hover, #f1f5f9); border-color: var(--accent, #3b82f6); }
+.inc-module .dp-seguir-btn:hover { background: var(--bg-hover); border-color: var(--accent); }
 .inc-module .dp-seguir-btn.is-following {
   background: rgba(59,130,246,.08);
   border-color: rgba(59,130,246,.3);
-  color: var(--accent, #3b82f6);
+  color: var(--accent);
 }
 .inc-module .dp-seguir-btn:disabled { opacity: .5; cursor: default; }
 
@@ -2910,13 +2910,13 @@
   letter-spacing: .04em;
   padding: 2px 8px;
   border-radius: 4px;
-  background: var(--bg-hover, #f1f5f9);
+  background: var(--bg-hover);
   color: var(--fg-muted);
   text-transform: uppercase;
 }
 .inc-module .dp-plaza-badge.is-global {
   background: rgba(59,130,246,.1);
-  color: var(--accent, #3b82f6);
+  color: var(--accent);
 }
 
 /* ── Timeline assign entry ── */

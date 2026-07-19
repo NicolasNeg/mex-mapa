@@ -5,7 +5,7 @@
 
 /* ── Page root ──────────────────────────────────────────────── */
 #appAdminRoot {
-  background: #f8fafc;
+  background: var(--bg);
   min-height: 100%;
   box-sizing: border-box;
 }
@@ -17,7 +17,7 @@
 /* ── Info paragraph ─────────────────────────────────────────── */
 #appAdminRoot > p {
   border-left: 3px solid #6366f1 !important;
-  background: linear-gradient(to right, #f8f9ff, #f8fafc) !important;
+  background: linear-gradient(to right, var(--surface), var(--bg)) !important;
   border-radius: 0 10px 10px 0 !important;
 }
 
@@ -28,7 +28,7 @@
   letter-spacing: 0.01em;
 }
 #appAdminRoot [data-admin-tab]:hover {
-  box-shadow: 0 0 0 2px #94a3b8;
+  box-shadow: 0 0 0 2px var(--border-md);
 }
 #appAdminRoot [data-admin-tab][aria-selected="true"] {
   box-shadow: 0 2px 8px rgba(15,23,42,.25);
@@ -91,11 +91,11 @@
 /* ── Table cells ────────────────────────────────────────────── */
 #appAdminRoot tbody td {
   font-size: 12px;
-  color: #334155;
+  color: var(--text);
 }
 #appAdminRoot tbody td:first-child {
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text);
 }
 
 /* ── Sticky table headers ───────────────────────────────────── */
@@ -108,8 +108,8 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   white-space: nowrap;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
 }
 
 /* ── Status badges in table ─────────────────────────────────── */
@@ -124,15 +124,15 @@
   height: 6px;
 }
 #appAdminRoot ::-webkit-scrollbar-track {
-  background: #f8fafc;
+  background: var(--bg);
   border-radius: 3px;
 }
 #appAdminRoot ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--border);
   border-radius: 3px;
 }
 #appAdminRoot ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--border-md);
 }
 
 /* ── Select / inputs ────────────────────────────────────────── */
@@ -142,7 +142,7 @@
   font-size: 12px;
 }
 #appAdminRoot select:hover {
-  border-color: #94a3b8 !important;
+  border-color: var(--border-md) !important;
 }
 #appAdminRoot select:focus {
   outline: none;
@@ -207,6 +207,6 @@
 /* ── Session footer ─────────────────────────────────────────── */
 #appAdminRoot > div:last-child {
   padding-top: 8px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
   margin-top: 14px !important;
 }

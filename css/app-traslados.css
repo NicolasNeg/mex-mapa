@@ -30,6 +30,14 @@
   vertical-align: middle;
 }
 
+body.dark-theme .tras {
+  --tras-bg: var(--surface);
+  --tras-ink: var(--text);
+  --tras-muted: var(--text-muted);
+  --tras-border: var(--border);
+  --tras-line: var(--border);
+}
+
 .tras-btn,
 .tras-icon-btn {
   border: 0;
@@ -65,12 +73,12 @@
 
 .tras-btn.ghost {
   border: 1px solid var(--tras-border);
-  background: #fff;
-  color: #374151;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .tras-btn.ghost:hover {
-  background: #f9fafb;
+  background: var(--bg);
 }
 
 .tras-link-btn {
@@ -109,8 +117,8 @@
   place-items: center;
   border: 1px solid var(--tras-border);
   border-radius: 6px;
-  background: #fff;
-  color: #475569;
+  background: var(--surface);
+  color: var(--text-muted);
 }
 
 #tras-banner,
@@ -192,12 +200,12 @@
   gap: 16px;
   padding: 20px 24px 16px;
   border-bottom: 1px solid var(--tras-line);
-  background: #fff;
+  background: var(--surface);
 }
 
 .tras-page-title h1 {
   margin: 0;
-  color: #111827;
+  color: var(--text);
   font-size: 20px;
   font-weight: 600;
   line-height: 1.2;
@@ -224,7 +232,7 @@
 .tras-title-block p,
 .tras-breadcrumb {
   margin: 0 0 4px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: .05em;
@@ -234,7 +242,7 @@
 .tras-title-block h1,
 .tras-editor-top h1 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text);
   font-size: 24px;
   font-weight: 700;
   line-height: 1.15;
@@ -243,7 +251,7 @@
 .tras-title-block span {
   display: block;
   margin-top: 4px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 400;
 }
@@ -296,7 +304,7 @@
 }
 
 .tras-breadcrumb button:hover {
-  color: #0f172a;
+  color: var(--text);
 }
 
 .tras-tabs {
@@ -305,7 +313,7 @@
   padding: 5px;
   border: 1px solid var(--tras-border);
   border-radius: 14px;
-  background: #fff;
+  background: var(--surface);
   width: max-content;
   max-width: 100%;
   overflow-x: auto;
@@ -320,7 +328,7 @@
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted);
   font-family: inherit;
   font-size: 12px;
   font-weight: 900;
@@ -338,7 +346,7 @@
 .tras-controls {
   padding: 12px 24px;
   border-bottom: 1px solid var(--tras-line);
-  background: #fafafa;
+  background: var(--bg);
 }
 
 .tras-controls-row {
@@ -366,7 +374,7 @@
   padding: 0 10px;
   border: 1px solid var(--tras-border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .tras-search input {
@@ -383,7 +391,7 @@
   gap: 0;
   border: 1px solid var(--tras-border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -393,8 +401,8 @@
   min-height: 32px;
   padding: 0 12px;
   border-radius: 0;
-  background: #fff;
-  color: #6b7280;
+  background: var(--surface);
+  color: var(--text-muted);
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
@@ -406,8 +414,8 @@
 }
 
 .tras-quick-status button:hover {
-  background: #f9fafb;
-  color: #111827;
+  background: var(--bg);
+  color: var(--text);
 }
 
 .tras-quick-status button.active {
@@ -445,7 +453,7 @@
 }
 
 .tras label > span {
-  color: #374151;
+  color: var(--text);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -459,8 +467,8 @@
   min-height: 34px;
   border: 1px solid var(--tras-border);
   border-radius: 4px;
-  background: #fff;
-  color: #111827;
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   font-size: 13px;
   font-weight: 400;
@@ -486,8 +494,8 @@
 .tras input:disabled,
 .tras select:disabled,
 .tras textarea:disabled {
-  background: #f8fafc;
-  color: #94a3b8;
+  background: var(--bg);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
@@ -508,7 +516,7 @@
 .tras-table-wrap {
   overflow: auto;
   border: 1px solid var(--tras-border);
-  background: #fff;
+  background: var(--surface);
 }
 
 .tras-table {
@@ -523,8 +531,8 @@
   top: 0;
   z-index: 1;
   padding: 10px 12px;
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--bg);
+  color: var(--text);
   font-size: 12px;
   font-weight: 600;
   text-align: left;
@@ -541,7 +549,7 @@
 }
 
 .tras-table tbody tr:hover {
-  background: #f9fafb;
+  background: var(--bg);
 }
 
 .tras-table tbody tr.selected {
@@ -550,7 +558,7 @@
 
 .tras-table td {
   padding: 10px 12px;
-  color: #374151;
+  color: var(--text);
   font-weight: 400;
   vertical-align: middle;
   border: 1px solid var(--tras-border);
@@ -559,7 +567,7 @@
 
 .tras-td-main {
   display: block;
-  color: #111827;
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -578,12 +586,12 @@
 }
 
 .tras-td-mono {
-  color: #111827;
+  color: var(--text);
   font-weight: 500;
 }
 
 .tras-muted {
-  color: #9ca3af;
+  color: var(--text-muted);
 }
 
 .tras-row-actions {
@@ -622,7 +630,7 @@
 .tras-detail-card,
 .tras-detail-empty {
   border: 1px solid var(--tras-border);
-  background: #fff;
+  background: var(--surface);
 }
 
 .tras-detail-card {
@@ -640,7 +648,7 @@
 }
 
 .tras-detail-empty > .material-icons {
-  color: #9ca3af;
+  color: var(--text-muted);
   font-size: 32px;
 }
 
@@ -665,7 +673,7 @@
   align-items: flex-start;
   padding: 16px 20px;
   border-bottom: 1px solid var(--tras-line);
-  background: #fafafa;
+  background: var(--bg);
 }
 
 .tras-detail-head p {
@@ -739,7 +747,7 @@
 }
 
 .tras-search-field > span {
-  color: #374151;
+  color: var(--text);
   font-size: 12px;
   font-weight: 600;
 }
@@ -753,7 +761,7 @@
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: #9ca3af;
+  color: var(--text-muted);
   pointer-events: none;
 }
 
@@ -763,8 +771,8 @@
   padding: 8px 36px 8px 10px;
   border: 1px solid var(--tras-border);
   border-radius: 4px;
-  background: #fff;
-  color: #111827;
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   font-size: 13px;
 }
@@ -788,7 +796,7 @@
   list-style: none;
   border: 1px solid var(--tras-border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
 }
 
@@ -806,7 +814,7 @@
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: #111827;
+  color: var(--text);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -839,7 +847,7 @@
   padding: 12px 14px;
   border: 1px solid var(--tras-line);
   border-radius: 6px;
-  background: #f8fafc;
+  background: var(--bg);
 }
 
 .tras-unit-selected-bar {
@@ -892,7 +900,7 @@
 .tras-unit-summary-grid strong {
   display: block;
   margin-top: 2px;
-  color: #111827;
+  color: var(--text);
   font-size: 13px;
   font-weight: 600;
 }
@@ -946,16 +954,16 @@
 .tras-form-panel {
   padding: 16px 20px;
   border-top: 1px solid var(--tras-line);
-  background: #fff;
+  background: var(--surface);
 }
 
 .tras-form-panel + .tras-form-panel {
-  background: #fff;
+  background: var(--surface);
 }
 
 .tras-section-line h3 {
   margin: 0;
-  color: #111827;
+  color: var(--text);
   font-size: 14px;
   font-weight: 600;
 }
@@ -964,14 +972,14 @@
   justify-content: flex-end;
   padding: 12px 20px;
   border-top: 1px solid var(--tras-line);
-  background: #fafafa;
+  background: var(--bg);
 }
 
 .tras-close-form {
   margin: 16px 20px 0;
   padding: 16px 20px;
   border: 1px solid var(--tras-border);
-  background: #fafafa;
+  background: var(--bg);
 }
 
 .tras-timeline {
@@ -995,8 +1003,8 @@
 
 .tras-history-table th {
   padding: 8px 12px;
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--bg);
+  color: var(--text);
   font-size: 12px;
   font-weight: 600;
   text-align: left;
@@ -1005,7 +1013,7 @@
 
 .tras-history-table td {
   padding: 8px 12px;
-  color: #374151;
+  color: var(--text);
   line-height: 1.45;
   border: 1px solid var(--tras-border);
   vertical-align: top;
@@ -1013,12 +1021,12 @@
 
 .tras-history-kind {
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text);
   white-space: nowrap;
 }
 
 .tras-history-date {
-  color: #64748b;
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1027,7 +1035,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 400;
 }
@@ -1040,18 +1048,18 @@
   gap: 6px;
   padding: 24px;
   border: 1px solid var(--tras-border);
-  background: #fff;
+  background: var(--surface);
   color: var(--tras-muted);
   text-align: center;
 }
 
 .tras-empty .material-icons {
-  color: #9ca3af;
+  color: var(--text-muted);
   font-size: 28px;
 }
 
 .tras-empty strong {
-  color: #111827;
+  color: var(--text);
   font-size: 14px;
   font-weight: 600;
 }
@@ -1065,7 +1073,7 @@
 .tras-skeleton-table,
 .tras-skeleton-detail {
   border: 1px solid var(--tras-border);
-  background: #fff;
+  background: var(--surface);
   padding: 12px;
   overflow: hidden;
 }
@@ -1085,7 +1093,7 @@
   grid-template-columns: 1fr 1.2fr 1fr 1fr 1fr;
   gap: 14px;
   padding: 13px 0;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border);
 }
 
 .tras-skeleton-row:last-child {

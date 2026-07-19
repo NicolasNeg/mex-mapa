@@ -2392,7 +2392,7 @@ function _renderTipoChecks() {
 
 function _renderLayout() {
   return `
-    <div class="inc-module" data-theme="light" data-density="regular">
+    <div class="inc-module" data-theme="${document.body.classList.contains('dark-theme') ? 'dark' : 'light'}" data-density="regular">
       <header class="mod-head">
         <div class="mod-head-left">
           <h1 class="mod-title">Incidencias</h1>

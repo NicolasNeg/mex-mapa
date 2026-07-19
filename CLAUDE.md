@@ -4,6 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## Golden rules (`agente.md`, `.cursor/rules/*.mdc`)
+
+**Task closeout** — whenever a task with code changes is finished, even if nothing was deployed:
+
+1. `node scripts/bump-sw.js` (increments `CACHE_NAME` in `sw.js`) — skip only if a `npm run deploy*` in the same change already bumped it.
+2. `git add -A && git commit -m "<message>"`
+3. `git push`
+
+**Export/signing** — every exported PDF/Excel/CSV must identify the exporting user and company:
+- PDF/Excel: signature **inside the file** (header/footer/metadata, "Exportado por …").
+- CSV: signature **only in the filename** (no meta row required).
+- Download filename for all types: `NOMBRE_USUARIO_FECHA_NOMBREEMPRESA.ext` (user uppercase, spaces→`_`; date `YYYY_MM_DD`; company sanitized uppercase). Example: `ANGEL_ARMENTA_2026_09_16_OPTIMARENTACAR.pdf`.
+
+---
+
 ## Deploy commands
 
 ```bash
@@ -23,8 +38,6 @@ npm run deploy:functions
 # Deploy only Firestore + Storage rules
 npm run deploy:rules
 ```
-
-After every deploy, also run `git add . && git commit && git push` to keep GitHub in sync.
 
 The `npm run deploy` scripts automatically call `scripts/bump-sw.js`, which increments `CACHE_NAME = 'mapa-vXXX'` in `sw.js`. **Never deploy without bumping the SW version**, or returning users will receive stale cached assets.
 
