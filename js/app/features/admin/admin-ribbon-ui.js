@@ -55,19 +55,58 @@ export function admRibbonSelectHtml(cfg = {}) {
     </div>`;
 }
 
+function _resetRibbonPanelStyle(panel) {
+  if (!panel) return;
+  panel.style.position = '';
+  panel.style.top = '';
+  panel.style.left = '';
+  panel.style.width = '';
+  panel.style.maxHeight = '';
+  panel.style.zIndex = '';
+}
+
+function _placeRibbonPanelFixed(field, panel) {
+  const trigger = field.querySelector('.adm-ribbon-trigger');
+  if (!trigger || !panel) return;
+  const rect = trigger.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom - 12;
+  const spaceAbove = rect.top - 12;
+  const preferBelow = spaceBelow >= 160 || spaceBelow >= spaceAbove;
+  const maxH = Math.max(120, Math.min(240, preferBelow ? spaceBelow : spaceAbove));
+  const width = Math.max(rect.width, 160);
+  let left = rect.left;
+  if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - width - 8);
+
+  panel.style.position = 'fixed';
+  panel.style.left = `${left}px`;
+  panel.style.width = `${width}px`;
+  panel.style.maxHeight = `${maxH}px`;
+  panel.style.zIndex = '12000';
+  if (preferBelow) {
+    panel.style.top = `${rect.bottom - 1}px`;
+  } else {
+    panel.style.top = `${Math.max(8, rect.top - maxH + 1)}px`;
+  }
+}
+
 export function admCloseAllRibbons(root, exceptField = null) {
   if (!root) return;
   root.querySelectorAll('.adm-ribbon-field.is-open').forEach(field => {
     if (exceptField && field === exceptField) return;
     field.classList.remove('is-open');
     const panel = field.querySelector('.adm-ribbon-panel');
-    if (panel) panel.hidden = true;
+    if (panel) {
+      panel.hidden = true;
+      _resetRibbonPanelStyle(panel);
+    }
     field.querySelector('.adm-ribbon-trigger')?.setAttribute('aria-expanded', 'false');
   });
 }
 
 export function admToggleRibbon(field, open, root) {
   if (!field) return;
+  const list = root?.closest?.('.adm-op-acc-list') || root?.querySelector?.('.adm-op-acc-list');
+  const scrollTop = list ? list.scrollTop : null;
   admCloseAllRibbons(root, open ? field : null);
   const panel = field.querySelector('.adm-ribbon-panel');
   const trigger = field.querySelector('.adm-ribbon-trigger');
@@ -75,6 +114,15 @@ export function admToggleRibbon(field, open, root) {
   field.classList.toggle('is-open', open);
   panel.hidden = !open;
   trigger?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) {
+    _placeRibbonPanelFixed(field, panel);
+    // Evitar que el contenedor scrollee y “pierda” la fila al abrir el menú.
+    if (list != null && scrollTop != null) {
+      requestAnimationFrame(() => { list.scrollTop = scrollTop; });
+    }
+  } else {
+    _resetRibbonPanelStyle(panel);
+  }
 }
 
 export function admApplyRibbonSelect(btn, root) {
@@ -107,8 +155,12 @@ export function admBindRibbonRoot(root, { onSelect } = {}) {
       const id = toggle.dataset.admRibbon || '';
       const field = root.querySelector(`.adm-ribbon-field[data-adm-ribbon-id="${id}"]`);
       if (field && !field.classList.contains('is-disabled')) {
+        const list = root.querySelector('.adm-op-acc-list') || root.closest('.adm-op-acc-list');
+        const scrollTop = list ? list.scrollTop : null;
         admToggleRibbon(field, !field.classList.contains('is-open'), root);
+        if (list != null && scrollTop != null) list.scrollTop = scrollTop;
       }
+      event.preventDefault();
       event.stopPropagation();
       return;
     }
@@ -119,8 +171,21 @@ export function admBindRibbonRoot(root, { onSelect } = {}) {
       event.stopPropagation();
       return;
     }
-    if (!event.target.closest('.adm-ribbon-field')) {
+    if (!event.target.closest('.adm-ribbon-field') && !event.target.closest('.adm-ribbon-panel')) {
       admCloseAllRibbons(root);
     }
   });
+
+  const reposition = () => {
+    root.querySelectorAll('.adm-ribbon-field.is-open').forEach(field => {
+      const panel = field.querySelector('.adm-ribbon-panel');
+      if (panel && !panel.hidden) _placeRibbonPanelFixed(field, panel);
+    });
+  };
+  window.addEventListener('resize', reposition);
+  window.addEventListener('scroll', reposition, true);
+  root._admRibbonCleanup = () => {
+    window.removeEventListener('resize', reposition);
+    window.removeEventListener('scroll', reposition, true);
+  };
 }

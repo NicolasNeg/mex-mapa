@@ -270,6 +270,40 @@ export async function deleteCatalogItem(section, entityId, actorEmail = '') {
   return true;
 }
 
+/** Mueve un elemento ±1 en el catálogo (orden visual) y renumerá `orden` (1..n). */
+export async function reorderCatalogItem(section, entityId, delta, actorEmail = '') {
+  const sorted = getCatalogList(section);
+  const want = String(entityId || '').trim().toUpperCase();
+  const viewIdx = sorted.findIndex(r => r.key === want);
+  if (viewIdx < 0) throw new Error('Elemento no encontrado.');
+  const targetView = viewIdx + (Number(delta) || 0);
+  if (targetView < 0 || targetView >= sorted.length) return want;
+
+  const keys = sorted.map(r => r.key);
+  const [moved] = keys.splice(viewIdx, 1);
+  keys.splice(targetView, 0, moved);
+
+  const list = _ensureList(section);
+  const byKey = new Map();
+  list.forEach((item) => {
+    byKey.set(catalogEntityKey(section, item), item);
+  });
+  const next = [];
+  keys.forEach((k) => {
+    const item = byKey.get(k);
+    if (item != null) {
+      next.push(item);
+      byKey.delete(k);
+    }
+  });
+  byKey.forEach((item) => next.push(item));
+  list.length = 0;
+  list.push(...next);
+  _applyOrder(list);
+  await _persistListas(actorEmail || 'Admin');
+  return moved;
+}
+
 export function editorFieldsFromItem(section, item) {
   const tab = String(section || '').toLowerCase();
   const name = catalogDisplayName(tab, item);

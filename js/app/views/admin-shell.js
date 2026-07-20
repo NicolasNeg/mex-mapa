@@ -27,10 +27,15 @@ import {
   unmountOpcionesPanel,
   syncOpcionesSelection
 } from '/js/app/features/admin/admin-opciones-panel.js';
+import {
+  mountEmpresaPanel,
+  unmountEmpresaPanel,
+  syncEmpresaSelection
+} from '/js/app/features/admin/admin-empresa-panel.js';
 import { OPCIONES_SECTIONS } from '/js/app/features/admin/admin-opciones-data.js';
 
 const FRAME_ID = 'mex-admin-legacy-frame';
-const FRAME_VER = '20260719m';
+const FRAME_VER = '20260720b';
 
 let _root = null;
 let _navigate = null;
@@ -39,7 +44,7 @@ let _entityId = '';
 let _nativeSection = '';
 
 function _ensureCss() {
-  const href = '/css/app-admin.css?v=20260720a';
+  const href = '/css/app-admin.css?v=20260720c';
   let link = document.querySelector('link[data-app-admin-spa-css="1"]');
   if (!link) {
     link = document.createElement('link');
@@ -131,6 +136,7 @@ function _unmountNative() {
   unmountRolesPanel();
   unmountInvitacionesPanel();
   unmountOpcionesPanel();
+  unmountEmpresaPanel();
   _nativeSection = '';
 }
 
@@ -187,7 +193,8 @@ function _showNative(section, entityId) {
   const mountMap = {
     usuarios: { mount: mountUsuariosPanel, sync: syncUsuariosSelection },
     roles: { mount: mountRolesPanel, sync: syncRolesSelection },
-    invitaciones: { mount: mountInvitacionesPanel, sync: syncInvitacionesSelection }
+    invitaciones: { mount: mountInvitacionesPanel, sync: syncInvitacionesSelection },
+    empresa: { mount: mountEmpresaPanel, sync: syncEmpresaSelection }
   };
   const entry = mountMap[section];
   if (!entry) return;

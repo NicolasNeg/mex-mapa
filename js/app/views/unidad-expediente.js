@@ -15,6 +15,7 @@ import { getColaItemForMva } from '/js/app/features/cola-preparacion/cola-data.j
 import { cpProgress, deriveEstadoCola } from '/js/app/features/cola-preparacion/cola-view-model.js';
 import { resolverEstadoFlota, leerEstadoPatioDoc, precheckContratoUnidad } from '/js/app/features/estados/estado-view-model.js';
 import { normalizeIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
+import { stripEmoji } from '/domain/historial-log.model.js';
 import {
   FIELD_ORDER,
   normalizeUnit,
@@ -501,7 +502,7 @@ function _bitacoraHtml(rows) {
     <li>
       <span class="uexp-log-dot"></span>
       <div>
-        <div class="uexp-log-text">${esc(r.detalles || r.accion || r.evento || r.tipo || 'Movimiento')}</div>
+        <div class="uexp-log-text">${esc(stripEmoji(r.detalles || r.accion || r.evento || r.tipo || 'Movimiento'))}</div>
         <div class="uexp-log-meta">${esc(_fmtTs(r.timestamp || r.creadoEn || r.fecha))}${r.autor ? ' · ' + esc(r.autor) : ''}</div>
       </div>
     </li>

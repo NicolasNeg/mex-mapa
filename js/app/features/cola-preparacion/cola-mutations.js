@@ -134,7 +134,7 @@ export async function syncItemListoToCuadre({
   }
 
   await appendColaEvento(p, m, 'SYNC_CUADRE', { estado: 'LISTO', ubicacion: ubi, gasolina: gas }, actor);
-  await registrarLogCola(`🚀 SYNC CUADRE: ${m} → LISTO`, actor, p, { mva: m });
+  await registrarLogCola(`SYNC CUADRE: ${m} → LISTO`, actor, p, { mva: m });
   return { ok: true };
 }
 
@@ -216,7 +216,7 @@ export async function enqueueUnit({
 
   const fechaLabel = departureLabel(departure);
   await registrarLogCola(
-    `📋 EN COLA: ${m} · salida ${fechaLabel} · origen ${payload.origen}`,
+    `EN COLA: ${m} · salida ${fechaLabel} · origen ${payload.origen}`,
     actor || 'Sistema',
     p,
     { mva: m }
@@ -277,28 +277,28 @@ export async function patchItem({
     const parts = CHECKLIST_KEYS.filter(k => cleanPatch.checklist[k] === true).map(k => `${k} ✓`);
     const removed = CHECKLIST_KEYS.filter(k => cleanPatch.checklist[k] === false).map(k => `${k} ✗`);
     const detail = [...parts, ...removed].join(', ') || 'actualizado';
-    await registrarLogCola(`✅ CHECKLIST: ${mva} · ${detail}`, actor, p, { mva });
+    await registrarLogCola(`CHECKLIST: ${mva} · ${detail}`, actor, p, { mva });
   } else if (logType === 'checklist_key') {
     const key = logMeta.key || '';
     const checked = logMeta.checked === true;
     await registrarLogCola(
-      `✅ CHECKLIST: ${mva} · ${key} ${checked ? '✓' : '✗'}`,
+      `CHECKLIST: ${mva} · ${key} ${checked ? '✓' : '✗'}`,
       actor,
       p,
       { mva }
     );
   } else if (logType === 'assign') {
-    await registrarLogCola(`👤 ASIGNADO: ${mva} → ${String(cleanPatch.asignado || '').trim()}`, actor, p, { mva });
+    await registrarLogCola(`ASIGNADO: ${mva} → ${String(cleanPatch.asignado || '').trim()}`, actor, p, { mva });
   } else if (logType === 'departure') {
     const fecha = logMeta.fechaSalida instanceof Date ? departureLabel(logMeta.fechaSalida) : '—';
-    await registrarLogCola(`📅 SALIDA: ${mva} · ${fecha}`, actor, p, { mva });
+    await registrarLogCola(`SALIDA: ${mva} · ${fecha}`, actor, p, { mva });
   } else if (logType === 'notes') {
-    await registrarLogCola(`📝 NOTAS COLA: ${mva}`, actor, p, { mva });
+    await registrarLogCola(`NOTAS COLA: ${mva}`, actor, p, { mva });
   } else if (logType === 'complete') {
-    await registrarLogCola(`🚀 LISTO PREP: ${mva} · checklist completo`, actor, p, { mva });
+    await registrarLogCola(`LISTO PREP: ${mva} · checklist completo`, actor, p, { mva });
     await appendColaEvento(p, id, 'CHECKLIST', { complete: true }, actor);
   } else if (logType === 'save') {
-    await registrarLogCola(`✏️ COLA: ${mva} · datos operativos actualizados`, actor, p, { mva });
+    await registrarLogCola(`COLA: ${mva} · datos operativos actualizados`, actor, p, { mva });
   }
 
   if (becameReady && logType !== 'complete') {
@@ -316,7 +316,7 @@ export async function removeItem({ plaza, itemId, actor = '', mva = '' } = {}) {
   await queueItemsRef(p).doc(id).delete();
 
   const m = normalizeMva(mva || id);
-  await registrarLogCola(`🗑️ BAJA COLA: ${m}`, actor, p, { mva: m });
+  await registrarLogCola(`BAJA COLA: ${m}`, actor, p, { mva: m });
   return { ok: true };
 }
 
@@ -376,7 +376,7 @@ export async function bulkCompleteChecklist({ plaza, itemIds, actor = '' } = {})
     await Promise.all(writes);
   }
 
-  await registrarLogCola(`🚀 LISTO PREP: bulk · ${ids.length} unidad(es)`, actor, p);
+  await registrarLogCola(`LISTO PREP: bulk · ${ids.length} unidad(es)`, actor, p);
   return { ok: true, count: ids.length };
 }
 

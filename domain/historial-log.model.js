@@ -10,9 +10,16 @@ function _escapeRe(value) {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function _clean(value) {
+/** Quita emojis de un texto (bitacora/log deben usar iconos, no emojis). */
+export function stripEmoji(value) {
   return String(value || '')
     .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F]/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function _clean(value) {
+  return stripEmoji(value)
     .replace(/\s*\|\s*Notas eliminadas/gi, '')
     .replace(/Notas reemplazadas/gi, 'Notas actualizadas')
     .replace(/\s{2,}/g, ' ')

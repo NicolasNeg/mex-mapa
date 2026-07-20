@@ -9,6 +9,7 @@ import {
   findCatalogItem,
   saveCatalogItem,
   deleteCatalogItem,
+  reorderCatalogItem,
   editorFieldsFromItem,
   categoryOptions,
   plazaOptionsForUbicaciones,
@@ -111,6 +112,33 @@ function _metaChip(row) {
     return _gasProgressHtml(_gasLevelLabel(raw), { compact: true });
   }
   return esc(`Orden ${row.orden}`);
+}
+
+function _modelThumbSrc(raw) {
+  const url = String(raw?.imagenURL || raw?.imagen || raw?.img || '').trim();
+  return url || '/img/default_car.png';
+}
+
+function _rowMainHtml(row) {
+  if (_section === 'modelos') {
+    const raw = row.raw && typeof row.raw === 'object' ? row.raw : {};
+    const src = _modelThumbSrc(raw);
+    const cat = String(raw.categoria || 'Sin categoría').trim();
+    return `
+      <span class="adm-op-row-main adm-op-row-main--modelo">
+        <img class="adm-op-model-thumb" src="${esc(src)}" alt="" loading="lazy"
+          onerror="this.onerror=null;this.src='/img/default_car.png'">
+        <span class="adm-op-row-text">
+          <span class="adm-op-acc-title">${esc(row.name || 'Sin nombre')}</span>
+          <span class="adm-op-acc-meta">${esc(cat)}</span>
+        </span>
+      </span>`;
+  }
+  return `
+    <span class="adm-op-row-main">
+      <span class="adm-op-acc-title">${esc(row.name || 'Sin nombre')}</span>
+      <span class="adm-op-acc-meta">${_metaChip(row)}</span>
+    </span>`;
 }
 
 function _modelPreviewSrc(fields) {
@@ -271,16 +299,14 @@ function _editorFormFields(fields, editing, rowKey) {
       <label>
         <span>Plaza visible</span>
         ${ro ? `<div class="adm-field-value">${esc(fields.plazaId || 'ALL')}</div>`
-          : admRibbonSelectHtml({
-            id: `adm-op-plaza-${rowKey}`,
-            name: 'plazaId',
-            value: String(fields.plazaId || 'ALL').toUpperCase(),
-            placeholder: 'Plaza',
-            options: plazas.map(p => ({
-              value: p,
-              label: p === 'ALL' ? 'Todas las plazas' : p
-            }))
-          })}
+          : `<select name="plazaId" id="adm-op-plaza-${esc(rowKey)}" class="adm-native-select">
+              ${plazas.map(p => {
+                const val = String(p || 'ALL').toUpperCase();
+                const selected = val === String(fields.plazaId || 'ALL').toUpperCase() ? ' selected' : '';
+                const label = val === 'ALL' ? 'Todas las plazas' : val;
+                return `<option value="${esc(val)}"${selected}>${esc(label)}</option>`;
+              }).join('')}
+            </select>`}
       </label>
       <label>
         <span>Orden</span>
@@ -354,17 +380,29 @@ function _paintHtml() {
     return row.name.toLowerCase().includes(q) || String(row.key).toLowerCase().includes(q);
   });
 
-  const rowsHtml = list.map(row => {
+  const rowsHtml = list.map((row, idx) => {
     const open = _isOpen(row.key);
+    const canEdit = _canEdit();
+    const isFirst = idx === 0;
+    const isLast = idx === list.length - 1;
     return `
       <div class="adm-op-acc${open ? ' is-open' : ''}" data-acc-key="${esc(row.key)}">
-        <button type="button" class="adm-op-acc-head" data-toggle-key="${esc(row.key)}" aria-expanded="${open ? 'true' : 'false'}">
-          <span class="adm-op-row-main">
-            <span class="adm-op-acc-title">${esc(row.name || 'Sin nombre')}</span>
-            <span class="adm-op-acc-meta">${_metaChip(row)}</span>
-          </span>
-          <span class="material-symbols-outlined adm-op-acc-chevron">${open ? 'expand_less' : 'expand_more'}</span>
-        </button>
+        <div class="adm-op-acc-head-row">
+          ${canEdit ? `
+            <div class="adm-op-orden-btns" role="group" aria-label="Orden">
+              <button type="button" class="adm-op-orden-btn" data-action="move-up" data-item-key="${esc(row.key)}" title="Subir" aria-label="Subir" ${isFirst ? 'disabled' : ''}>
+                <span class="material-symbols-outlined">keyboard_arrow_up</span>
+              </button>
+              <span class="adm-op-orden-num" title="Orden">${esc(row.orden)}</span>
+              <button type="button" class="adm-op-orden-btn" data-action="move-down" data-item-key="${esc(row.key)}" title="Bajar" aria-label="Bajar" ${isLast ? 'disabled' : ''}>
+                <span class="material-symbols-outlined">keyboard_arrow_down</span>
+              </button>
+            </div>` : `<span class="adm-op-orden-num adm-op-orden-num--solo">${esc(row.orden)}</span>`}
+          <button type="button" class="adm-op-acc-head" data-toggle-key="${esc(row.key)}" aria-expanded="${open ? 'true' : 'false'}">
+            ${_rowMainHtml(row)}
+            <span class="material-symbols-outlined adm-op-acc-chevron">${open ? 'expand_less' : 'expand_more'}</span>
+          </button>
+        </div>
         <div class="adm-op-acc-body"${open ? '' : ' hidden'}>
           ${open ? _accordionBodyHtml(row.key) : ''}
         </div>
@@ -532,6 +570,18 @@ function _bind() {
   _host.querySelectorAll('[data-action="delete-item"]').forEach(btn => {
     btn.addEventListener('click', () => _delete(btn.getAttribute('data-item-key') || ''));
   });
+  _host.querySelectorAll('[data-action="move-up"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      _move(btn.getAttribute('data-item-key') || '', -1);
+    });
+  });
+  _host.querySelectorAll('[data-action="move-down"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      _move(btn.getAttribute('data-item-key') || '', 1);
+    });
+  });
 }
 
 function _readFields(form, itemKey = '') {
@@ -603,6 +653,21 @@ async function _delete(itemKey) {
   } catch (err) {
     console.error('[admin-opciones] delete:', err);
     toast(err?.message || 'No se pudo eliminar.', 'error');
+  }
+}
+
+async function _move(itemKey, delta) {
+  if (!_canEdit() || !itemKey || itemKey === NEW_KEY) return;
+  const listEl = _host?.querySelector('.adm-op-acc-list');
+  const scrollTop = listEl ? listEl.scrollTop : 0;
+  try {
+    const key = await reorderCatalogItem(_section, itemKey, delta, _actor().email);
+    _openKey = key || _openKey;
+    _paint();
+    if (listEl) listEl.scrollTop = scrollTop;
+  } catch (err) {
+    console.error('[admin-opciones] reorder:', err);
+    toast(err?.message || 'No se pudo reordenar.', 'error');
   }
 }
 

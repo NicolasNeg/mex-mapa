@@ -48,7 +48,8 @@ export const ADMIN_NATIVE_SECTIONS = new Set([
   'modelos',
   'gasolinas',
   'motivos_traslado',
-  'ubicaciones'
+  'ubicaciones',
+  'empresa'
 ]);
 
 function _decodeSeg(raw = '') {

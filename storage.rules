@@ -233,9 +233,14 @@ service firebase.storage {
 
     match /empresa_config/{fileName} {
       allow read: if tienePerfilActual();
-      allow write: if esAccesoTotal()
-        && request.resource.size < 2 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+      allow write: if puedeGestionarCatalogos()
+        && (
+          request.resource == null
+          || (
+            request.resource.size < 2 * 1024 * 1024
+            && request.resource.contentType.matches('image/.*')
+          )
+        );
     }
 
     // Imágenes de catálogo de modelos (panel admin → OPCIONES → Modelos)

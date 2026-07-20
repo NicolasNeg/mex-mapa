@@ -219,7 +219,8 @@
       "Bash(echo \"exit:$?\")",
       "Bash(echo \"ls-files exit:$?\")",
       "Bash(awk '/_normSearch/{print NR\": \"$0}')",
-      "Bash(pkill -f \"firebase-tools\")"
+      "Bash(pkill -f \"firebase-tools\")",
+      "Bash(grep -rnP \"registrarLog\\\\w*\\\\\\(\\\\s*[\\\\`'\\\\\"][\\\\x{1F300}-\\\\x{1FAFF}\\\\x{2600}-\\\\x{27BF}]\" --include=\"*.js\" .)"
     ]
   }
 }
