@@ -1,4 +1,4 @@
-import { db } from '/js/core/database.js';
+import { db, COL } from '/js/core/database.js';
 import { getCsvColumnas, normalizarFila } from '/js/app/features/onboarding/onboarding-config.js';
 
 const COL_UNIDADES = 'unidades_catalogo';
@@ -9,6 +9,25 @@ function _fv() {
 
 function _unidadesRef() {
   return db.collection(COL_UNIDADES);
+}
+
+function _normKey(v) {
+  return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function _unitPlazaKeys(u) {
+  return [
+    u?.plazaId,
+    u?.plazaActual,
+    u?.sucursal,
+    u?.plaza,
+    u?.ubicacionActual,
+  ].map((x) => String(x || '').toUpperCase().trim()).filter(Boolean);
+}
+
+function _unitMatchesPlaza(u, plazaId) {
+  if (!plazaId) return true;
+  return _unitPlazaKeys(u).includes(plazaId);
 }
 
 export function onUnidades(callback) {
@@ -52,9 +71,11 @@ export async function eliminarUnidad(unitId) {
 
 let _unidadesCache = null;
 let _unidadesCacheAt = 0;
+let _indexCache = null;
+let _indexCacheAt = 0;
 const UNIDADES_CACHE_MS = 60_000;
 
-/** Cache corto para autocompletado rápido (mobile). */
+/** Cache corto del catálogo onboarding (`unidades_catalogo`). */
 export async function getUnidadesCached(force = false) {
   const now = Date.now();
   if (!force && _unidadesCache && (now - _unidadesCacheAt) < UNIDADES_CACHE_MS) {
@@ -65,31 +86,61 @@ export async function getUnidadesCached(force = false) {
   return _unidadesCache;
 }
 
+/**
+ * Inventario operativo real (`index_unidades`) — misma fuente que /app/unidades y mapa buscador.
+ */
+export async function getIndexUnidadesCached(force = false) {
+  const now = Date.now();
+  if (!force && _indexCache && (now - _indexCacheAt) < UNIDADES_CACHE_MS) {
+    return _indexCache;
+  }
+  const snap = await db.collection(COL.INDEX).get();
+  _indexCache = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((u) => u && (u.mva || u.placas));
+  _indexCacheAt = now;
+  return _indexCache;
+}
+
 export function invalidateUnidadesCache() {
   _unidadesCache = null;
   _unidadesCacheAt = 0;
+  _indexCache = null;
+  _indexCacheAt = 0;
 }
 
 /**
- * Autocompletado de unidades. Con query vacío devuelve primeras N (sugerencias).
+ * Autocompletado de unidades (papeletas / forms).
+ * Prioriza `index_unidades`; si está vacío, cae a `unidades_catalogo`.
  * @param {string} query
  * @param {{ limit?: number, plazaId?: string }} [opts]
  */
 export async function buscarUnidad(query, opts = {}) {
   const limit = Math.max(1, Number(opts.limit) || 20);
   const plazaId = String(opts.plazaId || '').toUpperCase().trim();
-  const q = String(query || '').toUpperCase().trim();
-  let all = await getUnidadesCached();
-  if (plazaId) {
-    const inPlaza = all.filter((u) => String(u.plazaId || '').toUpperCase() === plazaId);
-    if (inPlaza.length) all = inPlaza;
+  const qRaw = String(query || '').toUpperCase().trim();
+  const q = _normKey(qRaw);
+
+  let all = await getIndexUnidadesCached();
+  if (!all.length) {
+    try { all = await getUnidadesCached(); } catch (_) { all = []; }
   }
-  if (!q) return all.slice(0, limit);
+
+  // Sin query: sugerencias de la plaza activa (si hay).
+  if (!q) {
+    if (plazaId) {
+      const inPlaza = all.filter((u) => _unitMatchesPlaza(u, plazaId));
+      if (inPlaza.length) all = inPlaza;
+    }
+    return all.slice(0, limit);
+  }
+
+  // Con query: buscar en todo el índice (como mapa buscador); rankear plaza activa arriba.
   const scored = [];
   for (const u of all) {
-    const mva = String(u.mva || '').toUpperCase();
-    const placas = String(u.placas || '').toUpperCase();
-    const vin = String(u.vin || '').toUpperCase();
+    const mva = _normKey(u.mva || u.numeroEconomico || u.economico);
+    const placas = _normKey(u.placas);
+    const vin = _normKey(u.vin);
     const modelo = String(u.modelo || '').toUpperCase();
     const color = String(u.color || '').toUpperCase();
     let score = 0;
@@ -98,9 +149,10 @@ export async function buscarUnidad(query, opts = {}) {
     else if (placas.startsWith(q)) score = 85;
     else if (mva.includes(q)) score = 70;
     else if (placas.includes(q)) score = 65;
-    else if (modelo.includes(q)) score = 50;
+    else if (modelo.includes(qRaw)) score = 50;
     else if (vin.includes(q)) score = 40;
-    else if (color.includes(q)) score = 20;
+    else if (color.includes(qRaw)) score = 20;
+    if (score && plazaId && _unitMatchesPlaza(u, plazaId)) score += 5;
     if (score) scored.push({ u, score });
   }
   scored.sort((a, b) => b.score - a.score || String(a.u.mva || '').localeCompare(String(b.u.mva || '')));
