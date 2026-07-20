@@ -368,14 +368,20 @@
     #fleet-modal .btn-more-controls,
     .cuadre-more-menu {
       min-height: 34px !important;
-      border-radius: 6px !important;
+      border-radius: 8px !important;
       border: 1px solid var(--cuadre-border) !important;
       background: var(--cuadre-surface) !important;
-      color: var(--cuadre-text) !important;
+      color: var(--cuadre-muted) !important;
       font-size: 12px !important;
-      font-weight: 800 !important;
+      font-weight: 600 !important;
       letter-spacing: 0 !important;
-      transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease !important;
+      box-shadow: none !important;
+      transition: background-color .18s ease, border-color .18s ease, color .18s ease !important;
+    }
+
+    #fleet-modal .btn-more-controls .material-icons {
+      color: var(--cuadre-muted) !important;
+      font-size: 18px !important;
     }
 
     #fleet-modal .btn-more-controls--icon {
@@ -414,9 +420,10 @@
     #fleet-modal .mc-header,
     body > .cuadre-more-menu .mc-item {
       color: var(--cuadre-text) !important;
-      font-size: 12px !important;
-      font-weight: 800 !important;
+      font-size: 13px !important;
+      font-weight: 500 !important;
       letter-spacing: 0 !important;
+      font-family: Inter, system-ui, sans-serif !important;
       cursor: pointer !important;
     }
 
@@ -847,14 +854,19 @@
             
             <!-- Buscador LOCAL del cuadre (filtra esta plaza). El header solo abre
                  el buscador global de unidades/usuarios. -->
-            <div style="position:relative; margin-bottom:12px;">
-              <span class="material-symbols-outlined" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:20px; pointer-events:none;">search</span>
-              <input type="text" id="searchFlota" onkeyup="window.filtrarFlota && window.filtrarFlota()"
+            <div class="cuadre-search-wrap" style="position:relative; margin-bottom:8px;">
+              <span class="material-symbols-outlined cuadre-search-icon" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:20px; pointer-events:none;">search</span>
+              <input type="text" id="searchFlota" class="search-box-flota cuadre-search-input" onkeyup="window.filtrarFlota && window.filtrarFlota()"
                 placeholder="Buscar en esta plaza: MVA, notas, placas, modelo..."
-                style="width:100%; height:44px; padding:0 16px 0 44px; border:1.5px solid #e2e8f0; border-radius:12px; font-size:14px; font-family:'Inter',sans-serif; background:#f8fafc; outline:none; color:#0f172a; box-sizing:border-box;">
+                style="width:100%; height:40px; padding:0 44px 0 44px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; font-family:'Inter',sans-serif; font-weight:500; background:#fff; outline:none; color:#0f172a; box-sizing:border-box;">
+              <button type="button" id="btnClearSearchFlota" class="cuadre-search-clear" hidden
+                onclick="window.limpiarFiltrosFlota && window.limpiarFiltrosFlota()"
+                title="Limpiar búsqueda" aria-label="Limpiar búsqueda">
+                <span class="material-symbols-outlined">close</span>
+              </button>
             </div>
 
-            <div class="cuadre-chips-row" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <div class="cuadre-chips-row" hidden aria-hidden="true" style="display: none !important;">
               <div class="chips-filter" id="chipContainer" style="flex: 1;">
                 <div class="chip active" onclick="filtrarEspecial('TODOS', this)" style="background:#0ea5e9; color:white; border-color:#0ea5e9;">Todos</div>
                 <div class="chip chip-estado chip-sucio" onclick="filtrarEspecial('SUCIO', this)" style="display:inline-flex; align-items:center; gap:4px;"><span style="color:#eab308; font-size:10px;">●</span> SUCIO</div>
@@ -867,8 +879,8 @@
                 <div class="chip" onclick="filtrarEspecial('RESGUARDO', this)" style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px; color:#64748b;">visibility</span> RESGUARDO</div>
                 <div class="chip chip-taller" onclick="filtrarEspecial('TALLER', this)" style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px; color:#f97316;">warehouse</span> TALLER</div>
               </div>
-              <button class="cuadre-chips-clear" onclick="window.limpiarFiltrosFlota && window.limpiarFiltrosFlota()"
-                style="background:white; color:#ef4444; border:1px solid #fee2e2; padding:6px 12px; border-radius:8px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; transition:0.2s; font-size: 12px; white-space:nowrap;"
+              <button class="cuadre-chips-clear" hidden tabindex="-1"
+                style="display:none !important;"
                 title="Limpiar Filtros">
                 <span class="material-icons" style="font-size:16px;">filter_alt_off</span> Limpiar
               </button>

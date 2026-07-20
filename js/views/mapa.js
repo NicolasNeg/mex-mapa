@@ -1510,11 +1510,40 @@ function _plazasPermitidas() {
   return [currentUserProfile?.plazaAsignada].filter(Boolean);
 }
 
+/** Nombre visible para auditoría / cuadre (nunca correo si hay usuario en perfil). */
+function _sessionDisplayName() {
+  const p = currentUserProfile || window.CURRENT_USER_PROFILE || {};
+  const candidates = [
+    p.nombre,
+    p.nombreCompleto,
+    p.usuario,
+    p.displayName,
+    auth?.currentUser?.displayName,
+    USER_NAME
+  ];
+  for (const c of candidates) {
+    const t = String(c || "").trim();
+    if (t && !t.includes("@")) return t;
+  }
+  const fromEmail = String(p.email || auth?.currentUser?.email || "").split("@")[0].replace(/[._-]+/g, " ").trim();
+  return fromEmail ? fromEmail.toUpperCase() : "Sistema";
+}
+
+function _auditAuthorDisplay(autor) {
+  const s = String(autor || "").trim();
+  if (!s) return "Sistema";
+  if (!s.includes("@")) return s;
+  const p = currentUserProfile || window.CURRENT_USER_PROFILE || {};
+  if (p.email && s.toLowerCase() === String(p.email).toLowerCase()) {
+    return String(p.usuario || p.nombre || p.nombreCompleto || s).trim() || s;
+  }
+  return s.split("@")[0].replace(/[._-]+/g, " ").trim().toUpperCase() || "Sistema";
+}
+
 function _setSessionProfile(profile) {
   currentUserProfile = profile;
-  USER_NAME = profile.nombre || profile.nombreCompleto || profile.displayName
+  USER_NAME = profile.nombre || profile.nombreCompleto || profile.usuario || profile.displayName
     || auth.currentUser?.displayName
-    || profile.email
     || '';
   userAccessRole = profile.rol || 'AUXILIAR';
   userRole = (profile.isAdmin || _roleMeta(userAccessRole).isAdmin) ? 'admin' : 'visitante';
@@ -2461,7 +2490,7 @@ async function registrarEventoGestion(tipo, mensaje, extra = {}) {
         await callable({
           tipo,
           mensaje,
-          autor: USER_NAME || 'Sistema',
+          autor: _sessionDisplayName() || 'Sistema',
           plaza: _miPlaza(),
           extra: auditExtra
         });
@@ -2470,7 +2499,7 @@ async function registrarEventoGestion(tipo, mensaje, extra = {}) {
         console.warn('recordAdminAuditEvent falló; usando fallback cliente:', callableError);
       }
     }
-    await api.registrarEventoGestion(tipo, mensaje, USER_NAME || 'Sistema', auditExtra);
+    await api.registrarEventoGestion(tipo, mensaje, _sessionDisplayName() || 'Sistema', auditExtra);
   } catch (error) {
     console.warn('No se pudo registrar el evento de gestión:', error);
   }
@@ -6596,26 +6625,30 @@ function filtrarFlota() {
   }
 
   renderFlota(filtrados);
+  _syncCuadreSearchClearBtn();
 }
 
-// 🔥 FUNCIÓN PARA EL BOTÓN "X" (LIMPIAR TODO) 🔥
+function _syncCuadreSearchClearBtn() {
+  const input = document.getElementById('searchFlota');
+  const btn = document.getElementById('btnClearSearchFlota');
+  if (!input || !btn) return;
+  const hasText = Boolean(input.value.trim());
+  btn.hidden = !hasText;
+  btn.style.display = hasText ? 'inline-flex' : 'none';
+}
+
 function limpiarFiltrosFlota() {
-  document.getElementById('searchFlota').value = "";
+  const search = document.getElementById('searchFlota');
+  if (search) search.value = "";
 
   if (document.getElementById('filter-cat')) document.getElementById('filter-cat').value = "";
   if (document.getElementById('filter-est')) document.getElementById('filter-est').value = "";
   if (document.getElementById('filter-ubi')) document.getElementById('filter-ubi').value = "";
 
-  // Reseteamos la memoria del chip especial a "TODOS"
   currentFiltroEspecial = "TODOS";
-
-  // Apagamos los chips azules y prendemos el primero ("Todos")
-  document.querySelectorAll('#chipContainer .chip').forEach(c => c.classList.remove('active'));
-  const chipTodos = document.querySelector('#chipContainer .chip:first-child');
-  if (chipTodos) chipTodos.classList.add('active');
-
+  _syncCuadreSearchClearBtn();
   filtrarFlota();
-  _actualizarBatchBar(); // [2.5]
+  _actualizarBatchBar();
 }
 
 
@@ -7007,7 +7040,7 @@ async function ejecutarGuardadoFlota() {
     ubicacion: document.getElementById('f_ubi').value,
     notas: document.getElementById('f_not').value,
     borrarNotas: document.getElementById('f_del_note') ? document.getElementById('f_del_note').checked : false,
-    autor: USER_NAME, responsableSesion: USER_NAME, adminResponsable: USER_NAME,
+    autor: _sessionDisplayName(), responsableSesion: _sessionDisplayName(), adminResponsable: _sessionDisplayName(),
     fila: SELECT_REF_FLOTA ? SELECT_REF_FLOTA.fila : null
   };
 
@@ -7158,7 +7191,7 @@ function ejecutarBorradoReal() {
     const payload = {
       mva: SELECT_REF_FLOTA.mva,
       fila: SELECT_REF_FLOTA.fila,
-      adminResponsable: USER_NAME
+      adminResponsable: _sessionDisplayName()
     };
 
     api.procesarModificacionMaestra(payload, "ELIMINAR").then(res => {
@@ -11591,7 +11624,7 @@ function ejecutarInsertarExterno() {
     modelo,
     placas,
     notas,
-    responsableSesion: USER_NAME
+    responsableSesion: _sessionDisplayName()
   }).then(res => {
     if (String(res || '').startsWith('EXITO')) {
       showToast(`Unidad externa ${mva} registrada en ${plaza}.`, 'success');
@@ -11716,7 +11749,7 @@ async function ejecutarInsertarAdmin() {
     notas: document.getElementById('a_ins_not').value,
     borrarNotas: false, // Es nuevo en admins
     evidenceFiles: files,
-    adminResponsable: USER_NAME
+    adminResponsable: _sessionDisplayName()
   };
 
   // 🔥 Llama a la función correcta: procesarModificacionMaestra, tipo: "INSERTAR"
@@ -12011,7 +12044,7 @@ async function guardarEdicionAdmin(tipoAccion) {
     notas: document.getElementById('a_mod_not').value,
     borrarNotas: document.getElementById('a_mod_del_note').checked,
     evidenceFiles: files,
-    adminResponsable: USER_NAME
+    adminResponsable: _sessionDisplayName()
   };
 
   // 👈 Llama a procesarModificacionMaestra para Cuadre Admins
@@ -12142,7 +12175,22 @@ function _obtenerEvidenciasAdminUI(u = {}) {
 }
 
 function renderizarVisorEvidenciasAdmin(u = {}) {
-  const evidencias = _obtenerEvidenciasAdminUI(u);
+  const run = async () => {
+  let evidencias = _obtenerEvidenciasAdminUI(u);
+  const storage = (typeof firebase !== 'undefined' && typeof firebase.storage === 'function')
+    ? firebase.storage()
+    : null;
+  if (storage) {
+    evidencias = await Promise.all(evidencias.map(async (item) => {
+      if (item.url || !item.path) return item;
+      try {
+        const url = await storage.ref(item.path).getDownloadURL();
+        return { ...item, url };
+      } catch (_) {
+        return item;
+      }
+    }));
+  }
   const visorContenedor = document.getElementById('a_visor_evidencia');
   const visorFrame = document.getElementById('a_visor_frame');
   const visorList = document.getElementById('a_visor_list');
@@ -12206,6 +12254,8 @@ function renderizarVisorEvidenciasAdmin(u = {}) {
   if (fileStatus) {
     fileStatus.innerHTML = `✅ ${evidencias.length} evidencia${evidencias.length === 1 ? '' : 's'} registrada${evidencias.length === 1 ? '' : 's'}`;
   }
+  };
+  run().catch((err) => console.warn('[cuadre-admin] visor evidencia:', err));
 }
 
 // Función que llena los datos del modal maestro y aplica bloqueos
@@ -12319,7 +12369,7 @@ async function ejecutarEdicionGlobal(tipoAccion) {
     notas: document.getElementById('g_mod_not').value,
     borrarNotas: document.getElementById('g_mod_del_note').checked,
     archivos: archivosBase64,
-    adminResponsable: USER_NAME
+    adminResponsable: _sessionDisplayName()
   };
 
   api.procesarModificacionMaestra(data, tipoAccion).then(res => {
@@ -12711,7 +12761,7 @@ function renderizarLogsAuditoria() {
           <div>
             <div class="log-author">
               <span class="material-icons" style="font-size:16px;">account_circle</span>
-              ${escapeHtml(log.autor || 'Sistema')}
+              ${escapeHtml(_auditAuthorDisplay(log.autor))}
             </div>
             <div class="log-date">${escapeHtml(log.fecha || '')}</div>
           </div>
@@ -17833,7 +17883,7 @@ function ejecutarAccionGemini(respuestaIA) {
       } else {
         const itemAdmin = DB_ADMINS.find(u => u.mva === mvaTarget);
         if (itemAdmin) {
-          api.procesarModificacionMaestra({ mva: mvaTarget, fila: itemAdmin.fila, adminResponsable: USER_NAME }, "ELIMINAR").then(() => { cambiarTabFlota('ADMINS'); }).catch(e => console.error(e));
+          api.procesarModificacionMaestra({ mva: mvaTarget, fila: itemAdmin.fila, adminResponsable: _sessionDisplayName() }, "ELIMINAR").then(() => { cambiarTabFlota('ADMINS'); }).catch(e => console.error(e));
         }
       }
     }
@@ -17855,7 +17905,7 @@ function ejecutarAccionGemini(respuestaIA) {
         ubicacion: (d.ubicacion || d.ubi || "PATIO").toUpperCase(),
         gasolina: (d.gasolina || d.gas || "N/A").toUpperCase(),
         notas: (d.agregar_notas || d.notas || ""),
-        responsableSesion: USER_NAME,
+        responsableSesion: _sessionDisplayName(),
         plaza: _miPlaza() || ''
       };
 

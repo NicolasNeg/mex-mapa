@@ -108,8 +108,8 @@ body.app-legacy-stage-active #mexShellContent {
 }
 
 .mex-hdr-limbo-btn--legacy .material-icons {
-  font-size: 17px;
-  color: #1d4ed8;
+  font-size: 18px;
+  color: var(--text-muted, #64748b);
 }
 
 .mex-hdr-limbo-btn--legacy .mex-hdr-limbo-count {
@@ -131,6 +131,18 @@ body.app-legacy-stage-active #mexShellContent {
   padding: 0;
   justify-content: center;
   border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.mex-hdr-icon-btn:hover {
+  background: var(--bg, #f8fafc);
+  border-color: var(--border-md, #cbd5e1);
+}
+
+.mex-hdr-icon-btn .material-icons {
+  color: var(--text-muted, #64748b);
 }
 
 @media (max-width: 767px) {

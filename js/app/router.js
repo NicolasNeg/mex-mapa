@@ -137,6 +137,10 @@ const ROUTE_TABLE = {
     navRoute: '/app/cuadrarflota',
     feature: 'cuadre'
   },
+  '/app/cuadrarflota/ventas': {
+    loader: () => import('/js/app/views/cuadrarflota-ventas.js'),
+    navRoute: '/app/cuadrarflota',
+  },
   "/app/traslados": { loader: () => import("/js/app/views/traslados.js"), navRoute: "/app/traslados" },
   '/app/admin': {
     loader:   () => import('/js/app/views/admin-shell.js'),
@@ -216,6 +220,7 @@ const ROUTE_STYLES = {
     { href: "/css/app-registros-movimientos.css", attr: "data-lmapa-rm-css" },
   ],
   "/app/cuadrarflota": [{ href: "/css/app-cuadrarflota.css?v=20260715cf", attr: "data-app-cuadrarflota-css" }],
+  "/app/cuadrarflota/ventas": [{ href: "/css/app-cuadrarflota.css?v=20260715cf", attr: "data-app-cuadrarflota-css" }],
   "/app/traslados": [{ href: "/css/app-traslados.css", attr: "data-app-traslados-css" }],
   "/app/admin": [{ href: "/css/app-admin.css?v=20260719g", attr: "data-app-admin-spa-css" }],
   "/app/gestion": [{ href: "/css/app-gestion.css", id: "app-gestion-css" }],

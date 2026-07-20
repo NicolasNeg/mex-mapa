@@ -1197,3 +1197,13 @@ body.dark-theme .cf-modal {
     transition: none !important;
   }
 }
+
+/* Revisión de Ventas: paso de firma en pantalla completa (elimina el bug
+   del boton "Firmar y cerrar" fuera de vista del modal legacy). */
+.cf.is-fullscreen-sign {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  overflow-y: auto;
+  min-height: 100dvh;
+}

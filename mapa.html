@@ -1205,25 +1205,24 @@
               </button>
             </div>
           </div>
-          <div style="display: flex; gap: 10px; width: 100%;">
-            <div class="search-wrapper-flota" style="flex: 1;">
+          <div class="cuadre-search-row" style="display: flex; gap: 10px; width: 100%; align-items: center;">
+            <div class="search-wrapper-flota cuadre-search-wrap" style="flex: 1;">
               <span class="material-icons">search</span>
               <input type="text" id="searchFlota" class="search-box-flota"
-                placeholder="Buscar MVA, Notas, Placas o Modelo..." onkeyup="filtrarFlota()">
+                placeholder="Buscar MVA, notas, placas o modelo..." onkeyup="filtrarFlota()">
+              <button type="button" id="btnClearSearchFlota" class="cuadre-search-clear" hidden
+                onclick="limpiarFiltrosFlota()" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">
+                <span class="material-symbols-outlined">close</span>
+              </button>
             </div>
 
-            <button onclick="limpiarFiltrosFlota()"
-              style="background:#fee2e2; color:#ef4444; border:none; padding:0 15px; border-radius:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; transition:0.2s;"
-              title="Limpiar Filtros">
-              <span class="material-icons" style="font-size:18px;">filter_alt_off</span>
-            </button>
             <button type="button" id="btnCuadreMetaCols" class="cuadre-meta-cols-toggle" onclick="toggleCuadreMetaCols()" title="Mostrar u ocultar columnas Autor y Últ. cambio">
               <span class="material-symbols-outlined" aria-hidden="true">view_column</span>
               Autor / últ. cambio
             </button>
           </div>
 
-          <div class="chips-filter" id="chipContainer">
+          <div class="chips-filter cuadre-chips-row" id="chipContainer" hidden aria-hidden="true" style="display:none !important;">
             <div class="chip active" onclick="filtrarEspecial('TODOS', this)">Todos</div>
             <div class="chip chip-estado chip-sucio" onclick="filtrarEspecial('SUCIO', this)">🧹 SUCIO</div>
             <div class="chip chip-estado chip-listo" onclick="filtrarEspecial('LISTO', this)">✅ LISTO</div>

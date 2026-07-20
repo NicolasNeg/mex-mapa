@@ -692,19 +692,40 @@ function _dedupeEvidenceItems(items = []) {
   });
 }
 
+function _resolveLogAutorName(autor) {
+  const s = _sanitizeText(autor) || "Sistema";
+  if (!/@/.test(s)) return s;
+  const local = s.split("@")[0].replace(/[._-]+/g, " ").trim();
+  return local ? local.toUpperCase() : "Sistema";
+}
+
+function _formatNotasCuadreLikeFlota(notasFormulario, actor, opts = {}) {
+  const { borrarNotas = false, previousNotas = "" } = opts;
+  const nombreAutor = _sanitizeText(actor) || "Sistema";
+  const ahora = _now();
+  const sello = `(${ahora}) [${nombreAutor}]`;
+  const prev = String(previousNotas || "").trim();
+  const notaEntrada = _sanitizeText(notasFormulario);
+  if (borrarNotas === true || borrarNotas === "true") {
+    return notaEntrada !== "" ? `${sello} ${notaEntrada}` : "";
+  }
+  if (notaEntrada !== "" && notaEntrada !== prev) {
+    const tieneSello = /\(\d{4}/.test(notaEntrada);
+    return tieneSello ? notaEntrada : `${sello} ${notaEntrada}`;
+  }
+  return prev;
+}
+
 function _resolveAdminResponsibleValue(data = {}) {
+  const explicit = _sanitizeText(
+    data.adminResponsable || data.responsable || data.responsableVisual || data._updatedBy || data._createdBy || data.autor
+  );
+  if (explicit) return explicit;
   const ubicacionRaw = _sanitizeText(data.ubicacion || "");
   const ubicacion = ubicacionRaw.replace(/^👤\s*/i, "").trim();
   const ubicacionUpper = ubicacion.toUpperCase();
   if (ubicacion && !ADMIN_FIXED_LOCATIONS.has(ubicacionUpper)) return ubicacion;
-  return _sanitizeText(
-    data.responsable
-    || data.adminResponsable
-    || data.responsableVisual
-    || data._updatedBy
-    || data._createdBy
-    || data.autor
-  );
+  return "Sistema";
 }
 
 async function _hydrateEvidenceItemsWithUrls(items = []) {
@@ -891,7 +912,7 @@ async function _uploadAdminEvidenceFiles(filesLike, docId, author) {
     uploads.push({
       path,
       fileName: file.name || safeName,
-      mimeType: file.type || "",
+      mimeType: contentType,
       size: Number(file.size || 0) || 0,
       uploadedAt,
       uploadedBy,
@@ -910,12 +931,20 @@ function _buildCuadreAdminPayload(datos = {}, evidencias = []) {
     payload.adminResponsable || payload._updatedBy || payload._createdBy || payload.autor
   ) || "Sistema";
   const plaza = _inferPlazaId(payload);
-  const notas = payload.borrarNotas ? "" : _sanitizeText(payload.notas || payload.nota || payload.observaciones || "");
-  const responsable = _resolveAdminResponsibleValue({
-    ...payload,
-    adminResponsable,
-    notas
-  });
+  const rawNotasInput = _sanitizeText(payload.notas || payload.nota || payload.observaciones || "");
+  const hasPreviousNotas = Object.prototype.hasOwnProperty.call(datos, "_previousNotas");
+  const previousNotas = hasPreviousNotas ? _sanitizeText(datos._previousNotas) : "";
+  let notas;
+  if (payload.borrarNotas) {
+    notas = _formatNotasCuadreLikeFlota(rawNotasInput, adminResponsable, { borrarNotas: true, previousNotas });
+  } else if (hasPreviousNotas) {
+    notas = _formatNotasCuadreLikeFlota(rawNotasInput, adminResponsable, { borrarNotas: false, previousNotas });
+  } else if (rawNotasInput && !/\(\d{4}/.test(rawNotasInput)) {
+    notas = `(${_now()}) [${adminResponsable}] ${rawNotasInput}`;
+  } else {
+    notas = rawNotasInput;
+  }
+  const responsable = adminResponsable || _resolveAdminResponsibleValue({ ...payload, adminResponsable, notas });
   const principalUrl = principal
     ? principal.url
     : _sanitizeText(payload.url || payload.URL || payload.urlArchivo || payload.urlEvidencia || payload.evidencia);
@@ -924,12 +953,13 @@ function _buildCuadreAdminPayload(datos = {}, evidencias = []) {
   delete payload.files;
   delete payload.evidenceFiles;
   delete payload.borrarNotas;
+  delete payload._previousNotas;
   payload.plaza = plaza;
   payload.plazaId = plaza;
   payload.notas = notas;
   payload.adminResponsable = adminResponsable;
   payload.responsable = responsable;
-  payload.responsableVisual = responsable || adminResponsable;
+  payload.responsableVisual = adminResponsable || responsable;
   payload.evidencias = evidenciaLista;
   payload.url = principalUrl;
   payload.urlArchivo = principalUrl;
@@ -1138,7 +1168,7 @@ function _extractMvaFromLogAccion(mensaje) {
 async function _registrarLog(tipo, mensaje, autor, plaza, extra = {}) {
   const ts = _ts();
   const id = `log_${ts}_${Math.floor(Math.random() * 1000)}`;
-  const payload = { fecha: _now(), timestamp: ts, tipo, accion: mensaje, autor: autor || "Sistema" };
+  const payload = { fecha: _now(), timestamp: ts, tipo, accion: mensaje, autor: _resolveLogAutorName(autor) };
   if (plaza) payload.plaza = (plaza || '').toUpperCase().trim();
   const auditExtra = _windowLocationAuditExtra(extra);
   if (auditExtra.locationStatus) payload.locationStatus = auditExtra.locationStatus;
@@ -2075,6 +2105,7 @@ const API_FUNCTIONS = {
         const payload = _buildCuadreAdminPayload({
           ...actual, ...datos,
           mva: mva || _sanitizeText(actual.mva).toUpperCase(),
+          _previousNotas: actual.notas || "",
           _createdAt: actual._createdAt || _now(),
           _createdBy: actual._createdBy || actor
         }, evidencias);

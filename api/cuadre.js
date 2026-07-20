@@ -729,6 +729,7 @@
           const payload = _buildCuadreAdminPayload({
             ...actual, ...datos,
             mva: mva || _sanitizeText(actual.mva).toUpperCase(),
+            _previousNotas: actual.notas || "",
             _createdAt: actual._createdAt || _now(),
             _createdBy: actual._createdBy || actor
           }, evidencias);
