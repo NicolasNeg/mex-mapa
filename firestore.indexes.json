@@ -263,6 +263,54 @@
         { "fieldPath": "empresaId", "order": "ASCENDING" },
         { "fieldPath": "sucursal", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "papeletas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "unidadId", "order": "ASCENDING" },
+        { "fieldPath": "activoPorUnidad", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "papeletas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plazaId", "order": "ASCENDING" },
+        { "fieldPath": "actualizadoAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "papeletas_reportes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "creadoAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "papeletas_reportes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "unidadId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "papeletas_reportes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "papeletaId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "papeletas_reportes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

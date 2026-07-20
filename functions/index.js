@@ -3016,3 +3016,50 @@ exports.generarReporteActividadDesdeImagen = functions
       }
     };
   });
+
+/** Limpia fotos de reportes de papeletas no promovidos tras expiresAt (TTL ~24h). */
+exports.limpiarFotosReportesPapeletas = functions
+  .region(REGION)
+  .pubsub.schedule("every 60 minutes")
+  .timeZone("America/Mexico_City")
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const snap = await db.collection("papeletas_reportes")
+      .where("status", "==", "abierto")
+      .where("expiresAt", "<=", now.toDate())
+      .limit(50)
+      .get();
+
+    if (snap.empty) {
+      logger.info("limpiarFotosReportesPapeletas: nothing expired");
+      return null;
+    }
+
+    const bucket = admin.storage().bucket();
+    let cleaned = 0;
+    for (const doc of snap.docs) {
+      const data = doc.data() || {};
+      const paths = [];
+      if (data.fotos?.placas) paths.push(data.fotos.placas);
+      if (data.fotos?.vin) paths.push(data.fotos.vin);
+      for (const p of data.fotos?.danos || []) if (p) paths.push(p);
+
+      for (const path of paths) {
+        try {
+          await bucket.file(path).delete({ ignoreNotFound: true });
+        } catch (err) {
+          logger.warn("limpiarFotosReportesPapeletas delete failed", { path, err: err?.message });
+        }
+      }
+
+      await doc.ref.update({
+        status: "expirado",
+        expiradoAt: admin.firestore.FieldValue.serverTimestamp(),
+        fotos: { placas: "", vin: "", danos: [] },
+      });
+      cleaned += 1;
+    }
+
+    logger.info("limpiarFotosReportesPapeletas done", { cleaned });
+    return null;
+  });

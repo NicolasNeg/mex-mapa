@@ -195,6 +195,18 @@ const ROUTE_TABLE = {
     navRoute: '/app/historial-operativo',
     feature:  'historial_logs',
   },
+  '/app/papeletas': {
+    loader: () => import('/js/app/views/papeletas.js'),
+    navRoute: '/app/papeletas',
+    feature: 'papeletas',
+    permission: 'view_papeletas',
+  },
+  '/app/papeletas/ventas': {
+    loader: () => import('/js/app/views/papeletas.js'),
+    navRoute: '/app/papeletas',
+    feature: 'papeletas',
+    permission: 'view_papeletas',
+  },
 };
 
 const ROUTE_STYLES = {
@@ -237,6 +249,7 @@ const ROUTE_STYLES = {
   "/app/editmap": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
   "/app/turnos": [{ href: "/css/app-turnos.css", attr: "data-app-turnos-css" }],
   "/app/historial-operativo": [{ href: "/css/app-historial-operativo.css?v=20260715a", attr: "data-app-historial-operativo-css" }],
+  "/app/papeletas": [{ href: "/css/app-papeletas.css", attr: "data-app-papeletas-css" }],
 };
 
 function _sameStylesheetHref(link, href) {
@@ -284,6 +297,7 @@ function _routeForPath(path) {
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return ROUTE_TABLE['/app/traslados'];
   if (key.startsWith('/app/cuadre/u/')) return ROUTE_TABLE['/app/cuadre/u'];
   if (key.startsWith('/app/editmap/')) return ROUTE_TABLE['/app/editmap'];
+  if (key.startsWith('/app/papeletas/')) return ROUTE_TABLE['/app/papeletas'];
   return ROUTE_TABLE[key];
 }
 
@@ -294,6 +308,7 @@ function _styleKeyForPath(path) {
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return '/app/traslados';
   if (key.startsWith('/app/cuadre/u/')) return '/app/cuadre/u';
   if (key.startsWith('/app/editmap/')) return '/app/editmap';
+  if (key.startsWith('/app/papeletas/')) return '/app/papeletas';
   return key;
 }
 

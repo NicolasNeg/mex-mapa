@@ -65,6 +65,8 @@ export const COL = Object.freeze({
   NOTAS_SEMANA:       'notas_semana',
   TURNOS_ROLES_OP:    'turnos_roles_operativos',
   NOTAS_ASISTENCIA:   'notas_asistencia',
+  PAPELETAS:          'papeletas',
+  PAPELETAS_REPORTES: 'papeletas_reportes',
 });
 
 // ── Meta de roles ─────────────────────────────────────────

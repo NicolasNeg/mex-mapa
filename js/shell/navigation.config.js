@@ -126,6 +126,15 @@ export const NAV_GROUPS = [
         feature: 'incidencias'
       },
       {
+        id: 'papeletas',
+        label: 'Papeletas',
+        icon: 'description',
+        route: '/app/papeletas',
+        roles: '*',
+        feature: 'papeletas',
+        permission: 'view_papeletas',
+      },
+      {
         id: 'turnos',
         label: 'Turnos y horarios',
         icon: 'schedule',
@@ -236,6 +245,8 @@ export const ROUTE_TITLES = {
   '/app/onboarding':       'Configuración inicial',
   '/app/turnos':                   'Turnos y horarios',
   '/app/historial-operativo':      'Historial de cambios',
+  '/app/papeletas':                'Papeletas',
+  '/app/papeletas/ventas':         'Papeletas · Ventas',
   '/programador':                  'Programador',
   '/app/programador':              'Programador',
 };

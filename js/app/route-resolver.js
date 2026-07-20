@@ -200,6 +200,16 @@ export const ROUTE_MAP = {
     shellIntegrated:    true,
     fullModuleMigrated: true,
   },
+  papeletas: {
+    id: 'papeletas', label: 'Papeletas',
+    legacyRoute:  '/app/papeletas',
+    appRoute:     '/app/papeletas',
+    navRoute:     '/app/papeletas',
+    fallbackRoute:'/app/papeletas',
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
+    feature: 'papeletas',
+  },
 };
 
 function _dynamicAppRoute(pathname, tail = '') {
