@@ -1144,6 +1144,86 @@ service cloud.firestore {
         && (puedeGestionarTurnos() || esProgramadorBootstrap());
     }
 
+    // ─── PAPELETAS DIGITALES ─────────────────────────────────
+    function puedeVerPapeletas() {
+      return esProgramadorBootstrap()
+        || (tienePerfilActual() && (
+          rolActual() == "PROGRAMADOR"
+          || rolActual() == "JEFE_OPERACION"
+          || rolActual() == "CORPORATIVO_USER"
+          || tienePermiso(perfilActual(), "view_papeletas")
+        ));
+    }
+
+    function puedeGestionarPapeletasVentas() {
+      return esProgramadorBootstrap()
+        || (tienePerfilActual() && (
+          rolActual() == "PROGRAMADOR"
+          || rolActual() == "JEFE_OPERACION"
+          || rolActual() == "CORPORATIVO_USER"
+          || tienePermiso(perfilActual(), "manage_papeletas_ventas")
+        ));
+    }
+
+    function puedeCerrarCasoPapeletas() {
+      return esProgramadorBootstrap()
+        || (tienePerfilActual() && (
+          rolActual() == "PROGRAMADOR"
+          || rolActual() == "JEFE_OPERACION"
+          || rolActual() == "CORPORATIVO_USER"
+          || rolActual() == "SUPERVISOR"
+          || rolActual() == "JEFE_PATIO"
+          || rolActual() == "GERENTE_PLAZA"
+          || rolActual() == "JEFE_REGIONAL"
+        ));
+    }
+
+    match /papeletas/{papeletaId} {
+      allow read: if puedeVerPapeletas();
+      allow create: if puedeVerPapeletas()
+        && request.resource.data.keys().hasAll(['unidadId', 'status', 'activoPorUnidad', 'plazaId'])
+        && request.resource.data.status == 'borrador'
+        && request.resource.data.activoPorUnidad == true;
+      allow update: if puedeVerPapeletas() && (
+        // Editable salida mientras borrador/lista
+        (
+          resource.data.status in ['borrador', 'lista']
+          && request.resource.data.status in ['borrador', 'lista', 'entregada']
+        )
+        // Asignar cliente / meta post-entrega
+        || (
+          puedeGestionarPapeletasVentas()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['clienteNombre', 'actualizadoPor', 'actualizadoAt', 'casoVentasId', 'pdfUrl'])
+        )
+        // Registrar entrada
+        || (
+          resource.data.status in ['entregada', 'en_retorno']
+          && request.resource.data.status in ['en_retorno', 'cerrada_historial']
+          && request.resource.data.activoPorUnidad == false
+        )
+        // Cierre historial (Supervisor+)
+        || (
+          puedeCerrarCasoPapeletas()
+          && request.resource.data.status == 'cerrada_historial'
+        )
+      );
+      allow delete: if false;
+    }
+
+    match /papeletas_reportes/{reporteId} {
+      allow read: if puedeVerPapeletas();
+      allow create: if puedeVerPapeletas()
+        && request.resource.data.keys().hasAll(['papeletaId', 'unidadId', 'tipo', 'status']);
+      allow update: if puedeVerPapeletas() && (
+        (puedeGestionarPapeletasVentas()
+          && request.resource.data.status in ['promovido', 'cerrado', 'expirado'])
+        || (puedeCerrarCasoPapeletas()
+          && request.resource.data.status == 'cerrado')
+      );
+      allow delete: if false;
+    }
+
     // Solicitudes de acceso (colección principal + legacy).
     function puedeVerSolicitudesAcceso() {
       return esProgramadorBootstrap()

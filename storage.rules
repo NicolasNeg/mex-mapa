@@ -256,6 +256,55 @@ service firebase.storage {
         );
     }
 
+    // Papeletas — fotos zonas / firma (auth + perfil)
+    match /papeletas/{papeletaId}/{allPaths=**} {
+      allow read: if tienePerfilActual();
+      allow write: if tienePerfilActual()
+        && (
+          request.resource == null
+          || (
+            request.resource.size < 2 * 1024 * 1024
+            && request.resource.contentType.matches('image/.*')
+          )
+        );
+    }
+
+    // Reportes temporales (TTL 24h en app + CF)
+    match /papeletas_reportes/{reporteId}/{allPaths=**} {
+      allow read: if tienePerfilActual();
+      allow write: if tienePerfilActual()
+        && (
+          request.resource == null
+          || (
+            request.resource.size < 2 * 1024 * 1024
+            && request.resource.contentType.matches('image/.*')
+          )
+        );
+    }
+
+    // Evidencias permanentes Ventas (promovidas)
+    match /papeletas_ventas/{casoId}/{allPaths=**} {
+      allow read: if tienePerfilActual();
+      allow write: if tienePerfilActual()
+        && (
+          rolActual() == "VENTAS"
+          || rolActual() == "SUPERVISOR"
+          || rolActual() == "JEFE_PATIO"
+          || rolActual() == "GERENTE_PLAZA"
+          || rolActual() == "JEFE_REGIONAL"
+          || rolActual() == "CORPORATIVO_USER"
+          || rolActual() == "JEFE_OPERACION"
+          || rolActual() == "PROGRAMADOR"
+        )
+        && (
+          request.resource == null
+          || (
+            request.resource.size < 2 * 1024 * 1024
+            && request.resource.contentType.matches('image/.*')
+          )
+        );
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }
