@@ -441,7 +441,9 @@ export function runChecadoGate(opts = {}) {
       firmaCtx.lineWidth = 2.5;
       firmaCtx.lineCap = 'round';
       firmaCtx.lineJoin = 'round';
-      firmaCtx.strokeStyle = '#0f172a';
+      // Modo oscuro: trazo blanco (visible sobre fondo #0f1b2d). Claro: tinta oscura.
+      const dark = document.body.classList.contains('dark-theme');
+      firmaCtx.strokeStyle = dark ? '#f8fafc' : '#0f172a';
       firmaTieneTrazo = false;
       _setFirmaConfirm(false);
 

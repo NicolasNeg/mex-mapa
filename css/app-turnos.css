@@ -2274,4 +2274,8 @@ body.dark-theme .tu-aud-emp { color: var(--text, #e2e8f0); }
 body.dark-theme .tu-gate__firma-title,
 body.dark-theme .tu-exito__title { color: var(--text, #e2e8f0); }
 body.dark-theme .tu-gate-firma { background: #0f1b2d; border-color: var(--border, #334155); }
+body.dark-theme .tu-gate-firma__line { border-bottom-color: #475569; }
+/* Firmas guardadas (PNG negro/transparente): invertir en oscuro para que se vean */
+body.dark-theme img.tu-firma-preview,
+body.dark-theme .tu-firma-preview img { filter: invert(1); }
 body.dark-theme .tu-exito__row { color: #cbd5e1; }
