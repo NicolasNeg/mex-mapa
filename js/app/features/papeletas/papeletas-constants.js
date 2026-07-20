@@ -7,11 +7,20 @@ export {
 } from '/domain/papeleta.model.js';
 
 export const STATUS_LABELS = Object.freeze({
-  borrador: 'Borrador',
+  borrador: 'En preparación',
+  lista: 'Lista para entregar',
+  entregada: 'Entregada',
+  en_retorno: 'Ya regresó',
+  cerrada_historial: 'Cerrada',
+});
+
+/** Etiquetas cortas para chips / mobile */
+export const STATUS_LABELS_SHORT = Object.freeze({
+  borrador: 'Preparando',
   lista: 'Lista',
   entregada: 'Entregada',
-  en_retorno: 'En retorno',
-  cerrada_historial: 'Historial',
+  en_retorno: 'Regresó',
+  cerrada_historial: 'Cerrada',
 });
 
 export const REPORTE_STATUS = Object.freeze({

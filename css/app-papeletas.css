@@ -378,9 +378,331 @@ body.dark-theme .pap-tab.is-active {
   color: var(--pap-ok);
 }
 
+.pap-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+  line-height: 1.4;
+}
+
+.pap-search-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+}
+
+.pap-search-wrap .material-symbols-outlined {
+  font-size: 20px;
+  color: var(--text-muted, #64748b);
+}
+
+.pap-search-wrap .pap-search {
+  border: none;
+  background: transparent;
+  padding-left: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.pap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pap-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 12px 10px 12px 14px;
+  background: var(--surface, #fff);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  min-height: 64px;
+}
+
+.pap-row:active { background: rgba(59, 130, 246, 0.06); }
+
+.pap-row__main { flex: 1; min-width: 0; }
+.pap-row__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.pap-row__mva { font-weight: 700; font-size: 16px; letter-spacing: 0.02em; }
+.pap-row__sub {
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pap-row__chev { color: #94a3b8; font-size: 22px; }
+
+.pap-toolbar--detail { gap: 8px; }
+.pap-detail-head {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.pap-detail-head strong {
+  font-size: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pap-lock {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+
+.pap-fields-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pap-field--full { grid-column: 1 / -1; }
+
+.pap-btn--block { width: 100%; justify-content: center; min-height: 48px; font-size: 15px; }
+.pap-btn--fab { flex-shrink: 0; min-height: 44px; }
+
+.pap-icon-btn {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.pap-icon-btn:disabled { opacity: 0.35; cursor: default; }
+
+.pap-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pap-seg__btn {
+  min-height: 44px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: transparent;
+  font: 600 13px Inter, sans-serif;
+  color: inherit;
+  cursor: pointer;
+}
+.pap-seg__btn.is-on {
+  border-color: var(--pap-ok);
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+.pap-seg__btn.is-on.is-bad {
+  border-color: var(--pap-err);
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.pap-cam {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+.pap-cam__preview {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: #0f172a;
+}
+.pap-cam__preview[hidden] { display: none !important; }
+.pap-cam__status {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-align: center;
+}
+.pap-cam__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  border-radius: 12px;
+  background: var(--pap-accent);
+  color: #fff;
+  font: 600 15px Inter, sans-serif;
+  cursor: pointer;
+}
+.pap-cam__btn--ghost {
+  background: transparent;
+  color: var(--text, #0f172a);
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.pap-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  flex: 1;
+}
+.pap-progress strong { font-size: 15px; color: var(--text, #0f172a); }
+.pap-progress span { font-size: 12px; font-weight: 500; color: var(--pap-accent); }
+
+.pap-actions--sticky {
+  position: sticky;
+  bottom: 0;
+  padding-top: 12px;
+  background: linear-gradient(to top, var(--bg, #f8fafc) 70%, transparent);
+}
+
+.pap-checklist-status {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+}
+.pap-checklist-status .is-ok { color: var(--pap-ok); font-weight: 600; }
+.pap-entregar-a { margin: 0 0 12px; font-size: 14px; }
+
+.pap-check-item__name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+
+.pap-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.pap-modal__head h2 { margin: 0; }
+
+.pap-modal--ac {
+  width: min(520px, 100%);
+  max-height: min(88vh, 720px);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.pap-ac {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--bg, #fff);
+  min-height: 48px;
+  margin-bottom: 10px;
+}
+.pap-ac .material-symbols-outlined { color: var(--pap-accent); }
+.pap-ac input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font: 400 16px Inter, sans-serif; /* 16px evita zoom iOS */
+  color: inherit;
+  outline: none;
+  min-width: 0;
+  padding: 12px 0;
+}
+
+.pap-ac-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pap-ac-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--surface, #fff);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  min-height: 56px;
+}
+.pap-ac-item:active { border-color: var(--pap-accent); background: rgba(59, 130, 246, 0.06); }
+.pap-ac-item__mva {
+  font-weight: 700;
+  font-size: 16px;
+  min-width: 64px;
+}
+.pap-ac-item__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+}
+.pap-ac-item__meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pap-ac-empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+}
+
+.pap-steps {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+.pap-step { white-space: nowrap; flex-shrink: 0; }
+
 @media (max-width: 640px) {
-  .pap-module { padding: 12px; }
+  .pap-module { padding: 10px 12px 20px; gap: 12px; }
   .pap-detail { max-width: none; }
+  .pap-header h1 { font-size: 18px; }
+  .pap-fields-2 { grid-template-columns: 1fr; }
+  .pap-status { font-size: 10px; }
+  .pap-cam__preview { max-height: 180px; }
 }
 
 /* Dark theme: fondo oscuro, texto blanco/tenue */
@@ -450,10 +772,27 @@ body.dark-theme .pap-photos figcaption {
   color: #94a3b8;
 }
 
-body.dark-theme .pap-unit-hit {
+body.dark-theme .pap-unit-hit,
+body.dark-theme .pap-ac-item,
+body.dark-theme .pap-row,
+body.dark-theme .pap-icon-btn,
+body.dark-theme .pap-search-wrap,
+body.dark-theme .pap-ac {
   border-color: #334155;
+  background: #111827;
   color: #e2e8f0;
 }
+
+body.dark-theme .pap-progress strong { color: #e2e8f0; }
+body.dark-theme .pap-cam__btn--ghost {
+  color: #e2e8f0;
+  border-color: #334155;
+}
+body.dark-theme .pap-actions--sticky {
+  background: linear-gradient(to top, var(--bg, #0b1220) 70%, transparent);
+}
+body.dark-theme .pap-seg__btn.is-on { color: #6ee7b7; }
+body.dark-theme .pap-seg__btn.is-on.is-bad { color: #fca5a5; }
 
 body.dark-theme .pap-sig {
   background: #fff;

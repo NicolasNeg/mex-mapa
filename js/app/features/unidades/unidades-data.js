@@ -50,20 +50,61 @@ export async function eliminarUnidad(unitId) {
   await _unidadesRef().doc(unitId).update({ estado: 'INACTIVO' });
 }
 
-export async function buscarUnidad(query) {
+let _unidadesCache = null;
+let _unidadesCacheAt = 0;
+const UNIDADES_CACHE_MS = 60_000;
+
+/** Cache corto para autocompletado rápido (mobile). */
+export async function getUnidadesCached(force = false) {
+  const now = Date.now();
+  if (!force && _unidadesCache && (now - _unidadesCacheAt) < UNIDADES_CACHE_MS) {
+    return _unidadesCache;
+  }
+  _unidadesCache = await getUnidades();
+  _unidadesCacheAt = now;
+  return _unidadesCache;
+}
+
+export function invalidateUnidadesCache() {
+  _unidadesCache = null;
+  _unidadesCacheAt = 0;
+}
+
+/**
+ * Autocompletado de unidades. Con query vacío devuelve primeras N (sugerencias).
+ * @param {string} query
+ * @param {{ limit?: number, plazaId?: string }} [opts]
+ */
+export async function buscarUnidad(query, opts = {}) {
+  const limit = Math.max(1, Number(opts.limit) || 20);
+  const plazaId = String(opts.plazaId || '').toUpperCase().trim();
   const q = String(query || '').toUpperCase().trim();
-  if (!q) return [];
-  const all = await getUnidades();
-  return all.filter(u => {
+  let all = await getUnidadesCached();
+  if (plazaId) {
+    const inPlaza = all.filter((u) => String(u.plazaId || '').toUpperCase() === plazaId);
+    if (inPlaza.length) all = inPlaza;
+  }
+  if (!q) return all.slice(0, limit);
+  const scored = [];
+  for (const u of all) {
     const mva = String(u.mva || '').toUpperCase();
     const placas = String(u.placas || '').toUpperCase();
     const vin = String(u.vin || '').toUpperCase();
     const modelo = String(u.modelo || '').toUpperCase();
-    return mva.startsWith(q) || mva.includes(q)
-      || placas.startsWith(q) || placas.includes(q)
-      || vin.startsWith(q) || vin.includes(q)
-      || modelo.includes(q);
-  });
+    const color = String(u.color || '').toUpperCase();
+    let score = 0;
+    if (mva === q || placas === q) score = 100;
+    else if (mva.startsWith(q)) score = 90;
+    else if (placas.startsWith(q)) score = 85;
+    else if (mva.includes(q)) score = 70;
+    else if (placas.includes(q)) score = 65;
+    else if (modelo.includes(q)) score = 50;
+    else if (vin.includes(q)) score = 40;
+    else if (color.includes(q)) score = 20;
+    if (score) scored.push({ u, score });
+  }
+  scored.sort((a, b) => b.score - a.score || String(a.u.mva || '').localeCompare(String(b.u.mva || '')));
+  return scored.slice(0, limit).map((x) => x.u);
 }
 
 export function generarTemplateCsv(tipoNegocio) {

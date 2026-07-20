@@ -15,7 +15,7 @@ import {
   rolPuedeGestionarVentas,
   rolPuedeCerrarCaso,
 } from '/domain/papeleta.model.js';
-import { STATUS_LABELS } from '/js/app/features/papeletas/papeletas-constants.js';
+import { STATUS_LABELS, STATUS_LABELS_SHORT } from '/js/app/features/papeletas/papeletas-constants.js';
 import {
   subscribePapeletasPlaza,
   subscribePapeleta,
@@ -58,6 +58,9 @@ let _zonaIdx = 0;
 let _showNueva = false;
 let _unitHits = [];
 let _unitQ = '';
+let _unitSearchBusy = false;
+let _unitSearchTimer = null;
+let _unitSearchSeq = 0;
 let _casoWarning = '';
 let _busy = false;
 let _sigDrawing = false;
@@ -66,10 +69,28 @@ let _pendingSalida = { km: null, gas: null };
 let _fotoCache = new Map();
 
 const FILTER_LABELS = Object.freeze({
-  activas: 'Activas',
+  activas: 'En curso',
   entregadas: 'Entregadas',
   historial: 'Historial',
-  ventas: 'Con Ventas',
+  ventas: 'Con reporte',
+});
+
+const FIELD_LABELS = Object.freeze({
+  mva: 'Económico (MVA)',
+  modelo: 'Modelo',
+  placas: 'Placas',
+  color: 'Color',
+  vin: 'VIN / Serie',
+});
+
+const STEP_LABELS = Object.freeze({
+  datos: '1 · Unidad',
+  zonas: '2 · Fotos',
+  checklist: '3 · Accesorios',
+  resumen: '4 · Entregar',
+  firma: 'Firma',
+  entrada: 'Regreso',
+  reporte: 'Reportar',
 });
 
 const _mexConfirm = (t, x, tipo = 'warning') =>
@@ -253,8 +274,11 @@ function _renderList() {
   const rows = _filteredItems();
   return `
     <div class="pap-toolbar">
-      <input class="pap-search" id="papSearch" placeholder="Buscar MVA, placas, modelo, VIN, cliente…" value="${_esc(_query)}"/>
-      <button type="button" class="pap-btn pap-btn--primary" data-act="nueva">
+      <label class="pap-search-wrap">
+        <span class="material-symbols-outlined">search</span>
+        <input class="pap-search" id="papSearch" placeholder="Buscar económico, placas, modelo…" value="${_esc(_query)}" autocomplete="off" enterkeyhint="search"/>
+      </label>
+      <button type="button" class="pap-btn pap-btn--primary pap-btn--fab" data-act="nueva">
         <span class="material-symbols-outlined">add</span> Nueva
       </button>
     </div>
@@ -263,20 +287,29 @@ function _renderList() {
         <button type="button" class="pap-chip ${_filter === f ? 'is-on' : ''}" data-act="filter" data-f="${f}">${FILTER_LABELS[f] || f}</button>
       `).join('')}
     </div>
-    ${rows.length ? `<div class="pap-grid">${rows.map(_cardHtml).join('')}</div>` : `<div class="pap-empty">No hay papeletas en este filtro.</div>`}
+    ${rows.length
+      ? `<div class="pap-list">${rows.map(_cardHtml).join('')}</div>`
+      : `<div class="pap-empty">
+          <strong>Nada por aquí</strong>
+          <small>Toca <b>Nueva</b> y busca la unidad por económico o placas.</small>
+        </div>`}
   `;
 }
 
 function _cardHtml(it) {
+  const fotos = _fotosCount(it);
+  const short = STATUS_LABELS_SHORT[it.status] || STATUS_LABELS[it.status] || it.status;
   return `
-    <button type="button" class="pap-card" data-act="open" data-id="${_esc(it.id)}">
-      <div class="pap-card__top">
-        <span class="pap-card__mva">${_esc(it.mva || '—')}</span>
-        <span class="pap-status pap-status--${_esc(it.status)}">${_esc(STATUS_LABELS[it.status] || it.status)}</span>
+    <button type="button" class="pap-row" data-act="open" data-id="${_esc(it.id)}">
+      <div class="pap-row__main">
+        <div class="pap-row__title">
+          <span class="pap-row__mva">${_esc(it.mva || '—')}</span>
+          <span class="pap-status pap-status--${_esc(it.status)}">${_esc(short)}</span>
+        </div>
+        <div class="pap-row__sub">${_esc(it.modelo || 'Sin modelo')} · ${_esc(it.placas || 'Sin placas')}</div>
+        <div class="pap-row__sub">${_esc(it.clienteNombre || 'Sin cliente')} · Fotos ${fotos}/12</div>
       </div>
-      <div class="pap-card__meta">${_esc(it.modelo || '')} · ${_esc(it.placas || '')}</div>
-      <div class="pap-card__meta">${_esc(it.clienteNombre || 'Sin cliente')} · ${_esc(it.plazaId || '')}</div>
-      <div class="pap-card__meta">${_fotosCount(it)}/12 fotos</div>
+      <span class="material-symbols-outlined pap-row__chev">chevron_right</span>
     </button>
   `;
 }
@@ -286,26 +319,29 @@ function _renderDetail() {
   const p = _detail;
   const editable = puedeEditar(p.status);
   const steps = [
-    ['datos', 'Datos'],
-    ['zonas', 'Zonas'],
-    ['checklist', 'Checklist'],
-    ['resumen', 'Resumen'],
+    ['datos', STEP_LABELS.datos],
+    ['zonas', STEP_LABELS.zonas],
+    ['checklist', STEP_LABELS.checklist],
+    ['resumen', STEP_LABELS.resumen],
   ];
   if (p.status === 'entregada' || p.status === 'en_retorno') {
-    steps.push(['entrada', 'Entrada']);
-    steps.push(['reporte', 'Reporte']);
+    steps.push(['entrada', STEP_LABELS.entrada]);
+    steps.push(['reporte', STEP_LABELS.reporte]);
   }
 
   return `
     <div class="pap-detail">
-      <div class="pap-toolbar">
+      <div class="pap-toolbar pap-toolbar--detail">
         <button type="button" class="pap-btn pap-btn--ghost" data-act="back">
-          <span class="material-symbols-outlined">arrow_back</span> Volver
+          <span class="material-symbols-outlined">arrow_back</span>
         </button>
-        <span class="pap-status pap-status--${_esc(p.status)}">${_esc(STATUS_LABELS[p.status] || p.status)}</span>
-        ${!editable ? '<span class="pap-card__meta">Edición bloqueada</span>' : ''}
+        <div class="pap-detail-head">
+          <strong>${_esc(p.mva || 'Unidad')}</strong>
+          <span class="pap-status pap-status--${_esc(p.status)}">${_esc(STATUS_LABELS_SHORT[p.status] || STATUS_LABELS[p.status] || p.status)}</span>
+        </div>
+        ${!editable ? '<span class="pap-lock">Solo lectura</span>' : ''}
       </div>
-      <div class="pap-steps">
+      <div class="pap-steps" role="tablist">
         ${steps.map(([id, label]) => `
           <button type="button" class="pap-step ${_wizardStep === id ? 'is-active' : ''}" data-act="step" data-step="${id}">${label}</button>
         `).join('')}
@@ -324,27 +360,30 @@ function _renderDetail() {
 function _panelDatos(p, editable) {
   return `
     <div class="pap-panel">
-      <h2>Datos de unidad</h2>
-      ${['mva', 'modelo', 'placas', 'color', 'vin'].map((k) => `
-        <div class="pap-field">
-          <label>${k.toUpperCase()}</label>
-          <input data-field="${k}" value="${_esc(p[k] || '')}" ${editable ? '' : 'disabled'}/>
-        </div>
-      `).join('')}
+      <h2>Datos de la unidad</h2>
+      <p class="pap-hint">Revisa que coincidan con el auto. Si algo está mal, corrígelo aquí.</p>
+      <div class="pap-fields-2">
+        ${['mva', 'placas', 'modelo', 'color', 'vin'].map((k) => `
+          <div class="pap-field${k === 'vin' || k === 'modelo' ? ' pap-field--full' : ''}">
+            <label>${FIELD_LABELS[k] || k}</label>
+            <input data-field="${k}" value="${_esc(p[k] || '')}" ${editable ? '' : 'disabled'} autocomplete="off"/>
+          </div>
+        `).join('')}
+      </div>
       ${_canVentas() ? `
         <div class="pap-field">
-          <label>Cliente (Ventas)</label>
-          <input data-field="clienteNombre" value="${_esc(p.clienteNombre || '')}"/>
+          <label>Entregar a (nombre del cliente)</label>
+          <input data-field="clienteNombre" value="${_esc(p.clienteNombre || '')}" placeholder="Ej: Juan Pérez" autocomplete="off"/>
         </div>
       ` : `
         <div class="pap-field">
           <label>Cliente</label>
-          <input value="${_esc(p.clienteNombre || '—')}" disabled/>
+          <input value="${_esc(p.clienteNombre || 'Sin asignar')}" disabled/>
         </div>
       `}
       ${editable || _canVentas() ? `
-        <div class="pap-actions">
-          <button type="button" class="pap-btn pap-btn--primary" data-act="save-datos" ${_busy ? 'disabled' : ''}>Guardar</button>
+        <div class="pap-actions pap-actions--sticky">
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-datos" ${_busy ? 'disabled' : ''}>Guardar y seguir</button>
         </div>
       ` : ''}
     </div>
@@ -356,38 +395,53 @@ function _panelZonas(p, editable) {
   const data = p.zonas?.[z.id] || { estado: 'ok', nota: '', fotoPath: '' };
   const n = _fotosCount(p);
   return `
-    <div class="pap-panel">
+    <div class="pap-panel pap-panel--zona">
       <div class="pap-zona-nav">
-        <button type="button" class="pap-btn pap-btn--ghost" data-act="zona-prev" ${_zonaIdx <= 0 ? 'disabled' : ''}>Anterior</button>
-        <div class="pap-progress">${_zonaIdx + 1}/12 · ${_esc(z.label)} · ${n}/12 fotos</div>
-        <button type="button" class="pap-btn pap-btn--ghost" data-act="zona-next" ${_zonaIdx >= 11 ? 'disabled' : ''}>Siguiente</button>
+        <button type="button" class="pap-icon-btn" data-act="zona-prev" ${_zonaIdx <= 0 ? 'disabled' : ''} aria-label="Anterior">
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        <div class="pap-progress">
+          <strong>${_esc(z.label)}</strong>
+          <span>Paso ${_zonaIdx + 1} de 12 · ${n}/12 fotos</span>
+        </div>
+        <button type="button" class="pap-icon-btn" data-act="zona-next" ${_zonaIdx >= 11 ? 'disabled' : ''} aria-label="Siguiente">
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
       </div>
-      <div class="pap-field">
-        <label>Estado</label>
-        <select data-zona-estado ${editable ? '' : 'disabled'}>
-          <option value="ok" ${data.estado === 'ok' ? 'selected' : ''}>OK</option>
-          <option value="dano" ${data.estado === 'dano' ? 'selected' : ''}>Daño</option>
-        </select>
+      <div class="pap-seg">
+        <button type="button" class="pap-seg__btn ${data.estado !== 'dano' ? 'is-on' : ''}" data-act="zona-ok" ${editable ? '' : 'disabled'}>Sin daño</button>
+        <button type="button" class="pap-seg__btn ${data.estado === 'dano' ? 'is-on is-bad' : ''}" data-act="zona-dano" ${editable ? '' : 'disabled'}>Hay daño</button>
       </div>
-      <div class="pap-field">
-        <label>Nota (máx. 40)</label>
-        <input data-zona-nota maxlength="40" value="${_esc(data.nota || '')}" ${editable ? '' : 'disabled'}/>
-      </div>
-      <div class="pap-field">
-        <label>Foto obligatoria</label>
-        <input type="file" accept="image/*" capture="environment" data-zona-foto ${editable ? '' : 'disabled'}/>
-        <div class="pap-card__meta" data-foto-status>${data.fotoPath ? 'Foto cargada' : 'Sin foto'}</div>
-        <img data-zona-preview alt="" style="display:none;max-width:100%;margin-top:8px;border-radius:8px"/>
-      </div>
+      <input type="hidden" data-zona-estado value="${data.estado === 'dano' ? 'dano' : 'ok'}"/>
       ${data.estado === 'dano' ? `
         <div class="pap-field">
-          <label>Foto detalle (opcional)</label>
-          <input type="file" accept="image/*" capture="environment" data-zona-detalle ${editable ? '' : 'disabled'}/>
+          <label>Nota corta (opcional)</label>
+          <input data-zona-nota maxlength="40" value="${_esc(data.nota || '')}" placeholder="Ej: rayón puerta" ${editable ? '' : 'disabled'}/>
         </div>
-      ` : ''}
+      ` : `<input type="hidden" data-zona-nota value="${_esc(data.nota || '')}"/>`}
+      <div class="pap-cam">
+        <img data-zona-preview alt="" class="pap-cam__preview"${data.fotoPath ? '' : ' hidden'}/>
+        <div class="pap-cam__status" data-foto-status>${data.fotoPath ? 'Foto lista ✓' : 'Falta foto de esta parte'}</div>
+        ${editable ? `
+          <label class="pap-cam__btn">
+            <input type="file" accept="image/*" capture="environment" data-zona-foto data-autosave="1" hidden/>
+            <span class="material-symbols-outlined">photo_camera</span>
+            ${data.fotoPath ? 'Repetir foto' : 'Tomar foto'}
+          </label>
+          ${data.estado === 'dano' ? `
+            <label class="pap-cam__btn pap-cam__btn--ghost">
+              <input type="file" accept="image/*" capture="environment" data-zona-detalle hidden/>
+              <span class="material-symbols-outlined">add_a_photo</span>
+              Foto detalle
+            </label>
+          ` : ''}
+        ` : ''}
+      </div>
       ${editable ? `
-        <div class="pap-actions">
-          <button type="button" class="pap-btn pap-btn--primary" data-act="save-zona" ${_busy ? 'disabled' : ''}>Guardar zona</button>
+        <div class="pap-actions pap-actions--sticky">
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-zona" ${_busy ? 'disabled' : ''}>
+            ${data.fotoPath ? 'Guardar y siguiente' : 'Guardar foto'}
+          </button>
         </div>
       ` : ''}
     </div>
@@ -397,23 +451,24 @@ function _panelZonas(p, editable) {
 function _panelChecklist(p, editable) {
   return `
     <div class="pap-panel">
-      <h2>Checklist de accesorios</h2>
+      <h2>Accesorios</h2>
+      <p class="pap-hint">Marca si cada cosa está, falta o no aplica.</p>
       <div class="pap-check-grid">
         ${CHECKLIST_KEYS.map((k) => `
           <div class="pap-check-item">
-            <div>${_esc(CHECKLIST_LABELS[k] || k)}</div>
+            <div class="pap-check-item__name">${_esc(CHECKLIST_LABELS[k] || k)}</div>
             <select data-check="${k}" ${editable ? '' : 'disabled'}>
-              <option value="">—</option>
-              <option value="ok" ${p.checklist?.[k] === 'ok' ? 'selected' : ''}>Presente</option>
-              <option value="faltante" ${p.checklist?.[k] === 'faltante' ? 'selected' : ''}>Faltante</option>
-              <option value="na" ${p.checklist?.[k] === 'na' ? 'selected' : ''}>N/A</option>
+              <option value="">Elegir…</option>
+              <option value="ok" ${p.checklist?.[k] === 'ok' ? 'selected' : ''}>Sí está</option>
+              <option value="faltante" ${p.checklist?.[k] === 'faltante' ? 'selected' : ''}>Falta</option>
+              <option value="na" ${p.checklist?.[k] === 'na' ? 'selected' : ''}>No aplica</option>
             </select>
           </div>
         `).join('')}
       </div>
       ${editable ? `
-        <div class="pap-actions">
-          <button type="button" class="pap-btn pap-btn--primary" data-act="save-check" ${_busy ? 'disabled' : ''}>Guardar checklist</button>
+        <div class="pap-actions pap-actions--sticky">
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-check" ${_busy ? 'disabled' : ''}>Guardar accesorios</button>
         </div>
       ` : ''}
     </div>
@@ -428,30 +483,36 @@ function _panelResumen(p) {
   const kmGasEditable = canEntregarUi && puedeEditar(p.status);
   return `
     <div class="pap-panel">
-      <h2>Resumen</h2>
-      <p class="pap-card__meta">Fotos: ${fotosOk ? '12/12 ✓' : `${_fotosCount(p)}/12`} · Checklist: ${checkOk ? 'completo ✓' : 'incompleto'} · Estado: ${_esc(STATUS_LABELS[p.status] || p.status)}</p>
-      ${p.status === 'lista' ? '<p class="pap-ready">Lista para entregar</p>' : ''}
-      ${!fotosOk || !checkOk ? '<p class="pap-card__meta">Completa las 12 fotos y el checklist para habilitar la entrega.</p>' : ''}
-      <p><b>ENTREGAR A ${_esc(p.clienteNombre || '(sin cliente)')}</b></p>
-      <div class="pap-field">
-        <label>KM salida</label>
-        <input id="papKmSalida" type="number" value="${_esc(p.salida?.km ?? _pendingSalida.km ?? '')}" ${kmGasEditable ? '' : 'disabled'}/>
+      <h2>Listo para entregar</h2>
+      <ul class="pap-checklist-status">
+        <li class="${fotosOk ? 'is-ok' : ''}">Fotos del auto: ${fotosOk ? '12/12' : `${_fotosCount(p)}/12`}</li>
+        <li class="${checkOk ? 'is-ok' : ''}">Accesorios: ${checkOk ? 'completos' : 'faltan por marcar'}</li>
+        <li>Estado: ${_esc(STATUS_LABELS[p.status] || p.status)}</li>
+      </ul>
+      ${p.status === 'lista' ? '<p class="pap-ready">Ya puedes entregar</p>' : ''}
+      ${!fotosOk || !checkOk ? '<p class="pap-hint">Termina las fotos y los accesorios para poder entregar.</p>' : ''}
+      <p class="pap-entregar-a">Entregar a: <b>${_esc(p.clienteNombre || 'Sin cliente')}</b></p>
+      <div class="pap-fields-2">
+        <div class="pap-field">
+          <label>Kilometraje al salir</label>
+          <input id="papKmSalida" type="number" inputmode="numeric" value="${_esc(p.salida?.km ?? _pendingSalida.km ?? '')}" ${kmGasEditable ? '' : 'disabled'}/>
+        </div>
+        <div class="pap-field">
+          <label>Gasolina al salir</label>
+          <input id="papGasSalida" value="${_esc(p.salida?.gas ?? _pendingSalida.gas ?? '')}" placeholder="Ej: 3/4" ${kmGasEditable ? '' : 'disabled'}/>
+        </div>
       </div>
-      <div class="pap-field">
-        <label>Gas salida</label>
-        <input id="papGasSalida" value="${_esc(p.salida?.gas ?? _pendingSalida.gas ?? '')}" ${kmGasEditable ? '' : 'disabled'}/>
-      </div>
-      <div class="pap-actions">
+      <div class="pap-actions pap-actions--sticky">
         ${canEntregarUi ? `
-          <button type="button" class="pap-btn pap-btn--primary" data-act="start-entregar" ${(!_busy && (ready || (fotosOk && checkOk))) ? '' : 'disabled'}>
-            Entregar unidad
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="start-entregar" ${(!_busy && (ready || (fotosOk && checkOk))) ? '' : 'disabled'}>
+            Pedir firma y entregar
           </button>
         ` : ''}
         ${p.status === 'entregada' || p.status === 'en_retorno' || p.status === 'cerrada_historial' ? `
-          <button type="button" class="pap-btn pap-btn--ghost" data-act="pdf">Descargar / imprimir PDF</button>
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="pdf">Ver / imprimir PDF</button>
         ` : ''}
         ${p.status === 'entregada' ? `
-          <button type="button" class="pap-btn pap-btn--primary" data-act="goto-entrada">Registrar entrada</button>
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="goto-entrada">Registrar regreso</button>
         ` : ''}
       </div>
     </div>
@@ -543,21 +604,82 @@ function _renderVentas() {
   `;
 }
 
+function _unitHitHtml(u) {
+  return `
+    <button type="button" class="pap-ac-item" data-act="pick-unit" data-id="${_esc(u.id)}">
+      <span class="pap-ac-item__mva">${_esc(u.mva || '—')}</span>
+      <span class="pap-ac-item__meta">
+        <span>${_esc(u.placas || 'Sin placas')}</span>
+        <span>${_esc(u.modelo || 'Sin modelo')}${u.color ? ` · ${_esc(u.color)}` : ''}</span>
+      </span>
+      <span class="material-symbols-outlined">chevron_right</span>
+    </button>`;
+}
+
+function _renderUnitHitsHtml() {
+  if (_unitSearchBusy) {
+    return `<div class="pap-ac-empty">Buscando…</div>`;
+  }
+  if (!_unitHits.length) {
+    return `<div class="pap-ac-empty">${_unitQ.trim() ? 'Sin coincidencias. Prueba económico o placas.' : 'Escribe económico, placas o modelo.'}</div>`;
+  }
+  return _unitHits.map(_unitHitHtml).join('');
+}
+
+function _paintUnitHits() {
+  const host = _container?.querySelector('#papUnitHits');
+  if (!host) return;
+  host.innerHTML = _renderUnitHitsHtml();
+  host.querySelectorAll('[data-act="pick-unit"]').forEach((btn) => {
+    btn.addEventListener('click', () => _crearDesdeUnidad(btn.dataset.id));
+  });
+}
+
+async function _runUnitAutocomplete(raw) {
+  const seq = ++_unitSearchSeq;
+  _unitQ = raw;
+  _unitSearchBusy = true;
+  _paintUnitHits();
+  try {
+    const plaza = String(getCurrentPlaza() || '').toUpperCase();
+    const hits = await buscarUnidad(_unitQ, { limit: 12, plazaId: plaza });
+    if (seq !== _unitSearchSeq) return;
+    _unitHits = hits;
+  } catch (_) {
+    if (seq !== _unitSearchSeq) return;
+    _unitHits = [];
+  } finally {
+    if (seq === _unitSearchSeq) {
+      _unitSearchBusy = false;
+      _paintUnitHits();
+    }
+  }
+}
+
+function _scheduleUnitAutocomplete(raw) {
+  if (_unitSearchTimer) clearTimeout(_unitSearchTimer);
+  _unitSearchTimer = setTimeout(() => _runUnitAutocomplete(raw), 160);
+}
+
 function _renderNuevaModal() {
   return `
     <div class="pap-modal-backdrop" data-act="close-modal">
-      <div class="pap-modal" data-stop>
-        <h2>Nueva papeleta</h2>
-        <div class="pap-field">
-          <label>Buscar unidad</label>
-          <input id="papUnitQ" class="pap-search" placeholder="MVA / placas / modelo / VIN" value="${_esc(_unitQ)}"/>
+      <div class="pap-modal pap-modal--ac" data-stop role="dialog" aria-label="Nueva papeleta">
+        <div class="pap-modal__head">
+          <h2>Nueva papeleta</h2>
+          <button type="button" class="pap-icon-btn" data-act="close-nueva" aria-label="Cerrar">
+            <span class="material-symbols-outlined">close</span>
+          </button>
         </div>
-        <div id="papUnitHits">
-          ${_unitHits.map((u) => `
-            <button type="button" class="pap-unit-hit" data-act="pick-unit" data-id="${_esc(u.id)}">
-              <b>${_esc(u.mva || '—')}</b> · ${_esc(u.modelo || '')} · ${_esc(u.placas || '')}
-            </button>
-          `).join('') || '<div class="pap-card__meta">Escribe para buscar…</div>'}
+        <p class="pap-hint">Busca la unidad y tócala para abrir la papeleta.</p>
+        <label class="pap-ac">
+          <span class="material-symbols-outlined">directions_car</span>
+          <input id="papUnitQ" type="search" inputmode="search" enterkeyhint="search"
+            placeholder="Económico, placas o modelo…"
+            value="${_esc(_unitQ)}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+        </label>
+        <div class="pap-ac-list" id="papUnitHits" role="listbox">
+          ${_renderUnitHitsHtml()}
         </div>
       </div>
     </div>
@@ -570,17 +692,18 @@ function _bind() {
 
   root.querySelector('[data-act="tab-list"]')?.addEventListener('click', () => _gotoList());
   root.querySelector('[data-act="tab-ventas"]')?.addEventListener('click', () => _gotoVentas());
-  root.querySelector('[data-act="nueva"]')?.addEventListener('click', () => {
+  root.querySelector('[data-act="nueva"]')?.addEventListener('click', async () => {
     _showNueva = true;
     _unitHits = [];
     _unitQ = '';
     _render();
+    // Prefetch sugerencias de plaza
+    _runUnitAutocomplete('');
+    queueMicrotask(() => _container?.querySelector('#papUnitQ')?.focus());
   });
   root.querySelector('#papSearch')?.addEventListener('input', (e) => {
     _query = e.target.value;
-    _render();
-    const el = _container.querySelector('#papSearch');
-    if (el) { el.focus(); el.selectionStart = el.selectionEnd = el.value.length; }
+    _paintListRows();
   });
   root.querySelectorAll('[data-act="filter"]').forEach((btn) => {
     btn.addEventListener('click', () => { _filter = btn.dataset.f; _render(); });
@@ -597,6 +720,22 @@ function _bind() {
   });
   root.querySelector('[data-act="zona-next"]')?.addEventListener('click', () => {
     _zonaIdx = Math.min(11, _zonaIdx + 1); _render();
+  });
+  root.querySelector('[data-act="zona-ok"]')?.addEventListener('click', () => {
+    const hid = _container.querySelector('[data-zona-estado]');
+    if (hid) hid.value = 'ok';
+    _renderZonaEstadoUi('ok');
+  });
+  root.querySelector('[data-act="zona-dano"]')?.addEventListener('click', () => {
+    const hid = _container.querySelector('[data-zona-estado]');
+    if (hid) hid.value = 'dano';
+    // Re-render panel to show nota + detalle (estado local until save)
+    if (_detail) {
+      const z = ZONAS_V1[_zonaIdx];
+      if (!_detail.zonas) _detail.zonas = {};
+      _detail.zonas[z.id] = { ...(_detail.zonas[z.id] || {}), estado: 'dano' };
+      _render();
+    }
   });
   root.querySelector('[data-act="save-datos"]')?.addEventListener('click', () => _saveDatos());
   root.querySelector('[data-act="save-zona"]')?.addEventListener('click', () => _saveZona());
@@ -619,15 +758,55 @@ function _bind() {
   root.querySelector('[data-act="close-modal"]')?.addEventListener('click', (e) => {
     if (e.target.dataset.act === 'close-modal') { _showNueva = false; _render(); }
   });
-  root.querySelector('#papUnitQ')?.addEventListener('input', async (e) => {
-    _unitQ = e.target.value;
-    try { _unitHits = await buscarUnidad(_unitQ); } catch (_) { _unitHits = []; }
-    _render();
-    const el = _container.querySelector('#papUnitQ');
-    if (el) { el.focus(); el.selectionStart = el.selectionEnd = el.value.length; }
+  root.querySelector('[data-act="close-nueva"]')?.addEventListener('click', () => {
+    _showNueva = false; _render();
+  });
+  root.querySelector('#papUnitQ')?.addEventListener('input', (e) => {
+    _scheduleUnitAutocomplete(e.target.value || '');
   });
   root.querySelectorAll('[data-act="pick-unit"]').forEach((btn) => {
     btn.addEventListener('click', () => _crearDesdeUnidad(btn.dataset.id));
+  });
+  // Auto-guardar al elegir foto (flujo rápido en patio)
+  root.querySelector('[data-zona-foto][data-autosave]')?.addEventListener('change', () => {
+    if (_container.querySelector('[data-zona-foto]')?.files?.[0]) _saveZona();
+  });
+}
+
+function _renderZonaEstadoUi(estado) {
+  if (_detail) {
+    const z = ZONAS_V1[_zonaIdx];
+    if (!_detail.zonas) _detail.zonas = {};
+    _detail.zonas[z.id] = { ...(_detail.zonas[z.id] || {}), estado };
+  }
+  _render();
+}
+
+function _paintListRows() {
+  if (!_container || _mode !== 'list') return;
+  const rows = _filteredItems();
+  let list = _container.querySelector('.pap-list');
+  const empty = _container.querySelector('.pap-empty');
+  if (!rows.length) {
+    if (list) list.remove();
+    if (!empty) {
+      const host = _container.querySelector('.pap-chips')?.parentElement || _container.querySelector('.pap-module');
+      const div = document.createElement('div');
+      div.className = 'pap-empty';
+      div.innerHTML = '<strong>Nada por aquí</strong><small>Toca <b>Nueva</b> y busca la unidad por económico o placas.</small>';
+      host?.appendChild(div);
+    }
+    return;
+  }
+  if (empty) empty.remove();
+  if (!list) {
+    list = document.createElement('div');
+    list.className = 'pap-list';
+    _container.querySelector('.pap-chips')?.insertAdjacentElement('afterend', list);
+  }
+  list.innerHTML = rows.map(_cardHtml).join('');
+  list.querySelectorAll('[data-act="open"]').forEach((btn) => {
+    btn.addEventListener('click', () => _openDetail(btn.dataset.id));
   });
 }
 
@@ -669,6 +848,7 @@ async function _saveDatos() {
     if (puedeEditar(_detail.status) && Object.keys(patch).length) {
       await actualizarPapeleta(_detail.id, patch, { user: _user() });
     }
+    if (puedeEditar(_detail.status)) _wizardStep = 'zonas';
   } catch (e) {
     await _mexAlert('Error', e.message || String(e));
   } finally {
@@ -711,6 +891,7 @@ async function _saveCheck() {
   _busy = true; _render();
   try {
     await actualizarPapeleta(_detail.id, { checklist }, { user: _user() });
+    _wizardStep = 'resumen';
   } catch (e) {
     await _mexAlert('Error', e.message || String(e));
   } finally {
