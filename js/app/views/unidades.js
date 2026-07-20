@@ -507,17 +507,17 @@ function _openExportModal() {
         </div>
         <p class="uni-export-hint">${esc(_filterSummary())}</p>
         <div class="uni-export-menu">
-          <button type="button" data-action="export-xls">
-            <span class="material-symbols-outlined">table_view</span>
-            <span><strong>Excel (.xls)</strong><small>Solo las filas visibles con estos filtros</small></span>
-          </button>
           <button type="button" data-action="export-pdf">
             <span class="material-symbols-outlined">picture_as_pdf</span>
-            <span><strong>PDF</strong><small>Documento imprimible de la tabla filtrada</small></span>
+            <span><strong>1 · PDF</strong><small>Documento imprimible de la tabla filtrada</small></span>
+          </button>
+          <button type="button" data-action="export-xls">
+            <span class="material-symbols-outlined">table_view</span>
+            <span><strong>2 · XLS</strong><small>Excel · solo filas visibles con estos filtros</small></span>
           </button>
           <button type="button" data-action="export-csv">
             <span class="material-symbols-outlined">csv</span>
-            <span><strong>CSV</strong><small>Solo filas filtradas · compatible con importación</small></span>
+            <span><strong>3 · CSV</strong><small>Solo filas filtradas · compatible con importación</small></span>
           </button>
         </div>
         <div class="uni-modal-actions">

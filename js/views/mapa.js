@@ -30,6 +30,7 @@ import {
   exportFooterHtml,
   getExportIdentity,
 } from '/js/core/export-signing.js';
+import { openExportChooser } from '/js/core/export-menu.js';
 import {
   configureNotifications,
   initNotificationCenter,
@@ -11214,7 +11215,7 @@ function _puedeExportarFlotaCuadre() {
 
 function _syncExportFlotaMenuItems() {
   const show = _puedeExportarFlotaCuadre();
-  ['mcExportFlotaCsv', 'mcExportFlotaXls'].forEach(id => {
+  ['mcExportFlota', 'mcExportFlotaCsv', 'mcExportFlotaXls'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = show ? '' : 'none';
   });
@@ -11235,24 +11236,32 @@ async function _flotaCuadreParaExport() {
   return Array.isArray(rows) ? rows.filter(u => u && u.mva && !esExterno(u)) : [];
 }
 
-async function exportarFlotaCuadreCsv() {
+function _flotaExportHeaders() {
+  return ['MVA', 'Placas', 'Modelo', 'Categoria', 'Estado', 'Ubicacion', 'Gasolina', 'KM', 'Plaza'];
+}
+
+function _flotaExportBody(rows, plaza) {
+  return rows.map((u) => [
+    u.mva, u.placas, u.modelo, u.categoria, u.estado, u.ubicacion || u.pos,
+    u.gasolina, u.km, u.plaza || plaza,
+  ]);
+}
+
+async function exportarFlotaCuadreCsv(rowsPre, plazaPre) {
   document.getElementById('moreControlsDropdown')?.classList.remove('show');
   if (!_puedeExportarFlotaCuadre()) {
     showToast('No tienes permiso para exportar flota.', 'error');
     return;
   }
   try {
-    const rows = await _flotaCuadreParaExport();
+    const rows = rowsPre || await _flotaCuadreParaExport();
     if (!rows.length) {
       showToast('No hay unidades en el cuadre para exportar.', 'warning');
       return;
     }
-    const headers = ['MVA', 'Placas', 'Modelo', 'Categoria', 'Estado', 'Ubicacion', 'Gasolina', 'KM', 'Plaza'];
-    const plaza = _miPlaza();
-    const body = rows.map(u => [
-      u.mva, u.placas, u.modelo, u.categoria, u.estado, u.ubicacion || u.pos,
-      u.gasolina, u.km, u.plaza || plaza
-    ].map(_csvEscapeFlota).join(','));
+    const plaza = plazaPre || _miPlaza();
+    const headers = _flotaExportHeaders();
+    const body = _flotaExportBody(rows, plaza).map((line) => line.map(_csvEscapeFlota).join(','));
     const csv = '\ufeff' + [headers.join(','), ...body].join('\n');
     descargarArchivoLocal(buildExportFilename('csv'), csv, 'text/csv;charset=utf-8;');
     showToast(`Exportadas ${rows.length} unidades (CSV).`, 'success');
@@ -11262,20 +11271,20 @@ async function exportarFlotaCuadreCsv() {
   }
 }
 
-async function exportarFlotaCuadreXls() {
+async function exportarFlotaCuadreXls(rowsPre, plazaPre) {
   document.getElementById('moreControlsDropdown')?.classList.remove('show');
   if (!_puedeExportarFlotaCuadre()) {
     showToast('No tienes permiso para exportar flota.', 'error');
     return;
   }
   try {
-    const rows = await _flotaCuadreParaExport();
+    const rows = rowsPre || await _flotaCuadreParaExport();
     if (!rows.length) {
       showToast('No hay unidades en el cuadre para exportar.', 'warning');
       return;
     }
-    const plaza = _miPlaza();
-    const filas = rows.map(u => `
+    const plaza = plazaPre || _miPlaza();
+    const filas = rows.map((u) => `
       <tr>
         <td>${escapeHtml(u.mva || '')}</td>
         <td>${escapeHtml(u.placas || '')}</td>
@@ -11305,15 +11314,95 @@ async function exportarFlotaCuadreXls() {
         </body>
       </html>`;
     descargarArchivoLocal(buildExportFilename('xls'), contenido, 'application/vnd.ms-excel;charset=utf-8;');
-    showToast(`Exportadas ${rows.length} unidades (Excel).`, 'success');
+    showToast(`Exportadas ${rows.length} unidades (XLS).`, 'success');
   } catch (err) {
     console.error('[export-flota-xls]', err);
     showToast('No se pudo exportar el Excel.', 'error');
   }
 }
 
+async function exportarFlotaCuadrePdf(rowsPre, plazaPre) {
+  document.getElementById('moreControlsDropdown')?.classList.remove('show');
+  if (!_puedeExportarFlotaCuadre()) {
+    showToast('No tienes permiso para exportar flota.', 'error');
+    return;
+  }
+  try {
+    const rows = rowsPre || await _flotaCuadreParaExport();
+    if (!rows.length) {
+      showToast('No hay unidades en el cuadre para exportar.', 'warning');
+      return;
+    }
+    const plaza = plazaPre || _miPlaza();
+    const id = getExportIdentity();
+    const firma = exportFooterHtml({ escapeHtml });
+    const title = buildExportFilename('pdf').replace(/\.pdf$/i, '');
+    const headers = _flotaExportHeaders();
+    const thead = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('');
+    const tbody = _flotaExportBody(rows, plaza).map((line) =>
+      `<tr>${line.map((c) => `<td>${escapeHtml(c ?? '')}</td>`).join('')}</tr>`
+    ).join('');
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+      <title>${escapeHtml(title)}</title>
+      <style>
+        body{font:12px/1.35 Arial,sans-serif;margin:24px;color:#0f172a}
+        h1{font-size:18px;margin:0 0 4px}p{margin:0 0 14px;color:#64748b}
+        table{width:100%;border-collapse:collapse;font-size:10px}
+        th,td{border:1px solid #cbd5e1;padding:5px 6px;text-align:left}
+        th{background:#0d2a54;color:#fff}
+        @page{size:landscape;margin:12mm}
+      </style></head><body>
+      <h1>Flota del cuadre · ${escapeHtml(plaza)}</h1>
+      <p>${escapeHtml(id.companyName)} · ${rows.length} unidades · ${escapeHtml(id.dateYmd)}</p>
+      <table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
+      ${firma}
+      <script>window.onload=function(){setTimeout(function(){window.print()},200)}<\/script>
+      </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) {
+      showToast('Activa ventanas emergentes para exportar PDF', 'warning');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    showToast(`Exportadas ${rows.length} unidades (PDF).`, 'success');
+  } catch (err) {
+    console.error('[export-flota-pdf]', err);
+    showToast('No se pudo exportar el PDF.', 'error');
+  }
+}
+
+/** Un solo botón Exportar → PDF / XLS / CSV */
+async function exportarFlotaCuadre() {
+  document.getElementById('moreControlsDropdown')?.classList.remove('show');
+  if (!_puedeExportarFlotaCuadre()) {
+    showToast('No tienes permiso para exportar flota.', 'error');
+    return;
+  }
+  try {
+    const rows = await _flotaCuadreParaExport();
+    if (!rows.length) {
+      showToast('No hay unidades en el cuadre para exportar.', 'warning');
+      return;
+    }
+    const plaza = _miPlaza();
+    await openExportChooser({
+      title: 'Exportar flota',
+      subtitle: `${rows.length} unidades · plaza ${plaza || '—'}`,
+      onPdf: () => exportarFlotaCuadrePdf(rows, plaza),
+      onXls: () => exportarFlotaCuadreXls(rows, plaza),
+      onCsv: () => exportarFlotaCuadreCsv(rows, plaza),
+    });
+  } catch (err) {
+    console.error('[export-flota]', err);
+    showToast('No se pudo preparar la exportación.', 'error');
+  }
+}
+
+window.exportarFlotaCuadre = exportarFlotaCuadre;
 window.exportarFlotaCuadreCsv = exportarFlotaCuadreCsv;
 window.exportarFlotaCuadreXls = exportarFlotaCuadreXls;
+window.exportarFlotaCuadrePdf = exportarFlotaCuadrePdf;
 
 function toggleMoreControls(ev) {
   ev?.stopPropagation?.();

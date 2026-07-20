@@ -9,6 +9,12 @@
 
 import { normalizeHistorialLog } from '/domain/historial-log.model.js';
 import { buildExportFilename } from '/js/core/export-signing.js';
+import {
+  openExportChooser,
+  exportMatrixCsv,
+  exportMatrixXls,
+  exportMatrixPdf,
+} from '/js/core/export-menu.js';
 
 let _container  = null;
 let _state      = null;
@@ -299,7 +305,7 @@ function _renderShell() {
             <option value="">Todos los usuarios</option>
           </select>
           <button id="hist-op-limpiarMov" class="hist-op-btn-clear" type="button">Limpiar</button>
-          <button id="hist-op-exportMov" class="hist-op-btn-export" type="button" title="Exportar CSV">
+          <button id="hist-op-exportMov" class="hist-op-btn-export" type="button" title="Exportar PDF / XLS / CSV">
             <span class="material-icons">download</span> Exportar
           </button>
           <button id="hist-op-recargarMov" class="hist-op-btn-refresh" type="button">
@@ -317,7 +323,7 @@ function _renderShell() {
             ${['TODOS','IN','BAJA','EDIT','GESTION'].map(t =>
               `<option value="${t}" ${_state.tipoEst===t?'selected':''}>${_tipoLabel(t)}</option>`).join('')}
           </select>
-          <button id="hist-op-exportEst" class="hist-op-btn-export" type="button" title="Exportar CSV">
+          <button id="hist-op-exportEst" class="hist-op-btn-export" type="button" title="Exportar PDF / XLS / CSV">
             <span class="material-icons">download</span> Exportar
           </button>
           <button id="hist-op-recargarEst" class="hist-op-btn-refresh" type="button">
@@ -428,17 +434,14 @@ function _renderEstado() {
     </div>`;
 }
 
-function _exportCsv(kind) {
+function _exportMatrix(kind) {
   const isMov = kind === 'mov';
   const rows = isMov ? _filteredMovimientos() : _filteredEstado();
-  if (!rows.length) {
-    _toast('No hay registros para exportar.', 'error');
-    return;
-  }
-  const header = isMov
+  if (!rows.length) return null;
+  const headers = isMov
     ? ['Fecha', 'Tipo', 'MVA', 'Movimiento', 'Usuario']
     : ['Fecha', 'Tipo', 'Unidad', 'Cambio', 'Estado anterior', 'Estado nuevo', 'Autor'];
-  const body = rows.map(r => {
+  const body = rows.map((r) => {
     if (isMov) {
       return [r.fecha, _tipoLabel(r.tipo), r.mva, _cleanAuditText(r.detalles), _cleanAuditText(r.usuario)];
     }
@@ -449,13 +452,39 @@ function _exportCsv(kind) {
       r.cambio || '',
       r.estadoAnterior || '',
       r.estadoNuevo || '',
-      r.autor || 'Sistema'
+      r.autor || 'Sistema',
     ];
   });
-  const csv = '\ufeff' + [header.map(_csvCell).join(','), ...body.map(line => line.map(_csvCell).join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  _downloadBlob(blob, buildExportFilename('csv'));
-  _toast(`Exportados ${rows.length} registros (CSV).`, 'success');
+  return {
+    headers,
+    body,
+    title: isMov ? 'Historial de movimientos' : 'Historial de estados',
+    count: rows.length,
+  };
+}
+
+async function _exportKind(kind) {
+  const data = _exportMatrix(kind);
+  if (!data) {
+    _toast('No hay registros para exportar.', 'error');
+    return;
+  }
+  await openExportChooser({
+    title: 'Exportar',
+    subtitle: `${data.count} registros · ${data.title}`,
+    onPdf: () => {
+      exportMatrixPdf(data.headers, data.body, { title: data.title, subtitle: `${data.count} registros` });
+      _toast(`Exportados ${data.count} registros (PDF).`, 'success');
+    },
+    onXls: () => {
+      exportMatrixXls(data.headers, data.body, { title: data.title, filename: buildExportFilename('xls') });
+      _toast(`Exportados ${data.count} registros (XLS).`, 'success');
+    },
+    onCsv: () => {
+      exportMatrixCsv(data.headers, data.body, { filename: buildExportFilename('csv') });
+      _toast(`Exportados ${data.count} registros (CSV).`, 'success');
+    },
+  });
 }
 
 // ── Carga de datos ───────────────────────────────────────────
@@ -529,8 +558,8 @@ function _bindEvents() {
       _renderMovimientos();
       return;
     }
-    if (e.target.closest('#hist-op-exportMov')) { _exportCsv('mov'); return; }
-    if (e.target.closest('#hist-op-exportEst')) { _exportCsv('est'); return; }
+    if (e.target.closest('#hist-op-exportMov')) { void _exportKind('mov'); return; }
+    if (e.target.closest('#hist-op-exportEst')) { void _exportKind('est'); return; }
     if (e.target.closest('#hist-op-recargarMov')) { _state.movimientos = []; _state.pageMov = 1; _loadMovimientos(); return; }
     if (e.target.closest('#hist-op-recargarEst')) { _state.estado = []; _state.pageEst = 1; _loadEstado(); return; }
 
