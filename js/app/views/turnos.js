@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 //  /js/app/views/turnos.js — Turnos & Horarios
-//  Roles bajos (AUXILIAR, VENTAS): ver activos + su propio horario.
-//  Roles admin (SUPERVISOR+): gestionar horarios, asistencia e historial.
+//  view_turnos: ver turnos activos + horarios de plaza (lectura).
+//  manage_turnos: editar horarios, asistencia y auditoría de plaza.
 // ═══════════════════════════════════════════════════════════
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
@@ -937,7 +937,9 @@ function _renderHorarios() {
   if (usuariosLoading) {
     filas = `<tr><td colspan="8" class="tu-grid-loading">Cargando usuarios…</td></tr>`;
   } else {
-    const lista = resolveUsuariosLista(usuarios, { isAdmin, uid, profile });
+    // Lectura de horarios de plaza: cualquier rol con view_turnos.
+    // Edición sigue gated por manage_turnos → semanaEditable.
+    const lista = resolveUsuariosLista(usuarios, { scope: 'plaza', uid, profile });
     const emptyMsg = usuariosPlazaEmptyMessage({
       usuariosLoading: false,
       hasIndexError: !!(_s.listenerErrors?.usuarios || _s.usuariosLoadError?.code === LISTENER_ERROR.INDEX_MISSING),
@@ -961,7 +963,10 @@ function _renderHorarios() {
         for (const u of sec.conHorario) filas += renderUserRow(u);
 
         if (sec.sinHorario.length) {
-          const expanded = !!expandSinHorario?.[sec.id];
+          // Auto-expand sección que contiene al usuario actual (roles bajos no deben
+          // “perder” su fila bajo un toggle colapsado).
+          const ownInEmpty = sec.sinHorario.some(u => normalizeUsuarioUid(u) === uid);
+          const expanded = !!expandSinHorario?.[sec.id] || ownInEmpty;
           filas += `<tr class="tu-role-empty-toggle">
             <td colspan="8">
               <button type="button" class="tu-role-empty-btn" data-toggle-empty="${esc(sec.id)}">
@@ -1075,6 +1080,11 @@ function _renderHorarios() {
 
   return `
 <div class="tu-horarios">
+  ${!isAdmin ? `
+  <div class="tu-banner tu-banner--readonly">
+    <span class="material-symbols-outlined">visibility</span>
+    Solo lectura — horarios de tu plaza. La edición requiere permiso de gestión.
+  </div>` : ''}
   ${isAdmin && !semanaEditable ? `
   <div class="tu-banner tu-banner--readonly">
     <span class="material-symbols-outlined">lock</span>
@@ -1121,7 +1131,7 @@ function _renderHorarios() {
       <tbody>${filas}</tbody>
     </table>
   </div>
-  ${isAdmin ? `<div class="tu-horarios-legend">
+  <div class="tu-horarios-legend">
     ${plantillas.map(p => {
       const bg = colorDeTurno(p);
       return `<span class="tu-legend-item">
@@ -1132,7 +1142,7 @@ function _renderHorarios() {
       `<span class="tu-legend-item">
         <span class="tu-legend-dot" style="background:${v.color}"></span>${v.label}
       </span>`).join('')}
-  </div>` : ''}
+  </div>
 </div>
 
 <!-- Editor de celda -->
@@ -1207,7 +1217,7 @@ function _renderHorarios() {
         <span class="material-symbols-outlined">close</span>
       </button>
     </div>
-    <p style="font-size:12px;color:#64748b;margin:0 0 10px;">Visible para todos en la vista de horarios.</p>
+    <p style="font-size:12px;color:var(--text-muted,#64748b);margin:0 0 10px;">Visible para todos en la vista de horarios.</p>
     <input type="hidden" id="tuNotaModalDia">
     <textarea class="tu-input" id="tuNotaModalTexto" rows="3"
               placeholder="Ej: Habrá más actividad ese día"></textarea>
@@ -1289,7 +1299,7 @@ function _renderHistorial() {
     return `<div class="tu-empty-state">
       <span class="material-symbols-outlined">construction</span>
       <p>El historial requiere un índice de Firestore que aún no está desplegado.</p>
-      <p style="font-size:12px;color:#64748b;margin-top:8px;">Ejecuta <code>firebase deploy --only firestore:indexes</code></p>
+      <p style="font-size:12px;color:var(--text-muted,#64748b);margin-top:8px;">Ejecuta <code>firebase deploy --only firestore:indexes</code></p>
     </div>`;
   }
 
@@ -1908,7 +1918,7 @@ async function _loadTablero() {
     if (!_s) return;
     const lista = plaza === 'TODAS'
       ? usuarios
-      : resolveUsuariosLista(usuarios, { isAdmin: true, uid: _s.uid, profile: _s.profile });
+      : resolveUsuariosLista(usuarios, { scope: 'plaza', uid: _s.uid, profile: _s.profile });
     a.data = tableroMes({
       usuarios: lista, turnos, asistencia, notas, horarios,
       desde, hasta, hoyIso: hoy(),
@@ -2086,7 +2096,8 @@ function _exportCabeceraEmpresa() {
 function _exportarHorarios() {
   if (!_s) return;
   const { semana, horarios, usuarios, notasSemana, isAdmin, uid, profile, plaza, plantillas, rolesOperativos } = _s;
-  const lista = resolveUsuariosLista(usuarios || [], { isAdmin, uid, profile });
+  // Export PDF refleja la misma lectura de plaza que el grid (view_turnos).
+  const lista = resolveUsuariosLista(usuarios || [], { scope: 'plaza', uid, profile });
   if (!lista.length) {
     _toast('No hay colaboradores para exportar.', 'Exportar');
     return;

@@ -76,11 +76,21 @@ export function turnoFinDate(turno) {
   return turno?.fin?.toDate?.() || new Date(Number(turno?.fin) || Date.now());
 }
 
-/** Lista de usuarios para grid: admin ve todos; no-admin con fallback fila propia. */
-export function resolveUsuariosLista(usuarios, { isAdmin, uid, profile }) {
+/**
+ * Lista de usuarios para grids de turnos/horarios.
+ * - scope 'plaza' (default con view_turnos): toda la plaza; fallback fila propia si la lista viene vacía.
+ * - scope 'own': solo el usuario actual (historial personal, etc.).
+ * isAdmin=true implica plaza (compat). manage_turnos solo controla edición, no lectura.
+ */
+export function resolveUsuariosLista(usuarios, { isAdmin, uid, profile, scope } = {}) {
   const list = Array.isArray(usuarios) ? usuarios : [];
-  if (isAdmin) return list;
-  const own = list.filter(u => normalizeUsuarioUid(u) === uid);
+  const mode = scope || (isAdmin ? 'plaza' : 'own');
+  if (mode === 'plaza') {
+    if (list.length) return list;
+    if (!uid) return list;
+    return [{ uid, id: uid, ...profile }];
+  }
+  const own = list.filter(u => normalizeUsuarioUid(u) === String(uid || '').trim());
   if (own.length || !uid) return own;
   return [{ uid, id: uid, ...profile }];
 }
