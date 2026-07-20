@@ -16,6 +16,7 @@ import {
 } from '/js/app/features/admin/admin-opciones-data.js';
 import { adminSectionLabel } from '/js/app/features/admin/admin-nav.js';
 import { _gasToPercent, _gasBarFillColor } from '/mapa/features/core/utils.js';
+import { admRibbonSelectHtml, admBindRibbonRoot, admCloseAllRibbons } from '/js/app/features/admin/admin-ribbon-ui.js';
 
 function esc(s) {
   return String(s ?? '')
@@ -175,10 +176,13 @@ function _editorFormFields(fields, editing, rowKey) {
       <label>
         <span>Categoría</span>
         ${ro ? `<div class="adm-field-value">${esc(fields.categoria || 'Sin categoría')}</div>`
-          : `<select name="categoria">
-               <option value="">Sin categoría</option>
-               ${cats.map(c => `<option value="${esc(c)}" ${String(fields.categoria || '').toUpperCase() === c.toUpperCase() ? 'selected' : ''}>${esc(c)}</option>`).join('')}
-             </select>`}
+          : admRibbonSelectHtml({
+            id: `adm-op-cat-${rowKey}`,
+            name: 'categoria',
+            value: String(fields.categoria || ''),
+            placeholder: 'Sin categoría',
+            options: [{ value: '', label: 'Sin categoría' }, ...cats.map(c => ({ value: c, label: c }))]
+          })}
       </label>
       <label>
         <span>Orden</span>
@@ -239,7 +243,16 @@ function _editorFormFields(fields, editing, rowKey) {
         <span>Estado</span>
         ${ro
           ? `<div class="adm-field-value">${fields.activo === false ? 'Inactivo' : 'Activo'}</div>`
-          : `<label class="adm-check"><input name="activo" type="checkbox" ${fields.activo === false ? '' : 'checked'}> Motivo activo</label>`}
+          : admRibbonSelectHtml({
+            id: `adm-op-activo-${rowKey}`,
+            name: 'activo',
+            value: fields.activo !== false ? 'true' : 'false',
+            placeholder: 'Estado',
+            options: [
+              { value: 'true', label: 'Activo' },
+              { value: 'false', label: 'Inactivo' }
+            ]
+          })}
       </label>
       <label class="adm-form-full">
         <span>Descripción</span>
@@ -258,9 +271,16 @@ function _editorFormFields(fields, editing, rowKey) {
       <label>
         <span>Plaza visible</span>
         ${ro ? `<div class="adm-field-value">${esc(fields.plazaId || 'ALL')}</div>`
-          : `<select name="plazaId">
-               ${plazas.map(p => `<option value="${esc(p)}" ${String(fields.plazaId || 'ALL').toUpperCase() === p ? 'selected' : ''}>${esc(p === 'ALL' ? 'Todas las plazas' : p)}</option>`).join('')}
-             </select>`}
+          : admRibbonSelectHtml({
+            id: `adm-op-plaza-${rowKey}`,
+            name: 'plazaId',
+            value: String(fields.plazaId || 'ALL').toUpperCase(),
+            placeholder: 'Plaza',
+            options: plazas.map(p => ({
+              value: p,
+              label: p === 'ALL' ? 'Todas las plazas' : p
+            }))
+          })}
       </label>
       <label>
         <span>Orden</span>
@@ -313,8 +333,8 @@ function _accordionBodyHtml(key) {
       ${_editorFormFields(fields, editing, key)}
       <div class="adm-form-actions">
         ${canEdit && !editing ? `
-          <button type="button" class="adm-btn ghost" data-action="edit-item" data-item-key="${esc(key)}">Editar</button>
-          ${!isNew ? `<button type="button" class="adm-btn danger" data-action="delete-item" data-item-key="${esc(key)}">Eliminar</button>` : ''}
+          <button type="button" class="adm-btn primary" data-action="edit-item" data-item-key="${esc(key)}">Editar</button>
+          ${!isNew ? `<button type="button" class="adm-btn ghost" data-action="delete-item" data-item-key="${esc(key)}">Eliminar</button>` : ''}
         ` : ''}
         ${canEdit && editing ? `
           ${!isNew ? `<button type="button" class="adm-btn ghost" data-action="cancel-edit" data-item-key="${esc(key)}">Cancelar</button>` : `
@@ -437,6 +457,7 @@ function _bind() {
 
   _host.querySelectorAll('[data-toggle-key]').forEach(btn => {
     btn.addEventListener('click', () => {
+      admCloseAllRibbons(_host);
       _toggleKey(btn.getAttribute('data-toggle-key') || '');
       _paint();
     });
@@ -460,6 +481,7 @@ function _bind() {
   _host.querySelectorAll('[data-action="edit-item"]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!_canEdit()) return;
+      _openKey = btn.getAttribute('data-item-key') || _openKey;
       _editing = true;
       _paint();
     });
@@ -524,7 +546,7 @@ function _readFields(form, itemKey = '') {
     categoria: String(fd.get('categoria') || ''),
     codigo: String(fd.get('codigo') || ''),
     etiqueta: String(fd.get('nombre') || ''),
-    activo: form.querySelector('[name="activo"]')?.checked !== false,
+    activo: String(fd.get('activo') || 'true') !== 'false',,
     plazaId: String(fd.get('plazaId') || 'ALL'),
     isPlazaFija: form.querySelector('[name="isPlazaFija"]')?.checked === true,
     imagenURL: ''
@@ -597,6 +619,7 @@ export function mountOpcionesPanel(host, opts = {}) {
   _openKey = '';
   _editing = false;
   _clearModelPreview();
+  admBindRibbonRoot(_host);
   _paint();
 }
 
@@ -616,6 +639,7 @@ export function syncOpcionesSelection(_entityId = '', section = '') {
 
 export function unmountOpcionesPanel() {
   _clearModelPreview();
+  if (_host) delete _host.dataset.admRibbonBound;
   _host = null;
   _section = 'estados';
   _query = '';

@@ -39,7 +39,7 @@ let _entityId = '';
 let _nativeSection = '';
 
 function _ensureCss() {
-  const href = '/css/app-admin.css?v=20260719n';
+  const href = '/css/app-admin.css?v=20260719r';
   let link = document.querySelector('link[data-app-admin-spa-css="1"]');
   if (!link) {
     link = document.createElement('link');

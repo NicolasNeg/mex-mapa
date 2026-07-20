@@ -13,6 +13,7 @@ import {
   disableChoferRegistro
 } from '/js/app/features/admin/admin-choferes-data.js';
 import { adminSectionPath } from '/js/app/features/admin/admin-nav.js';
+import { admRibbonSelectHtml, admBindRibbonRoot } from '/js/app/features/admin/admin-ribbon-ui.js';
 
 function esc(s) {
   return String(s ?? '')
@@ -286,19 +287,29 @@ function _detailHtml(user, canEdit) {
         <label>
           <span>Plaza base</span>
           ${editing
-            ? `<select name="plazaAsignada" ${canPlaza ? '' : 'disabled'}>
-                <option value="">Sin plaza</option>
-                ${plazas.map(p => `<option value="${esc(p)}" ${user.plaza === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
-              </select>`
+            ? admRibbonSelectHtml({
+              id: `adm-user-plaza-${user.id}`,
+              name: 'plazaAsignada',
+              value: user.plaza || '',
+              placeholder: 'Sin plaza',
+              disabled: !canPlaza,
+              options: [
+                { value: '', label: 'Sin plaza' },
+                ...plazas.map(p => ({ value: p, label: p }))
+              ]
+            })
             : _roValue(user.plaza, 'Sin plaza')}
         </label>
         <label>
           <span>Estado</span>
           ${editing
-            ? `<select name="status">
-                ${['ACTIVO', 'INACTIVO', 'SUSPENDIDO'].map(s =>
-                  `<option value="${s}" ${user.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-              </select>`
+            ? admRibbonSelectHtml({
+              id: `adm-user-status-${user.id}`,
+              name: 'status',
+              value: user.status || 'ACTIVO',
+              placeholder: 'Estado',
+              options: ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'].map(s => ({ value: s, label: s }))
+            })
             : _roValue(user.status, 'ACTIVO')}
         </label>
         <label class="adm-form-full">
@@ -439,6 +450,7 @@ export function mountUsuariosPanel(host, opts = {}) {
   _editingChofer = false;
   _pendingLicenciaFile = null;
   _host.innerHTML = `<div class="adm-loading"><span class="material-symbols-outlined">progress_activity</span> Cargando usuarios…</div>`;
+  admBindRibbonRoot(_host);
 
   _unsub = subscribeAdminUsers({
     onData: (rows) => {
@@ -480,6 +492,7 @@ export function unmountUsuariosPanel() {
   _unsub = null;
   _users = [];
   _selectedId = '';
+  if (_host) delete _host.dataset.admRibbonBound;
   _host = null;
   _navigate = null;
   _editingChofer = false;
