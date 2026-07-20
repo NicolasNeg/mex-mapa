@@ -64,7 +64,7 @@ import { renderSidebarHTML, bindSidebarShell, displayUserName, roleLabel, consum
 
 // ── Módulos extraídos (Fase 4) ────────────────────────────
 import { escapeHtml, _safeUpper, _safeLower, _cloneJson, generarSlugArchivo, descargarArchivoLocal, _gasToPercent, formatearFechaDocumento, _darken } from '/mapa/features/core/utils.js';
-import { abrirComparadorPlazas, cerrarComparadorPlazas, exportarComparadorCSV } from '/mapa/features/extras/supervision.js';
+import { abrirComparadorPlazas, cerrarComparadorPlazas, exportarComparador, exportarComparadorCSV } from '/mapa/features/extras/supervision.js';
 import { procesarImagenOCR, ejecutarLogicaOCR } from '/mapa/features/extras/ocr.js';
 
 // Acceso al API legacy (mex-api.js lo expone en window.api)
@@ -11215,9 +11215,12 @@ function _puedeExportarFlotaCuadre() {
 
 function _syncExportFlotaMenuItems() {
   const show = _puedeExportarFlotaCuadre();
-  ['mcExportFlota', 'mcExportFlotaCsv', 'mcExportFlotaXls'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = show ? '' : 'none';
+  const el = document.getElementById('mcExportFlota');
+  if (el) el.style.display = show ? '' : 'none';
+  // Legacy IDs (por si queda HTML cacheado): ocultar siempre
+  ['mcExportFlotaCsv', 'mcExportFlotaXls'].forEach(id => {
+    const legacy = document.getElementById(id);
+    if (legacy) legacy.style.display = 'none';
   });
 }
 
@@ -25222,6 +25225,7 @@ Object.assign(window, {
   _togglePlazaTemporal,
   abrirComparadorPlazas,
   cerrarComparadorPlazas,
+  exportarComparador,
   exportarComparadorCSV,
   // Fase 4
   abrirModalPDFReservas,

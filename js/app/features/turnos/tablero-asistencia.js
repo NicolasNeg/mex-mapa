@@ -57,8 +57,8 @@ export function tableroToolbarHtml(a) {
     <button class="tu-btn tu-btn--ghost" id="tuAsisPanel" type="button" aria-pressed="${a.panelOpen ? 'true' : 'false'}">
       <span class="material-symbols-outlined">view_sidebar</span> Panel
     </button>
-    <button class="tu-btn tu-btn--ghost" id="tuAsisPdf" type="button">
-      <span class="material-symbols-outlined">picture_as_pdf</span> Exportar PDF
+    <button class="tu-btn tu-btn--ghost" id="tuAsisPdf" type="button" title="Exportar PDF / XLS / CSV">
+      <span class="material-symbols-outlined">download</span> Exportar
     </button>
     <button class="tu-btn tu-btn--ghost" id="tuAsisReload" type="button">
       <span class="material-symbols-outlined">refresh</span> Actualizar

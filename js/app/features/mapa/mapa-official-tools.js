@@ -1,9 +1,11 @@
 import { esGlobal } from '/domain/permissions.model.js';
+import { buildExportFilename } from '/js/core/export-signing.js';
 import {
-  buildExportFilename,
-  exportFooterHtml,
-  getExportIdentity,
-} from '/js/core/export-signing.js';
+  openExportChooser,
+  exportMatrixCsv,
+  exportMatrixXls,
+  exportMatrixPdf,
+} from '/js/core/export-menu.js';
 
 const GAS_OPTIONS = ['N/A', 'F', '15/16', '7/8', '13/16', '3/4', '11/16', '5/8', '9/16', '1/2', 'H', '7/16', '3/8', '5/16', '1/4', '3/16', '1/8', '1/16', 'E'];
 const STATE_OPTIONS = ['LISTO', 'SUCIO', 'MANTENIMIENTO', 'TRASLADO', 'RESGUARDO', 'NO ARRENDABLE', 'RETENIDA', 'VENTA'];
@@ -242,31 +244,35 @@ export async function openRadar({ container, snapshot = {}, incSummary = {}, ctx
 
 export async function openReports({ container, snapshot = {}, ctx = {} }) {
   const units = Array.isArray(snapshot.units) ? snapshot.units : [];
-  const prepared = await modal(container, 'Reportes / PDF', `
+  const prepared = await modal(container, 'Exportar reporte', `
     <div class="app-mapa-form-grid">
       <label class="app-mapa-form-field"><span>Tipo</span><select data-fld="tipo">
         <option value="resumen">Resumen operativo</option>
         <option value="lista">Lista de unidades</option>
       </select></label>
     </div>
-    <p class="app-mapa-modal-body">Genera un documento imprimible con los datos actuales de /app/mapa.</p>
+    <p class="app-mapa-modal-body">Elige el alcance y luego el formato: PDF, XLS o CSV.</p>
   `, `
     <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--ghost" data-act="cancel">Cancelar</button>
-    <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--primary" data-act="ok">Generar PDF</button>
+    <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--primary" data-act="ok">Continuar</button>
   `);
   if (prepared.cancelled) return { ok: false, cancelled: true };
   const { tipo } = readFields(prepared.root);
-  const rows = units.slice(0, tipo === 'lista' ? 800 : 80).map(u => `
-    <tr><td>${esc(u.mva)}</td><td>${esc(u.modelo || '')}</td><td>${esc(u.placas || '')}</td><td>${esc(u.estado || '')}</td><td>${esc(u.ubicacion || '')}</td><td>${esc(u.pos || '')}</td></tr>
-  `).join('');
-  const win = window.open('', '_blank');
-  if (!win) return { ok: false, message: 'Activa ventanas emergentes para generar el PDF.' };
-  const id = getExportIdentity();
-  const title = buildExportFilename('pdf').replace(/\.pdf$/i, '');
-  const firma = exportFooterHtml({ escapeHtml: esc });
-  win.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111827}h1{font-size:20px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #d1d5db;padding:6px;text-align:left}th{background:#f3f4f6}.meta{margin:0 0 12px;font-size:11px;color:#64748b}</style></head><body><h1>Reporte mapa ${esc(ctx.plaza || snapshot.plaza || '')}</h1><p class="meta"><strong>${esc(id.companyName)}</strong> · ${esc(id.dateLabel)} · ${units.length} unidades</p><p class="meta">Exportado por ${esc(id.userName)}</p><table><thead><tr><th>MVA</th><th>Modelo</th><th>Placas</th><th>Estado</th><th>Ubicación</th><th>Pos</th></tr></thead><tbody>${rows}</tbody></table>${firma}<script>setTimeout(()=>window.print(),300)<\/script></body></html>`);
-  win.document.close();
-  return { ok: true, message: 'PDF listo.' };
+  const slice = units.slice(0, tipo === 'lista' ? 800 : 80);
+  const headers = ['MVA', 'Modelo', 'Placas', 'Estado', 'Ubicación', 'Pos'];
+  const body = slice.map((u) => [
+    u.mva, u.modelo || '', u.placas || '', u.estado || '', u.ubicacion || '', u.pos || '',
+  ]);
+  const title = `Reporte mapa ${ctx.plaza || snapshot.plaza || ''}`.trim();
+  const fmt = await openExportChooser({
+    title: 'Exportar reporte',
+    subtitle: `${body.length} unidades · ${title}`,
+    onPdf: () => exportMatrixPdf(headers, body, { title, subtitle: `${units.length} unidades` }),
+    onXls: () => exportMatrixXls(headers, body, { title, filename: buildExportFilename('xls') }),
+    onCsv: () => exportMatrixCsv(headers, body, { filename: buildExportFilename('csv') }),
+  });
+  if (!fmt) return { ok: false, cancelled: true };
+  return { ok: true, message: `Exportado (${String(fmt).toUpperCase()}).` };
 }
 
 export async function openEditor({ container, api, snapshot = {}, ctx = {}, resync = null }) {

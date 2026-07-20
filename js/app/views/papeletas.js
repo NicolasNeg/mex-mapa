@@ -32,7 +32,12 @@ import {
   uploadReporteFoto,
   getDownloadUrl,
 } from '/js/app/features/papeletas/papeletas-storage.js';
-import { openPapeletaPdf } from '/js/app/features/papeletas/papeletas-pdf.js';
+import {
+  openPapeletaPdf,
+  exportPapeletaXls,
+  exportPapeletaCsv,
+} from '/js/app/features/papeletas/papeletas-pdf.js';
+import { openExportChooser } from '/js/core/export-menu.js';
 import {
   subscribeReportesAbiertos,
   crearReporte,
@@ -509,7 +514,7 @@ function _panelResumen(p) {
           </button>
         ` : ''}
         ${p.status === 'entregada' || p.status === 'en_retorno' || p.status === 'cerrada_historial' ? `
-          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="pdf">Ver / imprimir PDF</button>
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="pdf" title="Exportar PDF / XLS / CSV">Exportar</button>
         ` : ''}
         ${p.status === 'entregada' ? `
           <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="goto-entrada">Registrar regreso</button>
@@ -1026,8 +1031,17 @@ async function _confirmFirma() {
 
 async function _doPdf() {
   if (!_detail) return;
-  const firmaUrl = await getDownloadUrl(_detail.salida?.firmaPath);
-  openPapeletaPdf(_detail, { firmaUrl });
+  const p = _detail;
+  await openExportChooser({
+    title: 'Exportar papeleta',
+    subtitle: `${p.mva || 'Papeleta'} · PDF / XLS / CSV`,
+    onPdf: async () => {
+      const firmaUrl = await getDownloadUrl(p.salida?.firmaPath);
+      openPapeletaPdf(p, { firmaUrl });
+    },
+    onXls: () => exportPapeletaXls(p),
+    onCsv: () => exportPapeletaCsv(p),
+  });
 }
 
 async function _saveEntrada() {

@@ -436,7 +436,7 @@
                    '_cfgToggleSidebarPin','_cfgToggleNavGroup','_cfgQuickAction',
                    '_cfgSaveInlineEdit','_cfgCancelInlineEdit',
                    '_cfgUploadModelImage','cerrarCustomModal','abrirComparadorPlazas',
-                   'cerrarComparadorPlazas','exportarComparadorCSV',
+                   'cerrarComparadorPlazas','exportarComparador','exportarComparadorCSV',
                    '_abrirModalNuevaplaza','_cerrarModalNuevaplaza','_confirmarNuevaplaza'];
       const queue = [];
       FNS.forEach(fn => {
@@ -640,9 +640,9 @@
           </div>
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
-          <button onclick="exportarComparadorCSV()" title="Exportar CSV"
+          <button onclick="exportarComparador()" title="Exportar PDF / XLS / CSV"
             style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; color:#334155;">
-            <span class="material-symbols-outlined" style="font-size:15px;">download</span> CSV
+            <span class="material-symbols-outlined" style="font-size:15px;">download</span> Exportar
           </button>
           <button onclick="cerrarComparadorPlazas()"
             style="background:#f1f5f9; border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">

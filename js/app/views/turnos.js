@@ -50,6 +50,11 @@ import {
   exportFooterHtml,
   getExportIdentity,
 } from '/js/core/export-signing.js';
+import {
+  openExportChooser,
+  exportMatrixCsv,
+  exportMatrixXls,
+} from '/js/core/export-menu.js';
 import { getTurnosRango } from '/js/app/features/turnos/turnos-data.js';
 import {
   getHorariosRango, getAsistenciaRango,
@@ -293,7 +298,7 @@ function _renderHistorialSubject(usuario, resumen) {
       <button class="tu-btn tu-btn--icon" id="tuHistStats" type="button" title="Resumen">
         <span class="material-symbols-outlined">bar_chart</span>
       </button>
-      <button class="tu-btn tu-btn--icon" id="tuHistPdf" type="button" title="Descargar PDF">
+      <button class="tu-btn tu-btn--icon" id="tuHistPdf" type="button" title="Exportar PDF / XLS / CSV">
         <span class="material-symbols-outlined">download</span>
       </button>
       ${_s?.isAdmin ? `
@@ -1114,8 +1119,8 @@ function _renderHorarios() {
     <button class="tu-btn tu-btn--ghost" id="tuGestionPlantillas" type="button">
       <span class="material-symbols-outlined">schedule</span> Catálogo
     </button>` : ''}
-    <button class="tu-btn tu-btn--ghost" id="tuExportar" type="button">
-      <span class="material-symbols-outlined">picture_as_pdf</span> Exportar PDF
+    <button class="tu-btn tu-btn--ghost" id="tuExportar" type="button" title="Exportar PDF / XLS / CSV">
+      <span class="material-symbols-outlined">download</span> Exportar
     </button>
   </div>
   ${rolesPanel}
@@ -2093,7 +2098,79 @@ function _exportCabeceraEmpresa() {
   </header>`;
 }
 
-function _exportarHorarios() {
+function _cellHorarioTexto(cell, plantillas) {
+  if (!cell) return 'Descanso';
+  if (cell.tipo === 'NORMAL') {
+    const p = matchPlantilla(cell, plantillas);
+    const base = p ? p.nombre : `${cell.inicio || ''}–${cell.fin || ''}`;
+    const rango = (cell.inicio && cell.fin) ? `${cell.inicio}–${cell.fin}` : '';
+    const nota = cell.nota ? ` · ${cell.nota}` : '';
+    return rango && p ? `${base} (${rango})${nota}` : `${base}${nota}`;
+  }
+  const meta = TIPOS_DIA[cell.tipo] || { label: cell.tipo };
+  return `${meta.label || cell.tipo}${cell.nota ? ` · ${cell.nota}` : ''}`;
+}
+
+/** Matriz tabular de horarios (misma lectura que el PDF). */
+function _matrixHorarios() {
+  if (!_s) return null;
+  const { semana, horarios, usuarios, notasSemana, uid, profile, plantillas, rolesOperativos } = _s;
+  const lista = resolveUsuariosLista(usuarios || [], { scope: 'plaza', uid, profile });
+  if (!lista.length) {
+    _toast('No hay colaboradores para exportar.', 'Exportar');
+    return null;
+  }
+  const liveVal = (uId, dia) => {
+    const sel = _ctr?.querySelector(`.tu-grid-sel[data-edit-uid="${uId}"][data-edit-dia="${dia}"]`);
+    if (!sel) return null;
+    try { return _parseSelectValue(sel.value, plantillas); } catch (_) { return null; }
+  };
+  const fmt = (s) => new Date(`${s}T00:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+  const headers = ['Colaborador', 'Rol', ...DIAS.map((d) => {
+    const fecha = fechaDia(semana, d);
+    const nota = notasSemana[d] ? ` · ${notasSemana[d]}` : '';
+    return `${DIA_NOMBRE[d].slice(0, 3)} ${fmt(fecha)}${nota}`;
+  })];
+  const body = [];
+  const sections = agruparPorRolOperativo(lista, rolesOperativos || [], horarios, { compactEmpty: true });
+  for (const sec of sections) {
+    if (!sec.conHorario.length) continue;
+    for (const u of sec.conHorario) {
+      const realUid = normalizeUsuarioUid(u);
+      const horario = horarios.find((h) => h.usuarioId === realUid);
+      const cells = DIAS.map((d) => {
+        const cell = liveVal(realUid, d) || horario?.dias?.[d];
+        return _cellHorarioTexto(cell, plantillas);
+      });
+      body.push([nombreUsuario(u), sec.nombre || '', ...cells]);
+    }
+  }
+  if (!body.length) {
+    _toast('No hay horarios asignados para exportar.', 'Exportar');
+    return null;
+  }
+  return { headers, body, title: `Distribución de turnos${_s.plaza ? ` — ${_s.plaza}` : ''}` };
+}
+
+async function _exportarHorarios() {
+  const data = _matrixHorarios();
+  if (!data) return;
+  await openExportChooser({
+    title: 'Exportar turnos',
+    subtitle: `${data.body.length} colaboradores · ${data.title}`,
+    onPdf: () => _exportarHorariosPdf(),
+    onXls: () => {
+      exportMatrixXls(data.headers, data.body, { title: data.title, filename: buildExportFilename('xls') });
+      _toast(`Exportados ${data.body.length} colaboradores (XLS).`, 'Exportar');
+    },
+    onCsv: () => {
+      exportMatrixCsv(data.headers, data.body, { filename: buildExportFilename('csv') });
+      _toast(`Exportados ${data.body.length} colaboradores (CSV).`, 'Exportar');
+    },
+  });
+}
+
+function _exportarHorariosPdf() {
   if (!_s) return;
   const { semana, horarios, usuarios, notasSemana, isAdmin, uid, profile, plaza, plantillas, rolesOperativos } = _s;
   // Export PDF refleja la misma lectura de plaza que el grid (view_turnos).
@@ -2223,7 +2300,56 @@ ${firma}
   win.document.close();
 }
 
-function _exportarTablero() {
+function _matrixTablero() {
+  if (!_s?.asis?.data) { _toast('Aún no hay datos del tablero.', 'Exportar'); return null; }
+  const a = _s.asis;
+  const { data, ancla } = a;
+  const plaza = a.plaza === 'TODAS' ? 'Todas las plazas' : (a.plaza || _s.plaza || '');
+  const mesLabel = (() => {
+    const d = new Date(`${ancla}T12:00:00`);
+    const s = d.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
+  const headers = [
+    'Empleado',
+    ...data.dias.map((d) => `${d.diaSemana} ${d.dia}`),
+    'Asistencia', 'Retardo', 'Falta', 'Permiso',
+  ];
+  const body = data.filas.map((f) => {
+    const r = f.resumen;
+    return [
+      f.nombre,
+      ...f.celdas.map((c) => (c.cat === 'futuro' ? '' : (c.label || c.cat || ''))),
+      r.asistencia, r.retardo, r.falta, r.permiso,
+    ];
+  });
+  return {
+    headers,
+    body,
+    title: `Tablero de asistencia — ${plaza}`,
+    subtitle: mesLabel,
+  };
+}
+
+async function _exportarTablero() {
+  const matrix = _matrixTablero();
+  if (!matrix) return;
+  await openExportChooser({
+    title: 'Exportar asistencia',
+    subtitle: `${matrix.body.length} empleados · ${matrix.subtitle}`,
+    onPdf: () => _exportarTableroPdf(),
+    onXls: () => {
+      exportMatrixXls(matrix.headers, matrix.body, { title: matrix.title, filename: buildExportFilename('xls') });
+      _toast(`Exportados ${matrix.body.length} empleados (XLS).`, 'Exportar');
+    },
+    onCsv: () => {
+      exportMatrixCsv(matrix.headers, matrix.body, { filename: buildExportFilename('csv') });
+      _toast(`Exportados ${matrix.body.length} empleados (CSV).`, 'Exportar');
+    },
+  });
+}
+
+function _exportarTableroPdf() {
   if (!_s?.asis?.data) { _toast('Aún no hay datos del tablero.', 'Exportar'); return; }
   const a = _s.asis;
   const { data, ancla } = a;
@@ -2517,7 +2643,7 @@ function _renderAuditoria() {
       <p class="tu-asis-sub">Quién marca asistencias y edita horarios${rows.length ? ` · ${rows.length} registros` : ''}</p>
     </div>
     <div class="tu-asis-actions">
-      <button class="tu-btn tu-btn--ghost" id="tuAudPdf" type="button"><span class="material-symbols-outlined">picture_as_pdf</span> Generar PDF</button>
+      <button class="tu-btn tu-btn--ghost" id="tuAudPdf" type="button" title="Exportar PDF / XLS / CSV"><span class="material-symbols-outlined">download</span> Exportar</button>
       <button class="tu-btn tu-btn--ghost" id="tuAudReload" type="button"><span class="material-symbols-outlined">refresh</span> Actualizar</button>
     </div>
   </div>
@@ -2584,7 +2710,40 @@ async function _loadAuditoria() {
   }
 }
 
-function _exportarAuditoria() {
+function _matrixAuditoria() {
+  const rows = _auditoriaFiltradas();
+  if (!rows.length) { _toast('No hay registros para exportar.', 'Exportar'); return null; }
+  const headers = ['Fecha', 'Tipo', 'Empleado', 'Fecha hecho', 'Responsable', 'Detalle'];
+  const body = rows.map((r) => [
+    _fmtFechaHora(r.timestampMs),
+    r.hechoLabel || HECHO_LABEL[r.hecho] || r.hecho || '',
+    r.empleado || '',
+    r.fechaHecho || '',
+    r.responsable || '',
+    r.nota || r.accion || '',
+  ]);
+  return { headers, body, title: 'Historial de cambios de asistencia' };
+}
+
+async function _exportarAuditoria() {
+  const data = _matrixAuditoria();
+  if (!data) return;
+  await openExportChooser({
+    title: 'Exportar auditoría',
+    subtitle: `${data.body.length} registros`,
+    onPdf: () => _exportarAuditoriaPdf(),
+    onXls: () => {
+      exportMatrixXls(data.headers, data.body, { title: data.title, filename: buildExportFilename('xls') });
+      _toast(`Exportados ${data.body.length} registros (XLS).`, 'Exportar');
+    },
+    onCsv: () => {
+      exportMatrixCsv(data.headers, data.body, { filename: buildExportFilename('csv') });
+      _toast(`Exportados ${data.body.length} registros (CSV).`, 'Exportar');
+    },
+  });
+}
+
+function _exportarAuditoriaPdf() {
   const rows = _auditoriaFiltradas();
   if (!rows.length) { _toast('No hay registros para exportar.', 'Exportar'); return; }
   const cab = _exportCabeceraEmpresa();
@@ -2681,8 +2840,55 @@ async function _loadCalendario() {
   }
 }
 
+function _matrixHistorialEmpleado() {
+  if (!_s?.cal?.data) { _toast('Primero muestra el historial.', 'Exportar'); return null; }
+  const uid = _s.isAdmin ? _s.historialUsuarioId : _s.uid;
+  const usuario = _usuarioHistorial(uid);
+  const nombre = usuario ? nombreUsuario(usuario) : 'Colaborador';
+  const porFecha = _s.cal.data.porFecha || {};
+  const mesLabel = (() => {
+    const d = new Date(`${_s.cal.ancla}T12:00:00`);
+    const s = d.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
+  const headers = ['Fecha', 'Día', 'Estado', 'Detalle'];
+  const body = Object.keys(porFecha).sort().map((fecha) => {
+    const est = porFecha[fecha];
+    if (!est || est.cat === 'futuro') return null;
+    const m = CAT_META[est.cat] || {};
+    const dow = new Date(`${fecha}T12:00:00`).toLocaleDateString('es-MX', { weekday: 'short' });
+    return [fecha, dow, m.label || est.cat || '', est.label || est.nota || ''];
+  }).filter(Boolean);
+  const resumen = _s.cal.data.resumen || {};
+  const resumenRow = CAT_ORDEN.map((cat) => `${CAT_META[cat]?.label || cat}: ${resumen[cat] || 0}`).join(' · ');
+  return {
+    headers,
+    body,
+    title: `Historial de asistencia — ${nombre}`,
+    subtitle: `${mesLabel}${_s.historialPlaza ? ` · ${_s.historialPlaza}` : ''}${resumenRow ? ` · ${resumenRow}` : ''}`,
+  };
+}
+
+async function _exportarHistorialEmpleado() {
+  const data = _matrixHistorialEmpleado();
+  if (!data) return;
+  await openExportChooser({
+    title: 'Exportar historial',
+    subtitle: data.subtitle,
+    onPdf: () => _exportarHistorialEmpleadoPdf(),
+    onXls: () => {
+      exportMatrixXls(data.headers, data.body, { title: data.title, filename: buildExportFilename('xls') });
+      _toast(`Exportados ${data.body.length} días (XLS).`, 'Exportar');
+    },
+    onCsv: () => {
+      exportMatrixCsv(data.headers, data.body, { filename: buildExportFilename('csv') });
+      _toast(`Exportados ${data.body.length} días (CSV).`, 'Exportar');
+    },
+  });
+}
+
 /** Exporta el calendario del colaborador a PDF firmado. */
-function _exportarHistorialEmpleado() {
+function _exportarHistorialEmpleadoPdf() {
   if (!_s?.cal?.data) { _toast('Primero muestra el historial.', 'Exportar'); return; }
   const uid = _s.isAdmin ? _s.historialUsuarioId : _s.uid;
   const usuario = _usuarioHistorial(uid);

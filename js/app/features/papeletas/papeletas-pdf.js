@@ -3,6 +3,7 @@ import {
   exportFooterHtml,
   getExportIdentity,
 } from '/js/core/export-signing.js';
+import { exportMatrixCsv, exportMatrixXls } from '/js/core/export-menu.js';
 import { ZONAS_V1, CHECKLIST_KEYS, CHECKLIST_LABELS } from '/domain/papeleta.model.js';
 
 function _esc(s) {
@@ -11,6 +12,48 @@ function _esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/** Matriz plana de una papeleta para XLS/CSV. */
+export function papeletaExportMatrix(papeleta) {
+  const headers = ['Campo', 'Valor'];
+  const rows = [
+    ['MVA', papeleta.mva || ''],
+    ['Estado', papeleta.status || ''],
+    ['Modelo', papeleta.modelo || ''],
+    ['Placas', papeleta.placas || ''],
+    ['Color', papeleta.color || ''],
+    ['VIN', papeleta.vin || ''],
+    ['Cliente', papeleta.clienteNombre || ''],
+    ['Plaza', papeleta.plazaId || ''],
+    ['KM salida', papeleta.salida?.km ?? ''],
+    ['Gas salida', papeleta.salida?.gas ?? ''],
+    ['Quién entrega', papeleta.salida?.quienEntrega || ''],
+    ['KM entrada', papeleta.entrada?.km ?? ''],
+    ['Gas entrada', papeleta.entrada?.gas ?? ''],
+    ['Quién recibe', papeleta.entrada?.quienRecibe || ''],
+    ['Notas entrada', papeleta.entrada?.notas || ''],
+  ];
+  for (const k of CHECKLIST_KEYS) {
+    rows.push([`Checklist · ${CHECKLIST_LABELS[k] || k}`, papeleta.checklist?.[k] || '']);
+  }
+  for (const z of ZONAS_V1) {
+    const n = papeleta.zonas?.[z.id];
+    const estado = n?.estado || 'ok';
+    const nota = n?.nota ? ` — ${n.nota}` : '';
+    rows.push([`Zona · ${z.label}`, `${estado}${nota}`]);
+  }
+  return { headers, body: rows, title: `Papeleta ${papeleta.mva || ''}`.trim() };
+}
+
+export function exportPapeletaXls(papeleta) {
+  const data = papeletaExportMatrix(papeleta);
+  exportMatrixXls(data.headers, data.body, { title: data.title, filename: buildExportFilename('xls') });
+}
+
+export function exportPapeletaCsv(papeleta) {
+  const data = papeletaExportMatrix(papeleta);
+  exportMatrixCsv(data.headers, data.body, { filename: buildExportFilename('csv') });
 }
 
 /**

@@ -9,12 +9,42 @@
 //    - window.showToast (mapa.js → window)
 // ═══════════════════════════════════════════════════════════
 
-import { escapeHtml, descargarArchivoLocal } from '/mapa/features/core/utils.js';
+import { escapeHtml } from '/mapa/features/core/utils.js';
 import { buildExportFilename } from '/js/core/export-signing.js';
+import {
+  openExportChooser,
+  exportMatrixCsv,
+  exportMatrixXls,
+  exportMatrixPdf,
+} from '/js/core/export-menu.js';
 
 const api = window.api;
 
 let _comparadorCache = null;
+
+function _comparadorMatrix() {
+  if (!_comparadorCache?.length) return null;
+  const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
+  const headers = ['Plaza', 'Localidad', 'Temporal', 'Total', 'Listos', 'Sucios', 'Manto', 'Externos', '% Ocup'];
+  const body = _comparadorCache.map((r) => {
+    const d = plazasDetalle.find((x) => x.id === r.plaza) || {};
+    const total = r.total || r.totalUnidades || 0;
+    const spots = r.totalSpots || r.cajones || 0;
+    const pct = spots > 0 ? Math.round((total / spots) * 100) : '';
+    return [
+      r.plaza,
+      d.localidad || d.nombre || '',
+      d.temporal ? 'TEMPORAL' : 'FIJA',
+      total,
+      r.listos || r.totalListos || 0,
+      r.sucios || r.totalSucios || 0,
+      r.manto || r.totalManto || r.totalMantenimiento || 0,
+      r.externos || r.totalExternos || 0,
+      pct !== '' ? `${pct}%` : '—',
+    ];
+  });
+  return { headers, body };
+}
 
 async function _obtenerMetricasComparadorPlaza(plaza) {
   const [lista, estructura] = await Promise.all([
@@ -78,30 +108,31 @@ export function cerrarComparadorPlazas() {
   if (modal) modal.style.display = 'none';
 }
 
-export function exportarComparadorCSV() {
-  if (!_comparadorCache?.length) { window.showToast?.('Abre el comparador primero', 'warning'); return; }
-  const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
-  const encabezado = ['Plaza', 'Localidad', 'Temporal', 'Total', 'Listos', 'Sucios', 'Manto', 'Externos', '% Ocup'];
-  const filas = _comparadorCache.map(r => {
-    const d = plazasDetalle.find(x => x.id === r.plaza) || {};
-    const total = r.total || r.totalUnidades || 0;
-    const spots = r.totalSpots || r.cajones || 0;
-    const pct   = spots > 0 ? Math.round((total / spots) * 100) : '';
-    return [
-      r.plaza,
-      d.localidad || d.nombre || '',
-      d.temporal ? 'TEMPORAL' : 'FIJA',
-      total,
-      r.listos  || r.totalListos || 0,
-      r.sucios  || r.totalSucios || 0,
-      r.manto   || r.totalManto  || r.totalMantenimiento || 0,
-      r.externos || r.totalExternos || 0,
-      pct !== '' ? pct + '%' : '—',
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+/** Un solo Exportar → PDF / XLS / CSV */
+export async function exportarComparador() {
+  const data = _comparadorMatrix();
+  if (!data) { window.showToast?.('Abre el comparador primero', 'warning'); return; }
+  await openExportChooser({
+    title: 'Exportar comparador',
+    subtitle: `${data.body.length} plazas · PDF / XLS / CSV`,
+    onPdf: () => {
+      exportMatrixPdf(data.headers, data.body, { title: 'Comparador de plazas', subtitle: `${data.body.length} plazas` });
+      window.showToast?.('PDF listo', 'success');
+    },
+    onXls: () => {
+      exportMatrixXls(data.headers, data.body, { title: 'Comparador de plazas', filename: buildExportFilename('xls') });
+      window.showToast?.('Excel exportado', 'success');
+    },
+    onCsv: () => {
+      exportMatrixCsv(data.headers, data.body, { filename: buildExportFilename('csv') });
+      window.showToast?.('CSV exportado', 'success');
+    },
   });
-  const csv = [encabezado.join(','), ...filas].join('\n');
-  descargarArchivoLocal(buildExportFilename('csv'), '﻿' + csv, 'text/csv;charset=utf-8;');
-  window.showToast?.('CSV exportado correctamente', 'success');
+}
+
+/** @deprecated Usar exportarComparador() */
+export function exportarComparadorCSV() {
+  return exportarComparador();
 }
 
 function _renderComparadorLoading() {
