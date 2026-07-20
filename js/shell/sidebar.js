@@ -347,9 +347,16 @@ export class ShellSidebar {
     this._resizeHandler = () => {
       if (this._isDesktop()) {
         this.closeMobileDrawer();
+        if (this._collapsed) this._el?.classList.add('compact');
+      } else {
+        // Mobile/tablet drawer: never keep compact (labels must stay visible).
+        this._el?.classList.remove('compact');
       }
     };
     window.addEventListener('resize', this._resizeHandler, { passive: true });
+
+    // If mounted on mobile with compact preference, strip it from the DOM.
+    if (!this._isDesktop()) this._el.classList.remove('compact');
 
     return this;
   }
@@ -459,6 +466,8 @@ export class ShellSidebar {
 
   openMobileDrawer() {
     this._mobileOpen = true;
+    // Compact is a desktop rail preference; drawer must show labels + logout.
+    this._el?.classList.remove('compact');
     this._el?.classList.add('drawer-open');
     this._overlay?.classList.add('visible');
     document.body.style.overflow = 'hidden';
@@ -469,6 +478,10 @@ export class ShellSidebar {
     this._el?.classList.remove('drawer-open');
     this._overlay?.classList.remove('visible');
     document.body.style.overflow = '';
+    // Restore desktop compact rail only when back on desktop width.
+    if (this._collapsed && this._isDesktop()) {
+      this._el?.classList.add('compact');
+    }
   }
 
   destroy() {

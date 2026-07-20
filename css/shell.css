@@ -226,11 +226,58 @@ body.dark-theme {
 @media (max-width: 1024px) {
   .mex-sidebar {
     width: var(--sh-sidebar-w) !important;
+    /* 100vh can exceed the visible mobile viewport (browser chrome) and clip
+       the footer/logout below the fold while overflow:hidden blocks scroll. */
+    height: 100dvh;
+    max-height: 100dvh;
     transform: translateX(-100%);
     box-shadow: 0 0 48px rgba(0, 0, 0, 0.45);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .mex-sidebar.drawer-open {
     transform: translateX(0);
+  }
+
+  /* Drawer always shows labels. Compact rail state (localStorage from desktop)
+     must not hide text on mobile/tablet — only icons were visible before. */
+  .mex-sidebar.compact .mex-sidebar-logo-text,
+  .mex-sidebar.compact .mex-nav-item-label,
+  .mex-sidebar.compact .mex-nav-item-badge,
+  .mex-sidebar.compact .mex-nav-item-arrow,
+  .mex-sidebar.compact .mex-profile-info {
+    opacity: 1 !important;
+    width: auto !important;
+    max-width: none !important;
+    pointer-events: auto !important;
+  }
+  .mex-sidebar.compact .mex-nav-group-label {
+    opacity: 1 !important;
+    max-height: none !important;
+    padding: 10px 16px 4px !important;
+    pointer-events: auto !important;
+  }
+  .mex-sidebar.compact .mex-logout-label {
+    display: inline !important;
+  }
+  .mex-sidebar.compact .mex-logout-item,
+  .mex-sidebar.compact .mex-profile-item {
+    justify-content: flex-start;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .mex-sidebar.compact .mex-submenu {
+    display: block;
+  }
+  .mex-sidebar.compact .mex-nav-item[data-tooltip]:hover::after {
+    content: none;
+  }
+
+  /* Keep profile + logout above the home indicator / thumb zone. */
+  .mex-sidebar-footer {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    background: var(--sh-sidebar-bg);
+    position: relative;
+    z-index: 1;
   }
 }
 
