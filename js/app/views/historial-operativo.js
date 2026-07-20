@@ -276,13 +276,6 @@ function _hidePop() { if (_pop) _pop.style.display = 'none'; }
 function _renderShell() {
   _container.innerHTML = `
     <div class="hist-op-root">
-      <header class="hist-op-header">
-        <div>
-          <p class="hist-op-kicker">Auditoria operativa</p>
-          <h1>Historial de cambios</h1>
-        </div>
-        <div class="hist-op-header-note">Movimientos, estados y bajas de unidad</div>
-      </header>
       <div class="hist-op-tabs">
         <button id="hist-op-tab-mov" class="hist-op-tab ${_state.tab === 'movimientos' ? 'active' : ''}"
           data-tab="movimientos">

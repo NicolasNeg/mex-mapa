@@ -216,7 +216,10 @@
       "Bash(xxd)",
       "Bash(perl -i -pe 's/\\\\xcc\\\\x80-\\\\xcd\\\\xaf/\\\\\\\\u0300-\\\\\\\\u036f/' \"docs/superpowers/plans/2026-07-19-cuadre-revision-ventas.md\")",
       "Bash(awk 'NR==941' js/app/views/cuadrarflota-ventas.js)",
-      "Bash(echo \"exit:$?\")"
+      "Bash(echo \"exit:$?\")",
+      "Bash(echo \"ls-files exit:$?\")",
+      "Bash(awk '/_normSearch/{print NR\": \"$0}')",
+      "Bash(pkill -f \"firebase-tools\")"
     ]
   }
 }

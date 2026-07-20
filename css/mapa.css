@@ -3695,10 +3695,11 @@
     }
 
     .cuadre-search-clear:hover {
-      background: #f1f5f9;
-      color: #0f172a;
+      background: #fef2f2;
+      color: #dc2626;
     }
 
+    .cuadre-search-clear .material-icons,
     .cuadre-search-clear .material-symbols-outlined {
       font-size: 18px;
     }
@@ -3868,79 +3869,9 @@
       cursor: help;
     }
 
-    .cuadre-flota-table-wrap .cuadre-meta-col {
-      display: none;
-    }
-
-    .cuadre-flota-table-wrap.cuadre-meta-cols-on .cuadre-meta-col {
-      display: table-cell;
-    }
-
-    .cuadre-flota-table-wrap #th-cuadre-autor,
-    .cuadre-flota-table-wrap #th-cuadre-ult,
-    .td-cuadre-autor,
-    .td-cuadre-ult {
-      min-width: 118px;
-      max-width: 168px;
-    }
-
-    .td-cuadre-meta-text {
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 11px;
-      font-weight: 600;
-      color: #64748b;
-      cursor: help;
-    }
-
     .flota-skel-bar--notas {
       width: 72%;
       max-width: 200px;
-    }
-
-    .cuadre-meta-cols-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      background: #fff;
-      color: #475569;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: inherit;
-      white-space: nowrap;
-    }
-
-    .cuadre-meta-cols-toggle .material-symbols-outlined {
-      font-size: 18px;
-    }
-
-    .cuadre-meta-cols-toggle:hover {
-      border-color: #93c5fd;
-      color: #2563eb;
-    }
-
-    .cuadre-meta-cols-toggle.is-active {
-      background: #e1f3fe;
-      border-color: #3b82f6;
-      color: #1d4ed8;
-    }
-
-    body.dark-theme .cuadre-meta-cols-toggle {
-      background: var(--surface, #111827);
-      border-color: var(--border, #1e293b);
-      color: var(--text-muted, #94a3b8);
-    }
-
-    body.dark-theme .cuadre-meta-cols-toggle.is-active {
-      background: rgba(59, 130, 246, 0.15);
-      border-color: rgba(59, 130, 246, 0.45);
-      color: #93c5fd;
     }
 
     .td-gas {

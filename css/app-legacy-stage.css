@@ -139,6 +139,11 @@ body.app-legacy-stage-active #mexShellContent {
 .mex-hdr-icon-btn:hover {
   background: var(--bg, #f8fafc);
   border-color: var(--border-md, #cbd5e1);
+  color: #3b82f6;
+}
+
+.mex-hdr-icon-btn:hover .material-icons {
+  color: #3b82f6;
 }
 
 .mex-hdr-icon-btn .material-icons {

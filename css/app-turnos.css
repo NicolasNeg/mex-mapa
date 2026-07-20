@@ -1324,6 +1324,11 @@
 }
 
 /* ── Checado gate (INICIAR / CERRAR TURNO) ───────────────── */
+/* Tailwind Preflight no aplica display:none a [hidden]; sin esto se apilan pasos del wizard. */
+.tu-gate [hidden] {
+  display: none !important;
+}
+
 .tu-gate {
   position: fixed;
   inset: 0;

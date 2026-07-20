@@ -570,7 +570,11 @@ function _syncLegacyCuadreHeader(id, ctx) {
   if (sig === _unitsHeaderSig) return;
   _unitsHeaderSig = sig;
 
-  let html = '';
+  let html = `
+    <button type="button" class="mex-hdr-limbo-btn--legacy mex-hdr-icon-btn" id="mexHdrCuadreResumenBtn" title="Resumen flota" aria-label="Resumen flota">
+      <span class="material-icons">pie_chart</span>
+    </button>
+  `;
   if (showMas) {
     html += `
       <button type="button" class="mex-hdr-limbo-btn--legacy mex-hdr-icon-btn" id="mexHdrCuadreMoreBtn" title="Más controles" aria-label="Más controles">
@@ -588,6 +592,13 @@ function _syncLegacyCuadreHeader(id, ctx) {
 
   _shell.setHeaderActions?.(html);
 
+  const resumenBtn = document.getElementById('mexHdrCuadreResumenBtn');
+  if (resumenBtn) {
+    resumenBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      try { win.abrirResumenFlota?.(true); } catch (_) {}
+    });
+  }
   const moreBtn = document.getElementById('mexHdrCuadreMoreBtn');
   if (moreBtn) {
     moreBtn.addEventListener('click', (ev) => {

@@ -120,6 +120,13 @@ service firebase.storage {
               && rolConfig(role).permissions[permiso] == true
             )
           )
+        : permiso == "manage_system_settings" || permiso == "manage_settings"
+          ? (
+            rolConfig(role) != null
+            && rolConfig(role).permissions is map
+            && rolConfig(role).permissions.keys().hasAny([permiso])
+            && rolConfig(role).permissions[permiso] == true
+          )
         : false;
     }
 
@@ -146,6 +153,12 @@ service firebase.storage {
 
     function puedeEditarCuadreAdmins() {
       return tienePermiso("edit_admin_cuadre");
+    }
+
+    function puedeGestionarCatalogos() {
+      return esAccesoTotal()
+        || tienePermiso("manage_system_settings")
+        || tienePermiso("manage_settings");
     }
 
     function esDocumentoUsuarioPropio(docId) {
@@ -223,6 +236,19 @@ service firebase.storage {
       allow write: if esAccesoTotal()
         && request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+    }
+
+    // Imágenes de catálogo de modelos (panel admin → OPCIONES → Modelos)
+    match /catalogo_modelos/{fileName} {
+      allow read: if tienePerfilActual();
+      allow write: if puedeGestionarCatalogos()
+        && (
+          request.resource == null
+          || (
+            request.resource.size < 8 * 1024 * 1024
+            && request.resource.contentType.matches('image/.*')
+          )
+        );
     }
 
     match /{allPaths=**} {

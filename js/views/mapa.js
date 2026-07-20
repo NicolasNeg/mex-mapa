@@ -610,8 +610,6 @@ function _resumirTextoCuadreAdmin(texto = '', max = 84) {
   return limpio.length > max ? `${limpio.slice(0, max - 1)}…` : limpio;
 }
 
-const _CUADRE_META_COLS_KEY = 'mex.cuadre.metaCols';
-
 function _parseNotasCuadreSoloTexto(notas = '') {
   let s = String(notas || '').replace(/[\r\n]+/g, ' ').trim();
   if (!s) return '';
@@ -626,78 +624,6 @@ function _parseNotasCuadreSoloTexto(notas = '') {
     return t;
   }).filter(Boolean);
   return segments.join(' · ') || s;
-}
-
-function _formatCuadreUltCambioFecha(ts) {
-  if (ts == null || ts === '') return '';
-  let d;
-  if (typeof ts.toDate === 'function') d = ts.toDate();
-  else if (ts instanceof Date) d = ts;
-  else d = new Date(ts);
-  if (!d || Number.isNaN(d.getTime())) return '';
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const h = d.getHours();
-  const m = String(d.getMinutes()).padStart(2, '0');
-  const h12 = h % 12 || 12;
-  return `${dd}/${mm} ${h12}:${m}`;
-}
-
-function _cuadreAutorDisplay(u = {}) {
-  const name = String(u._createdBy || u.creadoPor || '').trim();
-  return name || '—';
-}
-
-function _cuadreUltCambioDisplay(u = {}) {
-  const name = String(
-    u.lastTouchedBy
-    || u.actualizadoPor
-    || u.adminResponsable
-    || u._updatedBy
-    || ''
-  ).trim();
-  const when = _formatCuadreUltCambioFecha(u.lastTouchedAt || u._updatedAt || u.actualizadoAt);
-  if (!name && !when) return '—';
-  if (when && name) return `${when} · ${name}`;
-  return name || when;
-}
-
-function _cuadreMetaColsVisible() {
-  try {
-    return localStorage.getItem(_CUADRE_META_COLS_KEY) === '1';
-  } catch (_) {
-    return false;
-  }
-}
-
-function _setCuadreMetaColsVisible(on) {
-  try {
-    localStorage.setItem(_CUADRE_META_COLS_KEY, on ? '1' : '0');
-  } catch (_) { /* ignore */ }
-}
-
-function _applyCuadreMetaColsUi() {
-  const on = _cuadreMetaColsVisible();
-  document.querySelectorAll('#cuadreFlotaTableWrap, .cuadre-flota-table-wrap').forEach(wrap => {
-    wrap.classList.toggle('cuadre-meta-cols-on', on);
-  });
-  document.querySelectorAll('#btnCuadreMetaCols').forEach(btn => {
-    btn.classList.toggle('is-active', on);
-    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-  });
-}
-
-function toggleCuadreMetaCols(force) {
-  const next = typeof force === 'boolean' ? force : !_cuadreMetaColsVisible();
-  _setCuadreMetaColsVisible(next);
-  _applyCuadreMetaColsUi();
-  if (typeof DATOS_TABLA_ACTUAL !== 'undefined' && Array.isArray(DATOS_TABLA_ACTUAL)) {
-    renderFlota(DATOS_TABLA_ACTUAL);
-  }
-}
-
-function _initCuadreMetaColsUi() {
-  _applyCuadreMetaColsUi();
 }
 
 function actualizarEstadoArchivosAdmin(inputId, statusId) {
@@ -783,9 +709,6 @@ function cambiarTabFlota(tabSeleccionado) {
   document.getElementById('searchFlota').value = "";
   currentFilterFlota = "TODOS";
   currentFiltroEspecial = "TODOS";
-  document.querySelectorAll('#chipContainer .chip').forEach(c => c.classList.remove('active'));
-  const chipTodos = document.querySelector('#chipContainer .chip:first-child');
-  if (chipTodos) chipTodos.classList.add('active');
 
   // 1. Lógica Visual de los botones superiores
   const btnNormal = document.getElementById('tabFlotaNormal');
@@ -6498,9 +6421,7 @@ function flotaSkeletonHtml(rows = 8) {
   const cells = bars.map((cls) =>
     `<td><span class="flota-skel-bar ${cls}" aria-hidden="true"></span></td>`
   ).join('')
-    + '<td><span class="flota-skel-bar flota-skel-bar--notas" aria-hidden="true"></span></td>'
-    + '<td class="cuadre-meta-col"><span class="flota-skel-bar" aria-hidden="true"></span></td>'
-    + '<td class="cuadre-meta-col"><span class="flota-skel-bar" aria-hidden="true"></span></td>';
+    + '<td><span class="flota-skel-bar flota-skel-bar--notas" aria-hidden="true"></span></td>';
   return Array.from({ length: rows }, (_, i) =>
     `<tr class="flota-skel-row" style="animation-delay:${i * 40}ms">${cells}</tr>`
   ).join('');
@@ -6628,13 +6549,24 @@ function filtrarFlota() {
   _syncCuadreSearchClearBtn();
 }
 
-function _syncCuadreSearchClearBtn() {
+function _cuadreHasActiveFilters() {
   const input = document.getElementById('searchFlota');
+  const hasText = Boolean(String(input?.value || '').trim());
+  const fCat = document.getElementById('filter-cat')?.value || '';
+  const fMod = document.getElementById('filter-modelo')?.value || '';
+  const fEst = document.getElementById('filter-est')?.value || '';
+  const fUbi = document.getElementById('filter-ubi')?.value || '';
+  const hasExcel = Boolean(fCat || fMod || fEst || fUbi);
+  const hasEspecial = currentFiltroEspecial && currentFiltroEspecial !== 'TODOS';
+  return hasText || hasExcel || hasEspecial;
+}
+
+function _syncCuadreSearchClearBtn() {
   const btn = document.getElementById('btnClearSearchFlota');
-  if (!input || !btn) return;
-  const hasText = Boolean(input.value.trim());
-  btn.hidden = !hasText;
-  btn.style.display = hasText ? 'inline-flex' : 'none';
+  if (!btn) return;
+  const active = _cuadreHasActiveFilters();
+  btn.hidden = !active;
+  btn.style.display = active ? 'inline-flex' : 'none';
 }
 
 function limpiarFiltrosFlota() {
@@ -6642,6 +6574,7 @@ function limpiarFiltrosFlota() {
   if (search) search.value = "";
 
   if (document.getElementById('filter-cat')) document.getElementById('filter-cat').value = "";
+  if (document.getElementById('filter-modelo')) document.getElementById('filter-modelo').value = "";
   if (document.getElementById('filter-est')) document.getElementById('filter-est').value = "";
   if (document.getElementById('filter-ubi')) document.getElementById('filter-ubi').value = "";
 
@@ -6656,7 +6589,6 @@ let DATOS_TABLA_ACTUAL = []; // 🔥 Memoria para saber qué estamos viendo
 
 
 function renderFlota(data) {
-  _initCuadreMetaColsUi();
   // 🔥 1. GUARDAMOS LA LISTA FILTRADA EN LA MEMORIA 🔥
   DATOS_TABLA_ACTUAL = data;
   
@@ -6669,7 +6601,7 @@ function renderFlota(data) {
   const thNotas = document.getElementById('th-notas');
   if (thNotas) thNotas.innerText = 'Notas';
 
-  const colSpan = 11;
+  const colSpan = 9;
 
   if (!data || data.length === 0) {
     tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; padding: 40px; color: #64748b;">No se encontraron registros.</td></tr>`;
@@ -6685,9 +6617,6 @@ function renderFlota(data) {
     const notaDisplay = notaUtil ? _resumirTextoCuadreAdmin(notaUtil, 80) : '—';
     const notaTitle = escapeHtml(notaUtil || notaCruda || '—');
     const tdNotas = `<td class="td-notas"><span class="td-notas-text" title="${notaTitle}">${escapeHtml(notaDisplay)}</span></td>`;
-    const tdAutor = `<td class="td-cuadre-autor cuadre-meta-col"><span class="td-cuadre-meta-text" title="${escapeHtml(_cuadreAutorDisplay(u))}">${escapeHtml(_cuadreAutorDisplay(u))}</span></td>`;
-    const ultLabel = _cuadreUltCambioDisplay(u);
-    const tdUlt = `<td class="td-cuadre-ult cuadre-meta-col"><span class="td-cuadre-meta-text" title="${escapeHtml(ultLabel)}">${escapeHtml(ultLabel)}</span></td>`;
 
     const isMobileOrAdmin = (typeof userRole !== 'undefined' && userRole === 'admin');
     const isMobileVisual = window.innerWidth <= 950;
@@ -6718,8 +6647,6 @@ function renderFlota(data) {
       <td><span class="badge st-${estadoClass}" title="Estado patio (cuadre)">${escapeHtml(estadoPatio)}</span></td>
       <td><span class="ubi-plain" title="Ubicación">${escapeHtml(u.ubicacion || '—')}</span></td>
       ${tdNotas}
-      ${tdAutor}
-      ${tdUlt}
     </tr>
     `;
   }).join('');
@@ -11186,7 +11113,7 @@ function _positionMoreControlsDropdown() {
   if (!menu) return;
 
   const isShell = document.documentElement.classList.contains('shell-embedded');
-  let btn = document.querySelector('#btnMasControlesWrapper .btn-more-controls');
+  let btn = document.querySelector('#btnMasControlesWrapper .cuadre-hdr-btn, #btnMasControlesWrapper .btn-more-controls');
   let anchorRect = btn?.getBoundingClientRect();
 
   if (isShell) {
@@ -11421,8 +11348,11 @@ const ICONOS_RESUMEN = {
 let globalResData = null;
 let vistaActualResumen = 'patio';
 
-async function abrirResumenFlota() {
-  toggleMoreControls();
+async function abrirResumenFlota(fromToolbar) {
+  if (fromToolbar !== true) {
+    const menu = document.getElementById('moreControlsDropdown');
+    if (menu?.classList.contains('show')) toggleMoreControls();
+  }
   const modal = await _openLegacyModalElement('modal-resumen-flota');
   if (!modal) return;
   const branch = document.getElementById('resv2-branch');
@@ -12786,16 +12716,10 @@ function cargarMasLogs() {
 let currentFiltroEspecial = "TODOS";
 
 // Función que se activa al tocar un chip
-function filtrarEspecial(tipo, element) {
-  currentFiltroEspecial = tipo; // Guarda el filtro solicitado (ej. "URGENTE")
-
-  // Quita el color azul de todos los chips y se lo pone al que tocaste
-  document.querySelectorAll('#chipContainer .chip').forEach(c => c.classList.remove('active'));
-  if (element) element.classList.add('active');
-
-  // Llama al motor principal para que redibuje la tabla
+function filtrarEspecial(tipo) {
+  currentFiltroEspecial = tipo;
   filtrarFlota();
-  _actualizarBatchBar(); // [2.5]
+  _actualizarBatchBar();
 }
 
 // [2.5] Batch action bar
@@ -25004,7 +24928,6 @@ Object.assign(window, {
   limpiarBusqueda,
   limpiarEInterfaz,
   limpiarFiltrosFlota,
-  toggleCuadreMetaCols,
   limpiarFormularioAltaGlobal,
   limpiarImagenAlerta,
   llamarAlJuezDeAuditoria,

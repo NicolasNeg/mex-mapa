@@ -13,14 +13,26 @@
         <h2 class="title-consola" style="color:var(--primary); font-weight:900; margin:0;">GESTIÓN DE FLOTA</h2>
         <span class="badge-pro"
           style="background: #e2e8f0; color:#475569; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">BETA</span>
+      </div>
 
+      <button onclick="cerrarModalFlota()" class="btn-icon-mobile cuadre-hdr-btn cuadre-hdr-btn--map"
+        style="width:auto; min-width:0; padding:0 16px; gap:8px; font-size:13px; font-weight:700; color:var(--primary);">
+        <span class="material-icons" style="font-size: 18px;">map</span>
+        <span class="txt-mobile-hide">VER MAPA</span>
+      </button>
+    </div>
+
+    <div class="cuadre-tools-bar">
+      <div class="cuadre-tools-bar__group">
+        <button type="button" class="cuadre-hdr-btn" id="btnCuadreResumenFlota" onclick="abrirResumenFlota(true)" title="Resumen flota" aria-label="Resumen flota">
+          <span class="material-icons">pie_chart</span>
+        </button>
         <div id="btnMasControlesWrapper" class="more-controls-wrapper">
-          <button class="btn-more-controls btn-icon-mobile" onclick="toggleMoreControls()">
-            <span class="material-icons" style="font-size: 18px;">tune</span>
-            <span class="txt-mobile-hide">MÁS CONTROLES</span>
+          <button type="button" class="cuadre-hdr-btn" onclick="toggleMoreControls(event)" title="Más controles" aria-label="Más controles">
+            <span class="material-icons">tune</span>
           </button>
 
-          <div id="moreControlsDropdown" class="more-controls-dropdown">
+          <div id="moreControlsDropdown" class="more-controls-dropdown cuadre-more-menu">
             <div class="mc-section-registros">
               <div class="mc-section-label"><span class="material-icons">manage_search</span> Registros / Movimientos</div>
               <div class="mc-item" onclick="abrirRegistrosMovimientos()">
@@ -31,9 +43,6 @@
                 <small id="lblUltimoCuadre">--/-- 00:00 (Nadie)</small>
               </div>
             </div>
-
-            <div class="mc-item" onclick="abrirResumenFlota()"><span class="material-icons">pie_chart</span> Resumen
-              Flota</div>
 
             <div id="mcInsertarExterno" class="mc-item" style="display:none;" onclick="abrirModalInsertarExterno()">
               <span class="material-icons" style="color:#8b5cf6;">directions_car</span>
@@ -59,21 +68,12 @@
           </div>
         </div>
 
-        <!-- Controles admin → módulo Unidades (/app/unidades) -->
         <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;">
-          <button type="button" class="btn-more-controls btn-icon-mobile" onclick="toggleAdminControls()" title="Controles admin" aria-label="Controles admin">
-            <span class="material-icons" style="font-size: 18px;">admin_panel_settings</span>
-            <span class="txt-mobile-hide">CONTROLES ADMIN</span>
+          <button type="button" class="cuadre-hdr-btn" onclick="toggleAdminControls()" title="Controles admin" aria-label="Controles admin">
+            <span class="material-icons">admin_panel_settings</span>
           </button>
         </div>
-
       </div>
-
-      <button onclick="cerrarModalFlota()" class="btn-icon-mobile"
-        style="background:#e0f2fe; color:var(--primary); border:none; padding: 10px 20px; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap: 8px;">
-        <span class="material-icons" style="font-size: 18px;">map</span>
-        <span class="txt-mobile-hide">VER MAPA</span>
-      </button>
     </div>
 
     <div id="toastContainer"></div>
@@ -102,23 +102,10 @@
               <input type="text" id="searchFlota" class="search-box-flota"
                 placeholder="Buscar MVA, notas, placas o modelo..." onkeyup="filtrarFlota()">
               <button type="button" id="btnClearSearchFlota" class="cuadre-search-clear" hidden
-                onclick="limpiarFiltrosFlota()" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">
-                <span class="material-symbols-outlined">close</span>
+                onclick="limpiarFiltrosFlota()" title="Limpiar filtros" aria-label="Limpiar filtros">
+                <span class="material-icons" aria-hidden="true">filter_alt_off</span>
               </button>
             </div>
-          </div>
-
-          <div class="chips-filter cuadre-chips-row" id="chipContainer" hidden aria-hidden="true" style="display:none !important;">
-            <div class="chip active" onclick="filtrarEspecial('TODOS', this)">Todos</div>
-            <div class="chip chip-estado chip-sucio" onclick="filtrarEspecial('SUCIO', this)">🧹 SUCIO</div>
-            <div class="chip chip-estado chip-listo" onclick="filtrarEspecial('LISTO', this)">✅ LISTO</div>
-            <div class="chip chip-estado chip-mant" onclick="filtrarEspecial('MANTENIMIENTO', this)">🔧 MANT.</div>
-            <div class="chip chip-estado chip-traslado" onclick="filtrarEspecial('TRASLADO', this)">🚛 TRASLADO</div>
-            <div class="chip" onclick="filtrarEspecial('DOBLE CERO', this)">🍃 DOBLE CERO</div>
-            <div class="chip" onclick="filtrarEspecial('APARTADO', this)">🔒 APARTADOS</div>
-            <div class="chip" onclick="filtrarEspecial('URGENTE', this)">⚡ URGENTE</div>
-            <div class="chip" onclick="filtrarEspecial('RESGUARDO', this)">👀 RESGUARDO</div>
-            <div class="chip chip-taller" onclick="filtrarEspecial('TALLER', this)">🏭 TALLER</div>
           </div>
 
           <!-- [2.5] Barra de acciones batch — visible cuando hay filtro activo -->
@@ -137,10 +124,6 @@
           </div>
 
           <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
-            <button type="button" id="btnCuadreMetaCols" class="cuadre-meta-cols-toggle" onclick="toggleCuadreMetaCols()" title="Mostrar u ocultar columnas Autor y Últ. cambio">
-              <span class="material-symbols-outlined" aria-hidden="true">view_column</span>
-              Autor / últ. cambio
-            </button>
           </div>
 
           <div class="table-container cuadre-flota-table-wrap" id="cuadreFlotaTableWrap">
@@ -215,19 +198,17 @@
                     </select>
                   </th>
                   <th id="th-notas">Notas</th>
-                  <th id="th-cuadre-autor" class="cuadre-meta-col">Autor</th>
-                  <th id="th-cuadre-ult" class="cuadre-meta-col">Últ. cambio</th>
                 </tr>
               </thead>
               <tbody id="tablaCuerpoFlota" aria-busy="true">
-                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td></tr>
-                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td></tr>
-                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td></tr>
-                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td></tr>
-                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td></tr>
-                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td></tr>
-                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td></tr>
-                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td><td class="cuadre-meta-col"><span class="flota-skel-bar"></span></td></tr>
+                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td></tr>
+                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td></tr>
+                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td></tr>
+                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td></tr>
+                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td></tr>
+                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td></tr>
+                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td></tr>
+                <tr class="flota-skel-row"><td><span class="flota-skel-bar flota-skel-bar--mva"></span></td><td><span class="flota-skel-bar flota-skel-bar--cat"></span></td><td><span class="flota-skel-bar flota-skel-bar--mod"></span></td><td><span class="flota-skel-bar flota-skel-bar--pla"></span></td><td><span class="flota-skel-bar flota-skel-bar--gas"></span></td><td><span class="flota-skel-bar flota-skel-bar--km"></span></td><td><span class="flota-skel-bar flota-skel-bar--flota"></span></td><td><span class="flota-skel-bar flota-skel-bar--patio"></span></td><td><span class="flota-skel-bar flota-skel-bar--ubi"></span></td><td><span class="flota-skel-bar flota-skel-bar--notas"></span></td></tr>
               </tbody>
             </table>
           </div>

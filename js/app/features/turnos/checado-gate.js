@@ -174,28 +174,22 @@ export function runChecadoGate(opts = {}) {
     async function boot() {
       showStep('permisos');
       try {
-        const [camRes, geoRes] = await Promise.allSettled([
-          solicitarCamara(),
-          obtenerUbicacion({ force: false }),
-        ]);
-        if (camRes.status === 'fulfilled') {
+        try {
+          await solicitarCamara();
           streamOk = true;
-        } else {
+        } catch (_) {
           showStep('error');
           $('#tuGateErrorMsg').textContent =
             'No se pudo acceder a la cámara. Activa el permiso e inténtalo de nuevo.';
           return;
         }
-        if (geoRes.status === 'fulfilled') {
-          geo = geoRes.value;
+
+        // Geo en paralelo: no bloquear el wizard facial mientras el GPS responde.
+        void obtenerUbicacion({ force: false }).then((g) => {
+          geo = g;
           result.lat = geo.lat;
           result.lon = geo.lon;
-        }
-        if (geo.status === 'bloqueada' || geo.lat == null) {
-          // Soft: permitimos continuar sin geo, pero avisamos en el chip de permisos
-          const warn = $('#tuGatePermisoGeo');
-          if (warn) warn.hidden = false;
-        }
+        }).catch(() => {});
 
         if (requireFace && !faceDescriptor) {
           showEnrolIntro();

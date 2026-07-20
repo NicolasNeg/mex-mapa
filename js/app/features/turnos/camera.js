@@ -11,6 +11,9 @@ export function getStream() {
 
 export async function solicitarCamara() {
   if (_stream?.active) return _stream;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('La cámara no está disponible en este navegador o contexto (usa HTTPS).');
+  }
   _stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: 'user' },
     audio: false,
