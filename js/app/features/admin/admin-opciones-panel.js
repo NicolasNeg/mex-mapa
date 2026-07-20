@@ -360,8 +360,8 @@ function _paintHtml() {
       <div class="adm-op-acc${open ? ' is-open' : ''}" data-acc-key="${esc(row.key)}">
         <button type="button" class="adm-op-acc-head" data-toggle-key="${esc(row.key)}" aria-expanded="${open ? 'true' : 'false'}">
           <span class="adm-op-row-main">
-            <strong>${esc(row.name || 'Sin nombre')}</strong>
-            <small>${_metaChip(row)}</small>
+            <span class="adm-op-acc-title">${esc(row.name || 'Sin nombre')}</span>
+            <span class="adm-op-acc-meta">${_metaChip(row)}</span>
           </span>
           <span class="material-symbols-outlined adm-op-acc-chevron">${open ? 'expand_less' : 'expand_more'}</span>
         </button>
@@ -375,7 +375,7 @@ function _paintHtml() {
   const newBlock = newOpen ? `
     <div class="adm-op-acc is-open is-new" data-acc-key="${NEW_KEY}">
       <button type="button" class="adm-op-acc-head" data-toggle-key="${NEW_KEY}" aria-expanded="true">
-        <span class="adm-op-row-main"><strong>Nuevo elemento</strong></span>
+        <span class="adm-op-row-main"><span class="adm-op-acc-title">Nuevo elemento</span></span>
         <span class="material-symbols-outlined adm-op-acc-chevron">expand_less</span>
       </button>
       <div class="adm-op-acc-body">

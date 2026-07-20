@@ -7,7 +7,7 @@ export const ADMIN_NAV_GROUPS = [
     items: [
       { id: 'usuarios', label: 'Usuarios', icon: 'manage_accounts', kind: 'listas' },
       { id: 'roles', label: 'Roles', icon: 'verified_user', kind: 'listas' },
-      { id: 'solicitudes', label: 'Solicitudes', icon: 'how_to_reg', kind: 'listas' }
+      { id: 'invitaciones', label: 'Invitaciones', icon: 'mail', kind: 'listas' }
     ]
   },
   {
@@ -42,7 +42,7 @@ export const ADMIN_NAV_GROUPS = [
 export const ADMIN_NATIVE_SECTIONS = new Set([
   'usuarios',
   'roles',
-  'solicitudes',
+  'invitaciones',
   'estados',
   'categorias',
   'modelos',

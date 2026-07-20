@@ -148,14 +148,6 @@ export const NAV_GROUPS = [
     label: 'Administración',
     items: [
       {
-        id: 'invitaciones',
-        label: 'Invitaciones',
-        icon: 'mail',
-        route: '/app/gestion',
-        roles: ['GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR'],
-        feature: 'gestion_usuarios'
-      },
-      {
         id: 'panel-admin',
         label: 'Panel admin',
         icon: 'admin_panel_settings',
@@ -236,6 +228,7 @@ export const ROUTE_TITLES = {
   '/app/traslados':        'Traslados',
   '/app/admin':            'Panel admin',
   '/app/gestion':          'Invitaciones',
+  '/app/admin/invitaciones': 'Invitaciones',
   '/app/alertas':          'Emitir alertas',
   '/app/alertas/historial':'Historial de alertas',
   '/app/mapa':             'Mapa operativo',

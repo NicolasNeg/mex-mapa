@@ -146,7 +146,7 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/admin-shell.js'),
     navRoute: '/app/admin',
   },
-  '/app/gestion':           { loader: () => import('/js/app/views/gestion.js'), navRoute: '/app/gestion', feature: 'gestion_usuarios' },
+  '/app/gestion':           { redirect: '/app/admin/invitaciones' },
   '/app/usuarios':          { redirect: '/app/admin/usuarios' },
   '/app/gestion/usuarios':  { redirect: '/app/admin/usuarios' },
   '/app/gestion/choferes':  { redirect: '/app/admin/usuarios' },
@@ -164,7 +164,8 @@ const ROUTE_TABLE = {
     feature:  'alertas'
   },
   '/app/historial-alertas': { redirect: '/app/alertas/historial' },
-  '/app/gestion/solicitudes': { redirect: '/app/admin/solicitudes' },
+  '/app/gestion/solicitudes': { redirect: '/app/admin/invitaciones' },
+  '/app/admin/solicitudes': { redirect: '/app/admin/invitaciones' },
   '/app/gestion/estados':   { redirect: '/app/admin/estados' },
   '/app/gestion/categorias': { redirect: '/app/admin/categorias' },
   '/app/gestion/modelos':   { redirect: '/app/admin/modelos' },
@@ -222,7 +223,7 @@ const ROUTE_STYLES = {
   "/app/cuadrarflota": [{ href: "/css/app-cuadrarflota.css?v=20260715cf", attr: "data-app-cuadrarflota-css" }],
   "/app/cuadrarflota/ventas": [{ href: "/css/app-cuadrarflota.css?v=20260715cf", attr: "data-app-cuadrarflota-css" }],
   "/app/traslados": [{ href: "/css/app-traslados.css", attr: "data-app-traslados-css" }],
-  "/app/admin": [{ href: "/css/app-admin.css?v=20260719g", attr: "data-app-admin-spa-css" }],
+  "/app/admin": [{ href: "/css/app-admin.css?v=20260720a", attr: "data-app-admin-spa-css" }],
   "/app/gestion": [{ href: "/css/app-gestion.css", id: "app-gestion-css" }],
   "/app/alertas": [
     { href: "/css/alertas.css", attr: "data-app-alertas-legacy-css" },

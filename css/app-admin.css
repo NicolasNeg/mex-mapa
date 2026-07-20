@@ -610,6 +610,36 @@ body.dark-theme .adm-btn.ghost:hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.adm-invitaciones-host {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  background: var(--bg, #f8fafc);
+}
+
+.adm-invitaciones-host .adm-invitaciones-mount,
+.adm-invitaciones-host .gestion-view {
+  max-width: none;
+  margin: 0;
+  padding: 16px 20px 24px;
+  box-sizing: border-box;
+}
+
+.adm-invitaciones-host .gestion-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.adm-invitaciones-host .gestion-sub {
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.adm-invitaciones-host .gestion-card {
+  border-radius: 8px;
+}
+
 /* ── OPCIONES (catálogos) ─────────────────────────────────── */
 .adm-opciones {
   height: 100%;
@@ -656,19 +686,25 @@ body.dark-theme .adm-btn.ghost:hover {
 .adm-op-acc-list {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: block;
   padding: 4px 0 16px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .adm-op-acc {
+  flex: none;
+  margin-bottom: 8px;
   border: 1px solid var(--border, #e2e8f0);
   border-radius: var(--adm-radius-lg);
   background: var(--surface, #fff);
   overflow: hidden;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.adm-op-acc:last-child {
+  margin-bottom: 0;
 }
 
 body.dark-theme .adm-op-acc {
@@ -698,13 +734,16 @@ body.dark-theme .adm-op-acc {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
+  min-height: 52px;
   text-align: left;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border: none;
   background: transparent;
-  color: inherit;
+  color: var(--text, #0f172a);
   cursor: pointer;
-  font: inherit;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .adm-op-acc-head:hover {
@@ -954,8 +993,36 @@ body.dark-theme .adm-op-row {
 .adm-op-row-main {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
   gap: 4px;
   min-width: 0;
+  flex: 1 1 auto;
+}
+
+.adm-op-acc-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0;
+  color: var(--text, #0f172a);
+  overflow: visible;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.adm-op-acc-meta {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--adm-muted, #64748b);
+  max-width: 100%;
+}
+
+.adm-op-acc-meta .adm-gas-bar {
+  margin-top: 2px;
 }
 
 .adm-op-row-main strong {

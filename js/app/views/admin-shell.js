@@ -18,10 +18,10 @@ import {
   syncRolesSelection
 } from '/js/app/features/admin/admin-roles-panel.js';
 import {
-  mountSolicitudesPanel,
-  unmountSolicitudesPanel,
-  syncSolicitudesSelection
-} from '/js/app/features/admin/admin-solicitudes-panel.js';
+  mountInvitacionesPanel,
+  unmountInvitacionesPanel,
+  syncInvitacionesSelection
+} from '/js/app/features/admin/admin-invitaciones-panel.js';
 import {
   mountOpcionesPanel,
   unmountOpcionesPanel,
@@ -39,7 +39,7 @@ let _entityId = '';
 let _nativeSection = '';
 
 function _ensureCss() {
-  const href = '/css/app-admin.css?v=20260719s';
+  const href = '/css/app-admin.css?v=20260720a';
   let link = document.querySelector('link[data-app-admin-spa-css="1"]');
   if (!link) {
     link = document.createElement('link');
@@ -129,7 +129,7 @@ function _injectLegacyCss(frame) {
 function _unmountNative() {
   unmountUsuariosPanel();
   unmountRolesPanel();
-  unmountSolicitudesPanel();
+  unmountInvitacionesPanel();
   unmountOpcionesPanel();
   _nativeSection = '';
 }
@@ -187,7 +187,7 @@ function _showNative(section, entityId) {
   const mountMap = {
     usuarios: { mount: mountUsuariosPanel, sync: syncUsuariosSelection },
     roles: { mount: mountRolesPanel, sync: syncRolesSelection },
-    solicitudes: { mount: mountSolicitudesPanel, sync: syncSolicitudesSelection }
+    invitaciones: { mount: mountInvitacionesPanel, sync: syncInvitacionesSelection }
   };
   const entry = mountMap[section];
   if (!entry) return;
