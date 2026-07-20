@@ -199,7 +199,7 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
 
   const faceTag = meta.faceVerified ? ' · rostro OK' : (meta.faceVerified === false ? ' · sin rostro' : '');
   await registrarLogTurno(
-    `🟢 TURNO INICIO: ${nombre} · ${plaza}${faceTag}`,
+    `TURNO INICIO: ${nombre} · ${plaza}${faceTag}`,
     nombre,
     plaza,
     { turnoId, usuarioId: firebaseUid, faceVerified: meta.faceVerified, geoWarn: meta.geoWarn }
@@ -293,7 +293,7 @@ export async function cerrarTurno(turnoId, opts = {}) {
   });
 
   await registrarLogTurno(
-    `🔴 TURNO FIN: ${nombre} · duración ${dur}`,
+    `TURNO FIN: ${nombre} · duración ${dur}`,
     nombre,
     plaza,
     { turnoId, usuarioId: uid, faceVerified: meta.faceVerified, geoWarn: meta.geoWarn }
