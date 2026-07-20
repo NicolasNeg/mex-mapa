@@ -6661,7 +6661,7 @@ function renderFlota(data) {
     <tr onclick="seleccionarFilaFlota(${i}, this)" data-mva="${u.mva}">
       <td class="td-mva"><div style="display:block;">${u.mva}</div>${formBotones}</td>
       <td><span class="td-cat">${u.categoria || u.categ || 'N/A'}</span></td>
-      <td>${u.modelo}</td>
+      <td class="td-modelo">${u.modelo}</td>
       <td style="color: #64748b;">${u.placas}</td>
       <td>${(() => {
         const pct = _fuelToPct(u.gasolina);
@@ -6670,7 +6670,7 @@ function renderFlota(data) {
         return `<div class="gas-cell" title="${u.gasolina}"><div class="gas-cell-track"><div class="gas-cell-fill" style="width:${pct}%;background:${gasColor}"></div></div><span class="gas-cell-label" style="color:${gasColor}">${u.gasolina}</span></div>`;
       })()}</td>
       <td class="td-km">${(typeof u.km === 'number') ? u.km.toLocaleString('es-MX') : '—'}</td>
-      <td><span class="badge st-${estadoClass}" title="Estado patio (cuadre)">${escapeHtml(estadoPatio)}</span></td>
+      <td><span class="fl-status" title="Estado patio (cuadre)"><i class="fl-status-dot fl-dot-${estadoClass}"></i>${escapeHtml(estadoPatio)}</span></td>
       <td><span class="ubi-plain" title="Ubicación">${escapeHtml(u.ubicacion || '—')}</span></td>
       ${tdNotas}
     </tr>
