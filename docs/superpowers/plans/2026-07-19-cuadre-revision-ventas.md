@@ -1015,7 +1015,7 @@ function _normPlaza(value) {
 }
 
 function _normSearch(value) {
-  return String(value || '').toUpperCase().normalize('NFD').replace(/[0300-036f]/g, '').trim();
+  return String(value || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 }
 
 function _uniq(values = []) {
