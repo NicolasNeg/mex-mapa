@@ -221,7 +221,8 @@
       "Bash(awk '/_normSearch/{print NR\": \"$0}')",
       "Bash(pkill -f \"firebase-tools\")",
       "Bash(grep -rnP \"registrarLog\\\\w*\\\\\\(\\\\s*[\\\\`'\\\\\"][\\\\x{1F300}-\\\\x{1FAFF}\\\\x{2600}-\\\\x{27BF}]\" --include=\"*.js\" .)",
-      "Bash(grep -rnP \"registrarLog\\\\w*\\\\\\(\\\\s*[\\\\`'\\\\\"][\\\\x{1F300}-\\\\x{1FAFF}\\\\x{2600}-\\\\x{27BF}]|_registrarLog\\\\\\(\\\\s*[\\\\`'\\\\\"][\\\\x{1F300}-\\\\x{1FAFF}\\\\x{2600}-\\\\x{27BF}]\" --include=\"*.js\" api/ js/app/features/ js/views/)"
+      "Bash(grep -rnP \"registrarLog\\\\w*\\\\\\(\\\\s*[\\\\`'\\\\\"][\\\\x{1F300}-\\\\x{1FAFF}\\\\x{2600}-\\\\x{27BF}]|_registrarLog\\\\\\(\\\\s*[\\\\`'\\\\\"][\\\\x{1F300}-\\\\x{1FAFF}\\\\x{2600}-\\\\x{27BF}]\" --include=\"*.js\" api/ js/app/features/ js/views/)",
+      "Bash(grep -n \"badge st-\\\\${estadoClass}\\\\|<td>\\\\${u.modelo}\\\\|class=\\\\\"td-modelo\\\\\"\" js/views/mapa.js)"
     ]
   }
 }
