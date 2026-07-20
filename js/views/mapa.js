@@ -610,6 +610,96 @@ function _resumirTextoCuadreAdmin(texto = '', max = 84) {
   return limpio.length > max ? `${limpio.slice(0, max - 1)}…` : limpio;
 }
 
+const _CUADRE_META_COLS_KEY = 'mex.cuadre.metaCols';
+
+function _parseNotasCuadreSoloTexto(notas = '') {
+  let s = String(notas || '').replace(/[\r\n]+/g, ' ').trim();
+  if (!s) return '';
+  const segments = s.split(/\s*\|\s*/).map(seg => {
+    let t = seg.trim();
+    let prev;
+    do {
+      prev = t;
+      t = t.replace(/^\([^)]*\)\s*/, '').trim();
+      t = t.replace(/^\[[^\]]*\]\s*/, '').trim();
+    } while (t !== prev && t.length);
+    return t;
+  }).filter(Boolean);
+  return segments.join(' · ') || s;
+}
+
+function _formatCuadreUltCambioFecha(ts) {
+  if (ts == null || ts === '') return '';
+  let d;
+  if (typeof ts.toDate === 'function') d = ts.toDate();
+  else if (ts instanceof Date) d = ts;
+  else d = new Date(ts);
+  if (!d || Number.isNaN(d.getTime())) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const h12 = h % 12 || 12;
+  return `${dd}/${mm} ${h12}:${m}`;
+}
+
+function _cuadreAutorDisplay(u = {}) {
+  const name = String(u._createdBy || u.creadoPor || '').trim();
+  return name || '—';
+}
+
+function _cuadreUltCambioDisplay(u = {}) {
+  const name = String(
+    u.lastTouchedBy
+    || u.actualizadoPor
+    || u.adminResponsable
+    || u._updatedBy
+    || ''
+  ).trim();
+  const when = _formatCuadreUltCambioFecha(u.lastTouchedAt || u._updatedAt || u.actualizadoAt);
+  if (!name && !when) return '—';
+  if (when && name) return `${when} · ${name}`;
+  return name || when;
+}
+
+function _cuadreMetaColsVisible() {
+  try {
+    return localStorage.getItem(_CUADRE_META_COLS_KEY) === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function _setCuadreMetaColsVisible(on) {
+  try {
+    localStorage.setItem(_CUADRE_META_COLS_KEY, on ? '1' : '0');
+  } catch (_) { /* ignore */ }
+}
+
+function _applyCuadreMetaColsUi() {
+  const on = _cuadreMetaColsVisible();
+  document.querySelectorAll('#cuadreFlotaTableWrap, .cuadre-flota-table-wrap').forEach(wrap => {
+    wrap.classList.toggle('cuadre-meta-cols-on', on);
+  });
+  document.querySelectorAll('#btnCuadreMetaCols').forEach(btn => {
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+function toggleCuadreMetaCols(force) {
+  const next = typeof force === 'boolean' ? force : !_cuadreMetaColsVisible();
+  _setCuadreMetaColsVisible(next);
+  _applyCuadreMetaColsUi();
+  if (typeof DATOS_TABLA_ACTUAL !== 'undefined' && Array.isArray(DATOS_TABLA_ACTUAL)) {
+    renderFlota(DATOS_TABLA_ACTUAL);
+  }
+}
+
+function _initCuadreMetaColsUi() {
+  _applyCuadreMetaColsUi();
+}
+
 function actualizarEstadoArchivosAdmin(inputId, statusId) {
   const input = document.getElementById(inputId);
   const status = document.getElementById(statusId);
@@ -6378,7 +6468,10 @@ function flotaSkeletonHtml(rows = 8) {
   ];
   const cells = bars.map((cls) =>
     `<td><span class="flota-skel-bar ${cls}" aria-hidden="true"></span></td>`
-  ).join('');
+  ).join('')
+    + '<td><span class="flota-skel-bar flota-skel-bar--notas" aria-hidden="true"></span></td>'
+    + '<td class="cuadre-meta-col"><span class="flota-skel-bar" aria-hidden="true"></span></td>'
+    + '<td class="cuadre-meta-col"><span class="flota-skel-bar" aria-hidden="true"></span></td>';
   return Array.from({ length: rows }, (_, i) =>
     `<tr class="flota-skel-row" style="animation-delay:${i * 40}ms">${cells}</tr>`
   ).join('');
@@ -6530,6 +6623,7 @@ let DATOS_TABLA_ACTUAL = []; // 🔥 Memoria para saber qué estamos viendo
 
 
 function renderFlota(data) {
+  _initCuadreMetaColsUi();
   // 🔥 1. GUARDAMOS LA LISTA FILTRADA EN LA MEMORIA 🔥
   DATOS_TABLA_ACTUAL = data;
   
@@ -6538,15 +6632,14 @@ function renderFlota(data) {
   if (pagTexto) pagTexto.innerText = `Mostrando 1 - ${count} de ${count} vehiculos`;
 
   const tbody = document.getElementById('tablaCuerpoFlota');
-  const thAutor = document.getElementById('th-autor');
+  if (!tbody) return;
+  const thNotas = document.getElementById('th-notas');
+  if (thNotas) thNotas.innerText = 'Notas';
 
-  if (thAutor) {
-    thAutor.style.display = 'table-cell';
-    thAutor.innerText = 'Notas / Responsable';
-  }
+  const colSpan = 11;
 
   if (!data || data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 40px; color: #64748b;">No se encontraron registros.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; padding: 40px; color: #64748b;">No se encontraron registros.</td></tr>`;
     return;
   }
 
@@ -6554,16 +6647,14 @@ function renderFlota(data) {
     const estadoPatio = normalizarEstadoPatio(u.estado) || String(u.estado || 'SUCIO').toUpperCase();
     const estadoClass = estadoPatio ? estadoPatio.replace(/\s+/g, '') : 'SUCIO';
 
-    const responsable = _resolverResponsableCuadreAdmin(u);
-    const adminResponsable = String(u.adminResponsable || u._updatedBy || u._createdBy || '').trim();
-    const responsableLabel = responsable || adminResponsable || 'Sin responsable';
     const notaCruda = String(u.notas || '').trim();
-    // Logica facil: si tiene nota se muestra la nota, si no hay nota se muestra el responsable.
-    const notaOrResponsable = notaCruda
-      ? _resumirTextoCuadreAdmin(notaCruda, 60)
-      : `Responsable: ${responsableLabel}`;
-    const tdAutorTitle = escapeHtml(notaCruda || `Responsable: ${responsableLabel}`);
-    const tdAutor = `<td class="td-notas"><span class="td-notas-text" title="${tdAutorTitle}">${escapeHtml(notaOrResponsable)}</span></td>`;
+    const notaUtil = _parseNotasCuadreSoloTexto(notaCruda);
+    const notaDisplay = notaUtil ? _resumirTextoCuadreAdmin(notaUtil, 80) : '—';
+    const notaTitle = escapeHtml(notaUtil || notaCruda || '—');
+    const tdNotas = `<td class="td-notas"><span class="td-notas-text" title="${notaTitle}">${escapeHtml(notaDisplay)}</span></td>`;
+    const tdAutor = `<td class="td-cuadre-autor cuadre-meta-col"><span class="td-cuadre-meta-text" title="${escapeHtml(_cuadreAutorDisplay(u))}">${escapeHtml(_cuadreAutorDisplay(u))}</span></td>`;
+    const ultLabel = _cuadreUltCambioDisplay(u);
+    const tdUlt = `<td class="td-cuadre-ult cuadre-meta-col"><span class="td-cuadre-meta-text" title="${escapeHtml(ultLabel)}">${escapeHtml(ultLabel)}</span></td>`;
 
     const isMobileOrAdmin = (typeof userRole !== 'undefined' && userRole === 'admin');
     const isMobileVisual = window.innerWidth <= 950;
@@ -6593,7 +6684,9 @@ function renderFlota(data) {
       <td class="td-km">${(typeof u.km === 'number') ? u.km.toLocaleString('es-MX') : '—'}</td>
       <td><span class="badge st-${estadoClass}" title="Estado patio (cuadre)">${escapeHtml(estadoPatio)}</span></td>
       <td><span class="ubi-plain" title="Ubicación">${escapeHtml(u.ubicacion || '—')}</span></td>
+      ${tdNotas}
       ${tdAutor}
+      ${tdUlt}
     </tr>
     `;
   }).join('');
@@ -24861,6 +24954,7 @@ Object.assign(window, {
   limpiarBusqueda,
   limpiarEInterfaz,
   limpiarFiltrosFlota,
+  toggleCuadreMetaCols,
   limpiarFormularioAltaGlobal,
   limpiarImagenAlerta,
   llamarAlJuezDeAuditoria,
