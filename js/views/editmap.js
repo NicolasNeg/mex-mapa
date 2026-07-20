@@ -331,11 +331,15 @@ window.cerrarEditmapStandalone = async function () {
 };
 
 function _ensureEditmapChromeCss() {
-  if (document.querySelector('link[href="/css/app-editmap-chrome.css"]')) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = '/css/app-editmap-chrome.css';
-  document.head.appendChild(link);
+  const href = '/css/app-editmap-chrome.css?v=20260720a';
+  let link = document.querySelector('link[data-editmap-chrome-css="1"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.setAttribute('data-editmap-chrome-css', '1');
+    document.head.appendChild(link);
+  }
+  if (link.getAttribute('href') !== href) link.href = href;
 }
 _ensureEditmapChromeCss();
 

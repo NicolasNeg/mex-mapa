@@ -546,7 +546,7 @@ function _readFields(form, itemKey = '') {
     categoria: String(fd.get('categoria') || ''),
     codigo: String(fd.get('codigo') || ''),
     etiqueta: String(fd.get('nombre') || ''),
-    activo: String(fd.get('activo') || 'true') !== 'false',,
+    activo: String(fd.get('activo') || 'true') !== 'false',
     plazaId: String(fd.get('plazaId') || 'ALL'),
     isPlazaFija: form.querySelector('[name="isPlazaFija"]')?.checked === true,
     imagenURL: ''

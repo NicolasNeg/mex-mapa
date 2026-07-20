@@ -17981,6 +17981,7 @@ let _edMultiSel = [];       // multi-selección de celdas
 let _edRotate = null;       // estado de rotación: { celdaId, cx, cy, startAngle }
 let _edRectSel = null;      // rect de selección: { startX, startY }
 let _edMenuHideHandler = null;
+let _edPan = null;
 let _edSession = null;
 let _edPropSnapshotTaken = false;
 let _edBeforeunloadBound = false;
@@ -18410,6 +18411,8 @@ function _renderEditorCanvas() {
     _edCloseMoreMenu();
   };
 
+  _edBindEditorCanvasNav(canvas);
+
   inner.onmousedown = e => {
     if (e.button !== 0 || e.target !== inner) return;
     if (_edModo) return; // el click se maneja en onclick
@@ -18488,6 +18491,13 @@ function _renderEditorCanvas() {
       e.preventDefault();
       e.stopPropagation();
       _edSelectCelda(celda, { preserveMulti: _edMultiSel.some(item => item.id === celda.id) });
+      _edOpenMoreMenuAt(e.clientX, e.clientY, celda);
+    });
+
+    el.addEventListener('dblclick', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      _edSelectCelda(celda, { preserveMulti: false });
       _edOpenMoreMenuAt(e.clientX, e.clientY, celda);
     });
 
@@ -18881,6 +18891,63 @@ function editorZoom(delta) {
   if (inner) { inner.style.transform = `scale(${_edZoom})`; inner.style.transformOrigin = 'top left'; }
   const lbl = document.getElementById('ed-zoom-label');
   if (lbl) lbl.innerText = Math.round(_edZoom * 100) + '%';
+}
+
+function editorFitView() {
+  const canvas = document.getElementById('editor-canvas-libre');
+  const inner = document.getElementById('editor-canvas-inner');
+  if (!canvas || !inner || !_edCeldas.length) return;
+  const bounds = _edSelectionBounds(_edCeldas) || { minX: 0, minY: 0, width: 400, height: 300 };
+  const pad = 48;
+  const viewW = Math.max(200, canvas.clientWidth - pad * 2);
+  const viewH = Math.max(200, canvas.clientHeight - pad * 2);
+  const scale = Math.min(3, Math.max(0.25, Math.min(viewW / bounds.width, viewH / bounds.height)));
+  _edZoom = scale;
+  inner.style.transform = `scale(${_edZoom})`;
+  inner.style.transformOrigin = 'top left';
+  const lbl = document.getElementById('ed-zoom-label');
+  if (lbl) lbl.innerText = Math.round(_edZoom * 100) + '%';
+  const targetX = Math.max(0, bounds.minX * _edZoom - pad);
+  const targetY = Math.max(0, bounds.minY * _edZoom - pad);
+  canvas.scrollLeft = targetX;
+  canvas.scrollTop = targetY;
+}
+
+function _edBindEditorCanvasNav(canvas) {
+  if (!canvas || canvas.dataset.edNavBound === '1') return;
+  canvas.dataset.edNavBound = '1';
+
+  canvas.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.08 : 0.08;
+    editorZoom(delta);
+  }, { passive: false });
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button !== 1) return;
+    e.preventDefault();
+    _edPan = { startX: e.clientX, startY: e.clientY, scrollLeft: canvas.scrollLeft, scrollTop: canvas.scrollTop };
+    canvas.classList.add('is-panning');
+  });
+
+  const endPan = () => {
+    _edPan = null;
+    canvas.classList.remove('is-panning');
+  };
+
+  canvas.addEventListener('mouseup', endPan);
+  canvas.addEventListener('mouseleave', endPan);
+  canvas.addEventListener('mousemove', (e) => {
+    if (!_edPan) return;
+    e.preventDefault();
+    canvas.scrollLeft = _edPan.scrollLeft - (e.clientX - _edPan.startX);
+    canvas.scrollTop = _edPan.scrollTop - (e.clientY - _edPan.startY);
+  });
+
+  canvas.addEventListener('auxclick', (e) => {
+    if (e.button === 1) e.preventDefault();
+  });
 }
 
 // ── COPIAR CELDA ──
@@ -24714,6 +24781,7 @@ Object.assign(window, {
   editorToggleMoreMenu,
   editorTraerFrente,
   editorZoom,
+  editorFitView,
   ejecutarAccionAlertaActual,
   ejecutarAccionGemini,
   ejecutarAccionRapida,

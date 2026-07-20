@@ -72,7 +72,7 @@
 
 #modal-editor-mapa .ed-main {
   display: grid;
-  grid-template-columns: 72px 1fr 320px;
+  grid-template-columns: 72px minmax(0, 1fr) minmax(220px, 248px);
   flex: 1;
   min-height: 0;
 }
@@ -148,8 +148,9 @@
 #modal-editor-mapa .ed-inspector {
   border-left: 1px solid var(--ed-border);
   background: var(--ed-surface);
-  padding: 16px;
+  padding: 12px 14px;
   overflow-y: auto;
+  min-width: 0;
 }
 
 #modal-editor-mapa .ed-inspector-title {
@@ -316,13 +317,6 @@
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 
-#modal-editor-mapa .editor-floating-toolbar {
-  border-radius: 8px !important;
-  border: 1px solid var(--ed-border) !important;
-  background: var(--ed-surface) !important;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12) !important;
-}
-
 #modal-editor-mapa .mapa-field-label {
   font-size: 11px;
   font-weight: 600;
@@ -333,9 +327,290 @@
 
 #modal-editor-mapa .mapa-input,
 #modal-editor-mapa .mapa-select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--ed-border);
   border-radius: 8px;
-  border-color: var(--ed-border);
+  background: var(--ed-bg);
+  color: var(--ed-text);
+  font-family: inherit;
+  font-size: 13px;
   font-weight: 500;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#modal-editor-mapa .mapa-input {
+  text-transform: uppercase;
+}
+
+#modal-editor-mapa .mapa-select {
+  text-transform: none;
+  cursor: pointer;
+}
+
+#modal-editor-mapa .mapa-input::placeholder {
+  color: var(--ed-muted);
+  opacity: 1;
+  text-transform: none;
+}
+
+#modal-editor-mapa .mapa-input:focus,
+#modal-editor-mapa .mapa-select:focus {
+  border-color: var(--ed-accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  background: var(--ed-surface);
+}
+
+#modal-editor-mapa .mapa-size-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#modal-editor-mapa .mapa-size-ctrl button {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--ed-border);
+  border-radius: 8px;
+  background: var(--ed-surface);
+  color: var(--ed-text);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#modal-editor-mapa .mapa-size-ctrl button:hover {
+  border-color: var(--ed-accent);
+  color: var(--ed-accent);
+}
+
+#modal-editor-mapa .mapa-arrow-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  grid-template-rows: repeat(3, 40px);
+  gap: 4px;
+  justify-content: start;
+}
+
+#modal-editor-mapa .mapa-arrow-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--ed-border);
+  border-radius: 8px;
+  background: var(--ed-surface);
+  color: var(--ed-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+#modal-editor-mapa .mapa-arrow-btn:hover {
+  border-color: var(--ed-accent);
+  color: var(--ed-accent);
+  background: var(--accent-pale, rgba(59, 130, 246, 0.1));
+}
+
+#modal-editor-mapa .mapa-arrow-btn .material-symbols-outlined {
+  font-size: 20px;
+}
+
+#modal-editor-mapa .mapa-arrow-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--accent-pale, rgba(59, 130, 246, 0.12));
+  color: var(--ed-accent);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+#modal-editor-mapa .mapa-arrow-center .material-symbols-outlined {
+  font-size: 20px;
+}
+
+#modal-editor-mapa .editor-floating-toolbar {
+  border-radius: 12px !important;
+  border: 1px solid var(--ed-border) !important;
+  background: var(--ed-surface) !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14) !important;
+  padding: 6px 8px !important;
+  gap: 4px !important;
+}
+
+#modal-editor-mapa .editor-floating-toolbar button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--ed-border);
+  border-radius: 8px;
+  background: var(--ed-bg);
+  color: var(--ed-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+#modal-editor-mapa .editor-floating-toolbar button:hover {
+  border-color: var(--ed-accent);
+  color: var(--ed-accent);
+  background: var(--accent-pale, rgba(59, 130, 246, 0.1));
+}
+
+#modal-editor-mapa .editor-floating-toolbar button .material-symbols-outlined {
+  font-size: 20px;
+  color: inherit;
+}
+
+#modal-editor-mapa .ed-more-menu {
+  position: absolute;
+  z-index: 80;
+  display: none;
+  min-width: 240px;
+  max-width: min(320px, calc(100% - 24px));
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--ed-border);
+  background: var(--ed-surface);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+}
+
+#modal-editor-mapa .ed-more-menu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ed-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#modal-editor-mapa .ed-more-menu button:hover {
+  background: var(--accent-pale, rgba(59, 130, 246, 0.12));
+}
+
+#modal-editor-mapa .ed-more-menu button .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--ed-muted);
+  flex-shrink: 0;
+}
+
+#modal-editor-mapa .ed-more-menu hr {
+  border: none;
+  border-top: 1px solid var(--ed-border);
+  margin: 6px 4px;
+}
+
+#modal-editor-mapa .ed-celda-libre.spot label {
+  color: rgba(226, 232, 240, 0.92);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#modal-editor-mapa .ed-spot-inner {
+  position: absolute;
+  inset: 4px 4px 0;
+  border-radius: 12px 12px 8px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(71, 85, 105, 0.85), rgba(30, 41, 59, 0.9));
+  color: rgba(226, 232, 240, 0.95);
+}
+
+#modal-editor-mapa .ed-spot-menu-trigger {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: 1px solid var(--ed-border);
+  background: var(--ed-surface);
+  color: var(--ed-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  opacity: 0;
+  z-index: 14;
+  padding: 0;
+}
+
+#modal-editor-mapa .ed-celda-libre:hover .ed-spot-menu-trigger,
+#modal-editor-mapa .ed-celda-sel .ed-spot-menu-trigger,
+#modal-editor-mapa .ed-celda-multi .ed-spot-menu-trigger {
+  opacity: 1;
+}
+
+#modal-editor-mapa #editor-canvas-libre {
+  cursor: default;
+}
+
+#modal-editor-mapa #editor-canvas-libre.is-pan-ready {
+  cursor: grab;
+}
+
+#modal-editor-mapa #editor-canvas-libre.is-panning {
+  cursor: grabbing;
+}
+
+#modal-editor-mapa .ed-shell [data-tip] {
+  position: relative;
+}
+
+#modal-editor-mapa .ed-shell [data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  min-width: 160px;
+  max-width: 240px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 100;
+  white-space: normal;
+  text-align: center;
+}
+
+#modal-editor-mapa .ed-shell [data-tip]:hover::after {
+  opacity: 1;
+}
+
+body.dark-theme #modal-editor-mapa .mapa-input,
+body.dark-theme #modal-editor-mapa .mapa-select {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ed-text);
+}
+
+body.dark-theme #modal-editor-mapa .mapa-size-ctrl button,
+body.dark-theme #modal-editor-mapa .mapa-arrow-btn {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ed-text);
 }
 
 #modal-editor-mapa .mapa-no-sel {

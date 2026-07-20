@@ -172,6 +172,7 @@ export const toggleBloqueoMapa   = (...a) => _api().toggleBloqueoMapa(...a);
 // ── Protocolo de auditoría ────────────────────────────────
 export const iniciarProtocoloDesdeAdmin  = (...a) => _api().iniciarProtocoloDesdeAdmin(...a);
 export const obtenerMisionAuditoria      = (...a) => _api().obtenerMisionAuditoria(...a);
+export const obtenerRevisionAuditoria    = (...a) => _api().obtenerRevisionAuditoria(...a);
 export const guardarAuditoriaCruzada     = (...a) => _api().guardarAuditoriaCruzada(...a);
 export const finalizarProtocoloV3        = (...a) => _api().finalizarProtocoloV3(...a);
 export const procesarAuditoriaDesdeAdmin = (...a) => _api().procesarAuditoriaDesdeAdmin(...a);

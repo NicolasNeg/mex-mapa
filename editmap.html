@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
   <link rel="stylesheet" href="/css/editmap.css">
-  <link rel="stylesheet" href="/css/app-editmap-chrome.css">
+  <link rel="stylesheet" href="/css/app-editmap-chrome.css?v=20260720a">
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -82,6 +82,9 @@
       <button type="button" onclick="editorZoom(0.1)" class="ed-tool ed-tool-inline" title="Acercar">
         <span class="material-symbols-outlined">add</span>
       </button>
+      <button type="button" onclick="editorFitView()" class="ed-tool ed-tool-inline" title="Encuadrar todo el patio">
+        <span class="material-symbols-outlined">fit_screen</span>
+      </button>
       <button type="button" onclick="editorZoom(0)" class="ed-tool ed-tool-inline" title="Zoom 1:1" style="font-size:11px;padding:8px 10px;">1:1</button>
       <button id="btnGuardarMapa" onclick="guardarMapaEditor(this)" class="ed-btn-primary" disabled>
         <span class="material-symbols-outlined" style="font-size:18px;">save</span> Guardar
@@ -128,7 +131,7 @@
         </button>
         <button onclick="editorAgregarForma('rect-grande')" class="ed-tool" type="button"
           data-tip="Agrega un rectángulo grande.">
-          <span class="material-symbols-outlined">crop_32_9</span><span>Grande</span>
+          <span class="material-symbols-outlined">width_wide</span><span>Grande</span>
         </button>
       </aside>
 
@@ -195,7 +198,7 @@
             <hr>
             <button onclick="editorAgregarForma('cuadrado')"><span class="material-symbols-outlined" style="font-size:15px;">check_box_outline_blank</span><span>Agregar cuadrado</span></button>
             <button onclick="editorAgregarForma('rect-v')"><span class="material-symbols-outlined" style="font-size:15px;">crop_portrait</span><span>Agregar rectángulo vertical</span></button>
-            <button onclick="editorAgregarForma('rect-grande')"><span class="material-symbols-outlined" style="font-size:15px;">crop_32_9</span><span>Agregar rectángulo grande</span></button>
+            <button onclick="editorAgregarForma('rect-grande')"><span class="material-symbols-outlined" style="font-size:15px;">width_wide</span><span>Agregar rectángulo grande</span></button>
           </div>
 
           <div id="editor-grid"
@@ -208,7 +211,7 @@
         <h3 class="ed-inspector-title">Selección</h3>
         <div id="editor-no-sel" class="mapa-no-sel">
           <span class="material-symbols-outlined">ads_click</span>
-          <p>Haz clic en una pieza para editarla.<br>Shift o arrastre para multiselección.</p>
+          <p>Haz clic en una pieza para editarla.<br>Shift o arrastre para multiselección.<br>Clic derecho o doble clic para más opciones.</p>
         </div>
 
         <div id="editor-sel-form" style="display:none;">
@@ -306,7 +309,7 @@
     <footer class="ed-status">
       <span id="ed-status-pieces">0 piezas</span>
       <span id="editor-selection-summary">Sin selección</span>
-      <span style="margin-left:auto;">Esc deselecciona · Del borra · ⌘Z deshace</span>
+      <span style="margin-left:auto;">Clic derecho o doble clic: opciones · Rueda+Ctrl zoom · Botón central arrastra · Esc deselecciona</span>
     </footer>
   </div>
 </div>
