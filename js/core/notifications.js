@@ -135,10 +135,11 @@ function _cuadreMissionDeepLink(item = {}) {
 
 function _cuadreReviewDeepLink(item = {}) {
   const params = new URLSearchParams();
-  params.set('notif', 'cuadre');
+  const missionId = _missionIdFromNotification(item);
   const plaza = _plazaFromNotification(item);
+  if (missionId) params.set('missionId', missionId);
   if (plaza) params.set('plaza', plaza);
-  return `/app/cuadre?${params.toString()}`;
+  return `/app/cuadrarflota/ventas?${params.toString()}`;
 }
 
 function _isLegacyCuadreTarget(target) {
