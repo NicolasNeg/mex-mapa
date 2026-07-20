@@ -98,9 +98,54 @@ const STEP_LABELS = Object.freeze({
   checklist: '3 · Accesorios',
   resumen: '4 · Entregar',
   firma: 'Firma',
+  salida: 'Salida',
   entrada: 'Regreso',
   reporte: 'Reportar',
 });
+
+const POST_ENTREGA = new Set(['entregada', 'en_retorno', 'cerrada_historial']);
+
+function _isPostEntrega(status) {
+  return POST_ENTREGA.has(String(status || ''));
+}
+
+function _defaultStepFor(p) {
+  if (!p) return 'datos';
+  if (p.status === 'entregada' || p.status === 'en_retorno') return 'entrada';
+  if (p.status === 'cerrada_historial') return 'salida';
+  if (p.status === 'lista') return 'resumen';
+  return 'datos';
+}
+
+function _gasCatalog() {
+  const configured = Array.isArray(window.MEX_CONFIG?.listas?.gasolinas)
+    ? window.MEX_CONFIG.listas.gasolinas
+    : [];
+  const values = configured
+    .map((item) => String((item && typeof item === 'object' ? (item.nombre ?? item.valor ?? '') : item) || '').trim().toUpperCase())
+    .filter(Boolean);
+  const base = values.length ? values : ['E', '1/8', '1/4', '3/8', 'H', '5/8', '3/4', '7/8', 'F', 'N/A'];
+  if (!base.includes('N/A')) base.push('N/A');
+  return Array.from(new Set(base));
+}
+
+function _gasOptionsHtml(selected) {
+  const safe = String(selected || '').trim().toUpperCase();
+  const opts = _gasCatalog();
+  if (safe && !opts.includes(safe)) opts.unshift(safe);
+  return opts.map((v) => `<option value="${_esc(v)}" ${safe === v ? 'selected' : ''}>${_esc(v)}</option>`).join('');
+}
+
+function _checkGlyph(val) {
+  if (val === 'ok') return 'check';
+  if (val === 'faltante') return 'close';
+  if (val === 'na') return 'block';
+  return '';
+}
+
+function _marcaLlantas(p) {
+  return String(p?.marcaLlantas || p?.checklist?.marca_llantas || p?.salida?.marcaLlantas || '').trim();
+}
 
 const _mexConfirm = (t, x, tipo = 'warning') =>
   (typeof window.mexConfirm === 'function' ? window.mexConfirm(t, x, tipo) : Promise.resolve(confirm(x)));
@@ -283,8 +328,16 @@ function _watchDetail(id) {
   if (_detailUnsub) { try { _detailUnsub(); } catch (_) { /* ignore */ } }
   _detailUnsub = subscribePapeleta(id, {
     onData: (doc) => {
+      const firstLoad = !_detail;
       _detail = doc;
       _mode = 'detail';
+      if (doc) {
+        const post = _isPostEntrega(doc.status);
+        const validPost = ['salida', 'entrada', 'reporte'];
+        if (firstLoad || (post && !validPost.includes(_wizardStep)) || (!post && _wizardStep === 'salida')) {
+          _wizardStep = _defaultStepFor(doc);
+        }
+      }
       _render();
     },
   });
@@ -309,6 +362,7 @@ function _openDetail(id) {
   const token = String(id || '').trim();
   if (!token) return;
   _mode = 'detail';
+  _detail = null;
   _wizardStep = 'datos';
   _navigate?.(_detailRoute(token));
   _watchDetail(token);
@@ -488,16 +542,19 @@ function _renderDetail() {
   }
   const p = _detail;
   const editable = puedeEditar(p.status);
-  const steps = [
-    ['datos', STEP_LABELS.datos],
-    ['zonas', STEP_LABELS.zonas],
-    ['checklist', STEP_LABELS.checklist],
-    ['resumen', STEP_LABELS.resumen],
-  ];
-  if (p.status === 'entregada' || p.status === 'en_retorno') {
-    steps.push(['entrada', STEP_LABELS.entrada]);
-    steps.push(['reporte', STEP_LABELS.reporte]);
-  }
+  const post = _isPostEntrega(p.status);
+  const steps = post
+    ? [
+      ['entrada', STEP_LABELS.entrada],
+      ['salida', STEP_LABELS.salida],
+      ['reporte', STEP_LABELS.reporte],
+    ]
+    : [
+      ['datos', STEP_LABELS.datos],
+      ['zonas', STEP_LABELS.zonas],
+      ['checklist', STEP_LABELS.checklist],
+      ['resumen', STEP_LABELS.resumen],
+    ];
   const statusLabel = STATUS_LABELS_SHORT[p.status] || STATUS_LABELS[p.status] || p.status;
 
   return `
@@ -507,13 +564,14 @@ function _renderDetail() {
           <nav class="pap-breadcrumb" aria-label="Ruta">
             <button type="button" data-act="back">Papeletas</button>
             <span>/</span>
-            <strong>Detalle</strong>
+            <strong>${post ? 'Regreso' : 'Detalle'}</strong>
           </nav>
           <h1>${_esc(p.mva || 'Papeleta')} <span class="pap-status-text pap-status-text--${_esc(p.status)}">${_esc(statusLabel)}</span></h1>
           <p class="pap-editor-sub">${_esc(p.modelo || 'Sin modelo')} · ${_esc(p.placas || 'Sin placas')}${p.plazaId ? ` · ${_esc(p.plazaId)}` : ''}${!editable ? ' · Solo lectura' : ''}</p>
         </div>
         <div class="pap-actions-bar">
           <button type="button" class="pap-btn pap-btn--ghost" data-act="back">Volver</button>
+          ${post ? `<button type="button" class="pap-btn pap-btn--ghost" data-act="pdf">Exportar</button>` : ''}
         </div>
       </header>
       <div class="pap-detail">
@@ -527,6 +585,7 @@ function _renderDetail() {
         ${_wizardStep === 'checklist' ? _panelChecklist(p, editable) : ''}
         ${_wizardStep === 'resumen' ? _panelResumen(p, editable) : ''}
         ${_wizardStep === 'firma' ? _panelFirma(p) : ''}
+        ${_wizardStep === 'salida' ? _panelSalidaView(p) : ''}
         ${_wizardStep === 'entrada' ? _panelEntrada(p) : ''}
         ${_wizardStep === 'reporte' ? _panelReporte(p) : ''}
       </div>
@@ -709,19 +768,134 @@ function _panelFirma(p) {
   `;
 }
 
+function _unitIdentityHtml(p) {
+  return `
+    <div class="pap-identity">
+      <div class="pap-identity__cell"><span>Económico</span><strong>${_esc(p.mva || '—')}</strong></div>
+      <div class="pap-identity__cell"><span>Modelo</span><strong>${_esc(p.modelo || '—')}</strong></div>
+      <div class="pap-identity__cell"><span>Placas</span><strong>${_esc(p.placas || '—')}</strong></div>
+      <div class="pap-identity__cell"><span>Color</span><strong>${_esc(p.color || '—')}</strong></div>
+    </div>
+  `;
+}
+
+function _checklistReadonlyHtml(p) {
+  const marca = _marcaLlantas(p);
+  return `
+    <div class="pap-check-readonly">
+      ${CHECKLIST_KEYS.map((k) => {
+        const val = String(p.checklist?.[k] || '');
+        return `
+          <div class="pap-check-readonly__row">
+            <span class="pap-check-readonly__name">${_esc(CHECKLIST_LABELS[k] || k)}</span>
+            <span class="pap-ternary" aria-label="${_esc(val || 'sin marcar')}">
+              <span class="pap-ternary__btn ${val === 'ok' ? 'is-on is-ok' : ''}" title="Está"><span class="material-symbols-outlined">check</span></span>
+              <span class="pap-ternary__btn ${val === 'faltante' ? 'is-on is-bad' : ''}" title="No está"><span class="material-symbols-outlined">close</span></span>
+              <span class="pap-ternary__btn ${val === 'na' ? 'is-on is-na' : ''}" title="N/A"><span class="material-symbols-outlined">block</span></span>
+            </span>
+          </div>`;
+      }).join('')}
+      <div class="pap-check-readonly__row pap-check-readonly__row--text">
+        <span class="pap-check-readonly__name">Marca de llantas</span>
+        <strong>${marca ? _esc(marca) : '—'}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function _danosSalidaHtml(p) {
+  const danos = ZONAS_V1.filter((z) => String(p.zonas?.[z.id]?.estado || '') === 'dano');
+  if (!danos.length) return '<p class="pap-hint">Sin daños marcados en salida.</p>';
+  return `
+    <ul class="pap-dano-list">
+      ${danos.map((z) => {
+        const nota = truncNota(p.zonas?.[z.id]?.nota || '');
+        return `<li><strong>${_esc(z.label)}</strong>${nota ? ` · ${_esc(nota)}` : ''}</li>`;
+      }).join('')}
+    </ul>
+  `;
+}
+
+function _salidaSummaryHtml(p, { compact = false } = {}) {
+  const out = p.salida || {};
+  const firma = String(out.firmaPath || '').trim();
+  return `
+    <section class="pap-salida-block">
+      <div class="pap-salida-block__head">
+        <h3>Datos de salida</h3>
+        <span class="pap-status-text pap-status-text--entregada">Entrega</span>
+      </div>
+      ${_unitIdentityHtml(p)}
+      <div class="pap-fields-2">
+        <div class="pap-field"><label>KM salida</label><input value="${_esc(out.km ?? '—')}" disabled/></div>
+        <div class="pap-field"><label>Gas salida</label><input value="${_esc(out.gas || '—')}" disabled/></div>
+        <div class="pap-field"><label>Quién entrega</label><input value="${_esc(out.quienEntrega || '—')}" disabled/></div>
+        <div class="pap-field"><label>Cliente</label><input value="${_esc(p.clienteNombre || 'Sin cliente')}" disabled/></div>
+      </div>
+      ${!compact ? `
+        <h3 class="pap-subhead">Checklist salida</h3>
+        ${_checklistReadonlyHtml(p)}
+        <h3 class="pap-subhead">Daños / rayones salida</h3>
+        ${_danosSalidaHtml(p)}
+        ${firma ? '<p class="pap-hint">Firma de entrega capturada.</p><div class="pap-firma-host" data-firma-preview></div>' : '<p class="pap-hint">Sin firma en archivo.</p>'}
+      ` : `
+        <p class="pap-hint">Revisa la pestaña <b>Salida</b> para checklist, daños y fotos.</p>
+      `}
+    </section>
+  `;
+}
+
+function _panelSalidaView(p) {
+  return `
+    <div class="pap-panel pap-panel--regreso">
+      <h2>Salida registrada</h2>
+      ${_salidaSummaryHtml(p, { compact: false })}
+      <h3 class="pap-subhead">Fotos de salida</h3>
+      <div class="pap-photos" id="papCompare"></div>
+      <div class="pap-actions pap-actions--sticky">
+        <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="goto-entrada">Ir a regreso</button>
+        <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="pdf">Exportar</button>
+      </div>
+    </div>
+  `;
+}
+
 function _panelEntrada(p) {
   const locked = p.status === 'en_retorno' || p.status === 'cerrada_historial';
+  const e = p.entrada || {};
   return `
-    <div class="pap-panel">
-      <h2>Registrar entrada</h2>
-      <div class="pap-photos" id="papCompare"></div>
-      <div class="pap-field"><label>Quién recibe</label><input id="papQuienRecibe" value="${_esc(p.entrada?.quienRecibe || _user().nombre)}" ${locked ? 'disabled' : ''}/></div>
-      <div class="pap-field"><label>KM entrada</label><input id="papKmIn" type="number" value="${_esc(p.entrada?.km ?? '')}" ${locked ? 'disabled' : ''}/></div>
-      <div class="pap-field"><label>Gas entrada</label><input id="papGasIn" value="${_esc(p.entrada?.gas ?? '')}" ${locked ? 'disabled' : ''}/></div>
-      <div class="pap-field"><label>Notas</label><textarea id="papNotasIn" rows="3" ${locked ? 'disabled' : ''}>${_esc(p.entrada?.notas || '')}</textarea></div>
+    <div class="pap-panel pap-panel--regreso">
+      <h2>${locked ? 'Regreso registrado' : 'Registrar regreso'}</h2>
+      ${_salidaSummaryHtml(p, { compact: true })}
+      <section class="pap-entrada-block">
+        <div class="pap-salida-block__head">
+          <h3>Datos de entrada</h3>
+          <span class="pap-status-text pap-status-text--${_esc(p.status)}">${_esc(STATUS_LABELS_SHORT[p.status] || p.status)}</span>
+        </div>
+        <div class="pap-field">
+          <label>Quién recibe</label>
+          <input id="papQuienRecibe" value="${_esc(e.quienRecibe || _user().nombre)}" ${locked ? 'disabled' : ''} autocomplete="name"/>
+        </div>
+        <div class="pap-fields-2">
+          <div class="pap-field">
+            <label>KM entrada</label>
+            <input id="papKmIn" type="text" inputmode="numeric" pattern="[0-9]*" value="${_esc(e.km ?? '')}" ${locked ? 'disabled' : ''} autocomplete="off"/>
+          </div>
+          <div class="pap-field">
+            <label>Gas entrada</label>
+            <select id="papGasIn" ${locked ? 'disabled' : ''}>${_gasOptionsHtml(e.gas || '')}</select>
+          </div>
+        </div>
+        <div class="pap-field">
+          <label>Notas / interiores</label>
+          <textarea id="papNotasIn" rows="3" ${locked ? 'disabled' : ''}>${_esc(e.notas || '')}</textarea>
+        </div>
+        <h3 class="pap-subhead">Fotos salida (referencia)</h3>
+        <div class="pap-photos" id="papCompare"></div>
+      </section>
       ${!locked ? `
-        <div class="pap-actions">
-          <button type="button" class="pap-btn pap-btn--primary" data-act="save-entrada" ${_busy ? 'disabled' : ''}>Registrar entrada</button>
+        <div class="pap-actions pap-actions--sticky">
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-entrada" ${_busy ? 'disabled' : ''}>Registrar entrada</button>
         </div>
       ` : `<p class="pap-card__meta">Entrada registrada · unidad liberada para nueva papeleta</p>`}
     </div>
@@ -924,9 +1098,16 @@ function _bind() {
   root.querySelector('[data-act="sig-clear"]')?.addEventListener('click', () => _clearSig());
   root.querySelector('[data-act="sig-confirm"]')?.addEventListener('click', () => _confirmFirma());
   root.querySelector('[data-act="pdf"]')?.addEventListener('click', () => _doPdf());
-  root.querySelector('[data-act="goto-entrada"]')?.addEventListener('click', () => {
-    _wizardStep = 'entrada'; _render();
+  root.querySelectorAll('[data-act="goto-entrada"]').forEach((btn) => {
+    btn.addEventListener('click', () => { _wizardStep = 'entrada'; _render(); });
   });
+  const kmIn = root.querySelector('#papKmIn');
+  if (kmIn && !kmIn.disabled) {
+    kmIn.addEventListener('input', () => {
+      const digits = String(kmIn.value || '').replace(/\D+/g, '');
+      if (kmIn.value !== digits) kmIn.value = digits;
+    });
+  }
   root.querySelector('[data-act="save-entrada"]')?.addEventListener('click', () => _saveEntrada());
   root.querySelector('[data-act="send-reporte"]')?.addEventListener('click', () => _sendReporte());
   root.querySelectorAll('[data-act="promover"]').forEach((btn) => {
@@ -973,7 +1154,8 @@ async function _hydrateFotos() {
     if (url) { img.src = url; img.style.display = 'block'; }
   }
   const compare = _container.querySelector('#papCompare');
-  if (compare && (_wizardStep === 'entrada')) {
+  if (compare && (_wizardStep === 'entrada' || _wizardStep === 'salida')) {
+    compare.innerHTML = '<div class="pap-card__meta">Cargando fotos de salida…</div>';
     const parts = [];
     for (const zona of ZONAS_V1) {
       const zp = _detail.zonas?.[zona.id];
@@ -983,6 +1165,14 @@ async function _hydrateFotos() {
       parts.push(`<figure><img src="${_esc(url)}" alt=""/><figcaption>${_esc(zona.label)}${zp.estado === 'dano' ? ' · daño' : ''}</figcaption></figure>`);
     }
     compare.innerHTML = parts.join('') || '<div class="pap-card__meta">Sin fotos de salida</div>';
+  }
+  const firmaHost = _container.querySelector('[data-firma-preview]');
+  const firmaPath = _detail.salida?.firmaPath;
+  if (firmaHost && firmaPath) {
+    const url = await _fotoUrl(firmaPath);
+    firmaHost.innerHTML = url
+      ? `<img class="pap-firma-img" src="${_esc(url)}" alt="Firma de entrega"/>`
+      : '<span class="pap-muted">No se pudo cargar la firma</span>';
   }
 }
 
