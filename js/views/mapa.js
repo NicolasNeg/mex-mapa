@@ -5847,6 +5847,32 @@ function irAModuloUnidades() {
   }
 }
 
+function irARevisionVentasCuadre(mission) {
+  document.getElementById('historial-cuadres-modal')?.classList.remove('active');
+  const params = new URLSearchParams();
+  if (mission?.missionId) params.set('missionId', mission.missionId);
+  if (mission?.plaza) params.set('plaza', mission.plaza);
+  const target = `/app/cuadrarflota/ventas?${params.toString()}`;
+  try {
+    if (typeof window.parent?.__mexShellNavigate === 'function') {
+      window.parent.__mexShellNavigate(target);
+      return;
+    }
+  } catch (_) { /* cross-origin */ }
+  try {
+    if (typeof window.__mexShellNavigate === 'function') {
+      window.__mexShellNavigate(target);
+      return;
+    }
+  } catch (_) {}
+  try {
+    (window.top || window).location.assign(target);
+  } catch (_) {
+    window.location.assign(target);
+  }
+}
+window.irARevisionVentasCuadre = irARevisionVentasCuadre;
+
 async function mostrarConfirmacionSwap(moviendo, ocupante, destino) {
   const destinoLabel = destino?.classList?.contains('spot')
     ? _spotValueFromElement(destino)
@@ -14818,8 +14844,8 @@ function _historialMisionActivaHtml(mission) {
   const estadoClass = mission.enRevision ? 'is-revision' : 'is-proceso';
   const puedeGestionar = userRole === 'admin' || _roleMeta().isAdmin || canViewAdminCuadre();
   const primaryAction = mission.enRevision && puedeGestionar
-    ? `<button type="button" class="historial-mision-btn primary" onclick="finalizarCuadreDesdeHistorial()">
-         <span class="material-icons">task_alt</span> Finalizar cuadre
+    ? `<button type="button" class="historial-mision-btn primary" onclick='irARevisionVentasCuadre(${JSON.stringify({ missionId: mission.missionId, plaza: mission.plaza })})'>
+         <span class="material-icons">task_alt</span> Revisar y firmar
        </button>`
     : `<button type="button" class="historial-mision-btn primary" onclick="abrirCuadrarFlotaDesdeHistorial()">
          <span class="material-icons">${mission.enRevision ? 'fact_check' : 'checklist'}</span>
