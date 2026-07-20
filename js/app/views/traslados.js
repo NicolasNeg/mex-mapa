@@ -80,7 +80,6 @@ export async function mount({ container, navigate }) {
     selectedId: '',
     filtersOpen: false,
     closing: false,
-    detailEditing: false,
     detailMode: 'list',
     boot: {
       plaza,
@@ -122,7 +121,7 @@ export function unmount() {
 }
 
 function _ensureCss() {
-  const href = '/css/app-traslados.css?v=20260719t';
+  const href = '/css/app-traslados.css?v=20260718a';
   let link = document.querySelector('link[data-app-traslados-css="1"]');
   if (link) {
     if (link.getAttribute('href') !== href) link.setAttribute('href', href);
@@ -420,38 +419,10 @@ function _renderShell() {
               <div class="tras-filter-grid">
                 <label><span>Folio</span><input data-filter="folio" value="${esc(_s.filters.folio)}" placeholder="TR-00012"></label>
                 <label><span>Chofer</span><input data-filter="chofer" list="tras-chofer-list" value="${esc(_s.filters.chofer)}" placeholder="Buscar chofer"></label>
-                <label><span>Autor</span>${_ribbonSelectHtml({
-                  fieldId: 'tras-filter-creador',
-                  value: _s.filters.creador,
-                  options: [{ value: '', label: 'Todos' }, ...creadores.map(v => ({ value: v, label: v }))],
-                  filterKey: 'creador',
-                  placeholder: 'Todos'
-                })}</label>
-                <label><span>Razon</span>${_ribbonSelectHtml({
-                  fieldId: 'tras-filter-tipo',
-                  value: _s.filters.tipo,
-                  options: [{ value: '', label: 'Todas' }, ...tipos.map(t => ({
-                    value: t.codigo,
-                    label: t.codigo,
-                    sub: t.etiqueta
-                  }))],
-                  filterKey: 'tipo',
-                  placeholder: 'Todas'
-                })}</label>
-                <label><span>Plaza salida</span>${_ribbonSelectHtml({
-                  fieldId: 'tras-filter-plaza-origen',
-                  value: _s.filters.plazaOrigen,
-                  options: [{ value: '', label: 'Todas' }, ...plazas.map(p => ({ value: p, label: p }))],
-                  filterKey: 'plazaOrigen',
-                  placeholder: 'Todas'
-                })}</label>
-                <label><span>Plaza regreso</span>${_ribbonSelectHtml({
-                  fieldId: 'tras-filter-plaza-destino',
-                  value: _s.filters.plazaDestino,
-                  options: [{ value: '', label: 'Todas' }, ...plazas.map(p => ({ value: p, label: p }))],
-                  filterKey: 'plazaDestino',
-                  placeholder: 'Todas'
-                })}</label>
+                <label><span>Autor</span><select data-filter="creador">${_option('', 'Todos', _s.filters.creador)}${creadores.map(v => _option(v, v, _s.filters.creador)).join('')}</select></label>
+                <label><span>Razon</span><select data-filter="tipo">${_option('', 'Todas', _s.filters.tipo)}${tipos.map(t => _option(t.codigo, `${t.codigo} · ${t.etiqueta}`, _s.filters.tipo)).join('')}</select></label>
+                <label><span>Plaza salida</span><select data-filter="plazaOrigen">${_option('', 'Todas', _s.filters.plazaOrigen)}${plazas.map(p => _option(p, p, _s.filters.plazaOrigen)).join('')}</select></label>
+                <label><span>Plaza regreso</span><select data-filter="plazaDestino">${_option('', 'Todas', _s.filters.plazaDestino)}${plazas.map(p => _option(p, p, _s.filters.plazaDestino)).join('')}</select></label>
                 <label><span>Salida desde</span><input type="date" data-filter="salidaDesde" value="${esc(_s.filters.salidaDesde)}"></label>
                 <label><span>Salida hasta</span><input type="date" data-filter="salidaHasta" value="${esc(_s.filters.salidaHasta)}"></label>
                 <label><span>Regreso desde</span><input type="date" data-filter="regresoDesde" value="${esc(_s.filters.regresoDesde)}"></label>
@@ -594,10 +565,7 @@ function _paintDetail() {
 function _formHtml(row) {
   const isNew = !row;
   const isClosed = row && _estado(row) === 'CERRADO';
-  const canManage = _s.boot.canManage;
-  const canEdit = canManage && !isClosed;
-  const editing = isNew || (canEdit && _s.detailEditing);
-  const canEditFields = editing;
+  const canEdit = _s.boot.canManage && !isClosed;
   const draft = isNew ? _s.draft : _rowToDraft(row);
   const choferLabel = isNew
     ? (draft.choferNombre || _choferLabel(draft.choferUid))
@@ -612,8 +580,6 @@ function _formHtml(row) {
   const currentLocation = isNew
     ? (unit?.ubicacion || unit?.plaza || draft.plazaOrigen || _s.plaza)
     : (row.ubicacionActual || row.plazaOrigen || '-');
-  const tipoSel = _tipos().find(t => t.codigo === String(draft.tipo || '').toUpperCase());
-  const tipoDisplay = tipoSel ? `${tipoSel.codigo} · ${_shortText(tipoSel.etiqueta, 42)}` : (draft.tipo || '—');
 
   return `
     <div class="tras-detail-card tras-detail-card--wide">
@@ -629,72 +595,43 @@ function _formHtml(row) {
       <form class="tras-form tras-form--wide" data-action="${isNew ? 'create-transfer' : 'update-transfer'}" data-id="${esc(row?.id || '')}">
         <section class="tras-form-panel">
           <div class="tras-form-grid tras-form-grid--meta">
-            ${canEditFields
-              ? _choferPickerHtml({ uid: draft.choferUid, label: choferLabel, disabled: false })
-              : `<label><span>Chofer</span>${_roValue(choferLabel)}</label>`}
+            ${_choferPickerHtml({ uid: draft.choferUid, label: choferLabel, disabled: !(canEdit || isNew) })}
             <label>
               <span>Fecha de salida</span>
-              ${canEditFields
-                ? `<input type="datetime-local" id="tras-form-salida" name="fechaSalida" value="${esc(draft.fechaSalida)}">`
-                : _roValue(_formatDateTimeDisplay(draft.fechaSalida))}
+              <input type="datetime-local" id="tras-form-salida" name="fechaSalida" value="${esc(draft.fechaSalida)}" ${canEdit || isNew ? '' : 'disabled'}>
             </label>
             <label>
               <span>Fecha de regreso</span>
-              ${canEditFields
-                ? `<input type="datetime-local" id="tras-form-regreso" name="fechaRegresoEstimada" value="${esc(draft.fechaRegresoEstimada)}">`
-                : _roValue(_formatDateTimeDisplay(draft.fechaRegresoEstimada))}
+              <input type="datetime-local" id="tras-form-regreso" name="fechaRegresoEstimada" value="${esc(draft.fechaRegresoEstimada)}" ${canEdit || isNew ? '' : 'disabled'}>
             </label>
             <label>
               <span>Oficina de salida</span>
-              ${canEditFields && isNew
-                ? _ribbonSelectHtml({
-                  fieldId: 'tras-form-plaza-origen',
-                  name: 'plazaOrigen',
-                  value: draft.plazaOrigen || _s.plaza,
-                  options: _plazas().map(p => ({ value: p, label: p })),
-                  placeholder: 'Plaza'
-                })
-                : _roValue(draft.plazaOrigen || row?.plazaOrigen || '—')}
+              <select id="tras-form-plaza-origen" name="plazaOrigen" ${isNew ? '' : 'disabled'}>
+                ${_plazas().map(p => _option(p, p, draft.plazaOrigen || _s.plaza)).join('')}
+              </select>
             </label>
             <label>
               <span>Oficina de regreso</span>
-              ${canEditFields
-                ? _ribbonSelectHtml({
-                  fieldId: 'tras-form-plaza-destino',
-                  name: 'plazaDestino',
-                  value: draft.plazaDestino || _s.plaza,
-                  options: _plazas().map(p => ({ value: p, label: p })),
-                  placeholder: 'Plaza'
-                })
-                : _roValue(draft.plazaDestino || row?.plazaDestino || '—')}
+              <select id="tras-form-plaza-destino" name="plazaDestino" ${canEdit || isNew ? '' : 'disabled'}>
+                ${_plazas().map(p => _option(p, p, draft.plazaDestino || _s.plaza)).join('')}
+              </select>
             </label>
             <label>
               <span>Razon</span>
-              ${canEditFields
-                ? _ribbonSelectHtml({
-                  fieldId: 'tras-form-tipo',
-                  name: 'tipo',
-                  value: draft.tipo,
-                  options: [{ value: '', label: 'Seleccionar', sub: '' }, ..._tipos().map(t => ({
-                    value: t.codigo,
-                    label: t.codigo,
-                    sub: _shortText(t.etiqueta, 36)
-                  }))],
-                  placeholder: 'Seleccionar razon'
-                })
-                : _roValue(tipoDisplay)}
+              <select id="tras-form-tipo" name="tipo" ${canEdit || isNew ? '' : 'disabled'}>
+                ${_option('', 'Seleccionar razon', draft.tipo)}
+                ${_tipos().map(t => _option(t.codigo, `${t.codigo} · ${t.etiqueta}`, draft.tipo)).join('')}
+              </select>
             </label>
             ${!isNew ? `
               <label>
                 <span>Autor</span>
-                ${_roValue(row.creadoPor || 'Sistema')}
+                <input value="${esc(row.creadoPor || 'Sistema')}" readonly>
               </label>
             ` : ''}
             <label class="span-all">
               <span>Comentarios</span>
-              ${canEditFields
-                ? `<textarea id="tras-form-nota" name="nota" placeholder="Comentarios">${esc(isNew ? draft.nota : row.notaCierre || '')}</textarea>`
-                : _roValue(isNew ? draft.nota : row.notaCierre || '', 'Sin comentarios', true)}
+              <textarea id="tras-form-nota" name="nota" placeholder="Comentarios" ${canEdit || isNew ? '' : 'disabled'}>${esc(isNew ? draft.nota : row.notaCierre || '')}</textarea>
             </label>
           </div>
         </section>
@@ -710,21 +647,12 @@ function _formHtml(row) {
         <div class="tras-form-actions tras-form-actions--footer">
           ${isClosed
             ? `<button type="button" class="tras-btn ghost" data-action="back-list">Volver</button>`
-            : isNew
-              ? `
+            : `
               <button type="button" class="tras-btn ghost" data-action="back-list">Cancelar</button>
-              <button type="submit" class="tras-btn primary" ${_s.busy ? 'disabled' : ''}>Guardar</button>
-            `
-              : !editing
-                ? `
-              <button type="button" class="tras-btn ghost" data-action="back-list">Volver</button>
-              ${canEdit ? `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}">Cerrar traslado</button>` : ''}
-              ${canEdit ? `<button type="button" class="tras-btn primary" data-action="edit-detail">Editar</button>` : ''}
-            `
-                : `
-              <button type="button" class="tras-btn ghost" data-action="cancel-edit-detail">Cancelar</button>
-              ${!_s.closing ? `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}">Cerrar traslado</button>` : `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}">Cancelar cierre</button>`}
-              ${!_s.closing ? `<button type="submit" class="tras-btn primary" ${_s.busy ? 'disabled' : ''}>Guardar cambios</button>` : ''}
+              ${!isNew ? `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}">${_s.closing ? 'Cancelar cierre' : 'Cerrar traslado'}</button>` : ''}
+              ${(canEdit || isNew) && !_s.closing ? `<button type="submit" class="tras-btn primary" ${_s.busy ? 'disabled' : ''}>
+                ${isNew ? 'Guardar' : 'Guardar cambios'}
+              </button>` : ''}
             `}
         </div>
       </form>
@@ -765,13 +693,8 @@ function _unitDetailSectionHtml(row, draft, unitSummary, gasSalida, isClosed) {
         <label>
           <span>ENTRADA · GAS</span>
           ${entradaEditable
-            ? _ribbonSelectHtml({
-              fieldId: 'tras-close-gas',
-              value: gasEntrada,
-              options: _gasRibbonOptions(gasEntrada),
-              placeholder: 'N/A'
-            })
-            : _roValue(String(gasEntrada || '—'))}
+            ? `<select id="tras-close-gas">${_gasSelectOptions(gasEntrada)}</select>`
+            : `<input value="${esc(String(gasEntrada || '—'))}" readonly>`}
         </label>
       ` : ''}
     </div>
@@ -874,7 +797,6 @@ async function _onClick(event) {
     _s.detailMode = 'new';
     _s.selectedId = '';
     _s.closing = false;
-    _s.detailEditing = true;
     _s.draft = _newDraft(_s.plaza);
     _go(NEW_ROUTE);
     return;
@@ -885,7 +807,6 @@ async function _onClick(event) {
     _s.selectedId = id;
     _s.detailMode = 'detail';
     _s.closing = false;
-    _s.detailEditing = false;
     _go(_viewRoute(id));
     return;
   }
@@ -893,7 +814,6 @@ async function _onClick(event) {
     _s.selectedId = '';
     _s.detailMode = 'list';
     _s.closing = false;
-    _s.detailEditing = false;
     _go(LIST_ROUTE);
     return;
   }
@@ -920,32 +840,6 @@ async function _onClick(event) {
     _paintDetail();
     return;
   }
-  if (action === 'edit-detail') {
-    if (!_s.boot.canManage) return;
-    _s.detailEditing = true;
-    _s.closing = false;
-    _paintDetail();
-    return;
-  }
-  if (action === 'cancel-edit-detail') {
-    _s.detailEditing = false;
-    _s.closing = false;
-    _paintDetail();
-    return;
-  }
-  if (action === 'ribbon-toggle') {
-    const id = actionEl.dataset.ribbon || '';
-    const field = _ctr?.querySelector(`.tras-ribbon-field[data-ribbon-id="${id}"]`);
-    if (field && !field.classList.contains('is-disabled')) {
-      const open = field.classList.contains('is-open');
-      _toggleRibbon(field, !open);
-    }
-    return;
-  }
-  if (action === 'ribbon-select') {
-    _handleRibbonSelect(actionEl);
-    return;
-  }
   if (action === 'close-transfer') {
     await _submitClose(actionEl.dataset.id);
     return;
@@ -963,9 +857,8 @@ async function _onClick(event) {
     if (field) _togglePicker(field, true);
     return;
   }
-  if (!actionEl.closest('.tras-search-field') && !actionEl.closest('.tras-ribbon-field')) {
+  if (!actionEl.closest('.tras-search-field')) {
     _closeAllPickers();
-    _closeAllRibbonPanels();
   }
 }
 
@@ -1220,7 +1113,6 @@ async function _submitUpdate(id) {
     _toast('Traslado actualizado.', 'success');
     _s.selectedId = id;
     _s.detailMode = 'detail';
-    _s.detailEditing = false;
     await _load();
   });
 }
@@ -1423,7 +1315,7 @@ function _choferPickerHtml({ uid = '', label = '', disabled = false } = {}) {
         <input type="text" id="tras-form-chofer-search" class="tras-search-input" value="${esc(label)}" placeholder="Buscar chofer..." autocomplete="off"${disabled ? ' disabled' : ''}>
         <span class="material-icons" aria-hidden="true">search</span>
       </div>
-      <ul class="tras-search-menu tras-ribbon-panel" id="tras-chofer-menu" hidden></ul>
+      <ul class="tras-search-menu" id="tras-chofer-menu" hidden></ul>
     </div>
   `;
 }
@@ -1448,7 +1340,7 @@ function _unitPickerSectionHtml(draft, unit, gasSalida) {
         <input type="text" id="tras-form-unit-search" class="tras-search-input" value="" placeholder="Elige una unidad de la lista…" autocomplete="off" readonly tabindex="-1">
         <span class="material-icons" aria-hidden="true">directions_car</span>
       </div>
-      <ul class="tras-search-menu tras-ribbon-panel" id="tras-unit-menu" hidden></ul>
+      <ul class="tras-search-menu" id="tras-unit-menu" hidden></ul>
     </div>
     ${hasUnit ? `
       <div class="tras-unit-selected-bar">
@@ -1503,139 +1395,14 @@ function _initFormPickers() {
 function _togglePicker(field, open) {
   const menu = field?.querySelector('.tras-search-menu');
   if (!menu) return;
-  _closeAllRibbonPanels();
   _ctr?.querySelectorAll('.tras-search-menu').forEach(el => {
     if (el !== menu) el.hidden = true;
   });
   menu.hidden = !open;
-  field?.classList.toggle('is-open', open);
 }
 
 function _closeAllPickers() {
   _ctr?.querySelectorAll('.tras-search-menu').forEach(el => { el.hidden = true; });
-  _ctr?.querySelectorAll('.tras-search-field.is-open').forEach(el => el.classList.remove('is-open'));
-}
-
-function _shortText(text, max = 40) {
-  const s = String(text || '').trim();
-  if (s.length <= max) return s;
-  return `${s.slice(0, max - 1)}…`;
-}
-
-function _roValue(text, empty = '—', multiline = false) {
-  const v = String(text || '').trim();
-  if (!v) return `<div class="tras-ro-value is-muted">${esc(empty)}</div>`;
-  if (multiline) return `<div class="tras-ro-value is-multiline">${esc(v)}</div>`;
-  return `<div class="tras-ro-value">${esc(v)}</div>`;
-}
-
-function _formatDateTimeDisplay(value) {
-  const ms = _toMs(value);
-  if (!ms) return '—';
-  try {
-    return new Date(ms).toLocaleString('es-MX', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch (_) {
-    return String(value || '—');
-  }
-}
-
-function _ribbonSelectHtml({
-  fieldId,
-  name = '',
-  value = '',
-  options = [],
-  disabled = false,
-  placeholder = 'Seleccionar',
-  filterKey = ''
-} = {}) {
-  const val = String(value ?? '');
-  const hit = options.find(o => String(o.value) === val);
-  const display = hit ? (hit.sub ? `${hit.label} · ${_shortText(hit.sub, 28)}` : hit.label) : placeholder;
-  return `
-    <div class="tras-ribbon-field${disabled ? ' is-disabled' : ''}" data-ribbon-id="${esc(fieldId)}"${filterKey ? ` data-filter-key="${esc(filterKey)}"` : ''}>
-      ${name ? `<input type="hidden" id="${esc(fieldId)}" name="${esc(name)}" value="${esc(val)}">` : `<input type="hidden" id="${esc(fieldId)}" value="${esc(val)}"${filterKey ? ` data-filter="${esc(filterKey)}"` : ''}>`}
-      <button type="button" class="tras-ribbon-trigger" data-action="ribbon-toggle" data-ribbon="${esc(fieldId)}" ${disabled ? 'disabled' : ''} aria-haspopup="listbox" aria-expanded="false">
-        <span class="tras-ribbon-value">${esc(display)}</span>
-        <span class="material-icons" aria-hidden="true">expand_more</span>
-      </button>
-      <div class="tras-ribbon-panel" data-ribbon-panel="${esc(fieldId)}" hidden role="listbox">
-        <ul class="tras-ribbon-list">
-          ${options.map(o => {
-            const selected = String(o.value) === val;
-            return `
-            <li>
-              <button type="button" class="tras-ribbon-option${selected ? ' is-selected' : ''}" data-action="ribbon-select" data-ribbon="${esc(fieldId)}" data-value="${esc(o.value)}" data-label="${esc(o.label)}"${o.sub ? ` data-sub="${esc(o.sub)}"` : ''}>
-                <span class="tras-ribbon-option-main">${esc(o.label)}</span>
-                ${o.sub ? `<span class="tras-ribbon-option-sub">${esc(_shortText(o.sub, 48))}</span>` : ''}
-              </button>
-            </li>`;
-          }).join('')}
-        </ul>
-      </div>
-    </div>`;
-}
-
-function _gasRibbonOptions(selected = 'N/A') {
-  const safe = String(selected || 'N/A').trim().toUpperCase() || 'N/A';
-  const values = _gasCatalog();
-  if (!values.includes(safe)) values.unshift(safe);
-  return values.map(v => ({ value: v, label: v }));
-}
-
-function _toggleRibbon(field, open) {
-  if (!field) return;
-  _closeAllPickers();
-  _ctr?.querySelectorAll('.tras-ribbon-field.is-open').forEach(el => {
-    if (el !== field) {
-      el.classList.remove('is-open');
-      const panel = el.querySelector('.tras-ribbon-panel');
-      if (panel) panel.hidden = true;
-      el.querySelector('.tras-ribbon-trigger')?.setAttribute('aria-expanded', 'false');
-    }
-  });
-  const panel = field.querySelector('.tras-ribbon-panel');
-  const trigger = field.querySelector('.tras-ribbon-trigger');
-  if (!panel) return;
-  field.classList.toggle('is-open', open);
-  panel.hidden = !open;
-  trigger?.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
-
-function _closeAllRibbonPanels() {
-  _ctr?.querySelectorAll('.tras-ribbon-field.is-open').forEach(el => {
-    el.classList.remove('is-open');
-    const panel = el.querySelector('.tras-ribbon-panel');
-    if (panel) panel.hidden = true;
-    el.querySelector('.tras-ribbon-trigger')?.setAttribute('aria-expanded', 'false');
-  });
-}
-
-function _handleRibbonSelect(btn) {
-  const id = btn.dataset.ribbon || '';
-  const value = btn.dataset.value ?? '';
-  const label = btn.dataset.label || '';
-  const sub = btn.dataset.sub || '';
-  const field = _ctr?.querySelector(`.tras-ribbon-field[data-ribbon-id="${id}"]`);
-  const hidden = field?.querySelector('input[type="hidden"]');
-  if (hidden) hidden.value = value;
-  const display = sub ? `${label} · ${_shortText(sub, 28)}` : label;
-  const valueEl = field?.querySelector('.tras-ribbon-value');
-  if (valueEl) valueEl.textContent = display || label;
-  field?.querySelectorAll('.tras-ribbon-option').forEach(opt => {
-    opt.classList.toggle('is-selected', opt.dataset.value === value);
-  });
-  const filterKey = field?.dataset.filterKey || hidden?.dataset?.filter || '';
-  if (filterKey && _s?.filters) {
-    _s.filters[filterKey] = value;
-    _paintTable();
-  }
-  _toggleRibbon(field, false);
 }
 
 function _paintChoferPickerMenu() {
