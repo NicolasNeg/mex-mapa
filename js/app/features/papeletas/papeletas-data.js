@@ -101,7 +101,10 @@ export async function crearPapeleta({ unidad, plazaId, user }) {
     checklist: createEmptyChecklist(),
     zonas: createEmptyZonas(),
     zonasTemplateVersion: 1,
-    salida: {},
+    salida: {
+      km: unidad.km ?? unidad.kilometraje ?? null,
+      gas: unidad.gasolina ?? unidad.gas ?? null,
+    },
     entrada: {},
     activoPorUnidad: true,
     casoVentasId: '',

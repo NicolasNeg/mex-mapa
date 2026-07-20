@@ -58,9 +58,11 @@ export async function buscarUnidad(query) {
     const mva = String(u.mva || '').toUpperCase();
     const placas = String(u.placas || '').toUpperCase();
     const vin = String(u.vin || '').toUpperCase();
+    const modelo = String(u.modelo || '').toUpperCase();
     return mva.startsWith(q) || mva.includes(q)
       || placas.startsWith(q) || placas.includes(q)
-      || vin.startsWith(q) || vin.includes(q);
+      || vin.startsWith(q) || vin.includes(q)
+      || modelo.includes(q);
   });
 }
 

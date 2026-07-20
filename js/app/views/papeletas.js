@@ -61,7 +61,16 @@ let _unitQ = '';
 let _casoWarning = '';
 let _busy = false;
 let _sigDrawing = false;
+let _sigHasInk = false;
+let _pendingSalida = { km: null, gas: null };
 let _fotoCache = new Map();
+
+const FILTER_LABELS = Object.freeze({
+  activas: 'Activas',
+  entregadas: 'Entregadas',
+  historial: 'Historial',
+  ventas: 'Con Ventas',
+});
 
 const _mexConfirm = (t, x, tipo = 'warning') =>
   (typeof window.mexConfirm === 'function' ? window.mexConfirm(t, x, tipo) : Promise.resolve(confirm(x)));
@@ -251,7 +260,7 @@ function _renderList() {
     </div>
     <div class="pap-chips">
       ${['activas', 'entregadas', 'historial', 'ventas'].map((f) => `
-        <button type="button" class="pap-chip ${_filter === f ? 'is-on' : ''}" data-act="filter" data-f="${f}">${f}</button>
+        <button type="button" class="pap-chip ${_filter === f ? 'is-on' : ''}" data-act="filter" data-f="${f}">${FILTER_LABELS[f] || f}</button>
       `).join('')}
     </div>
     ${rows.length ? `<div class="pap-grid">${rows.map(_cardHtml).join('')}</div>` : `<div class="pap-empty">No hay papeletas en este filtro.</div>`}
@@ -415,26 +424,30 @@ function _panelResumen(p) {
   const ready = puedeEntregar(p.status, p.zonas, p.checklist);
   const fotosOk = allZonasHaveFoto(p.zonas);
   const checkOk = checklistCompleto(p.checklist);
+  const canEntregarUi = p.status === 'lista' || (fotosOk && checkOk && puedeEditar(p.status));
+  const kmGasEditable = canEntregarUi && puedeEditar(p.status);
   return `
     <div class="pap-panel">
       <h2>Resumen</h2>
       <p class="pap-card__meta">Fotos: ${fotosOk ? '12/12 ✓' : `${_fotosCount(p)}/12`} · Checklist: ${checkOk ? 'completo ✓' : 'incompleto'} · Estado: ${_esc(STATUS_LABELS[p.status] || p.status)}</p>
+      ${p.status === 'lista' ? '<p class="pap-ready">Lista para entregar</p>' : ''}
+      ${!fotosOk || !checkOk ? '<p class="pap-card__meta">Completa las 12 fotos y el checklist para habilitar la entrega.</p>' : ''}
       <p><b>ENTREGAR A ${_esc(p.clienteNombre || '(sin cliente)')}</b></p>
       <div class="pap-field">
         <label>KM salida</label>
-        <input id="papKmSalida" type="number" value="${_esc(p.salida?.km ?? '')}" ${p.status === 'lista' ? '' : 'disabled'}/>
+        <input id="papKmSalida" type="number" value="${_esc(p.salida?.km ?? _pendingSalida.km ?? '')}" ${kmGasEditable ? '' : 'disabled'}/>
       </div>
       <div class="pap-field">
         <label>Gas salida</label>
-        <input id="papGasSalida" value="${_esc(p.salida?.gas ?? '')}" ${p.status === 'lista' ? '' : 'disabled'}/>
+        <input id="papGasSalida" value="${_esc(p.salida?.gas ?? _pendingSalida.gas ?? '')}" ${kmGasEditable ? '' : 'disabled'}/>
       </div>
       <div class="pap-actions">
-        ${p.status === 'lista' ? `
-          <button type="button" class="pap-btn pap-btn--primary" data-act="start-entregar" ${ready && !_busy ? '' : 'disabled'}>
+        ${canEntregarUi ? `
+          <button type="button" class="pap-btn pap-btn--primary" data-act="start-entregar" ${(!_busy && (ready || (fotosOk && checkOk))) ? '' : 'disabled'}>
             Entregar unidad
           </button>
         ` : ''}
-        ${p.status === 'entregada' || p.status === 'en_retorno' ? `
+        ${p.status === 'entregada' || p.status === 'en_retorno' || p.status === 'cerrada_historial' ? `
           <button type="button" class="pap-btn pap-btn--ghost" data-act="pdf">Descargar / imprimir PDF</button>
         ` : ''}
         ${p.status === 'entregada' ? `
@@ -537,7 +550,7 @@ function _renderNuevaModal() {
         <h2>Nueva papeleta</h2>
         <div class="pap-field">
           <label>Buscar unidad</label>
-          <input id="papUnitQ" class="pap-search" placeholder="MVA / placas / VIN" value="${_esc(_unitQ)}"/>
+          <input id="papUnitQ" class="pap-search" placeholder="MVA / placas / modelo / VIN" value="${_esc(_unitQ)}"/>
         </div>
         <div id="papUnitHits">
           ${_unitHits.map((u) => `
@@ -705,20 +718,48 @@ async function _saveCheck() {
   }
 }
 
+async function _ensureListaAntesDeEntregar() {
+  if (!_detail) return false;
+  if (_detail.status === 'lista') return true;
+  if (!allZonasHaveFoto(_detail.zonas) || !checklistCompleto(_detail.checklist)) {
+    await _mexAlert('Falta completar', 'Necesitas 12 fotos y checklist completo para entregar.');
+    return false;
+  }
+  // Fuerza recálculo de status → lista
+  await actualizarPapeleta(_detail.id, {}, { user: _user() });
+  return true;
+}
+
 async function _startEntregar() {
   if (!_detail) return;
+  _pendingSalida = {
+    km: _container.querySelector('#papKmSalida')?.value ?? '',
+    gas: _container.querySelector('#papGasSalida')?.value ?? '',
+  };
   if (!_detail.clienteNombre) {
     const ok = await _mexConfirm('Sin cliente asignado', 'Sin cliente asignado — ¿continuar?', 'warning');
     if (!ok) return;
   }
+  try {
+    const okLista = await _ensureListaAntesDeEntregar();
+    if (!okLista) return;
+  } catch (e) {
+    await _mexAlert('Error', e.message || String(e));
+    return;
+  }
+  _sigHasInk = false;
   _wizardStep = 'firma';
   _render();
 }
 
 function _bindSignature() {
   const canvas = _container?.querySelector('#papSig');
-  if (!canvas) return;
+  if (!canvas || canvas.dataset.bound === '1') return;
+  canvas.dataset.bound = '1';
   const ctx = canvas.getContext('2d');
+  // Pad tipo papel: tinta oscura sobre blanco (PDF legible en claro/oscuro)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = '#0f172a';
   ctx.lineWidth = 2;
   ctx.lineCap = 'round';
@@ -736,6 +777,7 @@ function _bindSignature() {
     const p = pos(e);
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
+    _sigHasInk = true;
   };
   const end = () => { _sigDrawing = false; };
 
@@ -751,30 +793,48 @@ function _clearSig() {
   const canvas = _container?.querySelector('#papSig');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  _sigHasInk = false;
 }
 
 async function _confirmFirma() {
   if (!_detail) return;
   const canvas = _container?.querySelector('#papSig');
   if (!canvas) return;
+  if (!_sigHasInk) {
+    await _mexAlert('Firma', 'Firma el pad antes de confirmar la entrega.');
+    return;
+  }
+  // Capturar ANTES de _render (el re-render destruye el canvas)
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) {
+    await _mexAlert('Firma', 'No se pudo capturar la firma.');
+    return;
+  }
+  const kmRaw = _pendingSalida.km;
+  const gasRaw = _pendingSalida.gas;
+  const papeletaId = _detail.id;
   _busy = true; _render();
   try {
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) throw new Error('Firma vacía');
-    const firmaPath = await uploadFirma(_detail.id, blob);
-    const km = _container.querySelector('#papKmSalida')?.value;
-    const gas = _container.querySelector('#papGasSalida')?.value;
-    await entregarPapeleta(_detail.id, {
+    const okLista = await _ensureListaAntesDeEntregar();
+    if (!okLista) return;
+    const firmaPath = await uploadFirma(papeletaId, blob);
+    await entregarPapeleta(papeletaId, {
       quienEntrega: _user().nombre,
-      km: km === '' ? null : Number(km),
-      gas: gas || null,
+      km: kmRaw === '' || kmRaw == null ? null : Number(kmRaw),
+      gas: gasRaw || null,
       firmaPath,
       user: _user(),
     });
     const firmaUrl = await getDownloadUrl(firmaPath);
-    const updated = { ..._detail, status: 'entregada', salida: { ...(_detail.salida || {}), firmaPath, km, gas } };
+    const updated = {
+      ..._detail,
+      status: 'entregada',
+      salida: { ...(_detail.salida || {}), firmaPath, km: kmRaw, gas: gasRaw },
+    };
     openPapeletaPdf(updated, { firmaUrl });
+    _pendingSalida = { km: null, gas: null };
     _wizardStep = 'resumen';
   } catch (e) {
     await _mexAlert('Error', e.message || String(e));
