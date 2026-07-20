@@ -247,6 +247,7 @@ export const ROUTE_TITLES = {
   '/app/historial-operativo':      'Historial de cambios',
   '/app/papeletas':                'Papeletas',
   '/app/papeletas/ventas':         'Papeletas · Ventas',
+  '/app/papeletas/p':              'Papeletas · Detalle',
   '/programador':                  'Programador',
   '/app/programador':              'Programador',
 };
@@ -255,6 +256,7 @@ export function routeTitle(route = '') {
   const [path] = String(route).split('?');
   const normalized = path.replace(/\.html$/, '').replace(/\/+$/, '') || '/';
   if (ROUTE_TITLES[normalized]) return ROUTE_TITLES[normalized];
+  if (normalized.startsWith('/app/papeletas/p/')) return ROUTE_TITLES['/app/papeletas/p'] || 'Papeletas · Detalle';
   // /app/admin/:section(/:id)? → label de ADMIN_NAV_GROUPS (Usuarios, Choferes, …)
   const adminTitle = adminRouteTitle(normalized);
   if (adminTitle) return adminTitle;

@@ -73,6 +73,10 @@ let _sigHasInk = false;
 let _pendingSalida = { km: null, gas: null };
 let _fotoCache = new Map();
 
+const LIST_ROUTE = '/app/papeletas';
+const VENTAS_ROUTE = '/app/papeletas/ventas';
+const DETAIL_PREFIX = '/app/papeletas/p/';
+
 const FILTER_LABELS = Object.freeze({
   activas: 'En curso',
   entregadas: 'Entregadas',
@@ -119,16 +123,63 @@ function _user() {
   };
 }
 
+function _normPath() {
+  return String(location.pathname || '').replace(/\/+$/, '') || '/';
+}
+
 function _pathId() {
-  const path = String(location.pathname || '');
-  const m = path.match(/\/app\/papeletas\/([^/]+)/);
-  if (!m) return '';
-  if (m[1] === 'ventas') return '';
-  return decodeURIComponent(m[1]);
+  const path = _normPath();
+  const modern = path.match(/\/app\/papeletas\/p\/([^/]+)$/);
+  if (modern) return decodeURIComponent(modern[1] || '');
+  // Legacy deep-link: /app/papeletas/:uid (not ventas / p)
+  const legacy = path.match(/\/app\/papeletas\/([^/]+)$/);
+  if (!legacy) return '';
+  const seg = legacy[1];
+  if (seg === 'ventas' || seg === 'p') return '';
+  return decodeURIComponent(seg);
 }
 
 function _isVentasPath() {
-  return String(location.pathname || '').includes('/app/papeletas/ventas');
+  return _normPath() === VENTAS_ROUTE;
+}
+
+function _isLegacyDetailPath() {
+  const path = _normPath();
+  if (path.startsWith(DETAIL_PREFIX)) return false;
+  if (path === VENTAS_ROUTE || path === LIST_ROUTE) return false;
+  return /^\/app\/papeletas\/[^/]+$/.test(path);
+}
+
+function _detailRoute(id) {
+  return `${DETAIL_PREFIX}${encodeURIComponent(String(id || ''))}`;
+}
+
+function _toMs(value) {
+  if (value == null || value === '') return 0;
+  if (typeof value?.toDate === 'function') {
+    try { return value.toDate().getTime() || 0; } catch (_) { return 0; }
+  }
+  if (typeof value?.seconds === 'number') return value.seconds * 1000;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function _fmtDate(value) {
+  const ms = _toMs(value);
+  if (!ms) return '';
+  return new Date(ms).toLocaleString('es-MX', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function _hasReporte(it) {
+  if (!it) return false;
+  if (String(it.casoVentasId || '').trim()) return true;
+  return _reportes.some((r) => r.papeletaId === it.id && r.status === 'abierto');
 }
 
 function _cleanup() {
@@ -185,6 +236,12 @@ export async function mount(ctx) {
   _showNueva = false;
   _casoWarning = '';
 
+  // Canonical detail: /app/papeletas/p/:uid — rewrite legacy /app/papeletas/:uid
+  const legacyId = _isLegacyDetailPath() ? _pathId() : '';
+  if (legacyId) {
+    _navigate?.(_detailRoute(legacyId), { replace: true });
+  }
+
   if (_isVentasPath()) _mode = 'ventas';
   else if (_pathId()) _mode = 'detail';
   else _mode = 'list';
@@ -196,7 +253,8 @@ export async function mount(ctx) {
     plazaId: plaza,
     onData: (rows) => {
       _items = rows || [];
-      if (_mode === 'list') _render();
+      if (_mode === 'list') _paintList();
+      else if (_mode === 'ventas') _render();
     },
   }));
 
@@ -204,7 +262,8 @@ export async function mount(ctx) {
     _unsubs.push(subscribeReportesAbiertos({
       onData: (rows) => {
         _reportes = rows || [];
-        if (_mode === 'ventas' || _mode === 'list') _render();
+        if (_mode === 'list') _paintList();
+        else if (_mode === 'ventas') _render();
       },
     }));
   }
@@ -236,91 +295,197 @@ function _gotoList() {
   _detail = null;
   if (_detailUnsub) { try { _detailUnsub(); } catch (_) { /* ignore */ } }
   _detailUnsub = null;
-  _navigate?.('/app/papeletas', { replace: false });
+  _navigate?.(LIST_ROUTE, { replace: false });
   _render();
 }
 
 function _gotoVentas() {
   _mode = 'ventas';
-  _navigate?.('/app/papeletas/ventas');
+  _navigate?.(VENTAS_ROUTE);
   _render();
 }
 
 function _openDetail(id) {
+  const token = String(id || '').trim();
+  if (!token) return;
   _mode = 'detail';
   _wizardStep = 'datos';
-  _navigate?.(`/app/papeletas/${id}`);
-  _watchDetail(id);
+  _navigate?.(_detailRoute(token));
+  _watchDetail(token);
 }
 
 function _render() {
   if (!_container) return;
   const canV = _canVentas();
+  const editor = _mode === 'detail';
   _container.innerHTML = `
-    <div class="pap-module">
-      <div class="pap-header">
-        <h1><span class="material-symbols-outlined">description</span> Papeletas</h1>
-        <div class="pap-tabs">
-          <button type="button" class="pap-tab ${_mode !== 'ventas' ? 'is-active' : ''}" data-act="tab-list">Listado</button>
-          ${canV ? `<button type="button" class="pap-tab ${_mode === 'ventas' ? 'is-active' : ''}" data-act="tab-ventas">Ventas</button>` : ''}
-        </div>
-      </div>
+    <section class="pap${editor ? ' pap--editor' : ''}" aria-busy="false">
       ${_casoWarning ? `<div class="pap-banner"><span class="material-symbols-outlined">warning</span><div>${_esc(_casoWarning)}</div></div>` : ''}
-      ${_mode === 'ventas' ? _renderVentas() : _mode === 'detail' ? _renderDetail() : _renderList()}
+      ${_mode === 'ventas' ? `
+        <main class="pap-main pap-main--full">
+          <header class="pap-page-header">
+            <div class="pap-page-title">
+              <h1>Papeletas · Ventas</h1>
+              <p>Bandeja de reportes abiertos</p>
+            </div>
+            <div class="pap-actions-bar">
+              <button type="button" class="pap-btn pap-btn--ghost" data-act="tab-list">Volver al listado</button>
+            </div>
+          </header>
+          <div class="pap-ventas-host">${_renderVentas()}</div>
+        </main>
+      ` : editor ? _renderDetail() : _renderList()}
       ${_showNueva ? _renderNuevaModal() : ''}
-    </div>
+    </section>
   `;
   _bind();
   if (_wizardStep === 'firma') _bindSignature();
   _hydrateFotos();
+  void canV;
 }
 
 function _renderList() {
   const rows = _filteredItems();
+  const canV = _canVentas();
   return `
-    <div class="pap-toolbar">
-      <label class="pap-search-wrap">
-        <span class="material-symbols-outlined">search</span>
-        <input class="pap-search" id="papSearch" placeholder="Buscar económico, placas, modelo…" value="${_esc(_query)}" autocomplete="off" enterkeyhint="search"/>
-      </label>
-      <button type="button" class="pap-btn pap-btn--primary pap-btn--fab" data-act="nueva">
-        <span class="material-symbols-outlined">add</span> Nueva
-      </button>
-    </div>
-    <div class="pap-chips">
-      ${['activas', 'entregadas', 'historial', 'ventas'].map((f) => `
-        <button type="button" class="pap-chip ${_filter === f ? 'is-on' : ''}" data-act="filter" data-f="${f}">${FILTER_LABELS[f] || f}</button>
-      `).join('')}
-    </div>
-    ${rows.length
-      ? `<div class="pap-list">${rows.map(_cardHtml).join('')}</div>`
-      : `<div class="pap-empty">
-          <strong>Nada por aquí</strong>
-          <small>Toca <b>Nueva</b> y busca la unidad por económico o placas.</small>
-        </div>`}
+    <main class="pap-main pap-main--full">
+      <header class="pap-page-header">
+        <div class="pap-page-title">
+          <h1>Papeletas</h1>
+          <p>Papeletas digitales · activas, entregadas e historial</p>
+        </div>
+        <div class="pap-actions-bar">
+          ${canV ? `<button type="button" class="pap-btn pap-btn--ghost" data-act="tab-ventas">Ventas</button>` : ''}
+          <button type="button" class="pap-btn pap-btn--primary" data-act="nueva">
+            <span class="material-symbols-outlined">add</span> Nueva
+          </button>
+        </div>
+      </header>
+
+      <div class="pap-controls">
+        <div class="pap-controls-row">
+          <label class="pap-search">
+            <span class="material-symbols-outlined">search</span>
+            <input id="papSearch" value="${_esc(_query)}" placeholder="Buscar MVA, placas, modelo o cliente" autocomplete="off" enterkeyhint="search"/>
+          </label>
+          <div class="pap-quick-status" role="tablist" aria-label="Filtro">
+            ${['activas', 'entregadas', 'historial', 'ventas'].map((f) => `
+              <button type="button" class="${_filter === f ? 'active' : ''}" data-act="filter" data-f="${f}">
+                ${FILTER_LABELS[f] || f}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <p id="pap-count" class="pap-meta">${rows.length ? `${rows.length} registro${rows.length === 1 ? '' : 's'}` : '0 registros'}</p>
+      <div id="pap-table-host" class="pap-table-host">${_tableHtml(rows)}</div>
+    </main>
   `;
 }
 
-function _cardHtml(it) {
+function _tableHtml(rows) {
+  if (!rows.length) {
+    return `
+      <div class="pap-empty">
+        <strong>Sin papeletas</strong>
+        <small>No hay registros con este filtro. Usa <b>Nueva</b> y busca la unidad por económico o placas.</small>
+      </div>`;
+  }
+  return `
+    <div class="pap-table-wrap">
+      <table class="pap-table">
+        <thead>
+          <tr>
+            <th>Económico</th>
+            <th>Unidad</th>
+            <th>Plaza</th>
+            <th>Cliente</th>
+            <th>Fotos</th>
+            <th>Actualizado</th>
+            <th>Reporte</th>
+            <th>Estatus</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(_rowHtml).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function _rowHtml(it) {
   const fotos = _fotosCount(it);
   const short = STATUS_LABELS_SHORT[it.status] || STATUS_LABELS[it.status] || it.status;
+  const updated = _fmtDate(it.actualizadoAt || it.creadoAt);
+  const reporte = _hasReporte(it);
   return `
-    <button type="button" class="pap-row" data-act="open" data-id="${_esc(it.id)}">
-      <div class="pap-row__main">
-        <div class="pap-row__title">
-          <span class="pap-row__mva">${_esc(it.mva || '—')}</span>
-          <span class="pap-status pap-status--${_esc(it.status)}">${_esc(short)}</span>
-        </div>
-        <div class="pap-row__sub">${_esc(it.modelo || 'Sin modelo')} · ${_esc(it.placas || 'Sin placas')}</div>
-        <div class="pap-row__sub">${_esc(it.clienteNombre || 'Sin cliente')} · Fotos ${fotos}/12</div>
-      </div>
-      <span class="material-symbols-outlined pap-row__chev">chevron_right</span>
-    </button>
+    <tr class="pap-row-clickable" data-act="open" data-id="${_esc(it.id)}" role="button" tabindex="0" title="Abrir papeleta">
+      <td><span class="pap-td-main pap-td-mono">${_esc(it.mva || '—')}</span></td>
+      <td>
+        <span class="pap-td-main">${_esc(it.modelo || '—')}</span>
+        <span class="pap-td-sub">${_esc(it.placas || 'Sin placas')}${it.color ? ` · ${_esc(it.color)}` : ''}</span>
+      </td>
+      <td>${_esc(it.plazaId || '—')}</td>
+      <td>${_esc(it.clienteNombre || '—')}</td>
+      <td class="pap-td-mono">${fotos}/12</td>
+      <td class="pap-td-date">${updated ? _esc(updated) : '<span class="pap-muted">—</span>'}</td>
+      <td>${reporte ? '<span class="pap-flag pap-flag--warn">Sí</span>' : '<span class="pap-muted">—</span>'}</td>
+      <td><span class="pap-status-text pap-status-text--${_esc(it.status)}">${_esc(short)}</span></td>
+    </tr>
   `;
+}
+
+function _paintList() {
+  if (!_container || _mode !== 'list') return;
+  const rows = _filteredItems();
+  const count = _container.querySelector('#pap-count');
+  const host = _container.querySelector('#pap-table-host');
+  if (count) count.textContent = rows.length ? `${rows.length} registro${rows.length === 1 ? '' : 's'}` : '0 registros';
+  if (host) {
+    host.innerHTML = _tableHtml(rows);
+    _bindTableRows(host);
+  }
+  // Keep filter chip active state in sync without full re-render
+  _container.querySelectorAll('[data-act="filter"]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.f === _filter);
+  });
+}
+
+function _bindTableRows(host) {
+  const root = host || _container;
+  if (!root) return;
+  root.querySelectorAll('tr[data-act="open"]').forEach((row) => {
+    row.addEventListener('click', () => _openDetail(row.dataset.id));
+    row.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      _openDetail(row.dataset.id);
+    });
+  });
 }
 
 function _renderDetail() {
-  if (!_detail) return `<div class="pap-empty">Cargando…</div>`;
+  if (!_detail) {
+    return `
+      <main class="pap-editor-shell">
+        <header class="pap-editor-top">
+          <div>
+            <nav class="pap-breadcrumb" aria-label="Ruta">
+              <button type="button" data-act="back">Papeletas</button>
+              <span>/</span>
+              <strong>Detalle</strong>
+            </nav>
+            <h1>Cargando papeleta…</h1>
+          </div>
+          <div class="pap-actions-bar">
+            <button type="button" class="pap-btn pap-btn--ghost" data-act="back">Volver</button>
+          </div>
+        </header>
+        <div class="pap-empty">Cargando…</div>
+      </main>`;
+  }
   const p = _detail;
   const editable = puedeEditar(p.status);
   const steps = [
@@ -333,32 +498,39 @@ function _renderDetail() {
     steps.push(['entrada', STEP_LABELS.entrada]);
     steps.push(['reporte', STEP_LABELS.reporte]);
   }
+  const statusLabel = STATUS_LABELS_SHORT[p.status] || STATUS_LABELS[p.status] || p.status;
 
   return `
-    <div class="pap-detail">
-      <div class="pap-toolbar pap-toolbar--detail">
-        <button type="button" class="pap-btn pap-btn--ghost" data-act="back">
-          <span class="material-symbols-outlined">arrow_back</span>
-        </button>
-        <div class="pap-detail-head">
-          <strong>${_esc(p.mva || 'Unidad')}</strong>
-          <span class="pap-status pap-status--${_esc(p.status)}">${_esc(STATUS_LABELS_SHORT[p.status] || STATUS_LABELS[p.status] || p.status)}</span>
+    <main class="pap-editor-shell">
+      <header class="pap-editor-top">
+        <div>
+          <nav class="pap-breadcrumb" aria-label="Ruta">
+            <button type="button" data-act="back">Papeletas</button>
+            <span>/</span>
+            <strong>Detalle</strong>
+          </nav>
+          <h1>${_esc(p.mva || 'Papeleta')} <span class="pap-status-text pap-status-text--${_esc(p.status)}">${_esc(statusLabel)}</span></h1>
+          <p class="pap-editor-sub">${_esc(p.modelo || 'Sin modelo')} · ${_esc(p.placas || 'Sin placas')}${p.plazaId ? ` · ${_esc(p.plazaId)}` : ''}${!editable ? ' · Solo lectura' : ''}</p>
         </div>
-        ${!editable ? '<span class="pap-lock">Solo lectura</span>' : ''}
+        <div class="pap-actions-bar">
+          <button type="button" class="pap-btn pap-btn--ghost" data-act="back">Volver</button>
+        </div>
+      </header>
+      <div class="pap-detail">
+        <div class="pap-steps" role="tablist">
+          ${steps.map(([id, label]) => `
+            <button type="button" class="pap-step ${_wizardStep === id ? 'is-active' : ''}" data-act="step" data-step="${id}">${label}</button>
+          `).join('')}
+        </div>
+        ${_wizardStep === 'datos' ? _panelDatos(p, editable) : ''}
+        ${_wizardStep === 'zonas' ? _panelZonas(p, editable) : ''}
+        ${_wizardStep === 'checklist' ? _panelChecklist(p, editable) : ''}
+        ${_wizardStep === 'resumen' ? _panelResumen(p, editable) : ''}
+        ${_wizardStep === 'firma' ? _panelFirma(p) : ''}
+        ${_wizardStep === 'entrada' ? _panelEntrada(p) : ''}
+        ${_wizardStep === 'reporte' ? _panelReporte(p) : ''}
       </div>
-      <div class="pap-steps" role="tablist">
-        ${steps.map(([id, label]) => `
-          <button type="button" class="pap-step ${_wizardStep === id ? 'is-active' : ''}" data-act="step" data-step="${id}">${label}</button>
-        `).join('')}
-      </div>
-      ${_wizardStep === 'datos' ? _panelDatos(p, editable) : ''}
-      ${_wizardStep === 'zonas' ? _panelZonas(p, editable) : ''}
-      ${_wizardStep === 'checklist' ? _panelChecklist(p, editable) : ''}
-      ${_wizardStep === 'resumen' ? _panelResumen(p, editable) : ''}
-      ${_wizardStep === 'firma' ? _panelFirma(p) : ''}
-      ${_wizardStep === 'entrada' ? _panelEntrada(p) : ''}
-      ${_wizardStep === 'reporte' ? _panelReporte(p) : ''}
-    </div>
+    </main>
   `;
 }
 
@@ -708,15 +880,18 @@ function _bind() {
   });
   root.querySelector('#papSearch')?.addEventListener('input', (e) => {
     _query = e.target.value;
-    _paintListRows();
+    _paintList();
   });
   root.querySelectorAll('[data-act="filter"]').forEach((btn) => {
-    btn.addEventListener('click', () => { _filter = btn.dataset.f; _render(); });
+    btn.addEventListener('click', () => { _filter = btn.dataset.f; _paintList(); });
   });
-  root.querySelectorAll('[data-act="open"]').forEach((btn) => {
-    btn.addEventListener('click', () => _openDetail(btn.dataset.id));
+  // Buttons (Ventas bandeja); table rows use _bindTableRows (keyboard + click)
+  root.querySelectorAll('button[data-act="open"]').forEach((el) => {
+    el.addEventListener('click', () => _openDetail(el.dataset.id));
   });
-  root.querySelector('[data-act="back"]')?.addEventListener('click', () => _gotoList());
+  root.querySelectorAll('[data-act="back"]').forEach((btn) => {
+    btn.addEventListener('click', () => _gotoList());
+  });
   root.querySelectorAll('[data-act="step"]').forEach((btn) => {
     btn.addEventListener('click', () => { _wizardStep = btn.dataset.step; _render(); });
   });
@@ -776,6 +951,7 @@ function _bind() {
   root.querySelector('[data-zona-foto][data-autosave]')?.addEventListener('change', () => {
     if (_container.querySelector('[data-zona-foto]')?.files?.[0]) _saveZona();
   });
+  if (_mode === 'list') _bindTableRows(_container.querySelector('#pap-table-host'));
 }
 
 function _renderZonaEstadoUi(estado) {
@@ -785,34 +961,6 @@ function _renderZonaEstadoUi(estado) {
     _detail.zonas[z.id] = { ...(_detail.zonas[z.id] || {}), estado };
   }
   _render();
-}
-
-function _paintListRows() {
-  if (!_container || _mode !== 'list') return;
-  const rows = _filteredItems();
-  let list = _container.querySelector('.pap-list');
-  const empty = _container.querySelector('.pap-empty');
-  if (!rows.length) {
-    if (list) list.remove();
-    if (!empty) {
-      const host = _container.querySelector('.pap-chips')?.parentElement || _container.querySelector('.pap-module');
-      const div = document.createElement('div');
-      div.className = 'pap-empty';
-      div.innerHTML = '<strong>Nada por aquí</strong><small>Toca <b>Nueva</b> y busca la unidad por económico o placas.</small>';
-      host?.appendChild(div);
-    }
-    return;
-  }
-  if (empty) empty.remove();
-  if (!list) {
-    list = document.createElement('div');
-    list.className = 'pap-list';
-    _container.querySelector('.pap-chips')?.insertAdjacentElement('afterend', list);
-  }
-  list.innerHTML = rows.map(_cardHtml).join('');
-  list.querySelectorAll('[data-act="open"]').forEach((btn) => {
-    btn.addEventListener('click', () => _openDetail(btn.dataset.id));
-  });
 }
 
 async function _hydrateFotos() {

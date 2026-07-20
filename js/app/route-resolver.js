@@ -202,7 +202,7 @@ export const ROUTE_MAP = {
   },
   papeletas: {
     id: 'papeletas', label: 'Papeletas',
-    legacyRoute:  '/app/papeletas',
+    legacyRoute:  '/papeletas',
     appRoute:     '/app/papeletas',
     navRoute:     '/app/papeletas',
     fallbackRoute:'/app/papeletas',
@@ -218,6 +218,8 @@ function _dynamicAppRoute(pathname, tail = '') {
   if (path.startsWith('/mensajes/')) return '/app' + path + tail;
   if (path.startsWith('/app/editmap/')) return path + tail;
   if (path.startsWith('/editmap/')) return '/app' + path + tail;
+  if (path.startsWith('/app/papeletas/')) return path + tail;
+  if (path.startsWith('/papeletas/')) return '/app' + path + tail;
   return '';
 }
 
@@ -229,6 +231,8 @@ function _dynamicRouteEntry(pathname) {
   if (path.startsWith('/mensajes/')) return ROUTE_MAP.mensajes;
   if (path.startsWith('/app/editmap/')) return ROUTE_MAP.editmap;
   if (path.startsWith('/editmap/')) return ROUTE_MAP.editmap;
+  if (path.startsWith('/app/papeletas/') || path === '/app/papeletas') return ROUTE_MAP.papeletas;
+  if (path.startsWith('/papeletas/') || path === '/papeletas') return ROUTE_MAP.papeletas;
   return null;
 }
 
