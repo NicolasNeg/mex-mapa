@@ -3776,8 +3776,8 @@
     .table-container {
       flex: 1;
       overflow-y: auto;
-      border: 1px solid var(--border);
-      border-radius: 12px;
+      border: none;
+      border-radius: 0;
       -webkit-overflow-scrolling: touch;
     }
 
@@ -3786,6 +3786,7 @@
       border-collapse: collapse;
       text-align: left;
       min-width: 650px;
+      background: #ffffff;
     }
 
     /* ENCABEZADOS FILTRABLES */
@@ -3809,36 +3810,50 @@
     .table-container th {
       position: sticky;
       top: 0;
-      background: var(--bg);
-      padding: 12px 15px;
+      background: #ffffff;
+      padding: 0 24px;
+      height: 40px;
       font-size: 11px;
-      font-weight: 800;
+      font-weight: 700;
+      letter-spacing: 0.05em;
       color: #64748b;
       text-transform: uppercase;
       z-index: 10;
-      border-bottom: 2px solid var(--border);
+      border-bottom: 1px solid #e2e8f0;
     }
 
     .table-container td {
-      padding: 15px;
-      border-bottom: 1px solid var(--border);
+      height: 48px;
+      padding: 0 24px;
+      border-bottom: 1px solid #e2e8f0;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 400;
+      color: #64748b;
       cursor: pointer;
-      transition: 0.2s;
+      transition: background 0.15s;
     }
 
-    .table-container tr:hover td {
-      background: var(--bg);
+    .table-container tbody tr:nth-child(even) td {
+      background: #f8fafc;
     }
 
-    .table-container tr.selected td {
+    .table-container tbody tr:hover td {
+      background: #eff6ff;
+    }
+
+    .table-container tbody tr.selected td {
       background: #e0f2fe;
     }
 
     .td-mva {
-      font-weight: 800;
-      color: var(--mex-accent);
+      font-weight: 500;
+      color: #0f172a;
+      font-size: 14px;
+    }
+
+    .td-modelo {
+      font-weight: 500;
+      color: #0f172a;
       font-size: 14px;
     }
 
@@ -3949,6 +3964,50 @@
     .st-RETENIDA {
       background: var(--st-resg-bg);
       color: var(--st-resg-txt);
+    }
+
+    /* Estado patio en tabla — punto de color + texto plano (sin pastilla) */
+    .fl-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 400;
+      color: #0f172a;
+      text-transform: none;
+    }
+
+    .fl-status-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      opacity: 0.8;
+      flex-shrink: 0;
+    }
+
+    .fl-dot-LISTO,
+    .fl-dot-MOVE {
+      background: #22c55e;
+    }
+
+    .fl-dot-SUCIO,
+    .fl-dot-SWAP {
+      background: #f59e0b;
+    }
+
+    .fl-dot-MANTENIMIENTO {
+      background: #ef4444;
+    }
+
+    .fl-dot-TRASLADO {
+      background: #8b5cf6;
+    }
+
+    .fl-dot-VENTA,
+    .fl-dot-RESGUARDO,
+    .fl-dot-RETENIDA {
+      background: #94a3b8;
     }
 
     /* Estado flota (negocio) — neutro, sin color fuerte */
