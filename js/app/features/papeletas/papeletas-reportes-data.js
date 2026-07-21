@@ -109,6 +109,9 @@ export async function crearReporte({
   user,
   id,
 }) {
+  if (window.mexPerms?.canDo && window.mexPerms.canDo('create_reporte_dano') !== true) {
+    throw new Error('No tienes permiso para crear reportes de daños');
+  }
   const unidadId = String(unidad?.id || unidad?.unidadId || papeleta?.unidadId || '').trim();
   const mva = String(unidad?.mva || papeleta?.mva || '').trim();
   const plazaId = String(unidad?.plazaId || unidad?.plaza || papeleta?.plazaId || '').trim();

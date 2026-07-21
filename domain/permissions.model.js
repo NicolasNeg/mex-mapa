@@ -69,8 +69,8 @@ export const PERMISSION_KEYS = Object.freeze([
   'manage_settings', 'km_corregir', 'traslados_gestionar',
   // Turnos
   'view_turnos', 'manage_turnos',
-  // Papeletas
-  'view_papeletas', 'manage_papeletas_ventas',
+  // Papeletas / reportes de daños
+  'view_papeletas', 'manage_papeletas_ventas', 'create_reporte_dano',
 ]);
 
 /**
@@ -92,7 +92,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     km_corregir: false,
     traslados_gestionar: false,
     view_turnos: true, manage_turnos: false,
-    view_papeletas: true, manage_papeletas_ventas: false,
+    view_papeletas: true, manage_papeletas_ventas: false, create_reporte_dano: false,
   },
   VENTAS: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -106,7 +106,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     km_corregir: false,
     traslados_gestionar: true,
     view_turnos: true, manage_turnos: false,
-    view_papeletas: true, manage_papeletas_ventas: true,
+    view_papeletas: true, manage_papeletas_ventas: true, create_reporte_dano: true,
   },
   SUPERVISOR: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -120,7 +120,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     km_corregir: false,
     traslados_gestionar: true,
     view_turnos: true, manage_turnos: true,
-    view_papeletas: true, manage_papeletas_ventas: true,
+    view_papeletas: true, manage_papeletas_ventas: true, create_reporte_dano: true,
   },
   JEFE_PATIO: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -134,7 +134,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     km_corregir: false,
     traslados_gestionar: true,
     view_turnos: true, manage_turnos: true,
-    view_papeletas: true, manage_papeletas_ventas: true,
+    view_papeletas: true, manage_papeletas_ventas: true, create_reporte_dano: true,
   },
   GERENTE_PLAZA: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -148,7 +148,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     km_corregir: true,
     traslados_gestionar: true,
     view_turnos: true, manage_turnos: true,
-    view_papeletas: true, manage_papeletas_ventas: true,
+    view_papeletas: true, manage_papeletas_ventas: true, create_reporte_dano: true,
   },
   JEFE_REGIONAL: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -162,7 +162,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     km_corregir: true,
     traslados_gestionar: true,
     view_turnos: true, manage_turnos: true,
-    view_papeletas: true, manage_papeletas_ventas: true,
+    view_papeletas: true, manage_papeletas_ventas: true, create_reporte_dano: true,
   },
 });
 

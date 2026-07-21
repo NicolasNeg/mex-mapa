@@ -75,6 +75,10 @@ function _canView() {
   return window.mexPerms?.canDo?.('view_papeletas') !== false;
 }
 
+function _canCreate() {
+  return window.mexPerms?.canDo?.('create_reporte_dano') === true;
+}
+
 function _canVentas() {
   return window.mexPerms?.canDo?.('manage_papeletas_ventas') === true || rolPuedeGestionarVentas(_role());
 }
@@ -159,6 +163,14 @@ export async function mount({ container, navigate }) {
   _unsubPlaza = onPlazaChange?.(() => {
     _startList();
   }) || null;
+
+  if (_mode === 'create' && !_canCreate()) {
+    await _mexAlert('Permiso', 'No tienes permiso para crear reportes de daños.');
+    _navigate?.(LIST, { replace: true });
+    _mode = 'list';
+    _startList();
+    return;
+  }
 
   if (_mode === 'detail' && parsed.id) {
     await _loadDetail(parsed.id);
@@ -253,9 +265,11 @@ function _renderList() {
           <h1 class="rd-title">Reportes de daños</h1>
           <p class="rd-sub">Casos de daño y faltantes · plaza ${_esc(_plaza() || '—')}</p>
         </div>
-        <button type="button" class="rd-btn rd-btn--primary" data-act="nuevo">
-          <span class="material-symbols-outlined">add</span> Nuevo reporte
-        </button>
+        ${_canCreate() ? `
+          <button type="button" class="rd-btn rd-btn--primary" data-act="nuevo">
+            <span class="material-symbols-outlined">add</span> Nuevo reporte
+          </button>
+        ` : ''}
       </header>
 
       <div class="rd-controls">
@@ -309,6 +323,10 @@ function _renderList() {
 function _bindList() {
   const root = _container;
   root.querySelector('[data-act="nuevo"]')?.addEventListener('click', () => {
+    if (!_canCreate()) {
+      _mexAlert('Permiso', 'No tienes permiso para crear reportes de daños.');
+      return;
+    }
     _navigate?.(NUEVO);
     _mode = 'create';
     _pickedUnit = null;
@@ -530,6 +548,9 @@ function _mountCreateDiagram() {
 
 async function _submitCreate() {
   if (_busy) return;
+  if (!_canCreate()) {
+    return _mexAlert('Permiso', 'No tienes permiso para crear reportes de daños.');
+  }
   if (!_pickedUnit) return _mexAlert('Unidad', 'Selecciona una unidad.');
   const root = _container;
   const desc = String(root.querySelector('#rdDesc')?.value || '').trim();
