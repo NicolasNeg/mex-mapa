@@ -84,8 +84,8 @@ export async function mount({ container, navigate }) {
     busy: false,
     error: '',
     units: [],
-    // Scope table to active plaza so export cannot silently dump the full fleet.
-    filters: { ..._emptyFilters(), plazaActual: plaza },
+    // Inventario global: por defecto "Todas" las plazas (sin filtrar por plaza activa).
+    filters: { ..._emptyFilters() },
     page: 1,
     pageSize: 50,
     importRows: [],
@@ -109,14 +109,10 @@ export async function mount({ container, navigate }) {
   await _load();
   _applyDeepLinkFromQuery();
 
+  // Plaza activa solo contextualiza altas/defaults; no fuerza filtro de la tabla.
   _offs.push(onPlazaChange(next => {
     if (!_s) return;
     _s.plaza = _norm(next);
-    // Keep table + export aligned with shell plaza (user can still clear to "Todas").
-    _s.filters = { ..._s.filters, plazaActual: _s.plaza };
-    _s.page = 1;
-    _s.exportRows = null;
-    _render();
   }));
 }
 

@@ -2,7 +2,7 @@
  * Reportes de daños SPA — inbox + create + detail.
  * Collection: papeletas_reportes (papeletaId optional).
  */
-import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
+import { getState, getCurrentPlaza } from '/js/app/app-state.js';
 import { buscarUnidad } from '/js/app/features/unidades/unidades-data.js';
 import { mountDiagram } from '/js/app/features/papeletas/papeletas-diagram.js';
 import { CHECKLIST_KEYS, CHECKLIST_LABELS, REPORTE_STATUS } from '/js/app/features/papeletas/papeletas-constants.js';
@@ -20,7 +20,6 @@ import { rolPuedeCerrarCaso, rolPuedeGestionarVentas } from '/domain/papeleta.mo
 let _container = null;
 let _navigate = null;
 let _unsub = null;
-let _unsubPlaza = null;
 let _diagramApi = null;
 let _mode = 'list'; // list | create | detail
 let _rows = [];
@@ -160,9 +159,7 @@ export async function mount({ container, navigate }) {
   _pickedUnit = null;
   _createTipo = 'dano';
 
-  _unsubPlaza = onPlazaChange?.(() => {
-    _startList();
-  }) || null;
+  // Lista global: cambiar plaza activa no debe re-filtrar ni recargar el inbox.
 
   if (_mode === 'create' && !_canCreate()) {
     await _mexAlert('Permiso', 'No tienes permiso para crear reportes de daños.');
@@ -188,8 +185,6 @@ export function unmount() {
 function _cleanup() {
   if (typeof _unsub === 'function') try { _unsub(); } catch (_) {}
   _unsub = null;
-  if (typeof _unsubPlaza === 'function') try { _unsubPlaza(); } catch (_) {}
-  _unsubPlaza = null;
   _destroyDiagram();
   _container = null;
   _navigate = null;
@@ -200,10 +195,10 @@ function _cleanup() {
 
 function _startList() {
   if (typeof _unsub === 'function') try { _unsub(); } catch (_) {}
-  const plaza = _plaza();
+  // Sin plazaId: inbox global (todas las plazas). Permisos de vista se mantienen aparte.
   _unsub = subscribeReportes({
     status: null,
-    plazaId: plaza,
+    plazaId: '',
     onData: (rows) => {
       _rows = Array.isArray(rows) ? rows : [];
       if (_mode === 'list') _render();
@@ -263,7 +258,7 @@ function _renderList() {
       <header class="rd-head">
         <div>
           <h1 class="rd-title">Reportes de daños</h1>
-          <p class="rd-sub">Casos de daño y faltantes · plaza ${_esc(_plaza() || '—')}</p>
+          <p class="rd-sub">Casos de daño y faltantes · todas las plazas</p>
         </div>
         ${_canCreate() ? `
           <button type="button" class="rd-btn rd-btn--primary" data-act="nuevo">
@@ -300,6 +295,7 @@ function _renderList() {
               </div>
               <div class="rd-card__mid">
                 <span class="rd-chip rd-chip--soft">${_esc(r.tipo === 'faltante' ? 'Faltante' : 'Daño')}</span>
+                ${r.plazaId || r.plaza ? `<span class="rd-muted">${_esc(r.plazaId || r.plaza)}</span>` : ''}
                 ${r.papeletaId ? `<span class="rd-muted">Papeleta ${_esc(r.papeletaId)}</span>` : `<span class="rd-muted">Sin papeleta</span>`}
               </div>
               ${r.descripcion ? `<p class="rd-card__desc">${_esc(r.descripcion)}</p>` : ''}
@@ -511,8 +507,8 @@ async function _runUnitSearch(raw) {
   const host = _container?.querySelector('#rdUnitHits');
   if (host) host.innerHTML = _unitHitsHtml();
   try {
-    const plaza = _plaza();
-    _unitHits = await buscarUnidad(raw, { limit: 12, plazaId: plaza });
+    // Búsqueda global de unidades (cualquier plaza) para reportes.
+    _unitHits = await buscarUnidad(raw, { limit: 12 });
   } catch (_) {
     _unitHits = [];
   } finally {

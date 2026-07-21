@@ -147,16 +147,11 @@
     return snap.empty ? null : { id: snap.docs[0].id, data: snap.docs[0].data() };
   }
 
-  async function _loadTraslados(plaza) {
-    const plazaUp = _normalizePlazaId(plaza);
-    const snaps = plazaUp
-      ? await Promise.all([
-          db.collection(TRASLADOS_COL).where('plazaOrigen', '==', plazaUp).limit(250).get(),
-          db.collection(TRASLADOS_COL).where('plazaDestino', '==', plazaUp).limit(250).get()
-        ])
-      : [await db.collection(TRASLADOS_COL).limit(300).get()];
+  /** Lista global de traslados (sin filtro por plaza activa). */
+  async function _loadTraslados() {
+    const snap = await db.collection(TRASLADOS_COL).limit(500).get();
     const map = new Map();
-    snaps.forEach(snap => snap.docs.forEach(doc => map.set(doc.id, { id: doc.id, ...doc.data() })));
+    snap.docs.forEach(doc => map.set(doc.id, { id: doc.id, ...doc.data() }));
     const rows = Array.from(map.values());
     rows.sort((a, b) => (_toMs(b.fechaCreacion) || _toMs(b.fechaSalida)) - (_toMs(a.fechaCreacion) || _toMs(a.fechaSalida)));
     return rows.map(row => ({ ...row, estadoOperativo: _estadoDerivado(row) }));
@@ -235,9 +230,10 @@
   window._mexParts.traslados = {
     async obtenerTrasladosBootstrap(opts = {}) {
       if (!_canViewTraslados(opts.actorRole || opts.rol)) throw new Error('No tienes permiso para ver traslados');
+      // `plaza` solo contextualiza el picker de unidades al crear (origen); la lista es global.
       const plaza = _normalizePlazaId(opts.plaza || window.__mexCurrentPlazaId || window.MEX_CONFIG?.profile?.plazaAsignada || '');
       const [traslados, unidades, choferes] = await Promise.all([
-        _loadTraslados(plaza), _loadUnidades(plaza), _loadChoferes()
+        _loadTraslados(), _loadUnidades(plaza), _loadChoferes()
       ]);
       return { plaza, plazas: _plazasList(), traslados, unidades, choferes, tipos: _tipoList(), canManage: _canManageTraslados(opts.actorRole || opts.rol) };
     },

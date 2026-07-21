@@ -99,15 +99,15 @@ export async function mount({ container, navigate }) {
   _bind();
   await _load();
 
+  // Plaza activa solo afecta defaults del formulario / picker de unidades al crear.
+  // La lista de traslados es global y no se recarga ni se filtra al cambiar de plaza.
   _offs.push(onPlazaChange(next => {
     if (!_s) return;
     _s.plaza = _normPlaza(next);
-    _s.selectedId = '';
-    _s.detailMode = 'list';
-    _s.closing = false;
-    _s.draft = _newDraft(_s.plaza);
-    if (window.location.pathname !== LIST_ROUTE && typeof _navigate === 'function') _navigate(LIST_ROUTE, { replace: true });
-    void _load();
+    if (_s.detailMode === 'new') {
+      _s.draft = { ..._s.draft, plazaOrigen: _s.plaza, plazaDestino: _s.draft.plazaDestino || _s.plaza };
+    }
+    void _reloadUnidadesForPlaza();
   }));
 }
 
@@ -209,7 +209,6 @@ function _mergeTrasladoDocs(docs) {
 function _startLive() {
   _stopLive();
   if (!_s || !db) return;
-  const plazaUp = _normPlaza(_s.plaza);
   const applyTraslados = snapOrDocs => {
     if (!_s) return;
     const docs = snapOrDocs?.docs || snapOrDocs || [];
@@ -218,52 +217,53 @@ function _startLive() {
   };
 
   try {
-    if (plazaUp) {
-      const origenSnap = [];
-      const destinoSnap = [];
-      let origenReady = false;
-      let destinoReady = false;
-      const flush = () => {
-        if (!origenReady || !destinoReady) return;
-        applyTraslados([...origenSnap, ...destinoSnap]);
-      };
-      const u1 = db.collection('traslados').where('plazaOrigen', '==', plazaUp).limit(250)
-        .onSnapshot(snap => {
-          origenSnap.length = 0;
-          snap.docs.forEach(d => origenSnap.push(d));
-          origenReady = true;
-          flush();
-        }, err => console.warn('[traslados] live origen:', err));
-      const u2 = db.collection('traslados').where('plazaDestino', '==', plazaUp).limit(250)
-        .onSnapshot(snap => {
-          destinoSnap.length = 0;
-          snap.docs.forEach(d => destinoSnap.push(d));
-          destinoReady = true;
-          flush();
-        }, err => console.warn('[traslados] live destino:', err));
-      _unsubTraslados = () => { try { u1(); } catch (_) {} try { u2(); } catch (_) {} };
-    } else {
-      _unsubTraslados = db.collection('traslados').limit(300).onSnapshot(
-        snap => applyTraslados(snap),
-        err => console.warn('[traslados] live:', err)
-      );
-    }
-
-    if (plazaUp) {
-      _unsubUnidades = db.collection(COL.CUADRE || 'cuadre').where('plaza', '==', plazaUp)
-        .onSnapshot(snap => {
-          if (!_s) return;
-          const rows = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(u => u.mva);
-          rows.sort((a, b) => String(a.mva || '').localeCompare(String(b.mva || '')));
-          _s.boot.unidades = rows;
-          if (_isEditorMode()) {
-            _paintUnitPickerMenu();
-            _syncUnitPickerVisibility();
-          }
-        }, err => console.warn('[traslados] live unidades:', err));
-    }
+    // Suscripción global: cualquier plaza ve origen/destino de todas las plazas.
+    _unsubTraslados = db.collection('traslados').limit(500).onSnapshot(
+      snap => applyTraslados(snap),
+      err => console.warn('[traslados] live:', err)
+    );
+    _subscribeUnidadesLive(_normPlaza(_s.plaza));
   } catch (err) {
     console.warn('[traslados] live setup:', err);
+  }
+}
+
+/** Unidades del picker de alta: por plaza de origen (activa o la elegida en el form). */
+function _subscribeUnidadesLive(plazaUp) {
+  if (typeof _unsubUnidades === 'function') {
+    try { _unsubUnidades(); } catch (_) {}
+  }
+  _unsubUnidades = null;
+  if (!_s || !db || !plazaUp) return;
+  _unsubUnidades = db.collection(COL.CUADRE || 'cuadre').where('plaza', '==', plazaUp)
+    .onSnapshot(snap => {
+      if (!_s) return;
+      const rows = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(u => u.mva);
+      rows.sort((a, b) => String(a.mva || '').localeCompare(String(b.mva || '')));
+      _s.boot.unidades = rows;
+      if (_isEditorMode()) {
+        _paintUnitPickerMenu();
+        _syncUnitPickerVisibility();
+      }
+    }, err => console.warn('[traslados] live unidades:', err));
+}
+
+async function _reloadUnidadesForPlaza(plazaOverride = '') {
+  if (!_s) return;
+  const plazaUp = _normPlaza(plazaOverride || _s.draft?.plazaOrigen || _s.plaza);
+  _subscribeUnidadesLive(plazaUp);
+  if (!plazaUp || !db) return;
+  try {
+    const snap = await db.collection(COL.CUADRE || 'cuadre').where('plaza', '==', plazaUp).get();
+    const rows = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(u => u.mva);
+    rows.sort((a, b) => String(a.mva || '').localeCompare(String(b.mva || '')));
+    _s.boot.unidades = rows;
+    if (_isEditorMode()) {
+      _paintUnitPickerMenu();
+      _syncUnitPickerVisibility();
+    }
+  } catch (err) {
+    console.warn('[traslados] reload unidades:', err);
   }
 }
 
@@ -556,7 +556,7 @@ function _paintDetail() {
     <div class="tras-detail-empty">
       <span class="material-icons">search_off</span>
       <h2>Traslado no encontrado</h2>
-      <p>El registro solicitado no existe o no pertenece a la plaza actual.</p>
+      <p>El registro solicitado no existe o ya no está disponible.</p>
       <button type="button" class="tras-btn primary" data-action="back-list">Volver a la tabla</button>
     </div>
   `;
@@ -936,6 +936,12 @@ function _onChange(event) {
         regreso.value = _defaultRegresoFromSalida(event.target.value);
         _s.draft.fechaRegresoEstimada = regreso.value;
       }
+    }
+    // Al cambiar oficina de salida, el picker carga unidades de esa plaza.
+    if (event.target.id === 'tras-form-plaza-origen') {
+      const nextPlaza = _normPlaza(event.target.value || _s.plaza);
+      _clearUnitSelection();
+      void _reloadUnidadesForPlaza(nextPlaza);
     }
   }
 }
