@@ -51,7 +51,7 @@ import {
   countReportesAbiertosUnidad,
 } from '/js/app/features/papeletas/papeletas-reportes-data.js';
 import { buscarUnidad } from '/js/app/features/unidades/unidades-data.js';
-import { mountDiagram, strokesToDataUrl, diagramSvgMarkup } from '/js/app/features/papeletas/papeletas-diagram.js';
+import { mountDiagram, strokesToDataUrl } from '/js/app/features/papeletas/papeletas-diagram.js';
 import { openGuidedCamera } from '/js/app/features/papeletas/papeletas-camera.js';
 
 let _container = null;
@@ -194,15 +194,19 @@ function _mountDiagramIfNeeded(p, editable) {
 
 function _diagramReadonlyHtml(p) {
   const strokes = Array.isArray(p?.diagramaStrokes) ? p.diagramaStrokes : [];
-  if (!strokes.length) {
-    return `<div class="pap-diagram pap-diagram--ro"><div class="pap-diagram__stage">${diagramSvgMarkup()}<div class="pap-diagram__empty">Sin marcas en diagrama</div></div></div>`;
-  }
-  const url = strokesToDataUrl(strokes);
+  const url = strokes.length ? strokesToDataUrl(strokes, { withBg: false }) : '';
   return `
     <div class="pap-diagram pap-diagram--ro">
+      <div class="pap-diagram__toolbar">
+        <span class="pap-diagram__title">Diagrama · salida</span>
+        ${strokes.length ? '' : '<span class="pap-muted">Sin marcas</span>'}
+      </div>
       <div class="pap-diagram__stage">
-        ${diagramSvgMarkup()}
-        <img class="pap-diagram__marks" src="${_esc(url)}" alt="Marcas del diagrama"/>
+        <img class="pap-diagram__bg" src="/assets/papeletas/hoja-inspeccion-auto.png" alt="Diagrama del vehículo" draggable="false"/>
+        ${url ? `<img class="pap-diagram__marks" src="${_esc(url)}" alt="Marcas"/>` : ''}
+      </div>
+      <div class="pap-diagram__legend pap-diagram__legend--ro">
+        ${['0 Abolladura', '* Rotura', 'F Faltante', '— Rayón', '= Profundo'].map((t) => `<span>${t}</span>`).join('')}
       </div>
     </div>
   `;
@@ -580,10 +584,11 @@ function _renderList() {
   const canV = _canVentas();
   return `
     <main class="pap-main pap-main--full">
-      <header class="pap-page-header">
+      <header class="pap-page-header pap-sheet-head">
         <div class="pap-page-title">
+          <p class="pap-kicker">MapGestion · Patio</p>
           <h1>Papeletas</h1>
-          <p>Papeletas digitales · activas, entregadas e historial</p>
+          <p>HOJA DE INSPECCIÓN digital · activas, entregadas e historial</p>
         </div>
         <div class="pap-actions-bar">
           ${canV ? `<button type="button" class="pap-btn pap-btn--ghost" data-act="tab-ventas">Ventas</button>` : ''}
@@ -593,7 +598,7 @@ function _renderList() {
         </div>
       </header>
 
-      <div class="pap-controls">
+      <div class="pap-controls pap-controls--sheet">
         <div class="pap-controls-row">
           <label class="pap-search">
             <span class="material-symbols-outlined">search</span>
@@ -609,7 +614,7 @@ function _renderList() {
         </div>
       </div>
 
-      <p id="pap-count" class="pap-meta">${rows.length ? `${rows.length} registro${rows.length === 1 ? '' : 's'}` : '0 registros'}</p>
+      <p id="pap-count" class="pap-meta pap-meta--sheet">${rows.length ? `${rows.length} REGISTRO${rows.length === 1 ? '' : 'S'}` : '0 REGISTROS'}</p>
       <div id="pap-table-host" class="pap-table-host">${_tableHtml(rows)}</div>
     </main>
   `;
@@ -663,7 +668,7 @@ function _rowHtml(it) {
       <td class="pap-td-mono">${fotos}/12</td>
       <td class="pap-td-date">${updated ? _esc(updated) : '<span class="pap-muted">—</span>'}</td>
       <td>${reporte ? '<span class="pap-flag pap-flag--warn">Sí</span>' : '<span class="pap-muted">—</span>'}</td>
-      <td><span class="pap-status-text pap-status-text--${_esc(it.status)}">${_esc(short)}</span></td>
+      <td><span class="pap-chip pap-chip--${_esc(it.status)}">${_esc(short)}</span></td>
     </tr>
   `;
 }
@@ -742,7 +747,7 @@ function _renderDetail() {
             <span>/</span>
             <strong>${post ? 'Regreso' : 'Detalle'}</strong>
           </nav>
-          <h1>${_esc(p.mva || 'Papeleta')} <span class="pap-status-text pap-status-text--${_esc(p.status)}">${_esc(statusLabel)}</span></h1>
+          <h1>${_esc(p.mva || 'Papeleta')} <span class="pap-chip pap-chip--${_esc(p.status)}">${_esc(statusLabel)}</span></h1>
           <p class="pap-editor-sub">${_esc(p.modelo || 'Sin modelo')} · ${_esc(p.placas || 'Sin placas')}${p.plazaId ? ` · ${_esc(p.plazaId)}` : ''}${!editable ? ' · Solo lectura' : ''}</p>
         </div>
         <div class="pap-actions-bar">
@@ -797,8 +802,9 @@ function _panelDatos(p, editable) {
     <div class="pap-panel pap-panel--wide pap-hoja">
       <header class="pap-hoja__head">
         <div>
-          <p class="pap-hoja__eyebrow">mex · hoja de inspección</p>
-          <h2>Datos de salida</h2>
+          <p class="pap-hoja__eyebrow">MapGestion · Patio</p>
+          <h2>HOJA DE INSPECCIÓN</h2>
+          <p class="pap-hoja__sub">Datos de salida · diagrama · accesorios</p>
         </div>
         <label class="pap-contrato">
           <span>Contrato</span>
@@ -1277,13 +1283,14 @@ function _scheduleUnitAutocomplete(raw) {
 function _renderNuevaScreen() {
   return `
     <main class="pap-editor-shell">
-      <header class="pap-editor-top">
+      <header class="pap-editor-top pap-sheet-head">
         <div>
           <nav class="pap-breadcrumb" aria-label="Ruta">
             <button type="button" data-act="back">Papeletas</button>
             <span>/</span>
             <strong>Nueva</strong>
           </nav>
+          <p class="pap-kicker">HOJA DE INSPECCIÓN</p>
           <h1>Nueva papeleta</h1>
           <p class="pap-editor-sub">Busca la unidad — MVA, placas o modelo. Los datos se rellenan solos.</p>
         </div>
@@ -1291,8 +1298,8 @@ function _renderNuevaScreen() {
           <button type="button" class="pap-btn pap-btn--ghost" data-act="back">Volver</button>
         </div>
       </header>
-      <div class="pap-panel pap-panel--wide pap-nueva-panel">
-        <label class="pap-ac">
+      <div class="pap-panel pap-panel--wide pap-nueva-panel pap-sheet">
+        <label class="pap-ac pap-ac--hero">
           <span class="material-symbols-outlined">directions_car</span>
           <input id="papUnitQ" type="search" inputmode="search" enterkeyhint="search"
             placeholder="Económico, placas o modelo…"

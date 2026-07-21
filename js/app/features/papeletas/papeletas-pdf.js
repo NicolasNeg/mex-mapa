@@ -14,7 +14,7 @@ import {
   normalizeTapetes,
 } from '/domain/papeleta.model.js';
 import { getDownloadUrl } from '/js/app/features/papeletas/papeletas-storage.js';
-import { strokesToDataUrl } from '/js/app/features/papeletas/papeletas-diagram.js';
+import { strokesToDataUrlAsync, DIAGRAM_IMAGE_URL } from '/js/app/features/papeletas/papeletas-diagram.js';
 
 function _esc(s) {
   return String(s ?? '')
@@ -125,44 +125,57 @@ export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null
   }).join('');
 
   const strokes = Array.isArray(papeleta.diagramaStrokes) ? papeleta.diagramaStrokes : [];
-  const diagramUrl = strokes.length ? strokesToDataUrl(strokes) : '';
-  const diagramHtml = diagramUrl
-    ? `<h2>Diagrama (marcas)</h2><img class="diagram" src="${_esc(diagramUrl)}" alt="Diagrama rayado"/>`
-    : '<h2>Diagrama (marcas)</h2><p>Sin marcas en diagrama.</p>';
+  const absDiagram = (() => {
+    try {
+      return new URL(DIAGRAM_IMAGE_URL, window.location.origin).href;
+    } catch (_) {
+      return DIAGRAM_IMAGE_URL;
+    }
+  })();
+  let diagramUrl = absDiagram;
+  try {
+    diagramUrl = await strokesToDataUrlAsync(strokes);
+  } catch (_) {
+    diagramUrl = absDiagram;
+  }
+  const diagramHtml = `<h2>Diagrama del vehículo</h2>
+    <img class="diagram" src="${_esc(diagramUrl)}" alt="Diagrama de inspección"/>
+    ${strokes.length ? '' : '<p class="muted">Sin marcas registradas.</p>'}`;
 
   const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"/>
 <title>${_esc(fileTitle)}</title>
 <style>
   *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  body{font-family:Inter,Arial,sans-serif;margin:18px;color:#0f172a;font-size:12px}
-  h1{font-size:18px;margin:0 0 2px;font-weight:700}
-  h2{font-size:13px;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#334155}
-  .meta{color:#64748b;margin-bottom:12px;font-size:11px}
+  body{font-family:Inter,Arial,sans-serif;margin:18px;color:#121212;font-size:12px;background:#f7f4ee}
+  h1{font-size:20px;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+  h2{font-size:11px;margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid #121212;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#121212}
+  .meta{color:#6b6a64;margin-bottom:12px;font-size:11px;font-family:ui-monospace,monospace}
   .head{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;margin-bottom:8px}
-  .box{border:1px solid #cbd5e1;border-radius:4px;padding:10px 12px}
+  .box{border:1px solid #121212;border-radius:0;padding:10px 12px;background:#fff}
   .box .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
+  .label{font-size:10px;color:#6b6a64;text-transform:uppercase;letter-spacing:.06em}
   .val{font-weight:600;font-size:13px;margin-top:2px}
   .io{width:100%;border-collapse:collapse;margin:8px 0 4px}
-  .io th,.io td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left}
-  .io th{background:#f1f5f9;font-size:10px;text-transform:uppercase}
+  .io th,.io td{border:1px solid #121212;padding:6px 8px;text-align:left;background:#fff}
+  .io th{background:#ebe6db;font-size:10px;text-transform:uppercase}
   table.chk{width:100%;border-collapse:collapse;margin:4px 0}
-  table.chk th,table.chk td{border:1px solid #e2e8f0;padding:5px 8px}
-  table.chk th{background:#f8fafc;font-size:10px}
+  table.chk th,table.chk td{border:1px solid #121212;padding:5px 8px;background:#fff}
+  table.chk th{background:#ebe6db;font-size:10px;text-transform:uppercase}
   .center{text-align:center;font-weight:700}
   .photos{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
-  .ph{margin:0;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;background:#0f172a}
-  .ph.dano{border-color:#ef4444}
+  .ph{margin:0;border:1px solid #121212;border-radius:0;overflow:hidden;background:#111}
+  .ph.dano{border-color:#c41212;border-width:2px}
   .ph img{width:100%;height:72px;object-fit:cover;display:block}
   .ph-empty{height:72px;display:grid;place-items:center;color:#94a3b8;font-size:10px;background:#1e293b}
-  .ph figcaption{font-size:9px;padding:3px 5px;background:#fff;color:#475569}
-  .diagram{display:block;width:100%;max-width:420px;border:1px solid #cbd5e1;border-radius:4px;margin:8px 0 12px;background:#f8fafc}
+  .ph figcaption{font-size:9px;padding:3px 5px;background:#fff;color:#3a3a38}
+  .diagram{display:block;width:100%;max-width:460px;border:1px solid #121212;border-radius:0;margin:8px 0 12px;background:#fff}
   .firma{margin-top:12px;max-width:240px}
-  .firma img{max-width:100%;border:1px solid #e2e8f0;border-radius:4px;background:#fff}
-  .footer{margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b}
+  .firma img{max-width:100%;border:1px solid #121212;border-radius:0;background:#fff}
+  .footer{margin-top:20px;padding-top:10px;border-top:2px solid #121212;font-size:10px;color:#6b6a64}
+  .muted{color:#6b6a64;font-size:11px}
   .no-print{margin-top:14px}
-  .btn-print{padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600}
+  .btn-print{padding:8px 18px;background:#121212;color:#f7f4ee;border:none;border-radius:0;cursor:pointer;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
   @media print{body{margin:10mm}.no-print{display:none}.photos{grid-template-columns:repeat(4,1fr)}}
 </style></head><body>
 <div class="head">
