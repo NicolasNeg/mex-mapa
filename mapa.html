@@ -1147,8 +1147,8 @@
               <div class="mc-item" onclick="abrirRegistrosMovimientos()">
                 <span class="material-icons">fact_check</span> Auditoría operativa
               </div>
-              <div id="mcHistorialCuadre" class="mc-item" onclick="abrirHistorialCuadres()">
-                <span class="material-icons">history</span> Historial de Cuadre
+              <div id="mcHistorialCuadre" class="mc-item" onclick="irACuadreFlota()">
+                <span class="material-icons">history</span> Cuadre de Flota
                 <small id="lblUltimoCuadre">--/-- 00:00 (Nadie)</small>
               </div>
             </div>
@@ -1736,7 +1736,10 @@
       <div id="info-compact-bar">
         <span id="info-compact-summary">—</span>
         <button id="info-expand-btn" type="button" onclick="toggleInfoExpand()" aria-label="Expandir detalle">
-          <span class="material-icons">expand_less</span>
+          <span class="material-symbols-outlined" aria-hidden="true">expand_less</span>
+        </button>
+        <button id="info-compact-close" type="button" onclick="cerrarPanel()" aria-label="Cerrar inspector" title="Cerrar inspector">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
         </button>
       </div>
       <div id="detalle-unidad"></div>
@@ -1753,12 +1756,13 @@
         <!-- Botones de acción rápida -->
         <div id="panel-acciones-rapidas" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
       </div>
-      <div id="infoPanelBtnGrid" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px; margin-top:25px;">
-        <button id="btnMandarLimbo" onclick="resetUnitToLimbo()"
-          style="padding:18px; border-radius:14px; border:none; background:#fee2e2; color:#ef4444; font-weight:900; cursor:pointer; font-size:14px;">MANDAR
-          AL LIMBO 🗑️</button>
-        <button onclick="cerrarPanel()"
-          style="padding:18px; border-radius:14px; border:none; background:#f1f5f9; color:var(--primary); font-weight:900; cursor:pointer; font-size:14px;">CERRAR</button>
+      <div id="infoPanelBtnGrid">
+        <button id="btnMandarLimbo" type="button" onclick="resetUnitToLimbo()" class="usel-btn usel-btn-limbo">
+          <span class="material-symbols-outlined" aria-hidden="true">delete_outline</span><span>Mover a limbo</span>
+        </button>
+        <button type="button" onclick="cerrarPanel()" class="usel-btn usel-btn-acciones" aria-label="Cerrar inspector" title="Cerrar inspector">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
       </div>
     </div>
   </div>

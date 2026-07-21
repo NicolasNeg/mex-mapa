@@ -5686,10 +5686,10 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
     </button>
 
     <div class="usel-btn-wrap">
-      <button type="button" onclick="toggleActionsMenu(event)" class="usel-btn usel-btn-acciones" title="Acciones" aria-label="Acciones">
+      <button type="button" onclick="toggleActionsMenu(event)" class="usel-btn usel-btn-acciones" title="Acciones" aria-label="Acciones" aria-haspopup="menu" aria-expanded="false" aria-controls="moreActionsMenu">
         <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
       </button>
-      <div id="moreActionsMenu" class="actions-dropdown">
+      <div id="moreActionsMenu" class="actions-dropdown" role="menu">
         ${actionsHtml}
         ${divider}
         ${removeActions}
@@ -5796,6 +5796,7 @@ function _closeActionsMenu() {
   menu.classList.remove('show');
   menu.removeAttribute('style');
   const wrap = _getActionsMenuWrap();
+  wrap?.querySelector('button.usel-btn-acciones')?.setAttribute('aria-expanded', 'false');
   if (wrap && menu.parentElement !== wrap) wrap.appendChild(menu);
 }
 
@@ -5813,7 +5814,7 @@ function _actionItem(icon, label, onclick, tone = '') {
   const toneClass = ['accent', 'success', 'warning', 'danger'].includes(tone)
     ? ` action-item--${tone}`
     : '';
-  return `<button type="button" class="action-item${toneClass}" onclick="${onclick}"><span class="material-symbols-outlined" aria-hidden="true">${icon}</span><span>${label}</span></button>`;
+  return `<button type="button" class="action-item${toneClass}" role="menuitem" onclick="${onclick}"><span class="material-symbols-outlined" aria-hidden="true">${icon}</span><span>${label}</span></button>`;
 }
 
 function toggleActionsMenu(ev) {
@@ -5826,6 +5827,7 @@ function toggleActionsMenu(ev) {
     return;
   }
   menu.classList.add('show');
+  _getActionsMenuWrap()?.querySelector('button.usel-btn-acciones')?.setAttribute('aria-expanded', 'true');
   if (menu.parentElement !== document.body) document.body.appendChild(menu);
   requestAnimationFrame(() => _positionActionsMenu());
 }
@@ -5906,6 +5908,30 @@ function irARevisionVentasCuadre(mission) {
   }
 }
 window.irARevisionVentasCuadre = irARevisionVentasCuadre;
+
+function irACuadreFlota() {
+  document.getElementById('moreControlsDropdown')?.classList.remove('show');
+  document.getElementById('adminControlsDropdown')?.classList.remove('show');
+  const target = '/app/cuadre/flota';
+  try {
+    if (typeof window.parent?.__mexShellNavigate === 'function') {
+      window.parent.__mexShellNavigate(target);
+      return;
+    }
+  } catch (_) { /* cross-origin */ }
+  try {
+    if (typeof window.__mexShellNavigate === 'function') {
+      window.__mexShellNavigate(target);
+      return;
+    }
+  } catch (_) {}
+  try {
+    (window.top || window).location.assign(target);
+  } catch (_) {
+    window.location.assign(target);
+  }
+}
+window.irACuadreFlota = irACuadreFlota;
 
 async function mostrarConfirmacionSwap(moviendo, ocupante, destino) {
   const destinoLabel = destino?.classList?.contains('spot')
@@ -9764,7 +9790,7 @@ function _feedAuthorLine(autor, suffix = '') {
 }
 
 function _parseLiveFeedLog(log = {}) {
-  const accion = String(log.accion || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
+  const accion = stripEmoji(log.accion || '');
   const autor = String(log.autor || 'Sistema').trim();
   const fecha = String(log.fecha || '').trim();
   const base = {
@@ -12828,7 +12854,7 @@ function renderizarLogsAuditoria() {
       log.rolObjetivo ? `Rol: ${escapeHtml(log.rolObjetivo)}` : '',
       log.plazaObjetivo ? `Plaza: ${escapeHtml(log.plazaObjetivo)}` : '',
       log.resultado ? `Resultado: ${escapeHtml(log.resultado)}` : '',
-      log.detalles ? escapeHtml(log.detalles) : ''
+      log.detalles ? escapeHtml(stripEmoji(log.detalles)) : ''
     ].filter(Boolean);
     const locationHtml = _logExactLocationHtml(log);
     const detailHtml = detalles.length ? `<span>${detalles.join(' · ')}</span>` : '';
@@ -12849,7 +12875,7 @@ function renderizarLogsAuditoria() {
           <div class="log-badge ${visual.colorClass}">${escapeHtml(log.tipo || 'INFO')}</div>
         </div>
         <div class="log-action-text">
-          ${escapeHtml(log.accion || meta.emptyText)}
+          ${escapeHtml(stripEmoji(log.accion || '') || meta.emptyText)}
         </div>
         ${extraHtml}
       </article>
