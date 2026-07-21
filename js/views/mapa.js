@@ -416,8 +416,8 @@ function _pedirKmRetiro(mva, kmPrev) {
           style="width:100%;padding:10px 12px;margin:4px 0 12px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-weight:700;">
         <label style="font-size:11px;font-weight:800;color:#334155;">MOTIVO DE SALIDA</label>
         <select id="retMotivo" style="width:100%;padding:10px 12px;margin:4px 0 20px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-weight:700;">
-          <option value="RENTA">✈️ RENTA</option>
-          <option value="OTRO">📤 OTRO</option>
+          <option value="RENTA">RENTA</option>
+          <option value="OTRO">OTRO</option>
         </select>
         <div style="display:flex;gap:8px;">
           <button id="retCancel" style="flex:1;padding:10px;border:1px solid var(--border,#e2e8f0);background:transparent;border-radius:8px;font-weight:800;cursor:pointer;">Cancelar</button>
@@ -513,7 +513,7 @@ window.verKpis = function () {
     '<div style="background:#fff;border-radius:16px;padding:20px 22px;min-width:280px;max-width:92vw;box-shadow:0 24px 60px rgba(0,0,0,.3)">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
         '<strong style="font-size:16px;color:#0f172a">Estadísticas de la plaza</strong>' +
-        '<button id="kpiPopupX" style="background:none;border:none;cursor:pointer;color:#64748b;font-size:22px;line-height:1">&times;</button>' +
+        '<button id="kpiPopupX" type="button" aria-label="Cerrar" style="background:none;border:none;cursor:pointer;color:#64748b;line-height:1"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
         items.map(function (it) {
@@ -2604,7 +2604,7 @@ auth.onAuthStateChanged(async (user) => {
         // Email no autorizado — redirigir a login con mensaje.
         // NUNCA llamar auth.signOut() dentro del shell iframe: firmaría
         // a todos los iframes y destruiría la sesión del usuario.
-        sessionStorage.setItem('login_error', `❌ El correo ${user.email} no tiene permisos en el sistema.`);
+        sessionStorage.setItem('login_error', `El correo ${user.email} no tiene permisos en el sistema.`);
         if (!_enShellIframe) {
           auth.signOut();
         }
@@ -2651,7 +2651,7 @@ auth.onAuthStateChanged(async (user) => {
         perfilValidado = datosSinteticos;
         console.warn('[AUTH] Fallback de perfil activado tras error de conexión:', { email: emailNormalizado, rol: fallbackRole });
       } else {
-        sessionStorage.setItem('login_error', '❌ Error de conexión. Intenta de nuevo.');
+        sessionStorage.setItem('login_error', 'Error de conexión. Intenta de nuevo.');
         window.location.replace('/login');
         return;
       }
@@ -2692,7 +2692,7 @@ function renderModernDropdown(usersList) {
   const listDiv = document.getElementById('dropdownList');
   if (!listDiv) return;
   if (usersList.length === 0) {
-    listDiv.innerHTML = '<div style="padding:15px; text-align:center; color:#ef4444; font-weight:800;">🚫 No encontrado</div>';
+    listDiv.innerHTML = '<div style="padding:15px; text-align:center; color:#ef4444; font-weight:800;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;vertical-align:middle;">search_off</span> No encontrado</div>';
     return;
   }
   listDiv.innerHTML = usersList.map(u =>
@@ -5108,7 +5108,7 @@ async function _handleMapUnitDrop(unidad, destino, options = {}) {
     const allowed = destino.dataset.allowedCategories.split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
     const unitCat = (unidad.dataset.categoria || '').trim().toUpperCase();
     if (allowed.length > 0 && unitCat && !allowed.includes(unitCat)) {
-      showToast(`⚠️ Categoría ${unitCat} no está permitida en este cajón (permitidas: ${allowed.join(', ')})`, 'warning');
+      showToast(`Categoría ${unitCat} no está permitida en este cajón (permitidas: ${allowed.join(', ')})`, 'warning');
       // Validación suave: sólo avisa, no bloquea
     }
   }
@@ -5462,7 +5462,7 @@ function _renderSwapStatus() {
   }
   swapDiv.innerHTML = `
         <div style="background:#eff6ff; border:2px solid #60a5fa; padding:15px; border-radius:18px; margin-top:15px;">
-          <p style="color:#1d4ed8; font-weight:800; font-size:14px; text-align:center; margin:0 0 10px;">🔄 MODO CAMBIAR ACTIVO</p>
+          <p style="color:#1d4ed8; font-weight:800; font-size:14px; text-align:center; margin:0 0 10px;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;vertical-align:middle;">sync_alt</span> MODO CAMBIAR ACTIVO</p>
           <p style="color:#1e3a8a; font-weight:700; font-size:12px; line-height:1.6; text-align:center; margin:0;">
             Arrastra o toca otro auto para intercambiar posición. También puedes soltar <b>${selectedAuto.dataset.mva}</b> en un cajón vacío.
           </p>
@@ -6899,13 +6899,13 @@ function filtrarAutofill(val) {
   ).slice(0, 15);
 
   if (filtrados.length === 0) {
-    container.innerHTML = '<div style="padding:15px; font-size:13px; color:#64748b; text-align:center;">🚫 No encontrada en Base Maestra</div>';
+    container.innerHTML = '<div style="padding:15px; font-size:13px; color:#64748b; text-align:center;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;vertical-align:middle;">search_off</span> No encontrada en Base Maestra</div>';
   } else {
     container.innerHTML = filtrados.map(u => `
       <div class="autofill-item" onclick='aplicarAutofill(${JSON.stringify(u)})'>
         <div>
           <b style="font-size:14px; color:var(--mex-blue); display:block;">${u.mva}</b>
-          <span style="font-size:11px; color:#64748b; font-weight:600;">🚗 ${u.modelo} • 🏷️ ${u.placas}</span>
+          <span style="font-size:11px; color:#64748b; font-weight:600;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">directions_car</span> ${u.modelo} • <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">license</span> ${u.placas}</span>
         </div>
         <span class="material-icons" style="color:var(--mex-accent);">add_circle</span>
       </div>
@@ -8128,7 +8128,7 @@ function _umValidarNuevo() {
   btn.style.opacity = ok ? '1' : '.5';
   btn.style.cursor = ok ? 'pointer' : 'not-allowed';
   if (hint) hint.innerHTML = ok
-    ? '<span style="color:#10b981;">✓ Listo para crear</span>'
+    ? '<span style="color:#10b981;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;vertical-align:middle;">check_circle</span> Listo para crear</span>'
     : `Falta: ${missing.join(', ')}`;
 }
 
@@ -8953,8 +8953,8 @@ const ALERTA_TIPO_META = Object.freeze({
 });
 
 const ALERTA_MODO_META = Object.freeze({
-  INTERRUPTIVA: { label: 'INTERRUPTIVA', icon: '⚡', bg: '#eff6ff', color: '#1a73e8' },
-  PASIVA: { label: 'PASIVA', icon: '🔔', bg: '#f8fafc', color: '#475569' }
+  INTERRUPTIVA: { label: 'INTERRUPTIVA', icon: 'bolt', bg: '#eff6ff', color: '#1a73e8' },
+  PASIVA: { label: 'PASIVA', icon: 'notifications', bg: '#f8fafc', color: '#475569' }
 });
 
 const ALERTA_ACTION_META = Object.freeze({
@@ -9913,7 +9913,7 @@ function _renderLiveActivityFeed(feed = []) {
     <section class="feed-history-panel" aria-label="Historial de cambios">
       <header class="feed-history-header">
         <span>Historial de cambios</span>
-        <button type="button" class="feed-history-close" aria-label="Ocultar historial" onclick="this.closest('#liveActivityFeed').innerHTML = '';">×</button>
+        <button type="button" class="feed-history-close" aria-label="Ocultar historial" onclick="this.closest('#liveActivityFeed').innerHTML = '';"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
       </header>
       <div class="feed-history-list">
         ${items}
@@ -9939,7 +9939,7 @@ function _procesarPingUI(res) {
   // 2. ACTUALIZAR SELLO DE CUADRE
   const lblCuadre = document.getElementById('lblUltimoCuadre');
   if (lblCuadre && res.ultimoCuadre) {
-    lblCuadre.innerText = "✅ " + res.ultimoCuadre;
+    lblCuadre.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;vertical-align:middle;">check_circle</span> ${escapeHtml(res.ultimoCuadre)}`;
   }
 
   // 3. GESTIÓN DE BADGES (INCIDENCIAS)
@@ -10591,7 +10591,7 @@ function _actualizarPreviewAlerta() {
 
   const badgeModo = document.getElementById('alertaPreviewModoBadge');
   if (badgeModo) {
-    badgeModo.innerText = `${metaModo.icon} ${metaModo.label}`;
+    badgeModo.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">${metaModo.icon}</span> ${escapeHtml(metaModo.label)}`;
     badgeModo.style.background = metaModo.bg;
     badgeModo.style.color = metaModo.color;
   }
@@ -10676,11 +10676,11 @@ async function _cargarPlantillasAlerta() {
   const select = document.getElementById('alertaPlantillasSelect');
   if (!select) return;
   select.disabled = true;
-  select.innerHTML = `<option value="">📂 Cargando plantillas...</option>`;
+  select.innerHTML = `<option value="">Cargando plantillas...</option>`;
 
   try {
     alertasPlantillasCache = await api.obtenerPlantillasAlerta() || [];
-    select.innerHTML = `<option value="">📂 Cargar plantilla...</option>` +
+    select.innerHTML = `<option value="">Cargar plantilla...</option>` +
       alertasPlantillasCache.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.nombre || 'Plantilla')}</option>`).join('');
   } catch (error) {
     console.error(error);
@@ -11050,7 +11050,7 @@ function _renderHistorialAlertas() {
         <header class="alrt-hist-head">
           <div class="alrt-hist-badges">
             <span class="alrt-hist-badge" style="--b-bg:${bannerMeta.bg}; --b-fg:${bannerMeta.color};">${escapeHtml(bannerMeta.label)}</span>
-            <span class="alrt-hist-badge" style="--b-bg:${metaModo.bg}; --b-fg:${metaModo.color};">${metaModo.icon} ${metaModo.label}</span>
+            <span class="alrt-hist-badge" style="--b-bg:${metaModo.bg}; --b-fg:${metaModo.color};"><span class="material-symbols-outlined" aria-hidden="true">${metaModo.icon}</span> ${metaModo.label}</span>
             <span class="alrt-hist-badge alrt-hist-badge--soft"><span class="material-icons">${resumenDest.icon}</span>${escapeHtml(resumenDest.label)}</span>
             <span class="alrt-hist-badge" style="--b-bg:${metaTipo.selectBg}; --b-fg:${metaTipo.color};">Base ${metaTipo.label}</span>
           </div>
@@ -12064,13 +12064,13 @@ async function abrirModalEditarGlobal() {
 
   const input = document.getElementById('g_edit_searchInput');
   input.disabled = true;
-  input.placeholder = "⏳ Descargando base global...";
+  input.placeholder = "Descargando base global...";
 
 
   api.obtenerUnidadesPlazas().then(data => {
     FLOTA_TOTAL_GLOBAL = data;
     input.disabled = false;
-    input.placeholder = "🔍 Buscar MVA, Modelo o Placa...";
+    input.placeholder = "Buscar MVA, modelo o placa...";
     input.focus();
   }).catch(e => console.error(e));
 }
@@ -12327,7 +12327,7 @@ function renderizarVisorEvidenciasAdmin(u = {}) {
     visorFrame.innerHTML = "";
     visorList.innerHTML = "";
     linkDrive.href = "#";
-    if (fileStatus) fileStatus.innerHTML = "⚪ SIN EVIDENCIA REGISTRADA";
+    if (fileStatus) fileStatus.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">radio_button_unchecked</span> SIN EVIDENCIA REGISTRADA';
     return;
   }
 
@@ -12375,7 +12375,7 @@ function renderizarVisorEvidenciasAdmin(u = {}) {
   }).join('');
 
   if (fileStatus) {
-    fileStatus.innerHTML = `✅ ${evidencias.length} evidencia${evidencias.length === 1 ? '' : 's'} registrada${evidencias.length === 1 ? '' : 's'}`;
+    fileStatus.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">check_circle</span> ${evidencias.length} evidencia${evidencias.length === 1 ? '' : 's'} registrada${evidencias.length === 1 ? '' : 's'}`;
   }
   };
   run().catch((err) => console.warn('[cuadre-admin] visor evidencia:', err));
@@ -12563,11 +12563,11 @@ function abrirExpedienteGlobal(u, plazaForzada, esSoloLectura = false) {
   } else if (tieneEvidencia && !urlDrive) {
     visorContenedor.style.display = 'none';
     visorFrame.innerHTML = "";
-    if (fileStatus) fileStatus.innerHTML = "✅ EVIDENCIA REGISTRADA (Link no disponible)";
+    if (fileStatus) fileStatus.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">check_circle</span> EVIDENCIA REGISTRADA (Link no disponible)';
   } else {
     visorContenedor.style.display = 'none';
     visorFrame.innerHTML = "";
-    if (fileStatus) fileStatus.innerHTML = "⚪ SIN EVIDENCIA REGISTRADA";
+    if (fileStatus) fileStatus.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">radio_button_unchecked</span> SIN EVIDENCIA REGISTRADA';
   }
 
   // --- 🛡️ APLICAR BLOQUEOS DE SOLO LECTURA ---
@@ -13079,7 +13079,7 @@ async function _elegirAlcanceBloqueoMapa(nuevoEstado) {
 
 async function solicitarToggleBloqueo() {
   if (!canLockMap()) {
-    showToast("🚫 Solo los roles con acceso total pueden bloquear el patio.", "error");
+    showToast("Solo los roles con acceso total pueden bloquear el patio.", "error");
     return;
   }
 
@@ -13118,7 +13118,7 @@ async function solicitarToggleBloqueo() {
     const permiso = String(e?.code || e?.message || '').toLowerCase().includes('permission');
     showToast(
       permiso
-        ? "🚫 Sin permiso para cambiar el bloqueo. Revisa tu rol/reglas."
+        ? "Sin permiso para cambiar el bloqueo. Revisa tu rol/reglas."
         : "No se pudo cambiar el bloqueo. Intenta de nuevo.",
       "error"
     );
@@ -13501,22 +13501,16 @@ function _syncHistorialMisionBadge() {
 
 function _cuadreViewTabsHtml(active = '') {
   const current = String(active || '').toLowerCase();
-  const mission = _cuadreMissionActiva();
-  const historialBadge = mission
-    ? `<span class="cuadre-tab-mision-dot${mission.enRevision ? ' is-revision' : ''}" title="${mission.enRevision ? 'Cuadre en revisión' : 'Misión en curso'}"></span>`
-    : '';
-  const btn = (key, icon, label, action, extra = '') => `
-    <button type="button" data-cuadre-tab="${key}" class="${current === key ? 'active' : ''}${key === 'historial' && mission ? ' has-mision-activa' : ''}" onclick="${action}">
+  const btn = (key, icon, label, action) => `
+    <button type="button" data-cuadre-tab="${key}" class="${current === key ? 'active' : ''}" onclick="${action}">
       <span class="material-symbols-outlined">${icon}</span>
       ${label}
-      ${extra}
     </button>
   `;
   return `
     <div class="cuadre-flow-tabs" data-cuadre-flow-tabs>
       ${btn('normal', 'directions_car', 'Flota Regular', "abrirCuadreVistaFlota('NORMAL')")}
       ${btn('admins', 'admin_panel_settings', 'Cuadre Admins', "abrirCuadreVistaFlota('ADMINS')")}
-      ${btn('historial', 'history', 'Historial de Cuadre', 'abrirCuadreHistorialDesdeTabs()', historialBadge)}
     </div>
   `;
 }
@@ -13794,7 +13788,7 @@ function _renderAuditCard(u) {
             ${_auditGasProgressHtml(gasValue)}
           </label>
         </div>
-        ${u.status === 'EXTRA' ? '<span class="audit-card-extra-badge">&#9888; SOBRANTE</span>' : ''}
+        ${u.status === 'EXTRA' ? '<span class="audit-card-extra-badge"><span class="material-symbols-outlined" aria-hidden="true">warning</span> SOBRANTE</span>' : ''}
       </div>
       <div class="audit-card-actions">
         <button class="audit-btn-action ${btnCrossClass}" onclick="marcarUnidadAudit('${escapeHtml(u.mva)}', 'FALTANTE')" title="Marcar faltante">
@@ -17979,11 +17973,11 @@ function toggleDarkMode() {
   if (isDark) {
     localStorage.setItem('mex_mapa_theme', 'dark');
     if (icon) icon.innerText = 'light_mode'; // Cambia el ícono a Sol
-    if (typeof showToast === "function") showToast("Modo Oscuro activado 🌙", "info");
+    if (typeof showToast === "function") showToast("Modo oscuro activado", "info");
   } else {
     localStorage.setItem('mex_mapa_theme', 'light');
     if (icon) icon.innerText = 'dark_mode';  // Cambia el ícono a Luna
-    if (typeof showToast === "function") showToast("Modo Claro activado ☀️", "info");
+    if (typeof showToast === "function") showToast("Modo claro activado", "info");
   }
 }
 
@@ -18122,16 +18116,16 @@ function mostrarDetalleGlobal(d) {
   const detalle = document.getElementById('detalle-unidad');
   detalle.innerHTML = `
         <div style="text-align: center; padding: 10px 0;">
-            <span style="background:#1e293b; color:#fbbf24; padding:5px 12px; border-radius:50px; font-size:10px; font-weight:900; letter-spacing:1px;">📍 LOCALIZADO FUERA DEL MAPA</span>
+            <span style="background:#1e293b; color:#fbbf24; padding:5px 12px; border-radius:50px; font-size:10px; font-weight:900; letter-spacing:1px;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">location_off</span> LOCALIZADO FUERA DEL MAPA</span>
             <h2 style="color: var(--primary); font-weight: 900; font-size: 35px; line-height: 1; margin: 15px 0 10px;">${d.mva}</h2>
             <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; font-size: 13px; font-weight: 700; color: #475569; background: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #e2e8f0;">
-                <span style="color:#0284c7;">👤 ${d.ubicacion}</span>
+                <span style="color:#0284c7;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;vertical-align:middle;">person_pin</span> ${d.ubicacion}</span>
                 <span style="color: #cbd5e1;">•</span>
-                <span style="color:#ef4444;">⚙️ ${d.estado}</span>
+                <span style="color:#ef4444;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;vertical-align:middle;">info</span> ${d.estado}</span>
                 <span style="color: #cbd5e1;">•</span>
-                <span>🚗 ${d.modelo || 'S/M'}</span>
+                <span><span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;vertical-align:middle;">directions_car</span> ${d.modelo || 'S/M'}</span>
             </div>
-            ${d.notas ? `<div class="nota-display" style="display:block; margin-top:15px; background:#fffbeb; border-left:4px solid #fbbf24;">📝 ${d.notas}</div>` : ''}
+            ${d.notas ? `<div class="nota-display" style="display:block; margin-top:15px; background:#fffbeb; border-left:4px solid #fbbf24;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;vertical-align:middle;">note</span> ${d.notas}</div>` : ''}
         </div>
     `;
   const btnGrid = document.getElementById('infoPanelBtnGrid');
@@ -19499,7 +19493,7 @@ function guardarMapaEditor(btn) {
   _rememberActivePlaza(_plazaGuardado, { forEditmap: true });
   console.log('[MEX-INTEG] guardarMapaEditor →', { plaza: _plazaGuardado || '(sin plaza)', celdas: payload.length });
   if (!_plazaGuardado) {
-    showToast('⚠️ No hay plaza activa para guardar el mapa. Selecciona una plaza.', 'warning');
+    showToast('No hay plaza activa para guardar el mapa. Selecciona una plaza.', 'warning');
     btn.disabled = false;
     btn.innerHTML = saveLabelHtml;
     return;
@@ -21358,7 +21352,7 @@ function renderizarListaConfig() {
           <span class="cfg-email-tag">
             <span class="material-icons" style="font-size:13px; margin-right:2px;">alternate_email</span>
             ${escapeHtml(c)}
-            <button onclick="eliminarCorreoInterno(${i})" title="Eliminar">×</button>
+            <button onclick="eliminarCorreoInterno(${i})" title="Eliminar" aria-label="Eliminar correo"><span class="material-symbols-outlined" aria-hidden="true">delete_outline</span></button>
           </span>
         `).join('');
 
@@ -23645,7 +23639,7 @@ function _llenarSelectPlazasUbi(selectId, selected) {
   if (!sel) return;
   const plazas = (window.MEX_CONFIG?.empresa?.plazas || []);
   sel.innerHTML =
-    `<option value="ALL"${selected === 'ALL' ? ' selected' : ''}>🌐 Todas las plazas (ALL)</option>` +
+    `<option value="ALL"${selected === 'ALL' ? ' selected' : ''}>Todas las plazas (ALL)</option>` +
     plazas.map(p => `<option value="${escapeHtml(p)}"${p === selected ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('');
 }
 
@@ -23804,7 +23798,7 @@ function renderCorreosInternos() {
             <span class="cfg-email-tag">
               <span class="material-icons" style="font-size:13px; margin-right:2px;">alternate_email</span>
               ${escapeHtml(c)}
-              <button onclick="eliminarCorreoInterno(${i})" title="Eliminar">×</button>
+              <button onclick="eliminarCorreoInterno(${i})" title="Eliminar" aria-label="Eliminar correo"><span class="material-symbols-outlined" aria-hidden="true">delete_outline</span></button>
             </span>
           `).join('');
 }
@@ -23991,10 +23985,10 @@ function filtrarSolicitudesActuales() {
                   <span class="material-icons" style="font-size: 12px; vertical-align: text-bottom;">email</span> ${data.email}
                 </div>
                 <div style="color: var(--mex-blue); font-size: 10px; font-weight: 800; margin-top: 6px; background: #e0f2fe; display: inline-block; padding: 3px 6px; border-radius: 4px;">
-                  📍 ${data.puesto || 'N/A'}
+                  <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px;vertical-align:middle;">badge</span> ${data.puesto || 'N/A'}
                 </div>
                 <div style="color: #7c3aed; font-size: 10px; font-weight: 800; margin-top: 6px; background: #f3e8ff; display: inline-block; padding: 3px 6px; border-radius: 4px;">
-                  🔐 ${roleLabel}
+                  <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px;vertical-align:middle;">admin_panel_settings</span> ${roleLabel}
                 </div>
               </div>
               <div style="display: flex; gap: 8px;">
@@ -24280,7 +24274,7 @@ function llenarSelectsDinamicos() {
     }
     if (personas.length) {
       const grp = document.createElement('optgroup'); grp.label = 'PERSONA RESPONSABLE';
-      personas.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = `👤 ${u}`; grp.appendChild(o); });
+      personas.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; grp.appendChild(o); });
       el.appendChild(grp);
     }
     if (el.querySelector(`option[value="${saved}"]`)) el.value = saved;
@@ -25408,18 +25402,18 @@ function _actualizarBannerGlobal({ bloqueado, bloqueadoScope, ocupados, totalSpo
 
   if (_bannerState.bloqueado) {
     const scope = bloqueadoScope || window.MAPA_LOCK_SCOPE || '';
-    msgs.push(`🔒 MAPA BLOQUEADO${scope === 'GLOBAL' ? ' — AUDITORÍA GLOBAL' : ' — AUDITORÍA PLAZA'}`);
+    msgs.push({ icon: 'lock', text: `MAPA BLOQUEADO${scope === 'GLOBAL' ? ' — AUDITORÍA GLOBAL' : ' — AUDITORÍA PLAZA'}` });
     severity = 'locked';
   }
   if (_bannerState.pctOcup >= 90) {
-    msgs.push(`🔴 SATURACIÓN CRÍTICA: ${_bannerState.pctOcup}% cajones ocupados`);
+    msgs.push({ icon: 'error', text: `SATURACIÓN CRÍTICA: ${_bannerState.pctOcup}% cajones ocupados` });
     severity = severity !== 'locked' ? 'critical' : severity;
   } else if (_bannerState.pctOcup >= 80) {
-    msgs.push(`🟡 Saturación alta: ${_bannerState.pctOcup}% ocupado`);
+    msgs.push({ icon: 'warning', text: `Saturación alta: ${_bannerState.pctOcup}% ocupado` });
     if (severity === 'info') severity = 'warning';
   }
   if (_bannerState.alertasCriticas > 0) {
-    msgs.push(`⚠️ ${_bannerState.alertasCriticas} incidencia${_bannerState.alertasCriticas > 1 ? 's' : ''} pendiente${_bannerState.alertasCriticas > 1 ? 's' : ''}`);
+    msgs.push({ icon: 'notification_important', text: `${_bannerState.alertasCriticas} incidencia${_bannerState.alertasCriticas > 1 ? 's' : ''} pendiente${_bannerState.alertasCriticas > 1 ? 's' : ''}` });
     if (severity === 'info') severity = 'warning';
   }
 
@@ -25430,7 +25424,7 @@ function _actualizarBannerGlobal({ bloqueado, bloqueadoScope, ocupados, totalSpo
 
   const bgMap = { locked: '#1e293b', critical: '#dc2626', warning: '#d97706', info: '#0369a1' };
   banner.style.cssText = `display:flex; align-items:center; justify-content:center; gap:18px; padding:7px 16px; background:${bgMap[severity]}; color:white; font-size:12px; font-weight:800; letter-spacing:.04em; flex-wrap:wrap; position:relative; z-index:200;`;
-  banner.innerHTML = msgs.map(m => `<span>${m}</span>`).join('<span style="opacity:.4;">·</span>');
+  banner.innerHTML = msgs.map(({ icon, text }) => `<span><span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;vertical-align:middle;">${icon}</span> ${escapeHtml(text)}</span>`).join('<span style="opacity:.4;">·</span>');
 }
 
 // ── F3.3 Panel de supervisión (KPIs multi-plaza) ────────────
@@ -25469,10 +25463,10 @@ function _actualizarPanelSupervision() {
       <div style="font-size:11px; font-weight:900; color:white; letter-spacing:.05em;">${escapeHtml(plaza)}${esTemporal ? ' <span style="font-size:8px;color:#f59e0b;">TEMP</span>' : ''}</div>
       <div style="font-size:9px; color:${pctColor}; font-weight:800;">${pct}% ocupado</div>
       <div style="display:flex; gap:5px; font-size:10px; font-weight:700; color:rgba(255,255,255,.7);">
-        <span title="Listos" style="color:#4ade80;">✓${d.listos || 0}</span>
-        <span title="Sucios" style="color:#facc15;">⟳${d.sucios || 0}</span>
-        <span title="Manto" style="color:#f87171;">⚙${d.manto || 0}</span>
-        ${(d.traslados || 0) > 0 ? `<span title="Traslados" style="color:#c084fc;">🚛${d.traslados}</span>` : ''}
+        <span title="Listos" style="color:#4ade80;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px;vertical-align:middle;">check_circle</span>${d.listos || 0}</span>
+        <span title="Sucios" style="color:#facc15;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px;vertical-align:middle;">cleaning_services</span>${d.sucios || 0}</span>
+        <span title="Mantenimiento" style="color:#f87171;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px;vertical-align:middle;">build</span>${d.manto || 0}</span>
+        ${(d.traslados || 0) > 0 ? `<span title="Traslados" style="color:#c084fc;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px;vertical-align:middle;">local_shipping</span>${d.traslados}</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -26041,7 +26035,7 @@ function activarBusquedaVoz(esMobile) {
 
     // Mostrar transcripción en tiempo real
     [transcriptDesktop, transcriptMobile].forEach(el => {
-      if (el) el.textContent = '🎙️ ' + (textoInterim || '...');
+      if (el) el.textContent = textoInterim || '...';
     });
 
     if (!isFinal) return;
@@ -26061,7 +26055,7 @@ function activarBusquedaVoz(esMobile) {
     });
     // Disparar búsqueda
     if (typeof ejecutarFiltroMasivo === 'function') ejecutarFiltroMasivo();
-    showToast(`\uD83C\uDF99\uFE0F Buscando: "${query}"`, 'info');
+    showToast(`Buscando: "${query}"`, 'info');
   };
 
   _vozRecognition.onerror = (event) => {
@@ -26101,7 +26095,7 @@ function _setVozUI(activa, btnDesktop, btnMobile, transcriptDesktop, transcriptM
   [transcriptDesktop, transcriptMobile].forEach(el => {
     if (!el) return;
     if (activa) {
-      el.textContent = '🎙️ Escuchando…';
+      el.textContent = 'Escuchando…';
       el.style.display = 'block';
     } else {
       el.style.display = 'none';
@@ -26112,7 +26106,7 @@ function _setVozUI(activa, btnDesktop, btnMobile, transcriptDesktop, transcriptM
     const el = document.getElementById(id);
     if (!el) return;
     if (activa) {
-      el.placeholder = '🎙️ Escuchando...';
+      el.placeholder = 'Escuchando...';
       el.style.borderColor = 'rgba(239,68,68,0.5)';
     } else {
       el.placeholder = 'MVA, Placas o Modelo...';
@@ -26165,7 +26159,7 @@ async function abrirDuplicarEstructura(plazaOrigen) {
           plazaObjetivo: destino,
           resultado: `COPIADAS_${res.total || 0}_CELDAS`
         });
-        showToast(`✓ Estructura duplicada a ${destino} (${res.total} celdas)`, 'success');
+        showToast(`Estructura duplicada a ${destino} (${res.total} celdas)`, 'success');
       } catch (err) {
         showToast(err.message || 'Error al duplicar estructura', 'error');
         return false;
@@ -26210,7 +26204,7 @@ async function abrirGuardarPlantilla(plazaId) {
           plazaObjetivo: plazaId,
           resultado: `GUARDADA_${res.total || 0}_CELDAS`
         });
-        showToast(`✓ Plantilla "${nombre}" guardada (${res.total} celdas)`, 'success');
+        showToast(`Plantilla "${nombre}" guardada (${res.total} celdas)`, 'success');
       } catch (err) {
         showToast(err.message || 'Error al guardar plantilla', 'error');
         return false;
@@ -26273,7 +26267,7 @@ async function abrirAplicarPlantilla(plazaId) {
           plazaObjetivo: plazaId,
           resultado: `APLICADA_${elementos.length || 0}_CELDAS`
         });
-        showToast(`✓ Plantilla aplicada a ${plazaId} (${elementos.length} celdas)`, 'success');
+        showToast(`Plantilla aplicada a ${plazaId} (${elementos.length} celdas)`, 'success');
       } catch (err) {
         showToast(err.message || 'Error al aplicar plantilla', 'error');
         return false;
@@ -26653,7 +26647,7 @@ async function _verificarRecordatoriosVencidos() {
       if (extras.tags?.length) _actualizarTagsBadgeCar(extras.mva, extras.tags);
       if (extras.recordatorio?.fecha) _actualizarRecordatorioBadgeCar(extras.mva, extras.recordatorio);
     });
-    if (vencidos > 0) showToast(`🔔 ${vencidos} recordatorio${vencidos > 1 ? 's' : ''} vencido${vencidos > 1 ? 's' : ''}`, 'warning');
+    if (vencidos > 0) showToast(`${vencidos} recordatorio${vencidos > 1 ? 's' : ''} vencido${vencidos > 1 ? 's' : ''}`, 'warning');
   } catch { /* silencioso */ }
 }
 
@@ -26738,7 +26732,7 @@ async function ejecutarMigracionLegacy() {
   try {
     const res = await api.migrarDatosLegacyAPlazas(({ col, done, total, errores }) => {
       const idx = COLS.indexOf(col);
-      if (idx >= 0 && idx > colIdx) { colIdx = idx; ui.log(`✓ ${COLS[idx - 1]} completado`); }
+      if (idx >= 0 && idx > colIdx) { colIdx = idx; ui.log(`${COLS[idx - 1]} completado`); }
       const colNum = Math.max(0, colIdx);
       const pct = Math.round(((colNum / COLS.length) + (total > 0 ? (done / total) / COLS.length : 0)) * 100);
       ui.setProgress(`${col}: ${done}/${total}  (errores: ${errores})`, Math.min(98, pct));
@@ -26746,15 +26740,15 @@ async function ejecutarMigracionLegacy() {
 
     const errCount = res.errores?.length || 0;
     ui.setProgress('Completado', 100);
-    ui.log(`\n✅ ${res.ok} documentos migrados`);
+    ui.log(`\n${res.ok} documentos migrados`);
     if (errCount > 0) {
-      ui.log(`⚠️ ${errCount} sin plaza detectada (saltados):`);
+      ui.log(`${errCount} sin plaza detectada (saltados):`);
       res.errores.slice(0, 20).forEach(e => ui.log('  · ' + e));
     }
     ui.setDone(`Migración completa: ${res.ok} docs`, '#6366f1');
     showToast(`Migración completa: ${res.ok} documentos copiados`, 'success');
   } catch (err) {
-    ui.log(`\n❌ Error: ${err.message}`);
+    ui.log(`\nError: ${err.message}`);
     ui.setError('Error en migración');
     showToast('Error durante la migración', 'error');
     console.error('[F5] migración error:', err);

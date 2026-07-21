@@ -102,7 +102,7 @@ export const ROUTE_MAP = {
     id: 'cuadreFlota', label: 'Cuadre de flota',
     legacyRoute:  '/app/cuadre/flota',
     appRoute:     '/app/cuadre/flota',
-    navRoute:     '/cuadre',
+    navRoute:     '/app/cuadre/flota',
     fallbackRoute:'/app/cuadre/flota',
     shellIntegrated:    true,
     fullModuleMigrated: true,

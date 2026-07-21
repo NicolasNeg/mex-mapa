@@ -143,7 +143,7 @@ const ROUTE_TABLE = {
   },
   '/app/cuadre/flota': {
     loader: () => import('/js/app/views/cuadre-flota.js'),
-    navRoute: '/cuadre',
+    navRoute: '/app/cuadre/flota',
     feature: 'cuadre'
   },
   "/app/traslados": { loader: () => import("/js/app/views/traslados.js"), navRoute: "/app/traslados" },

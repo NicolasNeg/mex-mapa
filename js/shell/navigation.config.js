@@ -104,6 +104,14 @@ export const NAV_GROUPS = [
         feature: 'cuadre'
       },
       {
+        id: 'cuadreFlota',
+        label: 'Cuadre de flota',
+        icon: 'history',
+        route: '/app/cuadre/flota',
+        roles: ['VENTAS', 'SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR'],
+        feature: 'cuadre'
+      },
+      {
         id: "traslados",
         label: "Traslados",
         icon: "local_shipping",
