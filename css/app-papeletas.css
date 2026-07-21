@@ -1276,3 +1276,234 @@ body.dark-theme .pap-zona-chip.is-active {
   background: rgba(59, 130, 246, 0.16);
   border-color: #3b82f6;
 }
+
+
+/* ── Hoja de inspección paper layout ─────────────────────── */
+.pap-hoja { width: 100%; }
+.pap-hoja__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.pap-hoja__eyebrow {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--pap-muted);
+}
+.pap-hoja__head h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.pap-contrato {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+  padding: 8px 10px;
+  border: 1px solid var(--pap-border);
+  border-radius: 4px;
+  background: var(--bg, #f8fafc);
+}
+.pap-contrato span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--pap-muted);
+}
+.pap-contrato input {
+  border: 0;
+  background: transparent;
+  font: 600 14px Inter, sans-serif;
+  color: inherit;
+  min-height: 28px;
+  outline: none;
+}
+.pap-contrato--ro strong { font-size: 14px; }
+.pap-fee-note {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: var(--pap-muted);
+}
+.pap-io-table {
+  border: 1px solid var(--pap-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0 0 10px;
+  background: var(--surface, #fff);
+}
+.pap-io-table__row {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1.2fr) 88px minmax(0, 1.4fr);
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border-top: 1px solid var(--pap-line);
+}
+.pap-io-table__row--head {
+  border-top: 0;
+  background: var(--bg, #f1f5f9);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--pap-muted);
+}
+.pap-io-table__row > strong { font-size: 12px; }
+.pap-field--bare { margin: 0; }
+.pap-field--bare input,
+.pap-field--bare select {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--pap-border);
+  border-radius: 4px;
+  font: 400 13px Inter, sans-serif;
+  background: var(--bg, #fff);
+  color: inherit;
+}
+.pap-field--gas { min-width: 0; }
+.pap-gas-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pap-gas-chip {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--pap-border);
+  border-radius: 4px;
+  background: var(--surface, #fff);
+  color: var(--text, inherit);
+  font: 600 11px Inter, sans-serif;
+  cursor: pointer;
+}
+.pap-gas-chip.is-on {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+.pap-gas-chip:disabled { cursor: default; opacity: .9; }
+.pap-hoja__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 1.2fr) minmax(0, 1fr);
+  gap: 12px;
+  margin: 12px 0;
+  align-items: start;
+}
+.pap-hoja__body--ro {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 1fr);
+}
+.pap-check-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+.pap-hoja__diagram { min-width: 0; }
+.pap-hoja__diagram--mini { margin: 8px 0; max-width: 360px; }
+.pap-btn--tiny {
+  min-height: 32px;
+  padding: 0 8px;
+}
+.pap-diagram {
+  border: 1px solid var(--pap-border);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  overflow: hidden;
+}
+.pap-diagram__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--pap-line);
+  background: var(--bg, #f8fafc);
+}
+.pap-diagram__title {
+  font-size: 12px;
+  font-weight: 600;
+}
+.pap-diagram__actions { display: flex; gap: 4px; }
+.pap-diagram__stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 360 / 280;
+  background: #f8fafc;
+  color: #475569;
+  touch-action: none;
+}
+.pap-diagram__svg,
+.pap-diagram__canvas,
+.pap-diagram__marks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.pap-diagram__canvas { cursor: crosshair; z-index: 2; }
+.pap-diagram__marks { z-index: 2; pointer-events: none; object-fit: contain; }
+.pap-diagram__empty {
+  position: absolute;
+  inset: auto 0 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--pap-muted);
+  z-index: 3;
+}
+.pap-diagram__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--pap-line);
+  font-size: 11px;
+  color: var(--pap-muted);
+}
+.pap-diagram__legend b { color: var(--text, #0f172a); margin-right: 2px; }
+.pap-hoja__notes { margin-top: 4px; }
+
+@media (max-width: 980px) {
+  .pap-hoja__body {
+    grid-template-columns: 1fr;
+  }
+  .pap-hoja__diagram { order: -1; }
+  .pap-io-table__row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pap-io-table__row > strong,
+  .pap-io-table__row--head > span:first-child {
+    grid-column: 1 / -1;
+  }
+  .pap-field--gas { grid-column: 1 / -1; }
+}
+
+@media (max-width: 620px) {
+  .pap-io-table__row {
+    grid-template-columns: 1fr;
+  }
+  .pap-gas-chip { min-width: 36px; min-height: 36px; }
+}
+
+body.dark-theme .pap-contrato,
+body.dark-theme .pap-io-table,
+body.dark-theme .pap-diagram,
+body.dark-theme .pap-diagram__toolbar,
+body.dark-theme .pap-diagram__stage,
+body.dark-theme .pap-gas-chip {
+  background: #111827;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+body.dark-theme .pap-io-table__row--head { background: #0f172a; }
+body.dark-theme .pap-gas-chip.is-on {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+body.dark-theme .pap-diagram__stage { color: #94a3b8; background: #0f172a; }

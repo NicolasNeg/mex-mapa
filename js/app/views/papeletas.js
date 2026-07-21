@@ -47,6 +47,7 @@ import {
   countReportesAbiertosUnidad,
 } from '/js/app/features/papeletas/papeletas-reportes-data.js';
 import { buscarUnidad } from '/js/app/features/unidades/unidades-data.js';
+import { mountDiagram, strokesToDataUrl, diagramSvgMarkup } from '/js/app/features/papeletas/papeletas-diagram.js';
 
 let _container = null;
 let _navigate = null;
@@ -72,6 +73,8 @@ let _sigDrawing = false;
 let _sigHasInk = false;
 let _pendingSalida = { km: null, gas: null };
 let _fotoCache = new Map();
+let _diagramApi = null;
+let _localStrokes = null;
 
 const LIST_ROUTE = '/app/papeletas';
 const VENTAS_ROUTE = '/app/papeletas/ventas';
@@ -135,6 +138,68 @@ function _gasOptionsHtml(selected) {
   const opts = _gasCatalog();
   if (safe && !opts.includes(safe)) opts.unshift(safe);
   return opts.map((v) => `<option value="${_esc(v)}" ${safe === v ? 'selected' : ''}>${_esc(v)}</option>`).join('');
+}
+
+function _paperGasScale() {
+  const preferred = ['E', '1/8', '1/4', '3/8', 'H', '5/8', '3/4', '7/8', 'F'];
+  const catalog = _gasCatalog().filter((v) => v !== 'N/A');
+  const ordered = preferred.filter((v) => catalog.includes(v));
+  const rest = catalog.filter((v) => !preferred.includes(v));
+  return ordered.length ? [...ordered, ...rest] : preferred;
+}
+
+function _gasChipsHtml(selected, inputId, disabled) {
+  const safe = String(selected || '').trim().toUpperCase();
+  const opts = _paperGasScale();
+  if (safe && !opts.includes(safe)) opts.unshift(safe);
+  return `
+    <input type="hidden" id="${_esc(inputId)}" value="${_esc(safe)}"/>
+    <div class="pap-gas-chips" role="group" aria-label="Nivel de gasolina">
+      ${opts.map((v) => `
+        <button type="button" class="pap-gas-chip ${safe === v ? 'is-on' : ''}" data-act="gas-set" data-gas-for="${_esc(inputId)}" data-val="${_esc(v)}" ${disabled ? 'disabled' : ''}>${_esc(v)}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function _destroyDiagram() {
+  if (_diagramApi) {
+    try { _diagramApi.destroy(); } catch (_) { /* ignore */ }
+  }
+  _diagramApi = null;
+}
+
+function _mountDiagramIfNeeded(p, editable) {
+  _destroyDiagram();
+  const host = _container?.querySelector('[data-diagram-host]');
+  if (!host) return;
+  const strokes = Array.isArray(_localStrokes)
+    ? _localStrokes
+    : (Array.isArray(p?.diagramaStrokes) ? p.diagramaStrokes : []);
+  _diagramApi = mountDiagram(host, {
+    strokes,
+    editable: !!editable,
+    onChange: (next) => {
+      _localStrokes = next;
+      if (_detail) _detail.diagramaStrokes = next;
+    },
+  });
+}
+
+function _diagramReadonlyHtml(p) {
+  const strokes = Array.isArray(p?.diagramaStrokes) ? p.diagramaStrokes : [];
+  if (!strokes.length) {
+    return `<div class="pap-diagram pap-diagram--ro"><div class="pap-diagram__stage">${diagramSvgMarkup()}<div class="pap-diagram__empty">Sin marcas en diagrama</div></div></div>`;
+  }
+  const url = strokesToDataUrl(strokes);
+  return `
+    <div class="pap-diagram pap-diagram--ro">
+      <div class="pap-diagram__stage">
+        ${diagramSvgMarkup()}
+        <img class="pap-diagram__marks" src="${_esc(url)}" alt="Marcas del diagrama"/>
+      </div>
+    </div>
+  `;
 }
 
 function _checkGlyph(val) {
@@ -329,6 +394,8 @@ export async function mount(ctx) {
 
 export function unmount() {
   _cleanup();
+  _destroyDiagram();
+  _localStrokes = null;
   _container = null;
   _navigate = null;
   _fotoCache.clear();
@@ -341,6 +408,7 @@ function _watchDetail(id) {
       const firstLoad = !_detail;
       _detail = doc;
       _mode = 'detail';
+      if (firstLoad) _localStrokes = Array.isArray(doc?.diagramaStrokes) ? doc.diagramaStrokes : [];
       if (doc) {
         const post = _isPostEntrega(doc.status);
         const validPost = ['salida', 'entrada', 'reporte'];
@@ -373,6 +441,8 @@ function _openDetail(id) {
   if (!token) return;
   _mode = 'detail';
   _detail = null;
+  _localStrokes = null;
+  _destroyDiagram();
   _wizardStep = 'datos';
   _navigate?.(_detailRoute(token));
   _watchDetail(token);
@@ -405,6 +475,12 @@ function _render() {
   _bind();
   if (_wizardStep === 'firma') _bindSignature();
   _hydrateFotos();
+  if (_mode === 'detail' && _detail && (_wizardStep === 'datos' || _wizardStep === 'salida' || _wizardStep === 'entrada')) {
+    const editableDiag = _wizardStep === 'datos' && puedeEditar(_detail.status);
+    if (_wizardStep === 'datos') _mountDiagramIfNeeded(_detail, editableDiag);
+  } else {
+    _destroyDiagram();
+  }
   void canV;
 }
 
@@ -624,49 +700,76 @@ function _panelDatos(p, editable) {
   const marca = _marcaLlantas(p);
   const notas = String(p.notasInteriores || p.notas || '');
   const contrato = String(p.contrato || '');
+  const mid = Math.ceil(CHECKLIST_KEYS.length / 2);
+  const leftKeys = CHECKLIST_KEYS.slice(0, mid);
+  const rightKeys = CHECKLIST_KEYS.slice(mid);
   return `
-    <div class="pap-panel pap-panel--wide">
-      <h2>Datos de la papeleta</h2>
-      <p class="pap-hint">Primero completa todos los datos. Las fotos y daños van al final.</p>
+    <div class="pap-panel pap-panel--wide pap-hoja">
+      <header class="pap-hoja__head">
+        <div>
+          <p class="pap-hoja__eyebrow">mex · hoja de inspección</p>
+          <h2>Datos de salida</h2>
+        </div>
+        <label class="pap-contrato">
+          <span>Contrato</span>
+          <input data-field="contrato" value="${_esc(contrato)}" ${editable ? '' : 'disabled'} autocomplete="off" placeholder="—"/>
+        </label>
+      </header>
+
       ${_unitIdentityHtml(p)}
-      <div class="pap-fields-2">
-        <div class="pap-field">
-          <label>Contrato (opcional)</label>
-          <input data-field="contrato" value="${_esc(contrato)}" ${editable ? '' : 'disabled'} autocomplete="off"/>
-        </div>
-        <div class="pap-field">
-          <label>Cliente</label>
-          ${_canVentas()
-            ? `<input data-field="clienteNombre" value="${_esc(p.clienteNombre || '')}" placeholder="Nombre del cliente" autocomplete="off"/>`
-            : `<input value="${_esc(p.clienteNombre || 'Sin asignar')}" disabled/>`}
-        </div>
-        <div class="pap-field">
-          <label>KM salida</label>
-          <input id="papKmSalida" type="text" inputmode="numeric" pattern="[0-9]*" value="${_esc(km ?? '')}" ${editable ? '' : 'disabled'} autocomplete="off"/>
-        </div>
-        <div class="pap-field">
-          <label>Gas salida</label>
-          <select id="papGasSalida" ${editable ? '' : 'disabled'}>${_gasOptionsHtml(gas || '')}</select>
-        </div>
-      </div>
 
-      <h3 class="pap-subhead">Checklist</h3>
-      <div class="pap-check-readonly pap-check-edit">
-        ${CHECKLIST_KEYS.map((k) => `
-          <div class="pap-check-readonly__row">
-            <span class="pap-check-readonly__name">${_esc(CHECKLIST_LABELS[k] || k)}</span>
-            ${_ternaryEditable(k, p.checklist?.[k], editable)}
+      <section class="pap-io-table" aria-label="Entrega">
+        <div class="pap-io-table__row pap-io-table__row--head">
+          <span></span><span>Nombre</span><span>KM</span><span>Gas</span>
+        </div>
+        <div class="pap-io-table__row">
+          <strong>Entrega / Out</strong>
+          <div class="pap-field pap-field--bare">
+            ${_canVentas()
+              ? `<input data-field="clienteNombre" value="${_esc(p.clienteNombre || '')}" placeholder="Cliente / entrega a" autocomplete="off"/>`
+              : `<input value="${_esc(p.clienteNombre || _user().nombre || '—')}" disabled/>`}
           </div>
-        `).join('')}
-        <div class="pap-check-readonly__row pap-check-readonly__row--text">
-          <span class="pap-check-readonly__name">Marca de llantas</span>
-          <input class="pap-inline-input" data-field="marcaLlantas" value="${_esc(marca)}" placeholder="Ej: Michelin" ${editable ? '' : 'disabled'} autocomplete="off"/>
+          <div class="pap-field pap-field--bare">
+            <input id="papKmSalida" type="text" inputmode="numeric" pattern="[0-9]*" value="${_esc(km ?? '')}" ${editable ? '' : 'disabled'} autocomplete="off" placeholder="0"/>
+          </div>
+          <div class="pap-field pap-field--bare pap-field--gas">
+            ${_gasChipsHtml(gas || '', 'papGasSalida', !editable)}
+          </div>
+        </div>
+      </section>
+      <p class="pap-fee-note">Cargo por limpieza excesiva / olor a cigarro: $600 MXN</p>
+
+      <div class="pap-hoja__body">
+        <div class="pap-check-col">
+          ${leftKeys.map((k) => `
+            <div class="pap-check-readonly__row">
+              <span class="pap-check-readonly__name">${_esc(CHECKLIST_LABELS[k] || k)}</span>
+              ${_ternaryEditable(k, p.checklist?.[k], editable)}
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="pap-hoja__diagram" data-diagram-host></div>
+
+        <div class="pap-check-col">
+          ${rightKeys.map((k) => `
+            <div class="pap-check-readonly__row">
+              <span class="pap-check-readonly__name">${_esc(CHECKLIST_LABELS[k] || k)}</span>
+              ${_ternaryEditable(k, p.checklist?.[k], editable)}
+            </div>
+          `).join('')}
+          <div class="pap-check-readonly__row pap-check-readonly__row--text">
+            <span class="pap-check-readonly__name">Marca de llantas</span>
+            <input class="pap-inline-input" data-field="marcaLlantas" value="${_esc(marca)}" placeholder="Marca" ${editable ? '' : 'disabled'} autocomplete="off"/>
+          </div>
         </div>
       </div>
 
-      <div class="pap-field">
-        <label>Notas / interiores</label>
-        <textarea data-field="notasInteriores" rows="3" ${editable ? '' : 'disabled'}>${_esc(notas)}</textarea>
+      <div class="pap-fields-2 pap-hoja__notes">
+        <div class="pap-field pap-field--full">
+          <label>Notas / Interiores</label>
+          <textarea data-field="notasInteriores" rows="2" ${editable ? '' : 'disabled'} placeholder="Notas del patio…">${_esc(notas)}</textarea>
+        </div>
       </div>
 
       ${editable || _canVentas() ? `
@@ -677,6 +780,106 @@ function _panelDatos(p, editable) {
     </div>
   `;
 }
+
+function _salidaSummaryHtml(p, { compact = false } = {}) {
+  const out = p.salida || {};
+  const firma = String(out.firmaPath || '').trim();
+  return `
+    <section class="pap-salida-block pap-hoja pap-hoja--snapshot">
+      <header class="pap-hoja__head">
+        <div>
+          <p class="pap-hoja__eyebrow">Salida registrada</p>
+          <h3>Entrega / Out</h3>
+        </div>
+        <div class="pap-contrato pap-contrato--ro">
+          <span>Contrato</span>
+          <strong>${_esc(p.contrato || '—')}</strong>
+        </div>
+      </header>
+      ${_unitIdentityHtml(p)}
+      <section class="pap-io-table" aria-label="Salida">
+        <div class="pap-io-table__row pap-io-table__row--head">
+          <span></span><span>Nombre</span><span>KM</span><span>Gas</span>
+        </div>
+        <div class="pap-io-table__row">
+          <strong>Entrega / Out</strong>
+          <div>${_esc(out.quienEntrega || p.clienteNombre || '—')}</div>
+          <div class="pap-td-mono">${_esc(out.km ?? '—')}</div>
+          <div class="pap-td-mono">${_esc(out.gas || '—')}</div>
+        </div>
+      </section>
+      ${!compact ? `
+        <div class="pap-hoja__body pap-hoja__body--ro">
+          <div class="pap-check-col">${_checklistReadonlyHtml(p)}</div>
+          <div class="pap-hoja__diagram">${_diagramReadonlyHtml(p)}</div>
+        </div>
+        <h3 class="pap-subhead">Daños / zonas</h3>
+        ${_danosSalidaHtml(p)}
+        ${firma ? '<p class="pap-hint">Firma de entrega capturada.</p><div class="pap-firma-host" data-firma-preview></div>' : '<p class="pap-hint">Sin firma en archivo.</p>'}
+      ` : `
+        <div class="pap-hoja__diagram pap-hoja__diagram--mini">${_diagramReadonlyHtml(p)}</div>
+        <p class="pap-hint">Checklist y fotos completas en la pestaña <b>Salida</b>.</p>
+      `}
+    </section>
+  `;
+}
+
+function _panelSalidaView(p) {
+  return `
+    <div class="pap-panel pap-panel--wide pap-panel--regreso">
+      ${_salidaSummaryHtml(p, { compact: false })}
+      <h3 class="pap-subhead">Fotos de salida</h3>
+      <div class="pap-photos" id="papCompare"></div>
+      <div class="pap-actions pap-actions--sticky">
+        <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="goto-entrada">Ir a regreso</button>
+        <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="pdf">Exportar</button>
+      </div>
+    </div>
+  `;
+}
+
+function _panelEntrada(p) {
+  const locked = p.status === 'en_retorno' || p.status === 'cerrada_historial';
+  const e = p.entrada || {};
+  return `
+    <div class="pap-panel pap-panel--wide pap-panel--regreso pap-hoja">
+      <h2>${locked ? 'Regreso registrado' : 'Registrar regreso'}</h2>
+      ${_salidaSummaryHtml(p, { compact: true })}
+
+      <section class="pap-entrada-block">
+        <section class="pap-io-table" aria-label="Entrada">
+          <div class="pap-io-table__row pap-io-table__row--head">
+            <span></span><span>Nombre</span><span>KM</span><span>Gas</span>
+          </div>
+          <div class="pap-io-table__row">
+            <strong>Recibe / In</strong>
+            <div class="pap-field pap-field--bare">
+              <input id="papQuienRecibe" value="${_esc(e.quienRecibe || _user().nombre)}" ${locked ? 'disabled' : ''} autocomplete="name"/>
+            </div>
+            <div class="pap-field pap-field--bare">
+              <input id="papKmIn" type="text" inputmode="numeric" pattern="[0-9]*" value="${_esc(e.km ?? '')}" ${locked ? 'disabled' : ''} autocomplete="off" placeholder="0"/>
+            </div>
+            <div class="pap-field pap-field--bare pap-field--gas">
+              ${_gasChipsHtml(e.gas || '', 'papGasIn', locked)}
+            </div>
+          </div>
+        </section>
+        <div class="pap-field">
+          <label>Notas / interiores</label>
+          <textarea id="papNotasIn" rows="2" ${locked ? 'disabled' : ''}>${_esc(e.notas || '')}</textarea>
+        </div>
+        <h3 class="pap-subhead">Fotos salida (referencia)</h3>
+        <div class="pap-photos" id="papCompare"></div>
+      </section>
+      ${!locked ? `
+        <div class="pap-actions pap-actions--sticky">
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-entrada" ${_busy ? 'disabled' : ''}>Registrar entrada</button>
+        </div>
+      ` : `<p class="pap-card__meta">Entrada registrada · unidad liberada para nueva papeleta</p>`}
+    </div>
+  `;
+}
+
 
 function _zonaChipClass(p, z, idx) {
   const data = p.zonas?.[z.id] || {};
@@ -858,92 +1061,6 @@ function _danosSalidaHtml(p) {
         return `<li><strong>${_esc(z.label)}</strong>${nota ? ` · ${_esc(nota)}` : ''}</li>`;
       }).join('')}
     </ul>
-  `;
-}
-
-function _salidaSummaryHtml(p, { compact = false } = {}) {
-  const out = p.salida || {};
-  const firma = String(out.firmaPath || '').trim();
-  return `
-    <section class="pap-salida-block">
-      <div class="pap-salida-block__head">
-        <h3>Datos de salida</h3>
-        <span class="pap-status-text pap-status-text--entregada">Entrega</span>
-      </div>
-      ${_unitIdentityHtml(p)}
-      <div class="pap-fields-2">
-        <div class="pap-field"><label>KM salida</label><input value="${_esc(out.km ?? '—')}" disabled/></div>
-        <div class="pap-field"><label>Gas salida</label><input value="${_esc(out.gas || '—')}" disabled/></div>
-        <div class="pap-field"><label>Quién entrega</label><input value="${_esc(out.quienEntrega || '—')}" disabled/></div>
-        <div class="pap-field"><label>Cliente</label><input value="${_esc(p.clienteNombre || 'Sin cliente')}" disabled/></div>
-      </div>
-      ${!compact ? `
-        <h3 class="pap-subhead">Checklist salida</h3>
-        ${_checklistReadonlyHtml(p)}
-        <h3 class="pap-subhead">Daños / rayones salida</h3>
-        ${_danosSalidaHtml(p)}
-        ${firma ? '<p class="pap-hint">Firma de entrega capturada.</p><div class="pap-firma-host" data-firma-preview></div>' : '<p class="pap-hint">Sin firma en archivo.</p>'}
-      ` : `
-        <p class="pap-hint">Revisa la pestaña <b>Salida</b> para checklist, daños y fotos.</p>
-      `}
-    </section>
-  `;
-}
-
-function _panelSalidaView(p) {
-  return `
-    <div class="pap-panel pap-panel--regreso">
-      <h2>Salida registrada</h2>
-      ${_salidaSummaryHtml(p, { compact: false })}
-      <h3 class="pap-subhead">Fotos de salida</h3>
-      <div class="pap-photos" id="papCompare"></div>
-      <div class="pap-actions pap-actions--sticky">
-        <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="goto-entrada">Ir a regreso</button>
-        <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="pdf">Exportar</button>
-      </div>
-    </div>
-  `;
-}
-
-function _panelEntrada(p) {
-  const locked = p.status === 'en_retorno' || p.status === 'cerrada_historial';
-  const e = p.entrada || {};
-  return `
-    <div class="pap-panel pap-panel--regreso">
-      <h2>${locked ? 'Regreso registrado' : 'Registrar regreso'}</h2>
-      ${_salidaSummaryHtml(p, { compact: true })}
-      <section class="pap-entrada-block">
-        <div class="pap-salida-block__head">
-          <h3>Datos de entrada</h3>
-          <span class="pap-status-text pap-status-text--${_esc(p.status)}">${_esc(STATUS_LABELS_SHORT[p.status] || p.status)}</span>
-        </div>
-        <div class="pap-field">
-          <label>Quién recibe</label>
-          <input id="papQuienRecibe" value="${_esc(e.quienRecibe || _user().nombre)}" ${locked ? 'disabled' : ''} autocomplete="name"/>
-        </div>
-        <div class="pap-fields-2">
-          <div class="pap-field">
-            <label>KM entrada</label>
-            <input id="papKmIn" type="text" inputmode="numeric" pattern="[0-9]*" value="${_esc(e.km ?? '')}" ${locked ? 'disabled' : ''} autocomplete="off"/>
-          </div>
-          <div class="pap-field">
-            <label>Gas entrada</label>
-            <select id="papGasIn" ${locked ? 'disabled' : ''}>${_gasOptionsHtml(e.gas || '')}</select>
-          </div>
-        </div>
-        <div class="pap-field">
-          <label>Notas / interiores</label>
-          <textarea id="papNotasIn" rows="3" ${locked ? 'disabled' : ''}>${_esc(e.notas || '')}</textarea>
-        </div>
-        <h3 class="pap-subhead">Fotos salida (referencia)</h3>
-        <div class="pap-photos" id="papCompare"></div>
-      </section>
-      ${!locked ? `
-        <div class="pap-actions pap-actions--sticky">
-          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-entrada" ${_busy ? 'disabled' : ''}>Registrar entrada</button>
-        </div>
-      ` : `<p class="pap-card__meta">Entrada registrada · unidad liberada para nueva papeleta</p>`}
-    </div>
   `;
 }
 
@@ -1145,7 +1262,19 @@ function _bind() {
       if (!_detail || !puedeEditar(_detail.status)) return;
       if (!_detail.checklist) _detail.checklist = {};
       _detail.checklist[btn.dataset.key] = btn.dataset.val;
+      // keep strokes across checklist re-render
+      if (_diagramApi) _localStrokes = _diagramApi.getStrokes();
       _render();
+    });
+  });
+  root.querySelectorAll('[data-act="gas-set"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.gasFor;
+      const hidden = id ? root.querySelector('#' + id) : null;
+      if (hidden) hidden.value = btn.dataset.val || '';
+      root.querySelectorAll(`[data-act="gas-set"][data-gas-for="${id}"]`).forEach((b) => {
+        b.classList.toggle('is-on', b === btn);
+      });
     });
   });
   root.querySelectorAll('[data-act="zona-jump"]').forEach((btn) => {
@@ -1292,12 +1421,15 @@ async function _saveDatos() {
       delete patch.clienteNombre;
     }
     if (puedeEditar(_detail.status)) {
+      const strokes = _diagramApi ? _diagramApi.getStrokes() : (_localStrokes || _detail.diagramaStrokes || []);
+      _localStrokes = strokes;
       await actualizarPapeleta(_detail.id, {
         ...patch,
         checklist,
         marcaLlantas: patch.marcaLlantas || '',
         notasInteriores: patch.notasInteriores || '',
         contrato: patch.contrato || '',
+        diagramaStrokes: strokes,
         salida: {
           ...(_detail.salida || {}),
           km: Number.isFinite(km) ? km : (_detail.salida?.km ?? null),

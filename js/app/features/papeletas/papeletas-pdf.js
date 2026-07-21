@@ -6,6 +6,7 @@ import {
 import { exportMatrixCsv, exportMatrixXls } from '/js/core/export-menu.js';
 import { ZONAS_V1, CHECKLIST_KEYS, CHECKLIST_LABELS } from '/domain/papeleta.model.js';
 import { getDownloadUrl } from '/js/app/features/papeletas/papeletas-storage.js';
+import { strokesToDataUrl } from '/js/app/features/papeletas/papeletas-diagram.js';
 
 function _esc(s) {
   return String(s ?? '')
@@ -107,6 +108,12 @@ export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null
     </figure>`;
   }).join('');
 
+  const strokes = Array.isArray(papeleta.diagramaStrokes) ? papeleta.diagramaStrokes : [];
+  const diagramUrl = strokes.length ? strokesToDataUrl(strokes) : '';
+  const diagramHtml = diagramUrl
+    ? `<h2>Diagrama (marcas)</h2><img class="diagram" src="${_esc(diagramUrl)}" alt="Diagrama rayado"/>`
+    : '<h2>Diagrama (marcas)</h2><p>Sin marcas en diagrama.</p>';
+
   const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"/>
 <title>${_esc(fileTitle)}</title>
@@ -134,6 +141,7 @@ export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null
   .ph img{width:100%;height:72px;object-fit:cover;display:block}
   .ph-empty{height:72px;display:grid;place-items:center;color:#94a3b8;font-size:10px;background:#1e293b}
   .ph figcaption{font-size:9px;padding:3px 5px;background:#fff;color:#475569}
+  .diagram{display:block;width:100%;max-width:420px;border:1px solid #cbd5e1;border-radius:4px;margin:8px 0 12px;background:#f8fafc}
   .firma{margin-top:12px;max-width:240px}
   .firma img{max-width:100%;border:1px solid #e2e8f0;border-radius:4px;background:#fff}
   .footer{margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b}
@@ -189,6 +197,8 @@ export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null
 
 <h2>Notas / interiores</h2>
 <p>${_esc(papeleta.notasInteriores || papeleta.entrada?.notas || '—')}</p>
+
+${diagramHtml}
 
 <h2>Daños marcados (${zonasDano.length})</h2>
 ${zonasDano.length
