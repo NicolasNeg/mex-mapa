@@ -1206,4 +1206,19 @@ body.dark-theme .cf-modal {
   z-index: 500;
   overflow-y: auto;
   min-height: 100dvh;
+  display: flex;
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+
+.cf.is-fullscreen-sign .cf-shell {
+  width: 100%;
+  margin: auto;
+}
+
+.cf.is-fullscreen-sign .cf-sign-pad,
+.cf.is-fullscreen-sign .cf-sign-pad canvas {
+  height: min(52dvh, 420px);
 }
