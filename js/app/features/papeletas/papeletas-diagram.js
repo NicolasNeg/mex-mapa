@@ -1,40 +1,59 @@
 /**
  * Drawable vehicle diagram for papeletas (freehand marks over multi-view SVG).
  * Strokes are normalized 0–1 so they survive resize.
+ * Layout mirrors paper HOJA: front / left / top / right / rear.
  */
 
-const VIEWBOX = { w: 360, h: 280 };
+const VIEWBOX = { w: 360, h: 300 };
 
-/** Minimal multi-view car silhouette (front / top / sides / rear). */
+/** Multi-view car silhouette closer to paper inspection sheet. */
 export function diagramSvgMarkup() {
   return `
 <svg class="pap-diagram__svg" viewBox="0 0 ${VIEWBOX.w} ${VIEWBOX.h}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-  <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85">
-    <!-- Top (center) -->
-    <rect x="118" y="78" width="124" height="124" rx="18"/>
-    <rect x="138" y="98" width="84" height="40" rx="4"/>
-    <rect x="138" y="148" width="84" height="36" rx="4"/>
-    <circle cx="132" cy="108" r="7"/><circle cx="228" cy="108" r="7"/>
-    <circle cx="132" cy="172" r="7"/><circle cx="228" cy="172" r="7"/>
-    <!-- Front (top) -->
-    <path d="M150 18 h60 c14 0 22 8 22 18 v18 H128 V36 c0-10 8-18 22-18z"/>
-    <line x1="140" y1="42" x2="220" y2="42"/>
-    <!-- Rear (bottom) -->
-    <path d="M150 244 h60 c14 0 22-8 22-18 v-14 H128 v14 c0 10 8 18 22 18z"/>
-    <line x1="140" y1="226" x2="220" y2="226"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Front elevation (top) -->
+    <g opacity="0.9">
+      <path d="M142 10 h76 c18 0 28 10 30 22 l6 18 H106 l6-18 c2-12 12-22 30-22z"/>
+      <rect x="128" y="38" width="104" height="22" rx="3"/>
+      <line x1="148" y1="28" x2="212" y2="28"/>
+      <circle cx="136" cy="54" r="5"/><circle cx="224" cy="54" r="5"/>
+    </g>
+    <!-- Top / plan (center) -->
+    <g opacity="0.95">
+      <rect x="118" y="78" width="124" height="132" rx="20"/>
+      <path d="M138 98 h84 v28 h-84z" opacity="0.7"/>
+      <path d="M138 140 h84 v28 h-84z" opacity="0.55"/>
+      <path d="M138 180 h84 v16 h-84z" opacity="0.4"/>
+      <circle cx="130" cy="108" r="8"/><circle cx="230" cy="108" r="8"/>
+      <circle cx="130" cy="180" r="8"/><circle cx="230" cy="180" r="8"/>
+      <line x1="180" y1="86" x2="180" y2="202" stroke-dasharray="3 4" opacity="0.35"/>
+    </g>
+    <!-- Rear elevation (bottom) -->
+    <g opacity="0.9">
+      <path d="M142 278 h76 c18 0 28-10 30-22 l6-14 H106 l6 14 c2 12 12 22 30 22z"/>
+      <rect x="128" y="236" width="104" height="18" rx="3"/>
+      <line x1="148" y1="258" x2="212" y2="258"/>
+      <circle cx="136" cy="246" r="5"/><circle cx="224" cy="246" r="5"/>
+    </g>
     <!-- Left side -->
-    <path d="M28 110 h56 c8 0 12 6 12 14 v32 c0 8-4 14-12 14 H28 c-8 0-12-6-12-14 v-32 c0-8 4-14 12-14z"/>
-    <circle cx="40" cy="158" r="6"/><circle cx="72" cy="158" r="6"/>
+    <g opacity="0.9">
+      <path d="M18 118 h62 c10 0 16 8 16 16 v40 c0 8-6 16-16 16 H18 c-10 0-16-8-16-16 v-40 c0-8 6-16 16-16z"/>
+      <path d="M30 130 h38 v20 H30z" opacity="0.55"/>
+      <circle cx="32" cy="176" r="7"/><circle cx="66" cy="176" r="7"/>
+    </g>
     <!-- Right side -->
-    <path d="M276 110 h56 c8 0 12 6 12 14 v32 c0 8-4 14-12 14 h-56 c-8 0-12-6-12-14 v-32 c0-8 4-14 12-14z"/>
-    <circle cx="288" cy="158" r="6"/><circle cx="320" cy="158" r="6"/>
+    <g opacity="0.9">
+      <path d="M280 118 h62 c10 0 16 8 16 16 v40 c0 8-6 16-16 16 h-62 c-10 0-16-8-16-16 v-40 c0-8 6-16 16-16z"/>
+      <path d="M292 130 h38 v20 h-38z" opacity="0.55"/>
+      <circle cx="294" cy="176" r="7"/><circle cx="328" cy="176" r="7"/>
+    </g>
   </g>
-  <g fill="currentColor" font-size="9" font-family="Inter,sans-serif" opacity="0.45">
-    <text x="180" y="14" text-anchor="middle">FRENTE</text>
-    <text x="180" y="274" text-anchor="middle">TRASERA</text>
-    <text x="44" y="100" text-anchor="middle">IZQ</text>
-    <text x="316" y="100" text-anchor="middle">DER</text>
-    <text x="180" y="92" text-anchor="middle">SUPERIOR</text>
+  <g fill="currentColor" font-size="9" font-family="Inter,sans-serif" opacity="0.5" letter-spacing="0.04em">
+    <text x="180" y="8" text-anchor="middle">FRENTE</text>
+    <text x="180" y="296" text-anchor="middle">TRASERA</text>
+    <text x="49" y="112" text-anchor="middle">IZQ</text>
+    <text x="311" y="112" text-anchor="middle">DER</text>
+    <text x="180" y="90" text-anchor="middle">SUPERIOR</text>
   </g>
 </svg>`;
 }
@@ -61,7 +80,7 @@ export function mountDiagram(host, opts = {}) {
   host.innerHTML = `
     <div class="pap-diagram" data-diagram-root>
       <div class="pap-diagram__toolbar">
-        <span class="pap-diagram__title">Diagrama — rayar daños</span>
+        <span class="pap-diagram__title">Diagrama del vehículo — rayar daños</span>
         <div class="pap-diagram__actions">
           ${editable ? `
             <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny" data-diagram-act="undo" title="Deshacer">
@@ -79,6 +98,7 @@ export function mountDiagram(host, opts = {}) {
       </div>
       <div class="pap-diagram__legend">
         ${DIAGRAM_LEGEND.map((l) => `<span><b>${l.mark}</b> ${l.label}</span>`).join('')}
+        ${editable ? '<span class="pap-diagram__tip">Usa el dedo o mouse para marcar</span>' : ''}
       </div>
     </div>
   `;
@@ -205,33 +225,7 @@ export function mountDiagram(host, opts = {}) {
   }
 
   function toDataUrl() {
-    // Composite SVG + canvas into offscreen canvas for PDF
-    const out = document.createElement('canvas');
-    out.width = VIEWBOX.w * 2;
-    out.height = VIEWBOX.h * 2;
-    const octx = out.getContext('2d');
-    octx.fillStyle = '#ffffff';
-    octx.fillRect(0, 0, out.width, out.height);
-    octx.strokeStyle = '#334155';
-    octx.lineWidth = 2;
-    // Draw strokes scaled
-    octx.lineCap = 'round';
-    octx.lineJoin = 'round';
-    for (const s of strokes) {
-      if (!s.points?.length) continue;
-      octx.strokeStyle = s.color || '#dc2626';
-      octx.lineWidth = (s.width || 2.5) * 2;
-      octx.beginPath();
-      s.points.forEach((p, i) => {
-        const x = p.x * out.width;
-        const y = p.y * out.height;
-        if (i === 0) octx.moveTo(x, y);
-        else octx.lineTo(x, y);
-      });
-      octx.stroke();
-    }
-    // Note: SVG base is shown in HTML PDF separately; this exports marks layer.
-    return out.toDataURL('image/png');
+    return strokesToDataUrl(strokes);
   }
 
   function destroy() {
@@ -260,7 +254,7 @@ function _cloneStroke(s) {
   };
 }
 
-/** Render marks-only PNG data URL for PDF (sync). */
+/** Render marks + light guide boxes as PNG data URL for PDF (sync). */
 export function strokesToDataUrl(strokes = []) {
   const out = document.createElement('canvas');
   out.width = VIEWBOX.w * 2;
@@ -268,10 +262,13 @@ export function strokesToDataUrl(strokes = []) {
   const octx = out.getContext('2d');
   octx.fillStyle = '#f8fafc';
   octx.fillRect(0, 0, out.width, out.height);
-  // Light guide boxes
   octx.strokeStyle = '#94a3b8';
   octx.lineWidth = 2;
-  octx.strokeRect(out.width * 0.33, out.height * 0.28, out.width * 0.34, out.height * 0.44);
+  // Guide: top plan box
+  octx.strokeRect(out.width * 0.33, out.height * 0.26, out.width * 0.34, out.height * 0.44);
+  // Front / rear guides
+  octx.strokeRect(out.width * 0.36, out.height * 0.03, out.width * 0.28, out.height * 0.16);
+  octx.strokeRect(out.width * 0.36, out.height * 0.78, out.width * 0.28, out.height * 0.16);
   octx.lineCap = 'round';
   octx.lineJoin = 'round';
   for (const s of strokes || []) {

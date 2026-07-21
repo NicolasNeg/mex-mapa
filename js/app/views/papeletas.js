@@ -52,6 +52,7 @@ import {
 } from '/js/app/features/papeletas/papeletas-reportes-data.js';
 import { buscarUnidad } from '/js/app/features/unidades/unidades-data.js';
 import { mountDiagram, strokesToDataUrl, diagramSvgMarkup } from '/js/app/features/papeletas/papeletas-diagram.js';
+import { openGuidedCamera } from '/js/app/features/papeletas/papeletas-camera.js';
 
 let _container = null;
 let _navigate = null;
@@ -79,6 +80,7 @@ let _pendingSalida = { km: null, gas: null };
 let _fotoCache = new Map();
 let _diagramApi = null;
 let _localStrokes = null;
+let _cameraApi = null;
 
 const LIST_ROUTE = '/app/papeletas';
 const VENTAS_ROUTE = '/app/papeletas/ventas';
@@ -479,6 +481,7 @@ export async function mount(ctx) {
 }
 
 export function unmount() {
+  _closeGuidedCamera();
   _cleanup();
   _destroyDiagram();
   _localStrokes = null;
@@ -502,6 +505,8 @@ function _watchDetail(id) {
           _wizardStep = _defaultStepFor(doc);
         }
       }
+      // Don't tear down fullscreen camera on live snapshot updates
+      if (_cameraApi) return;
       _render();
     },
   });
@@ -982,10 +987,21 @@ function _panelZonas(p, editable) {
   const z = ZONAS_V1[_zonaIdx] || ZONAS_V1[0];
   const data = p.zonas?.[z.id] || { estado: 'ok', nota: '', fotoPath: '' };
   const n = _fotosCount(p);
+  const nextPending = ZONAS_V1.findIndex((zona) => !String(p.zonas?.[zona.id]?.fotoPath || '').trim());
+  const startHint = nextPending >= 0 ? nextPending + 1 : Math.min(_zonaIdx + 1, 12);
   return `
     <div class="pap-panel pap-panel--wide pap-panel--zona">
       <h2>Fotos y daños</h2>
-      <p class="pap-hint">Último paso: toca una zona para saltar. ${n}/12 fotos.</p>
+      <p class="pap-hint">Recorre las 12 partes en orden. ${n}/12 fotos listas.</p>
+      ${editable ? `
+        <div class="pap-cam-cta">
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block pap-btn--cam" data-act="open-camera" ${_busy ? 'disabled' : ''}>
+            <span class="material-symbols-outlined">photo_camera</span>
+            Abrir cámara guiada · desde ${startHint}/12
+          </button>
+          <p class="pap-cam-cta__hint">Pantalla completa: captura y avanza sin salir. También puedes subir desde galería dentro de la cámara.</p>
+        </div>
+      ` : ''}
       <div class="pap-zona-chips" role="tablist" aria-label="Zonas del vehículo">
         ${ZONAS_V1.map((zona, idx) => `
           <button type="button" class="${_zonaChipClass(p, zona, idx)}" data-act="zona-jump" data-idx="${idx}" title="${_esc(zona.label)}">
@@ -1022,10 +1038,10 @@ function _panelZonas(p, editable) {
           <img data-zona-preview alt="" class="pap-cam__preview"${data.fotoPath ? '' : ' hidden'}/>
           <div class="pap-cam__status" data-foto-status>${data.fotoPath ? 'Foto lista ✓' : 'Falta foto de esta parte'}</div>
           ${editable ? `
-            <label class="pap-cam__btn">
-              <input type="file" accept="image/*" capture="environment" data-zona-foto data-autosave="1" hidden/>
-              <span class="material-symbols-outlined">photo_camera</span>
-              ${data.fotoPath ? 'Repetir foto' : 'Tomar foto'}
+            <label class="pap-cam__btn pap-cam__btn--ghost">
+              <input type="file" accept="image/*" data-zona-foto data-autosave="1" hidden/>
+              <span class="material-symbols-outlined">upload</span>
+              Subir desde dispositivo
             </label>
             ${data.estado === 'dano' ? `
               <label class="pap-cam__btn pap-cam__btn--ghost">
@@ -1039,8 +1055,11 @@ function _panelZonas(p, editable) {
       </div>
       ${editable ? `
         <div class="pap-actions pap-actions--sticky">
-          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-zona" ${_busy ? 'disabled' : ''}>
-            ${data.fotoPath ? (_zonaIdx < 11 ? 'Guardar y siguiente zona' : 'Guardar y continuar') : 'Guardar foto'}
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="open-camera" ${_busy ? 'disabled' : ''}>
+            Continuar con cámara guiada
+          </button>
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="save-zona" ${_busy ? 'disabled' : ''}>
+            ${data.fotoPath ? (_zonaIdx < 11 ? 'Guardar nota y siguiente' : 'Guardar y continuar') : 'Guardar zona (requiere foto)'}
           </button>
           <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="goto-resumen">Ir a entregar</button>
         </div>
@@ -1364,6 +1383,9 @@ function _bind() {
       _render();
     });
   });
+  root.querySelectorAll('[data-act="open-camera"]').forEach((btn) => {
+    btn.addEventListener('click', () => _openGuidedCamera());
+  });
   root.querySelector('[data-act="goto-resumen"]')?.addEventListener('click', () => {
     _wizardStep = 'resumen';
     _render();
@@ -1579,6 +1601,83 @@ async function _saveDatos() {
   }
 }
 
+function _closeGuidedCamera() {
+  if (_cameraApi) {
+    try { _cameraApi.close(); } catch (_) { /* ignore */ }
+  }
+  _cameraApi = null;
+}
+
+/**
+ * Persist a zone photo without tearing down the guided camera overlay.
+ * @param {number} zonaIdx
+ * @param {File|Blob|null} file
+ * @param {{ estado?: string, nota?: string, advanceUi?: boolean }} opts
+ */
+async function _persistZonaFoto(zonaIdx, file, opts = {}) {
+  if (!_detail) throw new Error('Sin papeleta');
+  const z = ZONAS_V1[zonaIdx];
+  if (!z) throw new Error('Zona inválida');
+  const zonas = { ...(_detail.zonas || {}) };
+  const cur = { ...(zonas[z.id] || { estado: 'ok', nota: '', fotoPath: '' }) };
+  if (opts.estado) cur.estado = opts.estado;
+  if (opts.nota != null) cur.nota = truncNota(opts.nota);
+  if (file) {
+    cur.fotoPath = await uploadZonaFoto(_detail.id, z.id, file);
+    _fotoCache.delete(cur.fotoPath);
+  }
+  if (!cur.fotoPath) throw new Error('La foto de la zona es obligatoria');
+  zonas[z.id] = cur;
+  await actualizarPapeleta(_detail.id, { zonas }, { user: _user() });
+  // Optimistic local update so camera hasFoto() stays in sync
+  if (_detail) _detail.zonas = zonas;
+  _zonaIdx = zonaIdx;
+  if (opts.advanceUi) {
+    if (zonaIdx < 11) _zonaIdx = zonaIdx + 1;
+    else _wizardStep = 'resumen';
+  }
+  return cur;
+}
+
+function _openGuidedCamera() {
+  if (!_detail || !puedeEditar(_detail.status)) return;
+  _closeGuidedCamera();
+  const pending = ZONAS_V1.findIndex((z) => !String(_detail.zonas?.[z.id]?.fotoPath || '').trim());
+  const startIndex = pending >= 0 ? pending : _zonaIdx;
+  _cameraApi = openGuidedCamera({
+    zones: ZONAS_V1.map((z) => ({ id: z.id, label: z.label })),
+    startIndex,
+    hasFoto: (zonaId) => !!String(_detail?.zonas?.[zonaId]?.fotoPath || '').trim(),
+    onCapture: async (zona, index, file) => {
+      await _persistZonaFoto(index, file, {
+        estado: _detail?.zonas?.[zona.id]?.estado || 'ok',
+        nota: _detail?.zonas?.[zona.id]?.nota || '',
+      });
+    },
+    onSkip: (_zona, index) => { _zonaIdx = index; },
+    onMarkDamage: async (zona, index) => {
+      _zonaIdx = index;
+      if (!_detail.zonas) _detail.zonas = {};
+      const cur = { ...(_detail.zonas[zona.id] || {}), estado: 'dano' };
+      _detail.zonas[zona.id] = cur;
+      let nota = cur.nota || '';
+      try {
+        if (typeof window.mexPrompt === 'function') {
+          nota = await window.mexPrompt('Daño en zona', `Nota corta para ${zona.label} (opcional)`, cur.nota || '');
+        } else {
+          nota = prompt(`Nota daño · ${zona.label}`, cur.nota || '') || '';
+        }
+      } catch (_) { /* cancelled */ }
+      cur.nota = truncNota(nota || '');
+      await actualizarPapeleta(_detail.id, { zonas: { ..._detail.zonas, [zona.id]: cur } }, { user: _user() });
+    },
+    onClose: () => {
+      _cameraApi = null;
+      if (_container) _render();
+    },
+  });
+}
+
 async function _saveZona() {
   if (!_detail) return;
   const z = ZONAS_V1[_zonaIdx];
@@ -1594,7 +1693,7 @@ async function _saveZona() {
     cur.nota = nota;
     if (file) cur.fotoPath = await uploadZonaFoto(_detail.id, z.id, file);
     if (det) cur.fotoDetallePath = await uploadZonaDetalle(_detail.id, z.id, det);
-    if (!cur.fotoPath) throw new Error('La foto de la zona es obligatoria');
+    if (!cur.fotoPath) throw new Error('La foto de la zona es obligatoria — usa la cámara guiada o sube una imagen');
     zonas[z.id] = cur;
     await actualizarPapeleta(_detail.id, { zonas }, { user: _user() });
     if (_zonaIdx < 11) _zonaIdx += 1;
