@@ -185,16 +185,29 @@ function _normalizeWizardStep(step) {
   return step;
 }
 
+/** Exact order from Panel Admin → Gasolinas (MEX_CONFIG.listas.gasolinas). Do not re-sort. */
+const _GAS_FALLBACK = [
+  'F', '15/16', '7/8', '13/16', '3/4', '11/16', '5/8', '9/16',
+  'H', '7/16', '3/8', '5/16', '1/4', '3/16', '1/8', '1/16', 'E', 'N/A',
+];
+
 function _gasCatalog() {
   const configured = Array.isArray(window.MEX_CONFIG?.listas?.gasolinas)
     ? window.MEX_CONFIG.listas.gasolinas
     : [];
   const values = configured
-    .map((item) => String((item && typeof item === 'object' ? (item.nombre ?? item.valor ?? '') : item) || '').trim().toUpperCase())
+    .map((item) => String((item && typeof item === 'object' ? (item.nombre ?? item.valor ?? item.id ?? '') : item) || '').trim().toUpperCase())
     .filter(Boolean);
-  const base = values.length ? values : ['E', '1/8', '1/4', '3/8', 'H', '5/8', '3/4', '7/8', 'F', 'N/A'];
-  if (!base.includes('N/A')) base.push('N/A');
-  return Array.from(new Set(base));
+  const base = values.length ? values : _GAS_FALLBACK.slice();
+  const out = [];
+  const seen = new Set();
+  for (const v of base) {
+    if (seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  if (!seen.has('N/A')) out.push('N/A');
+  return out;
 }
 
 function _gasOptionsHtml(selected) {
@@ -204,17 +217,10 @@ function _gasOptionsHtml(selected) {
   return opts.map((v) => `<option value="${_esc(v)}" ${safe === v ? 'selected' : ''}>${_esc(v)}</option>`).join('');
 }
 
-function _paperGasScale() {
-  const preferred = ['E', '1/8', '1/4', '3/8', 'H', '5/8', '3/4', '7/8', 'F'];
-  const catalog = _gasCatalog().filter((v) => v !== 'N/A');
-  const ordered = preferred.filter((v) => catalog.includes(v));
-  const rest = catalog.filter((v) => !preferred.includes(v));
-  return ordered.length ? [...ordered, ...rest] : preferred;
-}
-
 function _gasChipsHtml(selected, inputId, disabled) {
   const safe = String(selected || '').trim().toUpperCase();
-  const opts = _paperGasScale();
+  // Same global order as selects / mapa — never reorder preferred vs rest.
+  const opts = _gasCatalog().slice();
   if (safe && !opts.includes(safe)) opts.unshift(safe);
   return `
     <input type="hidden" id="${_esc(inputId)}" value="${_esc(safe)}"/>

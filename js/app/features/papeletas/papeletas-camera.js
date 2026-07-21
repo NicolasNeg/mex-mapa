@@ -16,6 +16,13 @@
  * }} GuidedCameraOpts
  */
 
+const CONSTRAINT_CHAIN = [
+  { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
+  { audio: false, video: { facingMode: 'environment' } },
+  { audio: false, video: { facingMode: { ideal: 'user' } } },
+  { audio: false, video: true },
+];
+
 /**
  * @param {GuidedCameraOpts} opts
  * @returns {{ close: () => void, setIndex: (i: number) => void }}
@@ -29,6 +36,8 @@ export function openGuidedCamera(opts) {
   let busy = false;
   let lastBlobUrl = '';
   let toastTimer = null;
+  let closed = false;
+  let starting = false;
 
   const root = document.createElement('div');
   root.className = 'pap-camflow';
@@ -49,7 +58,7 @@ export function openGuidedCamera(opts) {
       </button>
     </div>
     <div class="pap-camflow__stage">
-      <video class="pap-camflow__video" playsinline muted autoplay></video>
+      <video class="pap-camflow__video" playsinline webkit-playsinline muted autoplay></video>
       <img class="pap-camflow__shot" alt="" hidden/>
       <div class="pap-camflow__fallback" hidden>
         <p>No se pudo abrir la cámara en este dispositivo.</p>
@@ -75,7 +84,7 @@ export function openGuidedCamera(opts) {
   document.body.appendChild(root);
   document.body.classList.add('pap-camflow-open');
 
-  const video = root.querySelector('.pap-camflow__video');
+  const video = /** @type {HTMLVideoElement} */ (root.querySelector('.pap-camflow__video'));
   const shot = root.querySelector('.pap-camflow__shot');
   const fallback = root.querySelector('.pap-camflow__fallback');
   const toastEl = root.querySelector('[data-cam-toast]');
@@ -83,8 +92,30 @@ export function openGuidedCamera(opts) {
   const subEl = root.querySelector('[data-cam-sub]');
   const hintEl = root.querySelector('[data-cam-hint]');
 
+  // iOS Safari needs these as properties, not only attributes.
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.muted = true;
+  video.autoplay = true;
+  video.playsInline = true;
+
   function zone() {
     return zones[idx];
+  }
+
+  function hasLiveStream() {
+    return !!(stream && stream.getTracks().some((t) => t.readyState === 'live'));
+  }
+
+  function setFallbackVisible(show) {
+    // Only hard-error when there is truly no usable stream.
+    fallback.hidden = !show;
+    if (show) {
+      video.classList.add('is-obscured');
+    } else {
+      video.classList.remove('is-obscured');
+      video.hidden = false;
+    }
   }
 
   function refreshChrome() {
@@ -120,44 +151,113 @@ export function openGuidedCamera(opts) {
     }
   }
 
-  async function startStream() {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      fallback.hidden = false;
-      video.hidden = true;
-      return false;
-    }
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
+  function stopStream() {
+    if (stream) {
+      stream.getTracks().forEach((t) => {
+        try { t.stop(); } catch (_) { /* ignore */ }
       });
-      video.srcObject = stream;
-      await video.play().catch(() => {});
-      fallback.hidden = true;
-      video.hidden = false;
-      return true;
-    } catch (_) {
-      fallback.hidden = false;
-      video.hidden = true;
-      return false;
+      stream = null;
+    }
+    if (video) {
+      try { video.pause(); } catch (_) { /* ignore */ }
+      video.srcObject = null;
     }
   }
 
-  function stopStream() {
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
-      stream = null;
+  function waitForVideoReady(el, timeoutMs = 4000) {
+    if (el.videoWidth > 0 && el.videoHeight > 0) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (ok) => {
+        if (done) return;
+        done = true;
+        el.removeEventListener('loadedmetadata', onMeta);
+        el.removeEventListener('playing', onPlaying);
+        clearTimeout(timer);
+        resolve(ok);
+      };
+      const onMeta = () => {
+        if (el.videoWidth > 0) finish(true);
+      };
+      const onPlaying = () => {
+        if (el.videoWidth > 0) finish(true);
+      };
+      el.addEventListener('loadedmetadata', onMeta);
+      el.addEventListener('playing', onPlaying);
+      const timer = setTimeout(() => finish(el.videoWidth > 0), timeoutMs);
+    });
+  }
+
+  async function tryGetUserMedia() {
+    if (!navigator.mediaDevices?.getUserMedia) return null;
+    let lastErr = null;
+    for (const constraints of CONSTRAINT_CHAIN) {
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        lastErr = err;
+      }
     }
-    if (video) video.srcObject = null;
+    if (lastErr) throw lastErr;
+    return null;
+  }
+
+  async function attachStream(mediaStream) {
+    stopStream();
+    stream = mediaStream;
+    video.srcObject = mediaStream;
+    video.hidden = false;
+    // play() may reject on some WebViews; stream can still paint after metadata.
+    await video.play().catch(() => {});
+    const painted = await waitForVideoReady(video);
+    return painted || hasLiveStream();
+  }
+
+  async function startStream() {
+    if (closed || starting) return false;
+    starting = true;
+    setFallbackVisible(false);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setFallbackVisible(true);
+        return false;
+      }
+      const mediaStream = await tryGetUserMedia();
+      if (closed) {
+        mediaStream?.getTracks().forEach((t) => t.stop());
+        return false;
+      }
+      if (!mediaStream) {
+        setFallbackVisible(true);
+        return false;
+      }
+      const ok = await attachStream(mediaStream);
+      if (closed) {
+        stopStream();
+        return false;
+      }
+      if (ok || hasLiveStream()) {
+        // Live preview even if first frame is still settling — never hard-error.
+        setFallbackVisible(false);
+        video.hidden = false;
+        return true;
+      }
+      stopStream();
+      setFallbackVisible(true);
+      return false;
+    } catch (_) {
+      stopStream();
+      if (!closed) setFallbackVisible(true);
+      return false;
+    } finally {
+      starting = false;
+    }
   }
 
   function captureFromVideo() {
-    const w = video.videoWidth || 1280;
-    const h = video.videoHeight || 720;
+    if (!hasLiveStream()) return null;
+    const w = video.videoWidth || 0;
+    const h = video.videoHeight || 0;
     if (!w || !h) return null;
     const canvas = document.createElement('canvas');
     canvas.width = w;
@@ -185,7 +285,7 @@ export function openGuidedCamera(opts) {
   }
 
   async function handleFile(file) {
-    if (!file || busy) return;
+    if (!file || busy || closed) return;
     busy = true;
     root.classList.add('is-busy');
     try {
@@ -194,7 +294,6 @@ export function openGuidedCamera(opts) {
       showToast('Foto tomada');
       await opts.onCapture(zone(), idx, file);
       const next = nextPendingIndex(idx);
-      // Brief pause so toast is readable, then advance
       await new Promise((r) => setTimeout(r, 450));
       idx = next;
       showPreview('');
@@ -209,20 +308,29 @@ export function openGuidedCamera(opts) {
   }
 
   async function onShutter() {
-    if (busy) return;
-    if (video.hidden || !stream) {
+    if (busy || closed) return;
+    if (!hasLiveStream() || video.hidden) {
       root.querySelector('[data-cam-file-capture]')?.click();
       return;
     }
     const file = await captureFromVideo();
     if (!file) {
-      root.querySelector('[data-cam-file-capture]')?.click();
+      // Frame not ready yet — wait briefly then retry once before system camera.
+      await waitForVideoReady(video, 1500);
+      const retry = await captureFromVideo();
+      if (!retry) {
+        root.querySelector('[data-cam-file-capture]')?.click();
+        return;
+      }
+      await handleFile(retry);
       return;
     }
     await handleFile(file);
   }
 
   function close() {
+    if (closed) return;
+    closed = true;
     if (toastTimer) clearTimeout(toastTimer);
     stopStream();
     if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
