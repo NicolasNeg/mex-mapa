@@ -14,6 +14,7 @@ import {
   DAMAGE_TYPE_LABELS,
   DAMAGE_SEVERITIES,
   DAMAGE_SEVERITY_LABELS,
+  DAMAGE_PHOTO_POLICY,
   puedeEditar,
   puedeEntregar,
   allZonasHaveFoto,
@@ -39,12 +40,14 @@ import {
   finalizeDelivery,
   registrarEntrada,
   asignarCliente,
+  cancelarPapeleta,
 } from '/js/app/features/papeletas/papeletas-data.js';
 import {
   uploadZonaFoto,
   uploadZonaDetalle,
   uploadFirma,
   uploadReporteFoto,
+  uploadDamageFoto,
   getDownloadUrl,
 } from '/js/app/features/papeletas/papeletas-storage.js';
 import {
@@ -300,18 +303,31 @@ async function _addDamageFromTap({ x, y, view }) {
     nextDisplayNumber: num,
     source: 'salida',
   });
-  existing.push(mark);
-  _detail.danosMarcados = existing;
-  _detail.danosLastDisplayNumber = num;
-  if (_diagramApi?.setDamages) _diagramApi.setDamages(existing);
 
   _saveState = 'saving';
   try {
+    if (result.photoFile) {
+      const photoPath = await uploadDamageFoto(_detail.id, mark.id, result.photoFile);
+      mark.photoIds = [photoPath];
+    } else if (result.photoSkipMotivo) {
+      mark.photoSkipMotivo = String(result.photoSkipMotivo).slice(0, 300);
+      mark.photoSkippedAt = new Date().toISOString();
+    }
+    existing.push(mark);
+    _detail.danosMarcados = existing;
+    _detail.danosLastDisplayNumber = num;
+    if (_diagramApi?.setDamages) _diagramApi.setDamages(existing);
     await actualizarPapeleta(_detail.id, {
       danosMarcados: existing,
       danosLastDisplayNumber: num,
     }, { user: _user(), knownRevision: _detail.revision });
     _saveState = 'saved';
+    _trackPapeleta('papeleta_damage_added', {
+      papeletaId: _detail.id,
+      damageId: mark.id,
+      damageType: mark.damageType,
+      hasPhoto: !!(mark.photoIds && mark.photoIds.length),
+    });
   } catch (e) {
     _saveState = e?.code === 'REVISION_CONFLICT' ? 'conflict' : 'idle';
     await _mexAlert('Error', e.message || String(e));
@@ -319,8 +335,9 @@ async function _addDamageFromTap({ x, y, view }) {
 }
 
 /**
- * Bottom sheet: tipo → severidad → nota → guardar.
- * @returns {Promise<null|{ damageType: string, severity: string, note: string, x: number, y: number, view: string }>}
+ * Bottom sheet: tipo → severidad → foto (opc) → nota → guardar.
+ * Soft policy: strongly_recommended sin foto → confirm + motivo.
+ * @returns {Promise<null|{ damageType, severity, note, x, y, view, photoFile?: File, photoSkipMotivo?: string }>}
  */
 function _openDamageSheet({ x, y, view }) {
   return new Promise((resolve) => {
@@ -329,6 +346,14 @@ function _openDamageSheet({ x, y, view }) {
 
     let damageType = 'scratch';
     let severity = 'medium';
+    let photoFile = null;
+
+    const policyHint = (type) => {
+      const p = DAMAGE_PHOTO_POLICY[type] || 'recommended';
+      if (p === 'strongly_recommended') return 'Foto: muy recomendada (se pedirá motivo si omites).';
+      return 'Foto: recomendada (opcional).';
+    };
+
     const root = document.createElement('div');
     root.className = 'pap-dmg-sheet';
     root.setAttribute('role', 'dialog');
@@ -358,11 +383,19 @@ function _openDamageSheet({ x, y, view }) {
             </button>
           `).join('')}
         </div>
+        <p class="pap-hint" data-dmg-policy>${_esc(policyHint('scratch'))}</p>
+        <div class="pap-dmg-sheet__photo">
+          <label class="pap-btn pap-btn--ghost pap-btn--block">
+            <input type="file" accept="image/*" capture="environment" data-dmg-photo hidden/>
+            <span class="material-symbols-outlined">photo_camera</span>
+            <span data-dmg-photo-label>Tomar / subir foto</span>
+          </label>
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny" data-dmg="clear-photo" hidden>Quitar foto</button>
+        </div>
         <label class="pap-field pap-field--full">
           <span>Nota (opcional)</span>
           <textarea data-dmg-note rows="2" placeholder="Detalle breve…" maxlength="500"></textarea>
         </label>
-        <p class="pap-hint">Foto del daño: recomendada (no bloquea guardar).</p>
         <div class="pap-dmg-sheet__actions">
           <button type="button" class="pap-btn pap-btn--ghost" data-dmg="cancel">Cancelar</button>
           <button type="button" class="pap-btn pap-btn--primary" data-dmg="save">Guardar marca</button>
@@ -371,16 +404,32 @@ function _openDamageSheet({ x, y, view }) {
     `;
     document.body.appendChild(root);
 
+    const policyEl = root.querySelector('[data-dmg-policy]');
+    const photoLabel = root.querySelector('[data-dmg-photo-label]');
+    const clearBtn = root.querySelector('[data-dmg="clear-photo"]');
+    const photoInput = root.querySelector('[data-dmg-photo]');
+
     const close = (value) => {
       try { root.remove(); } catch (_) { /* ignore */ }
       resolve(value);
     };
 
-    root.addEventListener('click', (e) => {
+    const refreshPolicy = () => {
+      if (policyEl) policyEl.textContent = policyHint(damageType);
+    };
+
+    photoInput?.addEventListener('change', () => {
+      photoFile = photoInput.files?.[0] || null;
+      if (photoLabel) photoLabel.textContent = photoFile ? (photoFile.name || 'Foto lista') : 'Tomar / subir foto';
+      if (clearBtn) clearBtn.hidden = !photoFile;
+    });
+
+    root.addEventListener('click', async (e) => {
       const t = e.target.closest('[data-dmg-type]');
       if (t) {
         damageType = t.getAttribute('data-dmg-type');
         root.querySelectorAll('[data-dmg-type]').forEach((b) => b.classList.toggle('is-on', b === t));
+        refreshPolicy();
         return;
       }
       const s = e.target.closest('[data-dmg-sev]');
@@ -392,10 +441,49 @@ function _openDamageSheet({ x, y, view }) {
       const act = e.target.closest('[data-dmg]');
       if (!act) return;
       const kind = act.getAttribute('data-dmg');
-      if (kind === 'cancel') close(null);
+      if (kind === 'cancel') {
+        close(null);
+        return;
+      }
+      if (kind === 'clear-photo') {
+        photoFile = null;
+        if (photoInput) photoInput.value = '';
+        if (photoLabel) photoLabel.textContent = 'Tomar / subir foto';
+        if (clearBtn) clearBtn.hidden = true;
+        return;
+      }
       if (kind === 'save') {
         const note = String(root.querySelector('[data-dmg-note]')?.value || '').trim();
-        close({ damageType, severity, note, x, y, view });
+        let photoSkipMotivo = '';
+        const policy = DAMAGE_PHOTO_POLICY[damageType] || 'recommended';
+        if (!photoFile && policy === 'strongly_recommended') {
+          const ok = await _mexConfirm(
+            'Sin foto de daño',
+            'Este tipo de daño recomienda foto. ¿Continuar sin foto?',
+            'warning'
+          );
+          if (!ok) return;
+          let motivo = '';
+          try {
+            if (typeof window.mexPrompt === 'function') {
+              motivo = await window.mexPrompt('Motivo', '¿Por qué omites la foto?', 'Sin acceso / ya documentado');
+            }
+          } catch (_) {
+            return;
+          }
+          if (motivo == null) return;
+          photoSkipMotivo = String(motivo || 'omitido').trim() || 'omitido';
+        }
+        close({
+          damageType,
+          severity,
+          note,
+          x,
+          y,
+          view,
+          photoFile,
+          photoSkipMotivo: photoSkipMotivo || undefined,
+        });
       }
     });
   });
@@ -1190,13 +1278,14 @@ function _panelDatos(p, editable) {
 
 function _salidaSummaryHtml(p, { compact = false } = {}) {
   const out = p.salida || {};
-  const firma = String(out.firmaPath || '').trim();
+  const firma = String(out.firmaPath || out.firma?.imagePath || '').trim();
+  const marks = Array.isArray(p.danosMarcados) ? p.danosMarcados : [];
   return `
-    <section class="pap-salida-block pap-hoja pap-hoja--snapshot">
-      <header class="pap-hoja__head">
+    <section class="pap-salida-block pap-panel--app">
+      <header class="pap-salida-head">
         <div>
-          <p class="pap-hoja__eyebrow">Salida registrada</p>
-          <h3>Entrega / Out</h3>
+          <p class="pap-hint">Salida registrada</p>
+          <h3>Entrega</h3>
         </div>
         <div class="pap-contrato pap-contrato--ro">
           <span>Contrato</span>
@@ -1204,28 +1293,32 @@ function _salidaSummaryHtml(p, { compact = false } = {}) {
         </div>
       </header>
       ${_unitIdentityHtml(p)}
-      <section class="pap-io-table" aria-label="Salida">
-        <div class="pap-io-table__row pap-io-table__row--head">
-          <span></span><span>Nombre</span><span>KM</span><span>Gas</span>
-        </div>
-        <div class="pap-io-table__row">
-          <strong>Entrega / Out</strong>
-          <div>${_esc(out.quienEntrega || p.clienteNombre || '—')}</div>
-          <div class="pap-td-mono">${_esc(out.km ?? '—')}</div>
-          <div class="pap-td-mono">${_esc(out.gas || '—')}</div>
-        </div>
-      </section>
+      <div class="pap-fields-2">
+        <div class="pap-field"><label>Quién entregó</label><input value="${_esc(out.quienEntrega || p.clienteNombre || '—')}" disabled/></div>
+        <div class="pap-field"><label>KM / Gas</label><input value="${_esc(out.km ?? '—')} · ${_esc(out.gas || '—')}" disabled/></div>
+      </div>
       ${!compact ? `
-        <div class="pap-hoja__body pap-hoja__body--ro">
-          <div class="pap-check-col">${_checklistReadonlyHtml(p)}</div>
-          <div class="pap-hoja__diagram">${_diagramReadonlyHtml(p)}</div>
+        <div class="pap-salida-body">
+          <div>${_checklistReadonlyHtml(p)}</div>
+          <div class="pap-hoja__diagram pap-hoja__diagram--app">${_diagramReadonlyHtml(p)}</div>
         </div>
-        <h3 class="pap-subhead">Daños / zonas</h3>
-        ${_danosSalidaHtml(p)}
+        <h3 class="pap-subhead">Daños tipados</h3>
+        ${marks.length ? `
+          <ul class="pap-dano-list">
+            ${marks.map((d) => `
+              <li><strong>#${_esc(d.displayNumber)}</strong>
+                ${_esc(DAMAGE_TYPE_LABELS[d.damageType] || d.damageType)}
+                · ${_esc(DAMAGE_SEVERITY_LABELS[d.severity] || d.severity)}
+                ${d.note ? ` · ${_esc(truncNota(d.note))}` : ''}
+                ${(d.photoIds && d.photoIds.length) ? ' · foto' : ''}
+              </li>
+            `).join('')}
+          </ul>
+        ` : _danosSalidaHtml(p)}
         ${firma ? '<p class="pap-hint">Firma de entrega capturada.</p><div class="pap-firma-host" data-firma-preview></div>' : '<p class="pap-hint">Sin firma en archivo.</p>'}
       ` : `
-        <div class="pap-hoja__diagram pap-hoja__diagram--mini">${_diagramReadonlyHtml(p)}</div>
-        <p class="pap-hint">Checklist y fotos completas en la pestaña <b>Salida</b>.</p>
+        <div class="pap-hoja__diagram pap-hoja__diagram--app pap-hoja__diagram--mini">${_diagramReadonlyHtml(p)}</div>
+        <p class="pap-hint">Detalle completo en la pestaña Salida.</p>
       `}
     </section>
   `;
@@ -1233,7 +1326,7 @@ function _salidaSummaryHtml(p, { compact = false } = {}) {
 
 function _panelSalidaView(p) {
   return `
-    <div class="pap-panel pap-panel--wide pap-panel--regreso">
+    <div class="pap-panel pap-panel--app pap-panel--salida">
       ${_salidaSummaryHtml(p, { compact: false })}
       <h3 class="pap-subhead">Fotos de salida</h3>
       <div class="pap-photos" id="papCompare"></div>
@@ -1993,18 +2086,123 @@ async function _flowBack() {
   }
   const idx = SALIDA_STEP_IDS.indexOf(_wizardStep);
   if (idx <= 0) {
-    // Abandon sheet (stub): leave draft + lock
-    const stay = await _mexConfirm(
-      'Salir del borrador',
-      '¿Salir y continuar después? La unidad seguirá con papeleta activa.',
-      'warning'
-    );
-    if (stay) _gotoList();
+    await _openAbandonSheet();
     return;
   }
   _wizardStep = SALIDA_STEP_IDS[idx - 1];
   if (_wizardStep === 'fotos_firma') _step6Phase = 'fotos';
   _render();
+}
+
+/**
+ * Spec §12 abandon sheet from paso 2 atrás.
+ * Continuar después | Cancelar papeleta | Seguir editando
+ */
+function _openAbandonSheet() {
+  return new Promise((resolve) => {
+    const prev = document.querySelector('.pap-abandon-sheet');
+    if (prev) prev.remove();
+    const root = document.createElement('div');
+    root.className = 'pap-dmg-sheet pap-abandon-sheet';
+    root.setAttribute('role', 'dialog');
+    root.setAttribute('aria-modal', 'true');
+    root.innerHTML = `
+      <div class="pap-dmg-sheet__backdrop" data-abandon="seguir"></div>
+      <div class="pap-dmg-sheet__panel">
+        <header class="pap-dmg-sheet__head">
+          <strong>¿Salir del borrador?</strong>
+          <button type="button" class="pap-icon-btn" data-abandon="seguir" aria-label="Cerrar">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </header>
+        <p class="pap-hint">La unidad permanece bloqueada mientras el borrador esté activo.</p>
+        <div class="pap-abandon-actions">
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-abandon="despues">Continuar después</button>
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-abandon="cancelar">Cancelar papeleta</button>
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-abandon="seguir">Seguir editando</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    const done = (v) => {
+      try { root.remove(); } catch (_) { /* ignore */ }
+      resolve(v);
+    };
+    root.addEventListener('click', async (e) => {
+      const act = e.target.closest('[data-abandon]');
+      if (!act) return;
+      const kind = act.getAttribute('data-abandon');
+      if (kind === 'seguir') {
+        done('seguir');
+        return;
+      }
+      if (kind === 'despues') {
+        _trackPapeleta('papeleta_draft_leave', { papeletaId: _detail?.id });
+        done('despues');
+        _gotoList();
+        return;
+      }
+      if (kind === 'cancelar') {
+        const ok = await _mexConfirm(
+          'Cancelar papeleta',
+          'Se liberará la unidad. Esta acción no se puede deshacer.',
+          'warning'
+        );
+        if (!ok) return;
+        let motivo = '';
+        try {
+          if (typeof window.mexPrompt === 'function') {
+            motivo = await window.mexPrompt('Motivo', 'Motivo de cancelación (auditoría)', 'Abandono en patio');
+          }
+        } catch (_) {
+          return;
+        }
+        if (motivo == null) return;
+        try {
+          await cancelarPapeleta(_detail.id, {
+            user: _user(),
+            motivo: String(motivo || 'cancelada desde flujo').trim(),
+          });
+          _trackPapeleta('papeleta_cancel', { papeletaId: _detail.id, motivo: String(motivo || '').slice(0, 120) });
+          done('cancelar');
+          await _mexAlert('Cancelada', 'Papeleta cancelada y unidad liberada.');
+          _gotoList();
+        } catch (err) {
+          await _mexAlert('Error', err.message || String(err));
+        }
+      }
+    });
+  });
+}
+
+/** Best-effort metrics via bitacora_gestion + CustomEvent (ops_events is client-write locked). */
+function _trackPapeleta(event, details = {}) {
+  try {
+    window.dispatchEvent(new CustomEvent('mex:papeleta-metric', { detail: { event, ...details } }));
+  } catch (_) { /* ignore */ }
+  try {
+    const db = window._db;
+    if (!db) return;
+    const now = Date.now();
+    const autor = _user()?.nombre || _user()?.uid || 'sistema';
+    db.collection('bitacora_gestion').add({
+      fecha: new Date(now).toISOString(),
+      timestamp: now,
+      tipo: 'papeletas',
+      accion: String(event || 'event'),
+      autor: String(autor),
+      entidad: 'papeleta',
+      referencia: String(details.papeletaId || _detail?.id || ''),
+      detalles: {
+        ...details,
+        plazaId: String(getCurrentPlaza() || ''),
+      },
+      plaza: String(getCurrentPlaza() || ''),
+      userDocId: String(_user()?.uid || window._auth?.currentUser?.uid || ''),
+      userEmail: String(window._auth?.currentUser?.email || ''),
+      role: String(_role() || ''),
+    }).catch(() => { /* patio roles may lack bitacora write — OK */ });
+  } catch (_) { /* ignore */ }
 }
 
 async function _flowNext() {
@@ -2023,6 +2221,7 @@ async function _flowNext() {
   }
   if (_wizardStep === 'fotos_firma' && _step6Phase === 'fotos') {
     _step6Phase = 'resumen';
+    _trackPapeleta('papeleta_step_completed', { step: 'fotos', papeletaId: _detail.id });
     _render();
     return;
   }
@@ -2031,17 +2230,21 @@ async function _flowNext() {
     if (_wizardStep === 'datos') {
       await _saveStepDatos();
       _wizardStep = 'km_gas';
+      _trackPapeleta('papeleta_step_completed', { step: 'datos', papeletaId: _detail.id });
     } else if (_wizardStep === 'km_gas') {
       const ok = await _saveStepKmGas();
       if (!ok) return;
       _wizardStep = 'checklist';
+      _trackPapeleta('papeleta_step_completed', { step: 'km_gas', papeletaId: _detail.id });
     } else if (_wizardStep === 'checklist') {
       await _saveCheck();
+      _trackPapeleta('papeleta_step_completed', { step: 'checklist', papeletaId: _detail.id });
       return; // _saveCheck advances
     } else if (_wizardStep === 'danos') {
       await _saveDanos();
       _wizardStep = 'fotos_firma';
       _step6Phase = 'fotos';
+      _trackPapeleta('papeleta_step_completed', { step: 'danos', papeletaId: _detail.id });
     }
   } catch (e) {
     await _mexAlert('Error', e.message || String(e));
@@ -2506,6 +2709,7 @@ async function _confirmFirma() {
     });
     if (result.alreadyFinalized) {
       await _mexAlert('Ya entregada', 'Esta papeleta ya estaba finalizada.');
+      _trackPapeleta('papeleta_finalize_already', { papeletaId });
     } else {
       const firmaUrl = await getDownloadUrl(firmaPath);
       await openPapeletaPdf(result.papeleta || {
@@ -2513,6 +2717,7 @@ async function _confirmFirma() {
         status: 'entregada',
         salida: { ...(_detail.salida || {}), firma, firmaPath, km: kmRaw, gas: gasRaw },
       }, { firmaUrl });
+      _trackPapeleta('papeleta_finalize_success', { papeletaId });
     }
     _pendingSalida = { km: null, gas: null };
     _wizardStep = 'fotos_firma';
@@ -2664,6 +2869,7 @@ async function _crearDesdeUnidad(unitId) {
     }
     const plaza = String(getCurrentPlaza() || '').toUpperCase();
     const { id } = await crearPapeleta({ unidad: unit, plazaId: plaza, user: _user() });
+    _trackPapeleta('papeleta_unit_selected', { papeletaId: id, unidadId: unit.id, mva: unit.mva });
     _showNueva = false;
     _openDetail(id);
   } catch (e) {

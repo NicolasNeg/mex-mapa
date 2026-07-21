@@ -2559,13 +2559,40 @@ body.dark-theme .pap-table tbody tr:hover { background: #1f1f1f; }
   border-color: #3b82f6;
   color: #1d4ed8;
 }
-.pap-dmg-sheet__actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.pap-abandon-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin-top: 12px;
 }
-.pap-dmg-sheet__actions .pap-btn { min-height: 48px; border-radius: 12px; }
+.pap-abandon-actions .pap-btn { min-height: 48px; border-radius: 12px; }
+.pap-dmg-sheet__photo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pap-salida-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.pap-salida-body {
+  display: grid;
+  gap: 16px;
+  margin: 12px 0;
+}
+@media (min-width: 900px) {
+  .pap-salida-body {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.pap-panel--salida .pap-hoja,
+.pap-salida-block.pap-hoja {
+  /* legacy class hooks kept harmless */
+}
 
 /* -- Mobile dashboard cards -------------------------------- */
 .pap-cards {

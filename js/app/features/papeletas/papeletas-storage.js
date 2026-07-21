@@ -59,6 +59,14 @@ export async function uploadZonaDetalle(papeletaId, zonaId, file) {
   return path;
 }
 
+export async function uploadDamageFoto(papeletaId, damageId, file) {
+  const blob = await compressImageFile(file);
+  const safe = String(damageId || 'd').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+  const path = `papeletas/${papeletaId}/danos/${safe}_${Date.now()}.jpg`;
+  await uploadBytesAtPath(path, blob, 'image/jpeg');
+  return path;
+}
+
 export async function uploadFirma(papeletaId, blob) {
   const path = `papeletas/${papeletaId}/firma.png`;
   await uploadBytesAtPath(path, blob, 'image/png');
