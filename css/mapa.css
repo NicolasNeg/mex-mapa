@@ -6702,34 +6702,34 @@
 }
 .audit-assignee-strip {
   display: grid;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 8px;
+  margin-top: 16px;
   text-align: left;
 }
 .audit-assignee-label {
   font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #64748b;
+  color: var(--muted, #64748b);
 }
 .audit-assignee-select {
   width: 100%;
   padding: 12px 14px;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 12px;
-  background: #ffffff;
-  font-weight: 800;
-  color: #0f172a;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface, #ffffff);
+  font-weight: 600;
+  color: var(--text, #0f172a);
   outline: none;
 }
 .audit-assignee-select:focus {
-  border-color: #0b74b8;
-  box-shadow: 0 0 0 4px rgba(11, 116, 184, 0.10);
+  border-color: var(--accent, #3b82f6);
+  box-shadow: 0 0 0 2px var(--accent-pale, rgba(59, 130, 246, 0.12));
 }
 .audit-assignee-note {
   font-size: 12px;
-  color: #64748b;
+  color: var(--muted, #64748b);
   line-height: 1.45;
 }
 .audit-swipe-shell {
@@ -7591,9 +7591,9 @@
 
 .audit-paso1-card {
   background: var(--surface, #fff);
-  padding: 28px;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  padding: 32px;
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
   border: 1px solid var(--border, #e2e8f0);
 }
 
@@ -7604,9 +7604,9 @@
 
 .audit-paso1-head h3 {
   color: var(--primary, #0f172a);
-  font-weight: 900;
+  font-weight: 700;
   margin: 0 0 8px;
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .audit-paso1-head p {
@@ -7633,10 +7633,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
-  background: #f0fdf4;
+  padding: 16px;
+  background: #dcfce7;
   border: 1px solid #bbf7d0;
-  border-radius: 12px;
+  border-radius: var(--radius-lg, 12px);
   color: #166534;
   text-align: left;
 }
@@ -7648,7 +7648,7 @@
 .audit-flota-preview strong {
   display: block;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .audit-flota-preview small {
@@ -7656,7 +7656,7 @@
   font-size: 11px;
   font-weight: 600;
   opacity: 0.85;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .audit-flota-refresh {
@@ -7686,11 +7686,11 @@
 .audit-btn-enviar-mision {
   width: 100%;
   padding: 16px;
-  background: var(--mex-accent, #3b82f6);
+  background: var(--accent, #3b82f6);
   color: #fff;
   border: none;
-  border-radius: 12px;
-  font-weight: 900;
+  border-radius: var(--radius-lg, 12px);
+  font-weight: 700;
   cursor: pointer;
   font-size: 14px;
   opacity: 0.5;
@@ -7708,16 +7708,16 @@
 .audit-paso1-guide {
   background: var(--bg, #f8fafc);
   border: 1px solid var(--border, #e2e8f0);
-  border-radius: 12px;
+  border-radius: var(--radius-lg, 12px);
   padding: 20px;
   text-align: left;
 }
 
 .audit-paso1-guide h4 {
-  color: var(--mex-blue, #0284c7);
-  font-weight: 900;
+  color: var(--accent, #3b82f6);
+  font-weight: 700;
   font-size: 14px;
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   display: flex;
   align-items: center;
   gap: 8px;

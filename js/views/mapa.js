@@ -50,6 +50,7 @@ import * as _pdfReservas   from '/js/features/cuadre/pdf-reservas.js';
 import * as _prediccion    from '/js/features/cuadre/prediccion.js';
 import { normalizarUnidad, esExterno } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
+import { historialIconName, stripEmoji } from '/domain/historial-log.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
 // Arrendadora: el modo estacionamiento se eliminó. Shims locales que lo dejan
 // inactivo (esMapaEstacionamiento → false desactiva sus branches).
@@ -2031,6 +2032,14 @@ function _isDedicatedMessagesIframeMode() {
   return _qs('messages') === '1';
 }
 
+// El App Shell (app.html) ya corre su propio Centro de Notificaciones en la
+// ventana externa; si mapa.html se carga embebido dentro de ese shell (iframe
+// ?shell=1 / ?appStage=1), NO debe inicializar un segundo listener del inbox
+// o el usuario recibe cada notificacion duplicada (una por cada instancia).
+function _isShellEmbeddedMode() {
+  return _qs('shell') === '1' || _qs('appStage') === '1';
+}
+
 function _isMessagesMode() {
   return _qs('messages') === '1' || /^\/mensajes(?:\.html)?$/i.test(window.location.pathname || '');
 }
@@ -2815,7 +2824,7 @@ function iniciarApp(esNuevoLogin = true) {
   if (new URLSearchParams(window.location.search).get('editor') === '1') {
     setTimeout(() => abrirEditorMapa(), 800);
   }
-  if (!isDedicatedCuadreRoute) {
+  if (!isDedicatedCuadreRoute && !_isShellEmbeddedMode()) {
     initNotificationCenter()
       .then(() => {
         _renderNotificationProfileState();
@@ -2830,6 +2839,12 @@ function iniciarApp(esNuevoLogin = true) {
           stack: error?.stack || ''
         });
       });
+  } else if (!isDedicatedCuadreRoute) {
+    // Embebido en el App Shell (?shell=1/?appStage=1): el shell ya corre su
+    // propio Centro de Notificaciones (resubscribeInbox + toasts). Aqui solo
+    // procesamos el deep-link de la URL (p.ej. ?notif=alerts) para abrir el
+    // modal legacy correspondiente, sin levantar un segundo listener del inbox.
+    setTimeout(() => consumeNotificationDeepLink(), 550);
   }
 
   Promise.resolve(configReadyPromise)
@@ -5582,44 +5597,56 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
     : (_gasValid ? _fuelToFractionLabel(_gasPct) : 'N/A');
   const _gasCls = !_gasValid ? '' : (_gasPct < 20 ? 'is-low' : _gasPct < 50 ? 'is-mid' : '');
 
+  const _estado = String(d.estado || 'N/A').trim().toUpperCase();
+
   // Extra (flags especiales) e ícono de fila
   const _extra = esDobleCero ? 'DOBLE CERO' : esUrgente ? 'URGENTE' : esApartado ? 'APARTADA' : '';
   const _extraRow = _extra
-    ? `<div class="usel-row"><span class="material-icons">info</span><span>${escapeHtml(_extra)}</span></div>` : '';
+    ? `<div class="usel-row usel-row--wide"><span class="material-symbols-outlined" aria-hidden="true">flag</span><div><dt>Indicador</dt><dd>${escapeHtml(_extra)}</dd></div></div>` : '';
   // Nota concatenada "(fecha) [autor] texto" → desconcatenada (autor + texto + fecha)
   const _nota = _parseNota(d.notas);
   const _notaHtml = (_nota && _nota.texto) ? `
-      <div class="usel-note">
-        <div class="usel-note-head"><span class="usel-note-author">${_nota.autor ? 'NOTA DE: ' + escapeHtml(_nota.autor) : 'NOTA'}</span></div>
+      <section class="usel-note" aria-label="Nota operativa">
+        <div class="usel-note-head">
+          <span class="material-symbols-outlined" aria-hidden="true">edit_note</span>
+          <span class="usel-note-author">${_nota.autor ? 'Nota de ' + escapeHtml(_nota.autor) : 'Nota operativa'}</span>
+        </div>
         <div class="usel-note-text">${escapeHtml(_nota.texto)}</div>
-        ${_nota.fecha ? `<div class="usel-note-time"><span class="material-icons">schedule</span> ${escapeHtml(_nota.fecha)}</div>` : ''}
-      </div>` : '';
+        ${_nota.fecha ? `<div class="usel-note-time"><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span>${escapeHtml(_nota.fecha)}</span></div>` : ''}
+      </section>` : '';
 
   document.getElementById('detalle-unidad').innerHTML = `
-    <div class="usel">
+    <div class="usel" aria-label="Inspector de la unidad ${escapeHtml(d.mva || '')}">
       <div class="usel-head">
-        <div class="usel-mva">${escapeHtml(d.mva || '')}</div>
-        <button class="usel-close" onclick="cerrarPanel()" aria-label="Cerrar"><span class="material-icons">close</span></button>
+        <div class="usel-heading">
+          <span class="usel-eyebrow">Unidad seleccionada</span>
+          <div class="usel-title-line">
+            <div class="usel-mva">${escapeHtml(d.mva || '')}</div>
+            <span class="usel-status" data-state="${escapeHtml(_estado)}">${escapeHtml(_estado)}</span>
+          </div>
+          <div class="usel-model">${escapeHtml(d.modelo || 'Sin modelo')}</div>
+        </div>
+        <button type="button" class="usel-close" onclick="cerrarPanel()" aria-label="Cerrar inspector" title="Cerrar inspector"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
       </div>
-      <div class="usel-model">${escapeHtml(d.modelo || 'S/M')}</div>
-      <div class="usel-grid">
-        <div class="usel-row"><span class="material-icons">sell</span><span>${escapeHtml(d.placas || 'N/A')}</span></div>
-        <div class="usel-row"><span class="material-icons">settings</span><span>${escapeHtml(d.estado || 'N/A')}</span></div>
-        <div class="usel-row"><span class="material-icons">location_on</span><span>${escapeHtml(loc)}</span></div>
+      <dl class="usel-grid">
+        <div class="usel-row"><span class="material-symbols-outlined" aria-hidden="true">pin</span><div><dt>Placas</dt><dd>${escapeHtml(d.placas || 'No registradas')}</dd></div></div>
+        <div class="usel-row"><span class="material-symbols-outlined" aria-hidden="true">location_on</span><div><dt>Ubicación</dt><dd>${escapeHtml(loc)}</dd></div></div>
         ${_extraRow}
-      </div>
-      <div class="usel-fuel ${_gasCls}">
-        <span class="material-icons">local_gas_station</span>
-        <div class="usel-fuel-track"><i style="width:${_gasPct}%"></i></div>
-        <span class="usel-fuel-num">${_gasLabel}</span>
+      </dl>
+      <div class="usel-fuel ${_gasCls}" role="progressbar" aria-label="Nivel de combustible" ${_gasValid ? `aria-valuemin="0" aria-valuemax="100" aria-valuenow="${_gasPct}"` : 'aria-valuetext="No disponible"'}>
+        <span class="material-symbols-outlined" aria-hidden="true">local_gas_station</span>
+        <div class="usel-fuel-body">
+          <div class="usel-fuel-head"><span>Combustible</span><strong>${escapeHtml(_gasLabel)}</strong></div>
+          <div class="usel-fuel-track"><i style="width:${_gasPct}%"></i></div>
+        </div>
       </div>
       ${_notaHtml}
       <div class="usel-tags" id="uselTags">
-        <span class="usel-tags-label">Etiqueta</span>
+        <div class="usel-section-label"><span class="material-symbols-outlined" aria-hidden="true">sell</span><span>Etiqueta</span></div>
         <div class="usel-tags-dots" id="uselTagsDots"><span class="usel-tags-loading">…</span></div>
       </div>
       <div class="usel-mov">
-        <div class="usel-mov-title">Últimos movimientos</div>
+        <div class="usel-mov-title"><span class="material-symbols-outlined" aria-hidden="true">history</span><span>Últimos movimientos</span></div>
         <div class="usel-mov-list" id="uselMovList"><div class="usel-mov-empty">Cargando…</div></div>
       </div>
     </div>
@@ -5628,40 +5655,39 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   let actionsHtml = "";
   let removeActions = "";
 
-  // 🛡️ VERIFICACIÓN DE PERMISOS: ¿Es Auxiliar o Admin?
+  // Verificación de permisos: auxiliar o administrador.
   const esAdmin = (typeof userRole !== 'undefined' && userRole === 'admin');
 
   // OPCIONES PARA AGREGAR
-  if (esAdmin && !esApartado) actionsHtml += _actionItem('lock', 'Apartar unidad', `ejecutarAccionRapida('${d.mva}', 'APARTAR')`, '#f59e0b');
-  if (!esDobleCero) actionsHtml += _actionItem('verified', 'Añadir doble cero', `ejecutarAccionRapida('${d.mva}', 'DOBLE_CERO')`, '#2563eb');
-  if (esAdmin && !esUrgente) actionsHtml += _actionItem('priority_high', 'Marcar urgente', `ejecutarAccionRapida('${d.mva}', 'URGENTE')`, '#ef4444');
-  if (esAdmin && !esManto) actionsHtml += _actionItem('build', 'En taller', `ejecutarAccionRapida('${d.mva}', 'MANTENIMIENTO')`, '#ef4444');
-  if (d.estado !== "LISTO") actionsHtml += _actionItem('check_circle', 'Marcar listo', `ejecutarAccionRapida('${d.mva}', 'LISTO')`, '#10b981');
+  if (esAdmin && !esApartado) actionsHtml += _actionItem('lock', 'Apartar unidad', `ejecutarAccionRapida('${d.mva}', 'APARTAR')`, 'warning');
+  if (!esDobleCero) actionsHtml += _actionItem('verified', 'Añadir doble cero', `ejecutarAccionRapida('${d.mva}', 'DOBLE_CERO')`, 'accent');
+  if (esAdmin && !esUrgente) actionsHtml += _actionItem('priority_high', 'Marcar urgente', `ejecutarAccionRapida('${d.mva}', 'URGENTE')`, 'danger');
+  if (esAdmin && !esManto) actionsHtml += _actionItem('build', 'En taller', `ejecutarAccionRapida('${d.mva}', 'MANTENIMIENTO')`, 'danger');
+  if (d.estado !== "LISTO") actionsHtml += _actionItem('check_circle', 'Marcar listo', `ejecutarAccionRapida('${d.mva}', 'LISTO')`, 'success');
 
   if (esAdmin && esApartado) removeActions += _actionItem('lock_open', 'Quitar apartado', `ejecutarAccionRapida('${d.mva}', 'QUITAR_APARTADO')`);
   if (esDobleCero) removeActions += _actionItem('do_not_disturb_on', 'Quitar doble cero', `ejecutarAccionRapida('${d.mva}', 'QUITAR_DOBLE_CERO')`);
   if (esAdmin && esUrgente) removeActions += _actionItem('notifications_paused', 'Quitar urgente', `ejecutarAccionRapida('${d.mva}', 'QUITAR_URGENTE')`);
   if (esAdmin && esManto) removeActions += _actionItem('build_circle', 'Quitar de taller', `ejecutarAccionRapida('${d.mva}', 'QUITAR_MANTENIMIENTO')`);
 
-  let divider = removeActions !== "" ? `<div style="height:1px; background:#e2e8f0; margin:5px 0;"></div>` : "";
+  let divider = removeActions !== "" ? '<div class="action-divider" role="separator"></div>' : '';
 
   // DIBUJAR BOTONES
   const btnGrid = document.getElementById('infoPanelBtnGrid');
   if (!btnGrid) return;
   _closeActionsMenu();
   _removeAllActionsMenus();
-  btnGrid.style.gridTemplateColumns = "1fr 1fr";
   const _limboOff = (loc === "unidades-limbo" || loc === "unidades-taller" || loc === "LIMBO" || loc === "TALLER");
-  const btnLimboStyle = _limboOff ? "opacity:0.5; pointer-events:none;" : "cursor:pointer;";
+  const btnLimboDisabled = _limboOff ? 'disabled aria-disabled="true"' : '';
 
   btnGrid.innerHTML = `
-    <button id="btnMandarLimbo" onclick="resetUnitToLimbo()" class="usel-btn usel-btn-limbo" style="${btnLimboStyle}">
-      <span class="material-icons">delete_outline</span> Limbo
+    <button id="btnMandarLimbo" type="button" onclick="resetUnitToLimbo()" class="usel-btn usel-btn-limbo" ${btnLimboDisabled}>
+      <span class="material-symbols-outlined" aria-hidden="true">delete_outline</span><span>Mover a limbo</span>
     </button>
 
     <div class="usel-btn-wrap">
       <button type="button" onclick="toggleActionsMenu(event)" class="usel-btn usel-btn-acciones" title="Acciones" aria-label="Acciones">
-        <span class="material-symbols-outlined">more_horiz</span>
+        <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
       </button>
       <div id="moreActionsMenu" class="actions-dropdown">
         ${actionsHtml}
@@ -5731,14 +5757,19 @@ async function _renderUltimosMovimientos(mva) {
       .filter(l => String(l.mva || '').trim().toUpperCase() === target && (l.detalles || l.accion))
       .slice(0, 8);
     list.innerHTML = propios.length
-      ? propios.map(l => `
-        <div class="usel-mov-item">
-          <span class="usel-mov-dot"></span>
-          <div class="usel-mov-body">
-            <div class="usel-mov-move">${escapeHtml(l.detalles || l.accion || '')}</div>
-            <div class="usel-mov-meta">${escapeHtml(l.fecha || '')}${l.autor ? ' · ' + escapeHtml(l.autor) : ''}</div>
-          </div>
-        </div>`).join('')
+      ? propios.map(l => {
+        const rawText = l.detalles || l.accion || 'Movimiento';
+        const cleanText = stripEmoji(rawText) || 'Movimiento';
+        const icon = historialIconName(rawText, l.tipo);
+        return `
+          <div class="usel-mov-item">
+            <span class="material-symbols-outlined usel-mov-icon" aria-hidden="true">${escapeHtml(icon)}</span>
+            <div class="usel-mov-body">
+              <div class="usel-mov-move">${escapeHtml(cleanText)}</div>
+              <div class="usel-mov-meta">${escapeHtml(l.fecha || '')}${l.autor ? ' · ' + escapeHtml(l.autor) : ''}</div>
+            </div>
+          </div>`;
+      }).join('')
       : '<div class="usel-mov-empty">Sin movimientos recientes.</div>';
   } catch (e) {
     if (list.isConnected) list.innerHTML = '<div class="usel-mov-empty">No se pudo cargar el historial.</div>';
@@ -5778,9 +5809,11 @@ document.addEventListener('click', (e) => {
   _closeActionsMenu();
 });
 
-function _actionItem(icon, label, onclick, iconColor = '') {
-  const icStyle = iconColor ? ` style="color:${iconColor}"` : '';
-  return `<div class="action-item" onclick="${onclick}"><span class="material-symbols-outlined"${icStyle}>${icon}</span><span>${label}</span></div>`;
+function _actionItem(icon, label, onclick, tone = '') {
+  const toneClass = ['accent', 'success', 'warning', 'danger'].includes(tone)
+    ? ` action-item--${tone}`
+    : '';
+  return `<button type="button" class="action-item${toneClass}" onclick="${onclick}"><span class="material-symbols-outlined" aria-hidden="true">${icon}</span><span>${label}</span></button>`;
 }
 
 function toggleActionsMenu(ev) {
