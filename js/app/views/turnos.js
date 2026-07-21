@@ -71,6 +71,7 @@ import {
   tableroToolbarHtml, tableroBodyHtml,
 } from '/js/app/features/turnos/tablero-asistencia.js';
 import { getHistorialHechos, HECHO_LABEL, registrarHechoTurno } from '/js/app/features/turnos/turnos-audit.js';
+import { stripEmoji } from '/domain/historial-log.model.js';
 
 function _toast(msg, title = 'Turnos') {
   if (typeof window.mexAlert === 'function') {
@@ -457,6 +458,13 @@ export async function mount({ container }) {
       hasta: '',
       expand: {},
     },
+    // Chequeos (entrada/salida) — misma fuente que aud.rows, filtro propio.
+    cheq: {
+      q: '',
+      desde: '',
+      hasta: '',
+      expand: {},
+    },
     showHistStats: false,
   };
 
@@ -636,6 +644,7 @@ function _render() {
     ...(isAdmin ? [
       { key: 'asistencia', label: 'Asistencia',     icon: 'fact_check' },
       { key: 'historial',  label: 'Historial',       icon: 'history' },
+      { key: 'chequeos',   label: 'Chequeos',        icon: 'fingerprint' },
       { key: 'auditoria',  label: 'Cambios',         icon: 'manage_history' },
     ] : [
       { key: 'historial',  label: 'Mi historial',   icon: 'history' },
@@ -691,6 +700,7 @@ function _renderTabContent() {
     case 'horarios':   return _renderHorarios();
     case 'asistencia': return _renderAsistencia();
     case 'historial':  return _renderHistorial();
+    case 'chequeos':   return _renderChequeos();
     case 'auditoria':  return _renderAuditoria();
     default:           return '';
   }
@@ -1368,6 +1378,7 @@ function _bindTabBody() {
     case 'horarios':   _bindHorarios();   break;
     case 'asistencia': _bindAsistencia(); break;
     case 'historial':  _bindHistorial();  break;
+    case 'chequeos':   _bindChequeos();   break;
     case 'auditoria':  _bindAuditoria();  break;
   }
 }
@@ -2561,6 +2572,7 @@ function _hechoColor(hecho) {
   if (['FALTA', 'AUSENTE', 'NOTA_ELIMINADA'].includes(h)) return '#ef4444';
   if (['TARDE', 'RETARDO'].includes(h)) return '#f59e0b';
   if (['PRESENTE', 'TURNO_INICIO'].includes(h)) return '#10b981';
+  if (['TURNO_FIN'].includes(h)) return '#3b82f6';
   if (['PERMISO', 'JUSTIFICADO', 'VACACIONES'].includes(h)) return '#3b82f6';
   if (['DESCANSO', 'FESTIVO'].includes(h)) return '#94a3b8';
   if (['CAMBIO_HORARIO'].includes(h)) return '#8b5cf6';
@@ -2573,6 +2585,9 @@ function _fmtFechaHora(ms) {
   catch { return '—'; }
 }
 
+// Chequeos (entrada/salida) viven en su propia tab, no en Cambios.
+const CHEQUEO_TYPES = new Set(['TURNO_INICIO', 'TURNO_FIN']);
+
 function _auditoriaFiltradas() {
   const a = _s.aud;
   const q = a.q.trim().toLowerCase();
@@ -2580,7 +2595,25 @@ function _auditoriaFiltradas() {
   const desde = a.desde ? new Date(`${a.desde}T00:00:00`).getTime() : 0;
   const hasta = a.hasta ? new Date(`${a.hasta}T23:59:59.999`).getTime() : Infinity;
   return a.rows.filter(r => {
+    if (CHEQUEO_TYPES.has(r.hecho)) return false;
     if (tipo && r.hecho !== tipo) return false;
+    if (r.timestampMs < desde || r.timestampMs > hasta) return false;
+    if (q) {
+      const hay = `${r.empleado} ${r.responsable} ${r.nota}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function _chequeosFiltradas() {
+  const a = _s.aud;
+  const c = _s.cheq;
+  const q = c.q.trim().toLowerCase();
+  const desde = c.desde ? new Date(`${c.desde}T00:00:00`).getTime() : 0;
+  const hasta = c.hasta ? new Date(`${c.hasta}T23:59:59.999`).getTime() : Infinity;
+  return a.rows.filter(r => {
+    if (!CHEQUEO_TYPES.has(r.hecho)) return false;
     if (r.timestampMs < desde || r.timestampMs > hasta) return false;
     if (q) {
       const hay = `${r.empleado} ${r.responsable} ${r.nota}`.toLowerCase();
@@ -2613,6 +2646,7 @@ function _renderAuditoria() {
       ${rows.map(r => {
         const open = !!a.expand[r.id];
         const color = _hechoColor(r.hecho);
+        const accionLimpia = stripEmoji(r.accion);
         return `<div class="tu-aud-row" data-aud-id="${esc(r.id)}">
           <div class="tu-aud-main" data-aud-toggle="${esc(r.id)}">
             <span class="tu-aud-date">${esc(_fmtFechaHora(r.timestampMs))}</span>
@@ -2623,7 +2657,7 @@ function _renderAuditoria() {
           </div>
           ${open ? `<div class="tu-aud-detail">
             ${r.nota ? `<div><strong>Nota:</strong> ${esc(r.nota)}</div>` : ''}
-            ${r.accion ? `<div><strong>Acción:</strong> ${esc(r.accion)}</div>` : ''}
+            ${accionLimpia ? `<div><strong>Acción:</strong> ${esc(accionLimpia)}</div>` : ''}
             <div><strong>Tipo:</strong> ${esc(HECHO_LABEL[r.hecho] || r.hecho || '—')}</div>
             ${r.fechaHecho ? `<div><strong>Fecha del hecho:</strong> ${esc(r.fechaHecho)}</div>` : ''}
             ${r.plaza ? `<div><strong>Plaza:</strong> ${esc(r.plaza)}</div>` : ''}
@@ -2684,6 +2718,164 @@ function _bindAudRows() {
       _repaintTab();
     });
   });
+}
+
+// ── Tab Chequeos (entrada/salida) ─────────────────────────────
+// Misma fuente de datos que Cambios (_s.aud.rows), pero filtrada a
+// TURNO_INICIO/TURNO_FIN — antes vivian mezclados dentro de "Cambios".
+function _renderChequeos() {
+  const a = _s.aud;
+  const c = _s.cheq;
+  const rows = _chequeosFiltradas();
+
+  let body;
+  if (a.loading) {
+    body = `<div class="tu-loading"><div class="tu-spinner"></div><span>Cargando chequeos…</span></div>`;
+  } else if (!rows.length) {
+    body = `<div class="tu-empty-state"><span class="material-symbols-outlined">fingerprint</span>
+      <p>${a.cargado ? 'Sin chequeos registrados con estos filtros.' : 'Pulsa Actualizar para cargar los chequeos.'}</p></div>`;
+  } else {
+    body = `<div class="tu-aud-table">
+      <div class="tu-aud-head">
+        <span>Fecha</span><span>Tipo</span><span>Empleado</span><span>Responsable</span><span></span>
+      </div>
+      ${rows.map(r => {
+        const open = !!c.expand[r.id];
+        const color = _hechoColor(r.hecho);
+        return `<div class="tu-aud-row" data-cheq-id="${esc(r.id)}">
+          <div class="tu-aud-main" data-cheq-toggle="${esc(r.id)}">
+            <span class="tu-aud-date">${esc(_fmtFechaHora(r.timestampMs))}</span>
+            <span><span class="tu-aud-badge" style="--b:${color}">${esc(r.hechoLabel || HECHO_LABEL[r.hecho] || r.hecho)}</span></span>
+            <span class="tu-aud-emp">${esc(r.empleado || '—')}</span>
+            <span class="tu-aud-resp">${esc(r.responsable || '—')}</span>
+            <span class="tu-aud-chev"><span class="material-symbols-outlined">${open ? 'expand_less' : 'expand_more'}</span></span>
+          </div>
+          ${open ? `<div class="tu-aud-detail">
+            ${r.nota ? `<div><strong>Nota:</strong> ${esc(r.nota)}</div>` : ''}
+            ${r.plaza ? `<div><strong>Plaza:</strong> ${esc(r.plaza)}</div>` : ''}
+          </div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  return `
+<div class="tu-aud">
+  <div class="tu-asis-headline">
+    <div>
+      <h2 class="tu-asis-title">Chequeos de entrada y salida</h2>
+      <p class="tu-asis-sub">Inicio y fin de turno del equipo${rows.length ? ` · ${rows.length} registros` : ''}</p>
+    </div>
+    <div class="tu-asis-actions">
+      <button class="tu-btn tu-btn--ghost" id="tuCheqPdf" type="button" title="Exportar PDF / XLS / CSV"><span class="material-symbols-outlined">download</span> Exportar</button>
+      <button class="tu-btn tu-btn--ghost" id="tuCheqReload" type="button"><span class="material-symbols-outlined">refresh</span> Actualizar</button>
+    </div>
+  </div>
+  <div class="tu-aud-filters">
+    <div class="tu-aud-search">
+      <span class="material-symbols-outlined">search</span>
+      <input class="tu-input" type="text" id="tuCheqQ" placeholder="Buscar empleado…" value="${esc(c.q)}">
+    </div>
+    <input class="tu-input" type="date" id="tuCheqDesde" value="${esc(c.desde)}" title="Desde">
+    <input class="tu-input" type="date" id="tuCheqHasta" value="${esc(c.hasta)}" title="Hasta">
+  </div>
+  ${body}
+</div>`;
+}
+
+function _bindChequeos() {
+  if (!_s.aud.cargado && !_s.aud.loading) void _loadAuditoria();
+  _ctr?.querySelector('#tuCheqReload')?.addEventListener('click', () => void _loadAuditoria());
+  _ctr?.querySelector('#tuCheqPdf')?.addEventListener('click', _exportarChequeos);
+  _ctr?.querySelector('#tuCheqQ')?.addEventListener('input', e => { _s.cheq.q = e.target.value; _repaintTab(); });
+  _ctr?.querySelector('#tuCheqDesde')?.addEventListener('change', e => { _s.cheq.desde = e.target.value; _repaintTab(); });
+  _ctr?.querySelector('#tuCheqHasta')?.addEventListener('change', e => { _s.cheq.hasta = e.target.value; _repaintTab(); });
+  _ctr?.querySelectorAll('[data-cheq-toggle]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.cheqToggle;
+      _s.cheq.expand[id] = !_s.cheq.expand[id];
+      _repaintTab();
+    });
+  });
+}
+
+function _matrixChequeos() {
+  const rows = _chequeosFiltradas();
+  if (!rows.length) { _toast('No hay registros para exportar.', 'Exportar'); return null; }
+  const headers = ['Fecha', 'Tipo', 'Empleado', 'Responsable', 'Nota'];
+  const body = rows.map((r) => [
+    _fmtFechaHora(r.timestampMs),
+    r.hechoLabel || HECHO_LABEL[r.hecho] || r.hecho || '',
+    r.empleado || '',
+    r.responsable || '',
+    r.nota || '',
+  ]);
+  return { headers, body, title: 'Chequeos de entrada y salida' };
+}
+
+async function _exportarChequeos() {
+  const data = _matrixChequeos();
+  if (!data) return;
+  await openExportChooser({
+    title: 'Exportar chequeos',
+    subtitle: `${data.body.length} registros`,
+    onPdf: () => _exportarChequeosPdf(),
+    onXls: () => {
+      exportMatrixXls(data.headers, data.body, { title: data.title, filename: buildExportFilename('xls') });
+      _toast(`Exportados ${data.body.length} registros (XLS).`, 'Exportar');
+    },
+    onCsv: () => {
+      exportMatrixCsv(data.headers, data.body, { filename: buildExportFilename('csv') });
+      _toast(`Exportados ${data.body.length} registros (CSV).`, 'Exportar');
+    },
+  });
+}
+
+function _exportarChequeosPdf() {
+  const rows = _chequeosFiltradas();
+  if (!rows.length) { _toast('No hay registros para exportar.', 'Exportar'); return; }
+  const cab = _exportCabeceraEmpresa();
+  const firma = exportFooterHtml({ escapeHtml: esc });
+  const id = getExportIdentity();
+  const fileTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
+
+  const trs = rows.map(r => `<tr>
+    <td>${esc(_fmtFechaHora(r.timestampMs))}</td>
+    <td><span class="bg" style="background:${_hechoColor(r.hecho)}">${esc(r.hechoLabel || HECHO_LABEL[r.hecho] || r.hecho)}</span></td>
+    <td>${esc(r.empleado || '—')}</td>
+    <td>${esc(r.responsable || '—')}</td>
+    <td>${esc(r.nota || '—')}</td>
+  </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>${esc(fileTitle)}</title>
+<style>
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font:11px Inter,system-ui,sans-serif;margin:22px;color:#0f172a}
+  h1{font-size:16px;margin:0 0 2px}
+  .sub{color:#64748b;font-size:11px;margin:0 0 12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  table{border-collapse:collapse;width:100%}
+  th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left;font-size:10px;vertical-align:top}
+  th{background:#f1f5f9;text-transform:uppercase}
+  .bg{color:#fff;padding:2px 8px;border-radius:9999px;font-size:9px;font-weight:700;white-space:nowrap}
+  .rpt-cab{display:flex;align-items:center;gap:14px;border-bottom:2px solid #0f172a;padding-bottom:10px;margin:0 0 12px}
+  .rpt-logo{height:44px}.rpt-empresa{display:flex;flex-direction:column}.rpt-empresa strong{font-size:13px}.rpt-empresa span{font-size:10px;color:#64748b}
+  .btn-print{padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;margin-top:14px}
+  @media print{body{margin:0}.no-print{display:none}}
+</style></head><body>
+${cab}
+<h1>Chequeos de entrada y salida</h1>
+<div class="sub"><span>${esc(_s.plaza || '')} · ${rows.length} registros</span><span>${esc(id.companyName)}</span></div>
+<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Empleado</th><th>Responsable</th><th>Nota</th></tr></thead>
+<tbody>${trs}</tbody></table>
+${firma}
+<div class="no-print"><button class="btn-print" type="button" onclick="window.print()">Imprimir / Guardar PDF</button></div>
+<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) { _toast('Permite ventanas emergentes para exportar.', 'Exportar'); return; }
+  win.document.write(html); win.document.close();
 }
 
 async function _loadAuditoria() {

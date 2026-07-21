@@ -14,20 +14,7 @@ import { formatDuration, turnoInicioDate } from '/js/app/features/turnos/turnos-
 import { runChecadoGate, showChecadoExito } from '/js/app/features/turnos/checado-gate.js';
 import { dataUrlToBlob } from '/js/app/features/turnos/camera.js';
 import { normalizarDescriptor } from '/js/app/features/turnos/face-verify.js';
-
-async function registrarLogTurno(accion, autor, plaza, extra = {}) {
-  try {
-    if (typeof window.api?.registrarLogTurno === 'function') {
-      await window.api.registrarLogTurno(accion, autor, plaza, extra);
-      return;
-    }
-    if (typeof window._mex?._registrarLog === 'function') {
-      await window._mex._registrarLog('TURNO', accion, autor, plaza, extra);
-    }
-  } catch (e) {
-    console.warn('[turnos-mutations] log failed', e);
-  }
-}
+import { registrarHechoTurno } from '/js/app/features/turnos/turnos-audit.js';
 
 function authUid(user) {
   return window._auth?.currentUser?.uid || auth?.currentUser?.uid || user?.uid || '';
@@ -197,27 +184,21 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
     fotoDataURL: exitoFoto,
   });
 
-  const faceTag = meta.faceVerified ? ' · rostro OK' : (meta.faceVerified === false ? ' · sin rostro' : '');
-  await registrarLogTurno(
-    `TURNO INICIO: ${nombre} · ${plaza}${faceTag}`,
-    nombre,
+  const faceTag = meta.faceVerified ? 'rostro OK' : (meta.faceVerified === false ? 'sin rostro' : '');
+  await registrarHechoTurno({
+    hecho: 'TURNO_INICIO',
     plaza,
-    { turnoId, usuarioId: firebaseUid, faceVerified: meta.faceVerified, geoWarn: meta.geoWarn }
-  );
+    empleado: nombre,
+    empleadoUid: firebaseUid,
+    nota: faceTag,
+    detalle: { turnoId, faceVerified: meta.faceVerified, geoWarn: meta.geoWarn },
+  });
 
   try {
-    const res = await registrarAsistenciaDesdeCheckin(firebaseUid, plaza, hoy(), {
+    await registrarAsistenciaDesdeCheckin(firebaseUid, plaza, hoy(), {
       nombre,
       turnoId
     });
-    if (!res?.skipped) {
-      await registrarLogTurno(
-        `⏳ ASISTENCIA PENDIENTE: ${nombre} · por confirmar`,
-        nombre,
-        plaza,
-        { turnoId, usuarioId: firebaseUid }
-      );
-    }
   } catch (e) {
     console.warn('[turnos-mutations] auto-asistencia:', e);
   }
@@ -292,10 +273,12 @@ export async function cerrarTurno(turnoId, opts = {}) {
     duracion: dur,
   });
 
-  await registrarLogTurno(
-    `TURNO FIN: ${nombre} · duración ${dur}`,
-    nombre,
+  await registrarHechoTurno({
+    hecho: 'TURNO_FIN',
     plaza,
-    { turnoId, usuarioId: uid, faceVerified: meta.faceVerified, geoWarn: meta.geoWarn }
-  );
+    empleado: nombre,
+    empleadoUid: uid,
+    nota: `duración ${dur}`,
+    detalle: { turnoId, faceVerified: meta.faceVerified, geoWarn: meta.geoWarn },
+  });
 }
