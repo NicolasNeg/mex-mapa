@@ -567,8 +567,16 @@ function _onInput(event) {
     return;
   }
   if (target.matches('[data-km]')) {
+    const digits = target.value.replace(/[^\d]/g, '');
+    if (target.value !== digits) target.value = digits;
     const unit = _unitByMva(target.dataset.km);
-    if (unit) unit.km = target.value.replace(/[^\d]/g, '');
+    if (unit) unit.km = digits;
+    return;
+  }
+  if (target.matches('[data-extra="km"]')) {
+    const digits = target.value.replace(/[^\d]/g, '');
+    if (target.value !== digits) target.value = digits;
+    _s.extra.km = digits;
     return;
   }
   if (target.matches('[data-extra]')) {

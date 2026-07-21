@@ -159,7 +159,9 @@ function _buildAuditUnits(units = [], localByMva = new Map()) {
       gasolinaCorregida: gas,
       gasolina: gas,
       km: local.km ?? unit.km ?? '',
-      status: unit.status === 'EXTRA' ? 'EXTRA' : 'PENDIENTE',
+      // El auxiliar ya audito estas unidades (Presente/Faltante/Sobrante);
+      // Ventas revisa lo ya marcado en vez de repetir el cuadre desde cero.
+      status: ['OK', 'FALTANTE', 'EXTRA'].includes(unit.status) ? unit.status : 'PENDIENTE',
       notas: unit.notas || ''
     };
   });
@@ -480,8 +482,16 @@ function _onInput(event) {
     return;
   }
   if (target.matches('[data-km]')) {
+    const digits = target.value.replace(/[^\d]/g, '');
+    if (target.value !== digits) target.value = digits;
     const unit = _unitByMva(target.dataset.km);
-    if (unit) unit.km = target.value.replace(/[^\d]/g, '');
+    if (unit) unit.km = digits;
+    return;
+  }
+  if (target.matches('[data-extra="km"]')) {
+    const digits = target.value.replace(/[^\d]/g, '');
+    if (target.value !== digits) target.value = digits;
+    _s.extra.km = digits;
     return;
   }
   if (target.matches('[data-extra]')) {
