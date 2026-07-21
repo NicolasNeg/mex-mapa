@@ -30,18 +30,6 @@ export function iniciarPreview(videoEl, stream = _stream) {
   if (p?.catch) p.catch(() => {});
 }
 
-/** Captura frame del video como dataURL JPEG (espejo horizontal). */
-export function capturarFoto(videoEl, quality = 0.72) {
-  const canvas = document.createElement('canvas');
-  canvas.width = videoEl.videoWidth || 640;
-  canvas.height = videoEl.videoHeight || 480;
-  const ctx = canvas.getContext('2d');
-  ctx.translate(canvas.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(videoEl, 0, 0);
-  return canvas.toDataURL('image/jpeg', quality);
-}
-
 export function dataUrlToBlob(dataUrl) {
   const [meta, b64] = String(dataUrl || '').split(',');
   if (!b64) return null;

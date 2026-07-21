@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 //  checado-gate.js — wizard modal INICIAR / CERRAR TURNO
-//  Cámara + face (Human.js) + geo soft-warn + firma digital.
-//  Paridad ChecadorGLOBAL: firma en entrada + pantalla de éxito.
+//  Verificación de identidad SIN foto: biometría nativa del
+//  dispositivo (Face ID / Touch ID / Windows Hello) → reconocimiento
+//  facial en la app (Human.js, sin selfie) → PIN de 6 dígitos como
+//  respaldo universal. Geo soft-warn + firma digital en inicio.
 // ═══════════════════════════════════════════════════════════
 
 import {
@@ -16,10 +18,21 @@ import {
 import {
   solicitarCamara,
   iniciarPreview,
-  capturarFoto,
   detenerCamara,
 } from '/js/app/features/turnos/camera.js';
 import { obtenerUbicacion, evaluarGeoPlaza } from '/js/app/features/turnos/geo-check.js';
+import {
+  biometriaNativaDisponible,
+  enrolarBiometriaNativa,
+  verificarBiometriaNativa,
+} from '/js/app/features/turnos/webauthn-check.js';
+import {
+  PIN_LENGTH,
+  pinFormatValido,
+  tienePinConfigurado,
+  configurarPin,
+  verificarPin,
+} from '/js/app/features/turnos/pin-check.js';
 
 const FACE_TXT = {
   cargando: 'Cargando verificación…',
@@ -52,35 +65,33 @@ function ensureGateCss() {
 
 /**
  * Abre el gate de checado.
- * @param {{ mode: 'inicio'|'cierre', user: object, plazaId: string, requireFace?: boolean }} opts
+ * @param {{ mode: 'inicio'|'cierre', user: object, docId: string, plazaId: string }} opts
  * @returns {Promise<{ cancelled: true } | object>}
  */
 export function runChecadoGate(opts = {}) {
   ensureGateCss();
   const mode = opts.mode === 'cierre' ? 'cierre' : 'inicio';
-  const requireFace = opts.requireFace !== false && mode === 'inicio';
-  const faceOptional = mode === 'cierre';
-  // Firma digital obligatoria solo al iniciar turno (config: signature).
   const requireSigna = opts.signature !== false && mode === 'inicio';
   const user = opts.user || {};
+  const docId = String(opts.docId || user.id || '').trim();
   const plazaId = String(opts.plazaId || '').toUpperCase().trim();
 
   return new Promise((resolve) => {
     let settled = false;
     let faceLoopId = null;
-    let faceEscapeId = null;
-    let streamOk = false;
     let geo = { lat: null, lon: null, accuracy: 0, status: 'pendiente' };
     let faceDescriptor = normalizarDescriptor(user.faceDescriptor);
+    let webauthnCredentialId = String(user.webauthnCredentialId || '').trim();
+    let pinConfigurado = tienePinConfigurado(user);
     let result = {
       lat: null,
       lon: null,
       direccion: null,
+      metodo: null,
       faceVerified: false,
       faceSimilarity: null,
       viveza: null,
       antiSpoof: null,
-      fotoDataURL: null,
       firmaDataURL: null,
       geoWarn: false,
       distanciaPlazaM: null,
@@ -112,7 +123,168 @@ export function runChecadoGate(opts = {}) {
       });
     };
 
-    const setFaceEstado = (estado) => {
+    function detenerGateFacial() {
+      if (faceLoopId) { clearInterval(faceLoopId); faceLoopId = null; }
+    }
+
+    // ── Bind global ───────────────────────────────────────
+    overlay.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-gate-action]');
+      if (!btn) return;
+      const action = btn.dataset.gateAction;
+      if (action === 'cancel') cancel();
+      else if (action === 'setup-webauthn') void setupWebauthn();
+      else if (action === 'setup-face') showFaceStep({ enrolar: true });
+      else if (action === 'setup-pin') showPinStep({ enrolar: true });
+      else if (action === 'use-pin') showPinStep({ enrolar: !pinConfigurado });
+      else if (action === 'retry-webauthn') void tryWebauthn();
+      else if (action === 'geo-continue') proceedAfterVerificacion();
+      else if (action === 'firma-clear') limpiarFirma();
+      else if (action === 'firma-confirm') void confirmarFirma();
+    });
+    overlay.addEventListener('submit', (e) => {
+      const form = e.target.closest('[data-gate-form="pin"]');
+      if (!form) return;
+      e.preventDefault();
+      void submitPin(form);
+    });
+
+    // ── Boot ──────────────────────────────────────────────
+    void boot();
+
+    async function boot() {
+      showStep('permisos');
+      // Geo en paralelo: nunca bloquea la verificación de identidad.
+      void obtenerUbicacion({ force: false }).then((g) => {
+        geo = g;
+        result.lat = geo.lat;
+        result.lon = geo.lon;
+      }).catch(() => {});
+
+      const nativaDisponible = await biometriaNativaDisponible().catch(() => false);
+      const tieneAlgunMetodo = (nativaDisponible && webauthnCredentialId) || faceDescriptor || pinConfigurado;
+
+      if (!tieneAlgunMetodo) {
+        showEnrolarIntro(nativaDisponible);
+        return;
+      }
+
+      if (nativaDisponible && webauthnCredentialId) {
+        void tryWebauthn();
+      } else if (faceDescriptor) {
+        showFaceStep();
+      } else {
+        showPinStep();
+      }
+    }
+
+    // ── Paso: elegir método (primera vez, nada enrolado) ──
+    function showEnrolarIntro(nativaDisponible) {
+      showStep('enrolar-intro');
+      const btnNativa = $('#tuGateEnrolNativa');
+      if (btnNativa) btnNativa.hidden = !nativaDisponible;
+    }
+
+    async function setupWebauthn() {
+      try {
+        webauthnCredentialId = await enrolarBiometriaNativa(docId, user.nombre || user.nombreCompleto || docId);
+        result.metodo = 'webauthn';
+        result.faceVerified = true; // "identidad confirmada" generico, no exclusivo de face
+        proceedAfterVerificacion();
+      } catch (e) {
+        console.warn('[checado-gate] enrolar webauthn:', e);
+        showPinStep({ enrolar: true });
+      }
+    }
+
+    // ── Método: biometría nativa (Face ID / Touch ID / Windows Hello) ──
+    async function tryWebauthn() {
+      showStep('webauthn');
+      const chip = $('#tuGateWaChip');
+      if (chip) chip.textContent = 'Confirma con Face ID, Touch ID o Windows Hello…';
+      const ok = await verificarBiometriaNativa(webauthnCredentialId);
+      if (ok) {
+        result.metodo = 'webauthn';
+        result.faceVerified = true;
+        proceedAfterVerificacion();
+        return;
+      }
+      if (chip) chip.textContent = 'No se pudo confirmar. Intenta de nuevo o usa otro método.';
+      const retry = $('#tuGateWaRetry');
+      if (retry) retry.hidden = false;
+    }
+
+    // ── Método: reconocimiento facial (sin foto) ──────────
+    function showFaceStep({ enrolar = false } = {}) {
+      showStep('face');
+      const video = $('#tuGateVideo');
+      const enrolarUi = $('#tuGateFaceEnrolIntro');
+      const scanUi = $('#tuGateFaceScan');
+      if (enrolar || !faceDescriptor) {
+        if (enrolarUi) enrolarUi.hidden = false;
+        if (scanUi) scanUi.hidden = true;
+        void solicitarCamara().then((stream) => iniciarPreview(video, stream)).catch(() => {
+          setFaceEstado('error');
+          showPinStep({ enrolar: !pinConfigurado });
+        });
+      } else {
+        if (enrolarUi) enrolarUi.hidden = true;
+        if (scanUi) scanUi.hidden = false;
+        void solicitarCamara().then((stream) => {
+          iniciarPreview(video, stream);
+          startVerifyLoop();
+        }).catch(() => {
+          setFaceEstado('error');
+          showPinStep({ enrolar: !pinConfigurado });
+        });
+      }
+    }
+
+    overlay?.addEventListener('click', (e) => {
+      if (e.target.closest('[data-gate-action="face-enrol-start"]')) void startEnrolarFace();
+    });
+
+    async function startEnrolarFace() {
+      const enrolarUi = $('#tuGateFaceEnrolIntro');
+      const scanUi = $('#tuGateFaceScan');
+      if (enrolarUi) enrolarUi.hidden = true;
+      if (scanUi) scanUi.hidden = false;
+      const video = $('#tuGateVideo');
+      setFaceEstado('cargando');
+      try {
+        await cargarMotor();
+      } catch (e) {
+        console.error('[checado-gate] Human no cargó:', e);
+        showPinStep({ enrolar: !pinConfigurado });
+        return;
+      }
+      let ocupado = false;
+      faceLoopId = setInterval(async () => {
+        if (ocupado || settled) return;
+        ocupado = true;
+        try {
+          const cara = await analizar(video);
+          if (!cara) { setFaceEstado('sincara'); return; }
+          if (cara.real < UMBRAL_REAL || cara.live < UMBRAL_VIVEZA) { setFaceEstado('liveness'); return; }
+          faceDescriptor = Array.from(cara.embedding);
+          result.enrolled = true;
+          result.viveza = cara.live;
+          result.antiSpoof = cara.real;
+          result.metodo = 'face';
+          result.faceVerified = true;
+          setFaceEstado('match');
+          detenerGateFacial();
+          if (navigator.vibrate) navigator.vibrate(40);
+          setTimeout(() => proceedAfterVerificacion(), 700);
+        } catch (e) {
+          console.error('[checado-gate] enrol face:', e);
+        } finally {
+          ocupado = false;
+        }
+      }, 400);
+    }
+
+    function setFaceEstado(estado) {
       const ring = $('#tuGateRing');
       const chip = $('#tuGateChip');
       if (ring) ring.dataset.estado = estado;
@@ -123,249 +295,45 @@ export function runChecadoGate(opts = {}) {
         if (icon) icon.textContent = FACE_ICON[estado] || 'face';
         if (txt) txt.textContent = FACE_TXT[estado] || '';
       }
-    };
-
-    function detenerGateFacial() {
-      if (faceLoopId) { clearInterval(faceLoopId); faceLoopId = null; }
-      if (faceEscapeId) { clearTimeout(faceEscapeId); faceEscapeId = null; }
-    }
-
-    function habilitarShutter() {
-      const btn = $('#tuGateShutter');
-      if (!btn) return;
-      btn.disabled = false;
-      btn.removeAttribute('aria-disabled');
-      btn.classList.add('face-listo');
-      if (navigator.vibrate) navigator.vibrate(40);
-    }
-
-    // ── Bind global ───────────────────────────────────────
-    overlay.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-gate-action]');
-      if (!btn) return;
-      const action = btn.dataset.gateAction;
-      if (action === 'cancel') cancel();
-      else if (action === 'enrol-start') startEnrolar();
-      else if (action === 'skip-face') {
-        detenerGateFacial();
-        result.faceVerified = false;
-        habilitarShutter();
-        setFaceEstado('sincara');
-        const skip = $('#tuGateSkip');
-        if (skip) skip.hidden = true;
-      } else if (action === 'shutter') takePhoto();
-      else if (action === 'retake') {
-        $('#tuGateVideoSec').hidden = false;
-        $('#tuGatePreviewSec').hidden = true;
-        if (requireFace || (faceOptional && faceDescriptor)) {
-          startVerifyLoop();
-        } else {
-          habilitarShutter();
-        }
-      } else if (action === 'confirm-photo') void confirmPhoto();
-      else if (action === 'geo-continue') proceedAfterPhoto();
-      else if (action === 'firma-clear') limpiarFirma();
-      else if (action === 'firma-confirm') void confirmarFirma();
-    });
-
-    // ── Boot ──────────────────────────────────────────────
-    void boot();
-
-    async function boot() {
-      showStep('permisos');
-      try {
-        try {
-          await solicitarCamara();
-          streamOk = true;
-        } catch (_) {
-          showStep('error');
-          $('#tuGateErrorMsg').textContent =
-            'No se pudo acceder a la cámara. Activa el permiso e inténtalo de nuevo.';
-          return;
-        }
-
-        // Geo en paralelo: no bloquear el wizard facial mientras el GPS responde.
-        void obtenerUbicacion({ force: false }).then((g) => {
-          geo = g;
-          result.lat = geo.lat;
-          result.lon = geo.lon;
-        }).catch(() => {});
-
-        if (requireFace && !faceDescriptor) {
-          showEnrolIntro();
-        } else {
-          showScan();
-        }
-      } catch (e) {
-        console.warn('[checado-gate] boot:', e);
-        showStep('error');
-        $('#tuGateErrorMsg').textContent = e?.message || 'No se pudieron solicitar permisos.';
-      }
-    }
-
-    function showEnrolIntro() {
-      showStep('enrolar');
-      $('#tuGateEnrolIntro').hidden = false;
-      $('#tuGateEnrolStage').hidden = true;
-      $('#tuGateEnrolChip').hidden = true;
-      const video = $('#tuGateVideoEnrol');
-      if (video) iniciarPreview(video);
-    }
-
-    function startEnrolar() {
-      $('#tuGateEnrolIntro').hidden = true;
-      $('#tuGateEnrolStage').hidden = false;
-      $('#tuGateEnrolChip').hidden = false;
-      const video = $('#tuGateVideoEnrol');
-      if (video) iniciarPreview(video);
-      void gateEnrolar(video);
-    }
-
-    async function gateEnrolar(video) {
-      detenerGateFacial();
-      const set = (e) => {
-        const ring = $('#tuGateEnrolRing');
-        const chip = $('#tuGateEnrolChip');
-        if (ring) ring.dataset.estado = e;
-        if (chip) {
-          chip.dataset.estado = e;
-          const icon = chip.querySelector('.tu-gate__status-icon');
-          const txt = chip.querySelector('.tu-gate__status-txt');
-          if (icon) icon.textContent = FACE_ICON[e] || 'face';
-          if (txt) txt.textContent = FACE_TXT[e] || '';
-        }
-      };
-      set('cargando');
-      try {
-        await cargarMotor();
-      } catch (e) {
-        console.error('[checado-gate] Human no cargó:', e);
-        set('error');
-        setTimeout(() => showScan({ skipFace: true }), 1600);
-        return;
-      }
-
-      let ocupado = false;
-      faceLoopId = setInterval(async () => {
-        if (ocupado || settled) return;
-        ocupado = true;
-        try {
-          const cara = await analizar(video);
-          if (!cara) { set('sincara'); return; }
-          if (cara.real < UMBRAL_REAL || cara.live < UMBRAL_VIVEZA) {
-            set('liveness');
-            return;
-          }
-          set('enrolando');
-          faceDescriptor = Array.from(cara.embedding);
-          result.enrolled = true;
-          result.viveza = cara.live;
-          result.antiSpoof = cara.real;
-          set('match');
-          detenerGateFacial();
-          if (navigator.vibrate) navigator.vibrate(40);
-          setTimeout(() => showScan(), 900);
-        } catch (e) {
-          console.error('[checado-gate] enrol:', e);
-        } finally {
-          ocupado = false;
-        }
-      }, 400);
-    }
-
-    function showScan({ skipFace = false } = {}) {
-      showStep('scan');
-      const video = $('#tuGateVideo');
-      iniciarPreview(video);
-      $('#tuGateVideoSec').hidden = false;
-      $('#tuGatePreviewSec').hidden = true;
-
-      const shutter = $('#tuGateShutter');
-      shutter.disabled = true;
-      shutter.setAttribute('aria-disabled', 'true');
-      shutter.classList.remove('face-listo');
-      const skip = $('#tuGateSkip');
-      if (skip) skip.hidden = true;
-
-      result.faceVerified = false;
-      result.faceSimilarity = null;
-
-      // Pre-calienta reverse geocode
-      if (result.lat != null && result.lon != null) {
-        void evaluarGeoPlaza(result.lat, result.lon, plazaId);
-      }
-
-      const needsFace = !skipFace && ((requireFace && faceDescriptor) || (faceOptional && faceDescriptor));
-      if (needsFace) {
-        startVerifyLoop();
-      } else if (skipFace || (faceOptional && !faceDescriptor)) {
-        // Motor facial no cargó (skipFace) o cierre sin enrolar: solo foto.
-        // No forzar al usuario a encontrar el botón "saltar" — degradar directo.
-        setFaceEstado('sincara');
-        const chip = $('#tuGateChip');
-        if (chip) {
-          chip.querySelector('.tu-gate__status-txt').textContent = 'Toma una foto para continuar';
-        }
-        habilitarShutter();
-      } else {
-        setFaceEstado('error');
-        if (skip) {
-          skip.hidden = false;
-          skip.textContent = 'Continuar sin verificar';
-        }
-        // Escape inmediato si no hay referencia
-        habilitarShutter();
-      }
     }
 
     function startVerifyLoop() {
       detenerGateFacial();
       setFaceEstado('cargando');
-      const skip = $('#tuGateSkip');
-      const escapeMs = faceOptional ? 5000 : 15000;
-      faceEscapeId = setTimeout(() => {
-        if (skip) {
-          skip.hidden = false;
-          skip.textContent = 'Continuar sin verificar';
-        }
-      }, escapeMs);
-
       void (async () => {
         try {
           await cargarMotor();
         } catch (e) {
           console.error('[checado-gate] Human:', e);
-          setFaceEstado('error');
-          if (skip) skip.hidden = false;
+          showPinStep({ enrolar: !pinConfigurado });
           return;
         }
-        if (!faceDescriptor) {
-          setFaceEstado('error');
-          if (skip) skip.hidden = false;
-          return;
-        }
-
         let ocupado = false;
+        const escapeAt = Date.now() + 12000;
         faceLoopId = setInterval(async () => {
           if (ocupado || settled) return;
+          if (Date.now() > escapeAt) {
+            detenerGateFacial();
+            const skip = $('#tuGateFaceSkip');
+            if (skip) skip.hidden = false;
+            return;
+          }
           ocupado = true;
           try {
             const video = $('#tuGateVideo');
             const cara = await analizar(video);
             if (!cara) { setFaceEstado('sincara'); return; }
-            if (cara.real < UMBRAL_REAL || cara.live < UMBRAL_VIVEZA) {
-              setFaceEstado('liveness');
-              return;
-            }
+            if (cara.real < UMBRAL_REAL || cara.live < UMBRAL_VIVEZA) { setFaceEstado('liveness'); return; }
             const sim = similitud(cara.embedding, faceDescriptor);
             if (sim >= UMBRAL_SIMILITUD) {
+              result.metodo = 'face';
               result.faceVerified = true;
               result.viveza = cara.live;
               result.antiSpoof = cara.real;
               result.faceSimilarity = Math.round(sim * 1000) / 1000;
               setFaceEstado('match');
               detenerGateFacial();
-              habilitarShutter();
+              setTimeout(() => proceedAfterVerificacion(), 500);
             } else {
               setFaceEstado('verificando');
             }
@@ -378,18 +346,64 @@ export function runChecadoGate(opts = {}) {
       })();
     }
 
-    function takePhoto() {
+    // ── Método: PIN de 6 dígitos ───────────────────────────
+    function showPinStep({ enrolar = false } = {}) {
       detenerGateFacial();
-      const video = $('#tuGateVideo');
-      result.fotoDataURL = capturarFoto(video);
-      const img = $('#tuGatePreviewImg');
-      if (img) img.src = result.fotoDataURL;
-      $('#tuGateVideoSec').hidden = true;
-      $('#tuGatePreviewSec').hidden = false;
+      detenerCamara();
+      showStep('pin');
+      const title = $('#tuGatePinTitle');
+      const input = $('#tuGatePinInput');
+      const err = $('#tuGatePinError');
+      if (title) title.textContent = enrolar ? `Crea tu PIN de ${PIN_LENGTH} dígitos` : 'Ingresa tu PIN';
+      if (err) err.hidden = true;
+      if (input) { input.value = ''; input.dataset.enrolar = enrolar ? '1' : '0'; setTimeout(() => input.focus(), 50); }
+      const confirmWrap = $('#tuGatePinConfirmWrap');
+      if (confirmWrap) confirmWrap.hidden = !enrolar;
     }
 
-    async function confirmPhoto() {
-      // Refresh geo if missing
+    async function submitPin(form) {
+      const input = form.querySelector('#tuGatePinInput');
+      const confirmInput = form.querySelector('#tuGatePinConfirm');
+      const err = $('#tuGatePinError');
+      const pin = String(input?.value || '').trim();
+      const enrolar = input?.dataset.enrolar === '1';
+
+      if (!pinFormatValido(pin)) {
+        if (err) { err.textContent = `El PIN debe tener ${PIN_LENGTH} dígitos.`; err.hidden = false; }
+        return;
+      }
+      if (enrolar) {
+        const confirmPin = String(confirmInput?.value || '').trim();
+        if (pin !== confirmPin) {
+          if (err) { err.textContent = 'Los PIN no coinciden.'; err.hidden = false; }
+          return;
+        }
+        try {
+          await configurarPin(docId, pin);
+          pinConfigurado = true;
+          result.metodo = 'pin';
+          result.faceVerified = true;
+          proceedAfterVerificacion();
+        } catch (e) {
+          if (err) { err.textContent = e?.message || 'No se pudo guardar el PIN.'; err.hidden = false; }
+        }
+        return;
+      }
+      const ok = await verificarPin(user, pin);
+      if (!ok) {
+        if (err) { err.textContent = 'PIN incorrecto.'; err.hidden = false; }
+        if (input) input.value = '';
+        return;
+      }
+      result.metodo = 'pin';
+      result.faceVerified = true;
+      proceedAfterVerificacion();
+    }
+
+    // ── Tras verificar identidad (cualquier método): geo → firma ──
+    async function proceedAfterVerificacion() {
+      detenerGateFacial();
+      detenerCamara();
       if (result.lat == null) {
         const g = await obtenerUbicacion({ force: true });
         result.lat = g.lat;
@@ -413,16 +427,11 @@ export function runChecadoGate(opts = {}) {
         if (dir) dir.textContent = result.direccion || `${result.lat?.toFixed(5)}, ${result.lon?.toFixed(5)}`;
         return;
       }
-      proceedAfterPhoto();
-    }
-
-    /** Tras foto/geo: firma (entrada) o finalizar. */
-    function proceedAfterPhoto() {
       if (requireSigna) showFirma();
       else void finalizeGate();
     }
 
-    // ── Firma digital (canvas) ────────────────────────────
+    // ── Firma digital (canvas) ─────────────────────────────
     let firmaCtx = null;
     let firmaDibujo = false;
     let firmaTieneTrazo = false;
@@ -431,7 +440,6 @@ export function runChecadoGate(opts = {}) {
       showStep('firma');
       const canvas = $('#tuGateFirmaCanvas');
       if (!canvas) { void finalizeGate(); return; }
-      // Ajustar resolución al tamaño real
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       canvas.width = Math.max(300, rect.width) * dpr;
@@ -441,7 +449,6 @@ export function runChecadoGate(opts = {}) {
       firmaCtx.lineWidth = 2.5;
       firmaCtx.lineCap = 'round';
       firmaCtx.lineJoin = 'round';
-      // Modo oscuro: trazo blanco (visible sobre fondo #0f1b2d). Claro: tinta oscura.
       const dark = document.body.classList.contains('dark-theme');
       firmaCtx.strokeStyle = dark ? '#f8fafc' : '#0f172a';
       firmaTieneTrazo = false;
@@ -489,7 +496,6 @@ export function runChecadoGate(opts = {}) {
 
     async function finalizeGate() {
       showStep('guardando');
-      // Devolver descriptor enrolado para que mutations lo persista
       finish({
         cancelled: false,
         ...result,
@@ -501,11 +507,12 @@ export function runChecadoGate(opts = {}) {
 
 /**
  * Overlay de éxito tras registrar el turno (paridad ChecadorGLOBAL).
- * @param {object} info { mode, hora, fecha, plaza, direccion, fotoDataURL, duracion }
+ * @param {object} info { mode, hora, fecha, plaza, direccion, metodo, duracion }
  */
 export function showChecadoExito(info = {}) {
   ensureGateCss();
   const esInicio = info.mode !== 'cierre';
+  const metodoLabel = { webauthn: 'Verificado con biometría del dispositivo', face: 'Verificado por reconocimiento facial', pin: 'Verificado con PIN' }[info.metodo] || 'Identidad verificada';
   const overlay = document.createElement('div');
   overlay.className = 'tu-gate tu-gate--exito';
   overlay.setAttribute('role', 'dialog');
@@ -515,8 +522,8 @@ export function showChecadoExito(info = {}) {
   <div class="tu-exito__check"><span class="material-symbols-outlined">${esInicio ? 'login' : 'logout'}</span></div>
   <h2 class="tu-exito__title">${esInicio ? 'Turno iniciado' : 'Turno cerrado'}</h2>
   <p class="tu-exito__sub">${info.hora ? info.hora : ''}${info.fecha ? ` · ${info.fecha}` : ''}</p>
-  ${info.fotoDataURL ? `<img class="tu-exito__foto" src="${info.fotoDataURL}" alt="Selfie">` : ''}
   <div class="tu-exito__rows">
+    <div class="tu-exito__row"><span class="material-symbols-outlined">verified_user</span><span>${metodoLabel}</span></div>
     ${info.plaza ? `<div class="tu-exito__row"><span class="material-symbols-outlined">store</span><span>${info.plaza}</span></div>` : ''}
     ${info.direccion ? `<div class="tu-exito__row"><span class="material-symbols-outlined">location_on</span><span>${info.direccion}</span></div>` : ''}
     ${info.duracion ? `<div class="tu-exito__row"><span class="material-symbols-outlined">timer</span><span>${info.duracion}</span></div>` : ''}
@@ -534,7 +541,7 @@ function _shellHtml(mode) {
   const titulo = mode === 'cierre' ? 'Cerrar turno' : 'Iniciar turno';
   const sub = mode === 'cierre'
     ? 'Confirma tu identidad y ubicación para cerrar'
-    : 'Verificación facial y ubicación para abrir turno';
+    : 'Verifica tu identidad y ubicación para abrir turno';
   return `
 <div class="tu-gate__backdrop" data-gate-action="cancel"></div>
 <div class="tu-gate__panel">
@@ -550,38 +557,51 @@ function _shellHtml(mode) {
 
   <div data-gate-step="permisos" class="tu-gate__body tu-gate__body--center">
     <div class="tu-gate__spinner"></div>
-    <p>Solicitando cámara y ubicación…</p>
-    <p id="tuGatePermisoGeo" class="tu-gate__hint" hidden>Sin ubicación — se registrará el turno igual.</p>
+    <p>Preparando verificación…</p>
   </div>
 
-  <div data-gate-step="enrolar" class="tu-gate__body tu-gate__body--foto" hidden>
-    <div class="tu-gate-facescan">
-      <video id="tuGateVideoEnrol" class="tu-gate-facescan__cam" autoplay playsinline muted></video>
-      <div id="tuGateEnrolIntro" class="tu-gate-facescan__intro">
-        <div class="tu-gate-facescan__intro-card">
-          <span class="material-symbols-outlined tu-gate-facescan__intro-icon">face_retouching_natural</span>
-          <h3>Registrar tu rostro</h3>
-          <p>Lo guardamos una sola vez para confirmar tu identidad al iniciar turno.</p>
-          <ul>
-            <li>Rostro descubierto, mirando al frente</li>
-            <li>Sin lentes oscuros, gorra ni cubrebocas</li>
-            <li>Busca un lugar bien iluminado</li>
-          </ul>
-          <button type="button" class="tu-btn tu-btn--primary" data-gate-action="enrol-start">Comenzar</button>
-        </div>
-      </div>
-      <div id="tuGateEnrolStage" class="tu-gate-facescan__stage" hidden>
-        ${_frameHtml('tuGateEnrolRing')}
-      </div>
-      <div id="tuGateEnrolChip" class="tu-gate-facescan__status" data-estado="cargando" hidden>
-        <span class="material-symbols-outlined tu-gate__status-icon">progress_activity</span>
-        <span class="tu-gate__status-txt">Cargando verificación…</span>
-      </div>
+  <div data-gate-step="enrolar-intro" class="tu-gate__body tu-gate__body--center" hidden>
+    <span class="material-symbols-outlined tu-gate__warn-icon" style="color:#3b82f6">verified_user</span>
+    <h3>Configura tu verificación</h3>
+    <p class="tu-gate__hint">La usarás cada vez que inicies o cierres turno. Elige una:</p>
+    <div class="tu-gate__row" style="flex-direction:column;gap:10px;width:100%;max-width:320px;margin:12px auto 0;">
+      <button type="button" id="tuGateEnrolNativa" class="tu-btn tu-btn--primary tu-btn--full" data-gate-action="setup-webauthn" hidden>
+        <span class="material-symbols-outlined">fingerprint</span> Face ID / Touch ID del equipo
+      </button>
+      <button type="button" class="tu-btn tu-btn--ghost tu-btn--full" data-gate-action="setup-face">
+        <span class="material-symbols-outlined">face</span> Reconocimiento facial
+      </button>
+      <button type="button" class="tu-btn tu-btn--ghost tu-btn--full" data-gate-action="setup-pin">
+        <span class="material-symbols-outlined">pin</span> PIN de ${PIN_LENGTH} dígitos
+      </button>
     </div>
   </div>
 
-  <div data-gate-step="scan" class="tu-gate__body tu-gate__body--foto" hidden>
-    <div id="tuGateVideoSec" class="tu-gate-facescan">
+  <div data-gate-step="webauthn" class="tu-gate__body tu-gate__body--center" hidden>
+    <span class="material-symbols-outlined tu-gate__warn-icon" style="color:#3b82f6">fingerprint</span>
+    <p id="tuGateWaChip">Confirma con Face ID, Touch ID o Windows Hello…</p>
+    <div class="tu-gate__row">
+      <button type="button" id="tuGateWaRetry" class="tu-btn tu-btn--ghost" data-gate-action="retry-webauthn" hidden>Reintentar</button>
+      <button type="button" class="tu-btn tu-btn--ghost" data-gate-action="use-pin">Usar PIN en su lugar</button>
+    </div>
+  </div>
+
+  <div data-gate-step="face" class="tu-gate__body tu-gate__body--foto" hidden>
+    <div id="tuGateFaceEnrolIntro" class="tu-gate-facescan__intro-standalone" hidden>
+      <div class="tu-gate-facescan__intro-card">
+        <span class="material-symbols-outlined tu-gate-facescan__intro-icon">face_retouching_natural</span>
+        <h3>Registrar tu rostro</h3>
+        <p>Lo guardamos una sola vez para confirmar tu identidad. No se toma ninguna foto.</p>
+        <ul>
+          <li>Rostro descubierto, mirando al frente</li>
+          <li>Sin lentes oscuros, gorra ni cubrebocas</li>
+          <li>Busca un lugar bien iluminado</li>
+        </ul>
+        <button type="button" class="tu-btn tu-btn--primary" data-gate-action="face-enrol-start">Comenzar</button>
+        <button type="button" class="tu-btn tu-btn--ghost" data-gate-action="use-pin">Usar PIN en su lugar</button>
+      </div>
+    </div>
+    <div id="tuGateFaceScan" class="tu-gate-facescan" hidden>
       <video id="tuGateVideo" class="tu-gate-facescan__cam" autoplay playsinline muted></video>
       <div class="tu-gate-facescan__stage">
         ${_frameHtml('tuGateRing')}
@@ -591,21 +611,22 @@ function _shellHtml(mode) {
         <span class="tu-gate__status-txt">Cargando verificación…</span>
       </div>
       <div class="tu-gate-facescan__actions">
-        <button type="button" id="tuGateSkip" class="tu-gate-facescan__skip" data-gate-action="skip-face" hidden>Continuar sin verificar</button>
-        <button type="button" id="tuGateShutter" class="tu-gate-facescan__shutter" data-gate-action="shutter" disabled aria-disabled="true" aria-label="Tomar foto">
-          <span class="tu-gate-facescan__shutter-ring"></span>
-        </button>
-        <span class="tu-gate-facescan__shutter-lbl">Tomar foto</span>
+        <button type="button" id="tuGateFaceSkip" class="tu-gate-facescan__skip" data-gate-action="use-pin" hidden>Usar PIN en su lugar</button>
       </div>
     </div>
-    <div id="tuGatePreviewSec" class="tu-gate-facescan tu-gate-facescan--preview" hidden>
-      <img id="tuGatePreviewImg" class="tu-gate-facescan__cam" alt="Vista previa">
-      <p class="tu-gate-facescan__preview-hint">¿Se ve bien tu foto?</p>
-      <div class="tu-gate-facescan__actions tu-gate-facescan__actions--confirm">
-        <button type="button" class="tu-btn tu-btn--ghost" data-gate-action="retake">Repetir</button>
-        <button type="button" class="tu-btn tu-btn--primary" data-gate-action="confirm-photo">Continuar</button>
+  </div>
+
+  <div data-gate-step="pin" class="tu-gate__body tu-gate__body--center" hidden>
+    <span class="material-symbols-outlined tu-gate__warn-icon" style="color:#3b82f6">pin</span>
+    <h3 id="tuGatePinTitle">Ingresa tu PIN</h3>
+    <form data-gate-form="pin" class="tu-gate__row" style="flex-direction:column;gap:10px;width:100%;max-width:260px;margin:0 auto;">
+      <input id="tuGatePinInput" type="password" inputmode="numeric" pattern="\\d*" maxlength="${PIN_LENGTH}" placeholder="••••••" class="tu-input" style="text-align:center;font-size:22px;letter-spacing:6px;" autocomplete="off">
+      <div id="tuGatePinConfirmWrap" hidden>
+        <input id="tuGatePinConfirm" type="password" inputmode="numeric" pattern="\\d*" maxlength="${PIN_LENGTH}" placeholder="Confirma tu PIN" class="tu-input" style="text-align:center;font-size:22px;letter-spacing:6px;width:100%;box-sizing:border-box;" autocomplete="off">
       </div>
-    </div>
+      <p id="tuGatePinError" class="tu-gate__hint" style="color:#ef4444" hidden></p>
+      <button type="submit" class="tu-btn tu-btn--primary tu-btn--full">Confirmar</button>
+    </form>
   </div>
 
   <div data-gate-step="firma" class="tu-gate__body tu-gate__body--firma" hidden>
@@ -622,7 +643,7 @@ function _shellHtml(mode) {
   </div>
 
   <div data-gate-step="geo-warn" class="tu-gate__body tu-gate__body--center" hidden>
-    <span class="material-symbols-outlined tu-gate__warn-icon">location_off</span>
+    <span class="material-symbols-outlined tu-gate__warn-icon" style="color:#f59e0b">location_off</span>
     <h3>Ubicación lejos de la plaza</h3>
     <p id="tuGateGeoMsg" class="tu-gate__geo-msg"></p>
     <p id="tuGateGeoDir" class="tu-gate__hint"></p>

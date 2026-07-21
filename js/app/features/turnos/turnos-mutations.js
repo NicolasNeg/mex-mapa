@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 //  /js/app/features/turnos/turnos-mutations.js
 //  Check-in/out con bitácora (logs tipo TURNO), asistencia auto,
-//  gate facial/geo y foto en Storage.
+//  verificación de identidad sin foto (WebAuthn/rostro/PIN) + geo.
 // ═══════════════════════════════════════════════════════════
 
 import { db, auth, COL } from '/js/core/database.js';
@@ -16,6 +16,8 @@ import { dataUrlToBlob } from '/js/app/features/turnos/camera.js';
 import { normalizarDescriptor } from '/js/app/features/turnos/face-verify.js';
 import { registrarHechoTurno } from '/js/app/features/turnos/turnos-audit.js';
 
+const METODO_LABEL = { webauthn: 'biometría del dispositivo', face: 'rostro', pin: 'PIN' };
+
 function authUid(user) {
   return window._auth?.currentUser?.uid || auth?.currentUser?.uid || user?.uid || '';
 }
@@ -24,7 +26,7 @@ function userDisplayName(user) {
   return String(user?.nombreCompleto || user?.nombre || user?.displayName || user?.email || 'Usuario').trim();
 }
 
-async function resolveUsuarioDocId(user) {
+export async function resolveUsuarioDocId(user) {
   const email = String(user?.email || window._auth?.currentUser?.email || '').toLowerCase().trim();
   const uid = authUid(user);
   if (user?.id && (user.id === email || user.id === uid)) return user.id;
@@ -69,26 +71,6 @@ export async function guardarFaceDescriptor(user, embedding) {
   return true;
 }
 
-/** Sube selfie a Cloudinary. Falla silenciosamente → null. */
-async function uploadChecadaFoto(fotoDataURL, { uid, tipo }) {
-  if (!fotoDataURL || !uid) return null;
-  const blob = dataUrlToBlob(fotoDataURL);
-  if (!blob) return null;
-  try {
-    const { uploadMedia } = await import('/js/core/media-upload.js');
-    const result = await uploadMedia({
-      folder: `turnos_checadas/${uid}`,
-      file: blob,
-      publicId: `${tipo}_${Date.now()}`,
-      resourceType: 'image',
-    });
-    return result.url;
-  } catch (e) {
-    console.warn('[turnos-mutations] foto upload:', e?.code || e?.message);
-    return null;
-  }
-}
-
 /** Sube la firma digital (PNG) a Cloudinary. Falla silenciosamente → null. */
 async function uploadChecadaFirma(firmaDataURL, { uid, tipo }) {
   if (!firmaDataURL || !uid) return null;
@@ -109,15 +91,13 @@ async function uploadChecadaFirma(firmaDataURL, { uid, tipo }) {
   }
 }
 
-async function loadFreshFaceDescriptor(user) {
-  const fromUser = normalizarDescriptor(user?.faceDescriptor);
-  if (fromUser?.length) return fromUser;
+/** Carga el perfil fresco (faceDescriptor, checadoPinHash, webauthnCredentialId). */
+async function loadFreshUserRecord(user) {
   try {
     const fresh = await window.__mexLoadCurrentUserRecord?.(window._auth?.currentUser, { force: true });
-    return normalizarDescriptor(fresh?.faceDescriptor);
-  } catch (_) {
-    return null;
-  }
+    if (fresh) return fresh;
+  } catch (_) {}
+  return user || {};
 }
 
 /**
@@ -132,14 +112,15 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
   const nombre = userDisplayName(user);
 
   let meta = {};
-  let exitoFoto = null;
+  let metodo = null;
   if (!opts.skipGate) {
-    const faceDescriptor = await loadFreshFaceDescriptor(user);
+    const docId = await resolveUsuarioDocId(user);
+    const freshUser = await loadFreshUserRecord(user);
     const gate = await runChecadoGate({
       mode: 'inicio',
-      user: { ...user, faceDescriptor },
+      user: { ...user, ...freshUser },
+      docId,
       plazaId: plaza,
-      requireFace: true,
       signature: true,
     });
     if (gate?.cancelled) {
@@ -156,20 +137,17 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
       }
     }
 
-    exitoFoto = gate.fotoDataURL;
-    const [fotoUrl, firmaUrl] = await Promise.all([
-      uploadChecadaFoto(gate.fotoDataURL, { uid: firebaseUid, tipo: 'inicio' }),
-      uploadChecadaFirma(gate.firmaDataURL, { uid: firebaseUid, tipo: 'inicio' }),
-    ]);
+    metodo = gate.metodo;
+    const firmaUrl = await uploadChecadaFirma(gate.firmaDataURL, { uid: firebaseUid, tipo: 'inicio' });
     meta = {
       lat: gate.lat,
       lon: gate.lon,
       direccion: gate.direccion,
+      metodo: gate.metodo,
       faceVerified: !!gate.faceVerified,
       faceSimilarity: gate.faceSimilarity,
       viveza: gate.viveza,
       antiSpoof: gate.antiSpoof,
-      fotoUrl,
       firmaUrl,
       geoWarn: !!gate.geoWarn,
       distanciaPlazaM: gate.distanciaPlazaM,
@@ -185,17 +163,16 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
     fecha: ahora.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }),
     plaza,
     direccion: meta.direccion || '',
-    fotoDataURL: exitoFoto,
+    metodo,
   });
 
-  const faceTag = meta.faceVerified ? 'rostro OK' : (meta.faceVerified === false ? 'sin rostro' : '');
   await registrarHechoTurno({
     hecho: 'TURNO_INICIO',
     plaza,
     empleado: nombre,
     empleadoUid: firebaseUid,
-    nota: faceTag,
-    detalle: { turnoId, faceVerified: meta.faceVerified, geoWarn: meta.geoWarn },
+    nota: metodo ? `verificado por ${METODO_LABEL[metodo] || metodo}` : '',
+    detalle: { turnoId, metodo, faceVerified: meta.faceVerified, geoWarn: meta.geoWarn },
   });
 
   try {
@@ -211,7 +188,7 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
 }
 
 /**
- * Gate (cámara+geo, face opcional) + cierre.
+ * Gate (identidad + geo) + cierre.
  * @param {string} turnoId
  * @param {{ user?, plaza?, nombre?, usuarioId?, skipGate?: boolean }} [opts]
  */
@@ -231,31 +208,31 @@ export async function cerrarTurno(turnoId, opts = {}) {
   const uid = data.usuarioId || opts.usuarioId || authUid(opts.user || {});
 
   let meta = {};
-  let exitoFoto = null;
+  let metodo = null;
   if (!opts.skipGate) {
-    const faceDescriptor = await loadFreshFaceDescriptor(opts.user || {});
+    const docId = await resolveUsuarioDocId(opts.user || {});
+    const freshUser = await loadFreshUserRecord(opts.user || {});
     const gate = await runChecadoGate({
       mode: 'cierre',
-      user: { ...(opts.user || {}), faceDescriptor },
+      user: { ...(opts.user || {}), ...freshUser },
+      docId,
       plazaId: plaza,
-      requireFace: false,
     });
     if (gate?.cancelled) {
       const err = new Error('Cancelado');
       err.code = 'GATE_CANCELLED';
       throw err;
     }
-    exitoFoto = gate.fotoDataURL;
-    const fotoUrl = await uploadChecadaFoto(gate.fotoDataURL, { uid, tipo: 'cierre' });
+    metodo = gate.metodo;
     meta = {
       lat: gate.lat,
       lon: gate.lon,
       direccion: gate.direccion,
+      metodo: gate.metodo,
       faceVerified: !!gate.faceVerified,
       faceSimilarity: gate.faceSimilarity,
       viveza: gate.viveza,
       antiSpoof: gate.antiSpoof,
-      fotoUrl,
       geoWarn: !!gate.geoWarn,
       distanciaPlazaM: gate.distanciaPlazaM,
     };
@@ -273,7 +250,7 @@ export async function cerrarTurno(turnoId, opts = {}) {
     fecha: ahora.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }),
     plaza,
     direccion: meta.direccion || '',
-    fotoDataURL: exitoFoto,
+    metodo,
     duracion: dur,
   });
 
@@ -283,6 +260,6 @@ export async function cerrarTurno(turnoId, opts = {}) {
     empleado: nombre,
     empleadoUid: uid,
     nota: `duración ${dur}`,
-    detalle: { turnoId, faceVerified: meta.faceVerified, geoWarn: meta.geoWarn },
+    detalle: { turnoId, metodo, faceVerified: meta.faceVerified, geoWarn: meta.geoWarn },
   });
 }

@@ -1726,6 +1726,16 @@ video.tu-gate-facescan__cam { transform: scaleX(-1); }
   flex: 1.4;
 }
 
+/* Variante standalone: la tarjeta de intro sin video de fondo detras
+   (checado-gate.js ya no superpone la camara hasta pulsar "Comenzar"). */
+.tu-gate-facescan__intro-standalone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  padding: 24px;
+}
+
 /* Enrol intro card */
 .tu-gate-facescan__intro {
   position: absolute;
