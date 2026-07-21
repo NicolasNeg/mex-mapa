@@ -10,6 +10,10 @@ import {
   CHECKLIST_LABELS,
   LLANTA_KEYS,
   LLANTA_LABELS,
+  DAMAGE_TYPES,
+  DAMAGE_TYPE_LABELS,
+  DAMAGE_SEVERITIES,
+  DAMAGE_SEVERITY_LABELS,
   puedeEditar,
   puedeEntregar,
   allZonasHaveFoto,
@@ -22,6 +26,8 @@ import {
   normalizeMarcasLlantas,
   normalizeTapetes,
   kmTableroRetakeNeeded,
+  createDamageMark,
+  nextDisplayNumber,
 } from '/domain/papeleta.model.js';
 import { STATUS_LABELS, STATUS_LABELS_SHORT } from '/js/app/features/papeletas/papeletas-constants.js';
 import {
@@ -259,14 +265,86 @@ function _mountDiagramIfNeeded(p, editable) {
   const strokes = Array.isArray(_localStrokes)
     ? _localStrokes
     : (Array.isArray(p?.diagramaStrokes) ? p.diagramaStrokes : []);
+  const danos = Array.isArray(p?.danosMarcados) ? p.danosMarcados : [];
   _diagramApi = mountDiagram(host, {
     strokes,
+    danosMarcados: danos,
     editable: !!editable,
+    view: 'top',
     onChange: (next) => {
       _localStrokes = next;
       if (_detail) _detail.diagramaStrokes = next;
     },
+    onTap: editable ? (payload) => { void _addDamageFromTap(payload); } : undefined,
   });
+}
+
+async function _addDamageFromTap({ x, y, view }) {
+  if (!_detail || !puedeEditar(_detail.status)) return;
+  const typeOpts = DAMAGE_TYPES.map((t) => DAMAGE_TYPE_LABELS[t] || t).join(' / ');
+  let typeLabel = '';
+  try {
+    if (typeof window.mexPrompt === 'function') {
+      typeLabel = await window.mexPrompt(
+        'Tipo de daño',
+        `Elige: ${typeOpts}`,
+        DAMAGE_TYPE_LABELS.scratch
+      );
+    }
+  } catch (_) {
+    return;
+  }
+  if (typeLabel == null) return;
+  const damageType = DAMAGE_TYPES.find((t) =>
+    (DAMAGE_TYPE_LABELS[t] || t).toLowerCase() === String(typeLabel).trim().toLowerCase()
+    || t === String(typeLabel).trim().toLowerCase()
+  ) || 'scratch';
+
+  let sevLabel = DAMAGE_SEVERITY_LABELS.medium;
+  try {
+    if (typeof window.mexPrompt === 'function') {
+      sevLabel = await window.mexPrompt(
+        'Severidad',
+        'Chico / Medio / Grande',
+        DAMAGE_SEVERITY_LABELS.medium
+      );
+    }
+  } catch (_) {
+    return;
+  }
+  const severity = DAMAGE_SEVERITIES.find((s) =>
+    (DAMAGE_SEVERITY_LABELS[s] || s).toLowerCase() === String(sevLabel || '').trim().toLowerCase()
+    || s === String(sevLabel || '').trim().toLowerCase()
+  ) || 'medium';
+
+  const existing = Array.isArray(_detail.danosMarcados) ? _detail.danosMarcados.slice() : [];
+  const lastAssigned = Number(_detail.danosLastDisplayNumber) || 0;
+  const num = nextDisplayNumber(existing, lastAssigned);
+  const mark = createDamageMark({
+    view: view || 'top',
+    x,
+    y,
+    damageType,
+    severity,
+    nextDisplayNumber: num,
+    source: 'salida',
+  });
+  existing.push(mark);
+  _detail.danosMarcados = existing;
+  _detail.danosLastDisplayNumber = num;
+  if (_diagramApi?.setDamages) _diagramApi.setDamages(existing);
+
+  _saveState = 'saving';
+  try {
+    await actualizarPapeleta(_detail.id, {
+      danosMarcados: existing,
+      danosLastDisplayNumber: num,
+    }, { user: _user(), knownRevision: _detail.revision });
+    _saveState = 'saved';
+  } catch (e) {
+    _saveState = e?.code === 'REVISION_CONFLICT' ? 'conflict' : 'idle';
+    await _mexAlert('Error', e.message || String(e));
+  }
 }
 
 function _diagramReadonlyHtml(p) {
@@ -1905,12 +1983,17 @@ async function _captureTableroFoto() {
 async function _saveDanos() {
   if (!_detail || !puedeEditar(_detail.status)) return;
   const strokes = _diagramApi ? _diagramApi.getStrokes() : (_localStrokes || _detail.diagramaStrokes || []);
+  const danos = _diagramApi?.getDamages
+    ? _diagramApi.getDamages()
+    : (Array.isArray(_detail.danosMarcados) ? _detail.danosMarcados : []);
   _localStrokes = strokes;
   _saveState = 'saving';
   _busy = true; _render();
   try {
     await actualizarPapeleta(_detail.id, {
       diagramaStrokes: strokes,
+      danosMarcados: danos,
+      danosLastDisplayNumber: Number(_detail.danosLastDisplayNumber) || nextDisplayNumber(danos, 0) - 1,
     }, { user: _user(), knownRevision: _detail.revision });
     _saveState = 'saved';
   } catch (e) {

@@ -1599,8 +1599,8 @@ body.dark-theme .pap-zona-chip.is-active {
 .pap-diagram__stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 360 / 300;
-  background: #f8fafc;
+  aspect-ratio: 416 / 632; /* car-drawable.png */
+  background: #ffffff;
   color: #475569;
   touch-action: none;
 }
@@ -2281,8 +2281,8 @@ body.pap-camflow-open { overflow: hidden; }
 .pap-diagram__stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 378 / 410;
-  background: #f7f4ee;
+  aspect-ratio: 416 / 632; /* car-drawable.png 1664×2530 */
+  background: #ffffff;
   touch-action: none;
   overflow: hidden;
 }
@@ -2299,9 +2299,29 @@ body.pap-camflow-open { overflow: hidden; }
   user-select: none;
   -webkit-user-drag: none;
 }
-.pap-diagram__bg { z-index: 1; background: #f7f4ee; }
+.pap-diagram__bg { z-index: 1; background: #ffffff; }
 .pap-diagram__canvas { z-index: 2; cursor: crosshair; }
 .pap-diagram__marks { z-index: 2; pointer-events: none; }
+.pap-diagram__marks-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--pap-ink-soft, #334155);
+  border-top: 1px solid var(--pap-border, #e2e8f0);
+}
+.pap-diagram__marks-list li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.pap-diagram__marks-list b {
+  color: #dc2626;
+  font-variant-numeric: tabular-nums;
+}
 .pap-diagram__legend {
   display: flex;
   flex-wrap: wrap;

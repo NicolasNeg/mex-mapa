@@ -125,6 +125,9 @@ export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null
   }).join('');
 
   const strokes = Array.isArray(papeleta.diagramaStrokes) ? papeleta.diagramaStrokes : [];
+  const danosMarcados = Array.isArray(papeleta.danosMarcados)
+    ? papeleta.danosMarcados
+    : (Array.isArray(papeleta.salida?.danosMarcados) ? papeleta.salida.danosMarcados : []);
   const absDiagram = (() => {
     try {
       return new URL(DIAGRAM_IMAGE_URL, window.location.origin).href;
@@ -134,13 +137,17 @@ export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null
   })();
   let diagramUrl = absDiagram;
   try {
-    diagramUrl = await strokesToDataUrlAsync(strokes);
+    diagramUrl = await strokesToDataUrlAsync(strokes, { danosMarcados });
   } catch (_) {
     diagramUrl = absDiagram;
   }
+  const hasMarks = strokes.length > 0 || danosMarcados.length > 0;
   const diagramHtml = `<h2>Diagrama del vehículo</h2>
     <img class="diagram" src="${_esc(diagramUrl)}" alt="Diagrama de inspección"/>
-    ${strokes.length ? '' : '<p class="muted">Sin marcas registradas.</p>'}`;
+    ${hasMarks ? '' : '<p class="muted">Sin marcas registradas.</p>'}
+    ${danosMarcados.length ? `<ol class="dmg">${danosMarcados.map((d) =>
+      `<li>#${_esc(d.displayNumber)} · ${_esc(d.damageType)} · ${_esc(d.severity)}${d.note ? ` — ${_esc(d.note)}` : ''}</li>`
+    ).join('')}</ol>` : ''}`;
 
   const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"/>
