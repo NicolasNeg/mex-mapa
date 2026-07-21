@@ -4,7 +4,15 @@ import {
   getExportIdentity,
 } from '/js/core/export-signing.js';
 import { exportMatrixCsv, exportMatrixXls } from '/js/core/export-menu.js';
-import { ZONAS_V1, CHECKLIST_KEYS, CHECKLIST_LABELS } from '/domain/papeleta.model.js';
+import {
+  ZONAS_V1,
+  CHECKLIST_KEYS,
+  CHECKLIST_LABELS,
+  LLANTA_KEYS,
+  LLANTA_LABELS,
+  normalizeMarcasLlantas,
+  normalizeTapetes,
+} from '/domain/papeleta.model.js';
 import { getDownloadUrl } from '/js/app/features/papeletas/papeletas-storage.js';
 import { strokesToDataUrl } from '/js/app/features/papeletas/papeletas-diagram.js';
 
@@ -23,12 +31,10 @@ function _checkLabel(v) {
   return '—';
 }
 
-function _marca(p) {
-  return String(p?.marcaLlantas || p?.checklist?.marca_llantas || p?.salida?.marcaLlantas || '').trim();
-}
-
 /** Matriz plana de una papeleta para XLS/CSV. */
 export function papeletaExportMatrix(papeleta) {
+  const marcas = normalizeMarcasLlantas(papeleta);
+  const tapetes = normalizeTapetes(papeleta);
   const headers = ['Campo', 'Valor'];
   const rows = [
     ['MVA', papeleta.mva || ''],
@@ -47,8 +53,13 @@ export function papeletaExportMatrix(papeleta) {
     ['Gas entrada', papeleta.entrada?.gas ?? ''],
     ['Quién recibe', papeleta.entrada?.quienRecibe || ''],
     ['Notas / interiores', papeleta.notasInteriores || papeleta.entrada?.notas || ''],
-    ['Marca de llantas', _marca(papeleta)],
+    ['Tapetes uso rudo', tapetes.usoRudo ?? ''],
+    ['Tapetes alfombra', tapetes.alfombra ?? ''],
+    ['Marcas llantas · marcar todas', marcas.marcarTodas ? 'sí' : 'no'],
   ];
+  for (const k of LLANTA_KEYS) {
+    rows.push([`Llanta · ${LLANTA_LABELS[k]}`, marcas[k] || '']);
+  }
   for (const k of CHECKLIST_KEYS) {
     rows.push([`Checklist · ${CHECKLIST_LABELS[k] || k}`, papeleta.checklist?.[k] || '']);
   }
@@ -92,11 +103,16 @@ export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null
   const fileTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
   const id = getExportIdentity();
   const fotos = fotoUrls || await _loadFotoMap(papeleta);
+  const marcas = normalizeMarcasLlantas(papeleta);
+  const tapetes = normalizeTapetes(papeleta);
   const zonasDano = ZONAS_V1.filter((z) => papeleta.zonas?.[z.id]?.estado === 'dano');
   const checklistRows = CHECKLIST_KEYS.map((k) => {
     const v = papeleta.checklist?.[k] || '';
     return `<tr><td>${_esc(CHECKLIST_LABELS[k] || k)}</td><td class="center">${_esc(_checkLabel(v))}</td></tr>`;
   }).join('');
+  const llantasRows = LLANTA_KEYS.map((k) => (
+    `<tr><td>${_esc(LLANTA_LABELS[k])}</td><td>${_esc(marcas[k] || '—')}</td></tr>`
+  )).join('');
 
   const photosHtml = ZONAS_V1.map((z) => {
     const url = fotos[z.id];
@@ -169,7 +185,8 @@ export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null
     <div><div class="label">VIN</div><div class="val">${_esc(papeleta.vin || '—')}</div></div>
     <div><div class="label">Cliente</div><div class="val">${_esc(papeleta.clienteNombre || '—')}</div></div>
     <div><div class="label">Plaza</div><div class="val">${_esc(papeleta.plazaId || '—')}</div></div>
-    <div><div class="label">Marca llantas</div><div class="val">${_esc(_marca(papeleta) || '—')}</div></div>
+    <div><div class="label">Tapetes uso rudo</div><div class="val">${_esc(tapetes.usoRudo ?? '—')}</div></div>
+    <div><div class="label">Tapetes alfombra</div><div class="val">${_esc(tapetes.alfombra ?? '—')}</div></div>
   </div>
 </div>
 
@@ -194,6 +211,9 @@ export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null
 
 <h2>Checklist</h2>
 <table class="chk"><thead><tr><th>Ítem</th><th>Estado</th></tr></thead><tbody>${checklistRows}</tbody></table>
+
+<h2>Marca de llantas${marcas.marcarTodas ? ' (todas iguales)' : ''}</h2>
+<table class="chk"><thead><tr><th>Posición</th><th>Marca</th></tr></thead><tbody>${llantasRows}</tbody></table>
 
 <h2>Notas / interiores</h2>
 <p>${_esc(papeleta.notasInteriores || papeleta.entrada?.notas || '—')}</p>

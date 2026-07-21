@@ -3,6 +3,7 @@ import {
   STATUS,
   createEmptyChecklist,
   createEmptyZonas,
+  createEmptyMarcasLlantas,
   computeStatusAfterSave,
   puedeEditar,
 } from '/domain/papeleta.model.js';
@@ -100,6 +101,9 @@ export async function crearPapeleta({ unidad, plazaId, user }) {
     clienteNombre: '',
     checklist: createEmptyChecklist(),
     zonas: createEmptyZonas(),
+    marcasLlantas: createEmptyMarcasLlantas(),
+    tapetesUsoRudo: null,
+    tapetesAlfombra: null,
     zonasTemplateVersion: 1,
     salida: {
       km: unidad.km ?? unidad.kilometraje ?? null,

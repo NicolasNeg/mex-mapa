@@ -30,12 +30,11 @@ export const ZONAS_V1 = Object.freeze([
 ]);
 
 export const CHECKLIST_KEYS = Object.freeze([
-  'tapetes', 'placas', 'catalizador', 'tapon_gas', 'gato', 'herramienta',
+  'placas', 'catalizador', 'tapon_gas', 'gato', 'herramienta',
   'dado_seguridad', 'refaccion', 'mofle', 'antena', 'limpiaparabrisas', 'aire_acondicionado',
 ]);
 
 export const CHECKLIST_LABELS = Object.freeze({
-  tapetes: 'Tapetes',
   placas: 'Placas',
   catalizador: 'Catalizador',
   tapon_gas: 'Tapón de gas',
@@ -48,6 +47,67 @@ export const CHECKLIST_LABELS = Object.freeze({
   limpiaparabrisas: 'Limpiaparabrisas',
   aire_acondicionado: 'Aire acondicionado',
 });
+
+/** Tire brand slots — visual order: front L/R then rear L/R */
+export const LLANTA_KEYS = Object.freeze([
+  'delanteraIzq', 'delanteraDer', 'traseraIzq', 'traseraDer',
+]);
+
+export const LLANTA_LABELS = Object.freeze({
+  delanteraIzq: 'Delantera izquierda',
+  delanteraDer: 'Delantera derecha',
+  traseraIzq: 'Trasera izquierda',
+  traseraDer: 'Trasera derecha',
+});
+
+export function createEmptyMarcasLlantas() {
+  return {
+    delanteraIzq: '',
+    delanteraDer: '',
+    traseraIzq: '',
+    traseraDer: '',
+    marcarTodas: false,
+  };
+}
+
+/**
+ * Normalize tire brands from doc. Migrates legacy single `marcaLlantas` string → all 4.
+ * @param {object} p
+ */
+export function normalizeMarcasLlantas(p = {}) {
+  const base = createEmptyMarcasLlantas();
+  const src =
+    (p && typeof p.marcasLlantas === 'object' && p.marcasLlantas)
+    || (p?.salida && typeof p.salida.marcasLlantas === 'object' && p.salida.marcasLlantas)
+    || {};
+  for (const k of LLANTA_KEYS) {
+    base[k] = String(src[k] ?? '').trim();
+  }
+  base.marcarTodas = src.marcarTodas === true;
+  const legacy = String(p?.marcaLlantas || p?.checklist?.marca_llantas || p?.salida?.marcaLlantas || '').trim();
+  if (legacy && LLANTA_KEYS.every((k) => !base[k])) {
+    for (const k of LLANTA_KEYS) base[k] = legacy;
+    base.marcarTodas = true;
+  }
+  return base;
+}
+
+export function createEmptyTapetes() {
+  return { usoRudo: null, alfombra: null };
+}
+
+/** @param {object} p */
+export function normalizeTapetes(p = {}) {
+  const nested = (p && typeof p.tapetes === 'object' && p.tapetes) || {};
+  const uso = nested.usoRudo ?? p?.tapetesUsoRudo ?? p?.salida?.tapetesUsoRudo;
+  const alf = nested.alfombra ?? p?.tapetesAlfombra ?? p?.salida?.tapetesAlfombra;
+  const toNum = (v) => {
+    if (v == null || v === '') return null;
+    const n = Number(String(v).replace(/\D+/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+  return { usoRudo: toNum(uso), alfombra: toNum(alf) };
+}
 
 const ROLE_LEVEL = Object.freeze({
   AUXILIAR: 1,

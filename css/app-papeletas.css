@@ -1507,3 +1507,84 @@ body.dark-theme .pap-gas-chip.is-on {
   color: #93c5fd;
 }
 body.dark-theme .pap-diagram__stage { color: #94a3b8; background: #0f172a; }
+
+
+/* ── Llantas 4 campos + tapetes numéricos ─────────────────── */
+.pap-llantas,
+.pap-tapetes {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--pap-border);
+  border-radius: 8px;
+  background: var(--bg, #f8fafc);
+}
+.pap-llantas__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.pap-llantas__head .pap-subhead { margin: 0; }
+.pap-llantas__todas {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+.pap-llantas__todas input {
+  width: 18px;
+  height: 18px;
+}
+.pap-llantas__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+.pap-llanta-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.pap-llanta-cell span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--pap-muted);
+}
+.pap-llanta-cell input,
+.pap-llanta-cell strong {
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--pap-border);
+  border-radius: 4px;
+  font: 600 13px Inter, sans-serif;
+  background: var(--surface, #fff);
+  color: inherit;
+}
+.pap-llanta-cell strong {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+}
+.pap-llantas--ro .pap-llanta-cell strong {
+  border-style: dashed;
+}
+.pap-tapetes .pap-subhead { margin: 0 0 10px; }
+.pap-tapetes-ro { margin: 8px 0; }
+@media (max-width: 620px) {
+  .pap-llantas__grid { gap: 8px; }
+}
+body.dark-theme .pap-llantas,
+body.dark-theme .pap-tapetes,
+body.dark-theme .pap-llanta-cell input,
+body.dark-theme .pap-llanta-cell strong {
+  background: #111827;
+  border-color: #334155;
+  color: #e2e8f0;
+}

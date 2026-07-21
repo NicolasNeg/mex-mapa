@@ -7,6 +7,8 @@ import {
   ZONAS_V1,
   CHECKLIST_KEYS,
   CHECKLIST_LABELS,
+  LLANTA_KEYS,
+  LLANTA_LABELS,
   puedeEditar,
   puedeEntregar,
   allZonasHaveFoto,
@@ -14,6 +16,8 @@ import {
   truncNota,
   rolPuedeGestionarVentas,
   rolPuedeCerrarCaso,
+  normalizeMarcasLlantas,
+  normalizeTapetes,
 } from '/domain/papeleta.model.js';
 import { STATUS_LABELS, STATUS_LABELS_SHORT } from '/js/app/features/papeletas/papeletas-constants.js';
 import {
@@ -210,7 +214,89 @@ function _checkGlyph(val) {
 }
 
 function _marcaLlantas(p) {
-  return String(p?.marcaLlantas || p?.checklist?.marca_llantas || p?.salida?.marcaLlantas || '').trim();
+  return normalizeMarcasLlantas(p);
+}
+
+function _tapetes(p) {
+  return normalizeTapetes(p);
+}
+
+function _llantasGridHtml(p, editable) {
+  const m = _marcaLlantas(p);
+  const cell = (key, side) => `
+    <label class="pap-llanta-cell pap-llanta-cell--${side}">
+      <span>${_esc(LLANTA_LABELS[key] || key)}</span>
+      <input type="text" data-llanta="${_esc(key)}" value="${_esc(m[key] || '')}"
+        placeholder="Marca" ${editable ? '' : 'disabled'} autocomplete="off"/>
+    </label>`;
+  return `
+    <section class="pap-llantas" aria-label="Marca de llantas">
+      <div class="pap-llantas__head">
+        <h3 class="pap-subhead">Marca de llantas</h3>
+        <label class="pap-llantas__todas">
+          <input type="checkbox" id="papMarcarTodas" ${m.marcarTodas ? 'checked' : ''} ${editable ? '' : 'disabled'}/>
+          <span>Marcar todas</span>
+        </label>
+      </div>
+      <div class="pap-llantas__grid">
+        ${cell('delanteraIzq', 'izq')}
+        ${cell('delanteraDer', 'der')}
+        ${cell('traseraIzq', 'izq')}
+        ${cell('traseraDer', 'der')}
+      </div>
+    </section>
+  `;
+}
+
+function _tapetesHtml(p, editable) {
+  const t = _tapetes(p);
+  return `
+    <section class="pap-tapetes" aria-label="Tapetes">
+      <h3 class="pap-subhead">Tapetes</h3>
+      <div class="pap-fields-2">
+        <div class="pap-field">
+          <label>Tapetes uso rudo</label>
+          <input id="papTapetesRudo" type="text" inputmode="numeric" pattern="[0-9]*"
+            value="${_esc(t.usoRudo ?? '')}" ${editable ? '' : 'disabled'} autocomplete="off" placeholder="0"/>
+        </div>
+        <div class="pap-field">
+          <label>Tapetes alfombra</label>
+          <input id="papTapetesAlfombra" type="text" inputmode="numeric" pattern="[0-9]*"
+            value="${_esc(t.alfombra ?? '')}" ${editable ? '' : 'disabled'} autocomplete="off" placeholder="0"/>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function _llantasReadonlyHtml(p) {
+  const m = _marcaLlantas(p);
+  return `
+    <div class="pap-llantas pap-llantas--ro">
+      <div class="pap-llantas__head">
+        <h3 class="pap-subhead">Marca de llantas</h3>
+        ${m.marcarTodas ? '<span class="pap-muted">Todas iguales</span>' : ''}
+      </div>
+      <div class="pap-llantas__grid">
+        ${LLANTA_KEYS.map((k) => `
+          <div class="pap-llanta-cell">
+            <span>${_esc(LLANTA_LABELS[k])}</span>
+            <strong>${_esc(m[k] || '—')}</strong>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function _tapetesReadonlyHtml(p) {
+  const t = _tapetes(p);
+  return `
+    <div class="pap-fields-2 pap-tapetes-ro">
+      <div class="pap-field"><label>Tapetes uso rudo</label><input value="${_esc(t.usoRudo ?? '—')}" disabled/></div>
+      <div class="pap-field"><label>Tapetes alfombra</label><input value="${_esc(t.alfombra ?? '—')}" disabled/></div>
+    </div>
+  `;
 }
 
 const _mexConfirm = (t, x, tipo = 'warning') =>
@@ -697,7 +783,6 @@ function _ternaryEditable(k, val, editable) {
 function _panelDatos(p, editable) {
   const km = p.salida?.km ?? _pendingSalida.km ?? '';
   const gas = p.salida?.gas ?? _pendingSalida.gas ?? '';
-  const marca = _marcaLlantas(p);
   const notas = String(p.notasInteriores || p.notas || '');
   const contrato = String(p.contrato || '');
   const mid = Math.ceil(CHECKLIST_KEYS.length / 2);
@@ -758,12 +843,11 @@ function _panelDatos(p, editable) {
               ${_ternaryEditable(k, p.checklist?.[k], editable)}
             </div>
           `).join('')}
-          <div class="pap-check-readonly__row pap-check-readonly__row--text">
-            <span class="pap-check-readonly__name">Marca de llantas</span>
-            <input class="pap-inline-input" data-field="marcaLlantas" value="${_esc(marca)}" placeholder="Marca" ${editable ? '' : 'disabled'} autocomplete="off"/>
-          </div>
         </div>
       </div>
+
+      ${_tapetesHtml(p, editable)}
+      ${_llantasGridHtml(p, editable)}
 
       <div class="pap-fields-2 pap-hoja__notes">
         <div class="pap-field pap-field--full">
@@ -1028,7 +1112,6 @@ function _unitIdentityHtml(p) {
 }
 
 function _checklistReadonlyHtml(p) {
-  const marca = _marcaLlantas(p);
   return `
     <div class="pap-check-readonly">
       ${CHECKLIST_KEYS.map((k) => {
@@ -1043,10 +1126,8 @@ function _checklistReadonlyHtml(p) {
             </span>
           </div>`;
       }).join('')}
-      <div class="pap-check-readonly__row pap-check-readonly__row--text">
-        <span class="pap-check-readonly__name">Marca de llantas</span>
-        <strong>${marca ? _esc(marca) : '—'}</strong>
-      </div>
+      ${_tapetesReadonlyHtml(p)}
+      ${_llantasReadonlyHtml(p)}
     </div>
   `;
 }
@@ -1294,6 +1375,28 @@ function _bind() {
       if (kmOut.value !== digits) kmOut.value = digits;
     });
   }
+  ['#papTapetesRudo', '#papTapetesAlfombra'].forEach((sel) => {
+    const el = root.querySelector(sel);
+    if (!el || el.disabled) return;
+    el.addEventListener('input', () => {
+      const digits = String(el.value || '').replace(/\D+/g, '');
+      if (el.value !== digits) el.value = digits;
+    });
+  });
+  const syncLlantas = (source) => {
+    const box = root.querySelector('#papMarcarTodas');
+    if (!box?.checked) return;
+    const val = String(source?.value || '').trim();
+    root.querySelectorAll('[data-llanta]').forEach((inp) => { inp.value = val; });
+  };
+  root.querySelectorAll('[data-llanta]').forEach((inp) => {
+    inp.addEventListener('input', () => syncLlantas(inp));
+  });
+  root.querySelector('#papMarcarTodas')?.addEventListener('change', (e) => {
+    if (!e.target.checked) return;
+    const first = root.querySelector('[data-llanta]');
+    if (first) syncLlantas(first);
+  });
   root.querySelector('[data-act="zona-prev"]')?.addEventListener('click', () => {
     _zonaIdx = Math.max(0, _zonaIdx - 1); _render();
   });
@@ -1423,10 +1526,37 @@ async function _saveDatos() {
     if (puedeEditar(_detail.status)) {
       const strokes = _diagramApi ? _diagramApi.getStrokes() : (_localStrokes || _detail.diagramaStrokes || []);
       _localStrokes = strokes;
+      const marcasLlantas = {
+        delanteraIzq: '',
+        delanteraDer: '',
+        traseraIzq: '',
+        traseraDer: '',
+        marcarTodas: !!_container.querySelector('#papMarcarTodas')?.checked,
+      };
+      _container.querySelectorAll('[data-llanta]').forEach((inp) => {
+        marcasLlantas[inp.dataset.llanta] = String(inp.value || '').trim();
+      });
+      if (marcasLlantas.marcarTodas) {
+        const master = marcasLlantas.delanteraIzq
+          || marcasLlantas.delanteraDer
+          || marcasLlantas.traseraIzq
+          || marcasLlantas.traseraDer
+          || '';
+        LLANTA_KEYS.forEach((k) => { marcasLlantas[k] = master; });
+      }
+      const tapetesUsoRudoRaw = _container.querySelector('#papTapetesRudo')?.value ?? '';
+      const tapetesAlfombraRaw = _container.querySelector('#papTapetesAlfombra')?.value ?? '';
+      const tapetesUsoRudo = tapetesUsoRudoRaw === '' ? null : Number(String(tapetesUsoRudoRaw).replace(/\D+/g, ''));
+      const tapetesAlfombra = tapetesAlfombraRaw === '' ? null : Number(String(tapetesAlfombraRaw).replace(/\D+/g, ''));
+      const marcaLlantasLegacy = LLANTA_KEYS.map((k) => marcasLlantas[k]).filter(Boolean).join(' / ');
+      delete patch.marcaLlantas;
       await actualizarPapeleta(_detail.id, {
         ...patch,
         checklist,
-        marcaLlantas: patch.marcaLlantas || '',
+        marcasLlantas,
+        marcaLlantas: marcaLlantasLegacy,
+        tapetesUsoRudo: Number.isFinite(tapetesUsoRudo) ? tapetesUsoRudo : null,
+        tapetesAlfombra: Number.isFinite(tapetesAlfombra) ? tapetesAlfombra : null,
         notasInteriores: patch.notasInteriores || '',
         contrato: patch.contrato || '',
         diagramaStrokes: strokes,
@@ -1434,6 +1564,10 @@ async function _saveDatos() {
           ...(_detail.salida || {}),
           km: Number.isFinite(km) ? km : (_detail.salida?.km ?? null),
           gas: gasRaw || _detail.salida?.gas || null,
+          marcasLlantas,
+          marcaLlantas: marcaLlantasLegacy,
+          tapetesUsoRudo: Number.isFinite(tapetesUsoRudo) ? tapetesUsoRudo : null,
+          tapetesAlfombra: Number.isFinite(tapetesAlfombra) ? tapetesAlfombra : null,
         },
       }, { user: _user() });
       _wizardStep = 'zonas';
