@@ -1185,16 +1185,16 @@ service cloud.firestore {
         && request.resource.data.status == 'borrador'
         && request.resource.data.activoPorUnidad == true;
       allow update: if puedeVerPapeletas() && (
-        // Editable salida mientras borrador/lista
+        // Editable salida mientras borrador/lista (incluye entrega y cancelación)
         (
           resource.data.status in ['borrador', 'lista']
-          && request.resource.data.status in ['borrador', 'lista', 'entregada']
+          && request.resource.data.status in ['borrador', 'lista', 'entregada', 'cancelada']
         )
         // Asignar cliente / meta post-entrega
         || (
           puedeGestionarPapeletasVentas()
           && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['clienteNombre', 'actualizadoPor', 'actualizadoAt', 'casoVentasId', 'pdfUrl'])
+            .hasOnly(['clienteNombre', 'actualizadoPor', 'actualizadoAt', 'casoVentasId', 'pdfUrl', 'revision'])
         )
         // Registrar entrada
         || (
@@ -1209,6 +1209,12 @@ service cloud.firestore {
         )
       );
       allow delete: if false;
+    }
+
+    // Lock de unicidad por unidad (autoridad de create atómico)
+    match /papeletas_activas/{unidadId} {
+      allow read: if puedeVerPapeletas();
+      allow create, update, delete: if puedeVerPapeletas();
     }
 
     match /papeletas_reportes/{reporteId} {

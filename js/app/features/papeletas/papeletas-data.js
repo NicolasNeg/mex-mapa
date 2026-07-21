@@ -6,6 +6,8 @@ import {
   createEmptyMarcasLlantas,
   computeStatusAfterSave,
   puedeEditar,
+  puedeEntregar,
+  isSalidaMutable,
 } from '/domain/papeleta.model.js';
 
 function _fv() {
@@ -14,6 +16,10 @@ function _fv() {
 
 function _col() {
   return db.collection(COL.PAPELETAS);
+}
+
+function _activasCol() {
+  return db.collection(COL.PAPELETAS_ACTIVAS);
 }
 
 function _userMeta(user = {}) {
@@ -27,6 +33,20 @@ function _userMeta(user = {}) {
       || '',
   };
 }
+
+/** Fields that must not change once salida is locked (post-entregada). */
+const SALIDA_LOCKED_KEYS = new Set([
+  'zonas',
+  'checklist',
+  'danosMarcados',
+  'diagramaStrokes',
+  'danosLastDisplayNumber',
+  'marcasLlantas',
+  'tapetesUsoRudo',
+  'tapetesAlfombra',
+  'tapetes',
+  'marcaLlantas',
+]);
 
 export function subscribePapeletasPlaza({ plazaId, onData, onError }) {
   let q = _col().orderBy('actualizadoAt', 'desc').limit(200);
@@ -72,121 +92,320 @@ export async function getPapeletaActivaByUnidad(unidadId) {
   return { id: d.id, ...d.data() };
 }
 
+export async function releasePapeletaActivaLock(unidadId) {
+  const id = String(unidadId || '').trim();
+  if (!id) return;
+  try {
+    await _activasCol().doc(id).delete();
+  } catch (e) {
+    console.warn('[papeletas] release lock:', e?.message);
+  }
+}
+
 /**
- * Crear papeleta. Rechaza si ya hay activa para la unidad.
- * @returns {{ id: string, existing?: object }}
+ * Crear papeleta atómicamente con lock `papeletas_activas/{unidadId}`.
+ * UI pre-check (`getPapeletaActivaByUnidad`) is UX only — this TX is the authority.
+ * @returns {{ id: string }}
  */
 export async function crearPapeleta({ unidad, plazaId, user }) {
   const unidadId = String(unidad?.id || unidad?.unidadId || '').trim();
   if (!unidadId) throw new Error('Unidad requerida');
 
-  const existing = await getPapeletaActivaByUnidad(unidadId);
-  if (existing) {
-    const err = new Error('Ya existe una papeleta activa para esta unidad');
-    err.code = 'ACTIVE_EXISTS';
-    err.existing = existing;
-    throw err;
+  const meta = _userMeta(user);
+  const lockRef = _activasCol().doc(unidadId);
+  const papeletaRef = _col().doc();
+
+  try {
+    await db.runTransaction(async (tx) => {
+      const lockSnap = await tx.get(lockRef);
+      if (lockSnap.exists) {
+        const existingId = String(lockSnap.data()?.papeletaId || '');
+        const err = new Error('Ya existe una papeleta activa para esta unidad');
+        err.code = 'ACTIVE_EXISTS';
+        err.existingId = existingId;
+        throw err;
+      }
+
+      const doc = {
+        unidadId,
+        mva: String(unidad.mva || '').toUpperCase(),
+        modelo: String(unidad.modelo || ''),
+        placas: String(unidad.placas || '').toUpperCase(),
+        color: String(unidad.color || ''),
+        vin: String(unidad.vin || '').toUpperCase(),
+        plazaId: String(plazaId || unidad.plazaId || '').toUpperCase(),
+        status: STATUS.BORRADOR,
+        clienteNombre: '',
+        checklist: createEmptyChecklist(),
+        zonas: createEmptyZonas(),
+        marcasLlantas: createEmptyMarcasLlantas(),
+        tapetesUsoRudo: null,
+        tapetesAlfombra: null,
+        danosMarcados: [],
+        diagramaStrokes: [],
+        danosLastDisplayNumber: 0,
+        zonasTemplateVersion: 2,
+        revision: 1,
+        salida: {
+          km: unidad.km ?? unidad.kilometraje ?? null,
+          gas: unidad.gasolina ?? unidad.gas ?? null,
+        },
+        entrada: {},
+        activoPorUnidad: true,
+        casoVentasId: '',
+        pdfUrl: '',
+        creadoPor: meta.uid,
+        creadoPorNombre: meta.nombre,
+        actualizadoPor: meta.uid,
+        creadoAt: _fv(),
+        actualizadoAt: _fv(),
+      };
+
+      tx.set(papeletaRef, doc);
+      tx.set(lockRef, {
+        papeletaId: papeletaRef.id,
+        unidadId,
+        createdAt: _fv(),
+        createdBy: meta.uid,
+      });
+    });
+  } catch (e) {
+    if (e?.code === 'ACTIVE_EXISTS') {
+      if (e.existingId) {
+        e.existing = await getPapeleta(e.existingId);
+      }
+      if (!e.existing) {
+        e.existing = await getPapeletaActivaByUnidad(unidadId);
+      }
+      throw e;
+    }
+    throw e;
   }
 
-  const meta = _userMeta(user);
-  const doc = {
-    unidadId,
-    mva: String(unidad.mva || '').toUpperCase(),
-    modelo: String(unidad.modelo || ''),
-    placas: String(unidad.placas || '').toUpperCase(),
-    color: String(unidad.color || ''),
-    vin: String(unidad.vin || '').toUpperCase(),
-    plazaId: String(plazaId || unidad.plazaId || '').toUpperCase(),
-    status: STATUS.BORRADOR,
-    clienteNombre: '',
-    checklist: createEmptyChecklist(),
-    zonas: createEmptyZonas(),
-    marcasLlantas: createEmptyMarcasLlantas(),
-    tapetesUsoRudo: null,
-    tapetesAlfombra: null,
-    zonasTemplateVersion: 1,
-    salida: {
-      km: unidad.km ?? unidad.kilometraje ?? null,
-      gas: unidad.gasolina ?? unidad.gas ?? null,
-    },
-    entrada: {},
-    activoPorUnidad: true,
-    casoVentasId: '',
-    pdfUrl: '',
-    creadoPor: meta.uid,
-    creadoPorNombre: meta.nombre,
-    actualizadoPor: meta.uid,
-    creadoAt: _fv(),
-    actualizadoAt: _fv(),
-  };
-
-  const ref = await _col().add(doc);
-  return { id: ref.id };
+  return { id: papeletaRef.id };
 }
 
-export async function actualizarPapeleta(id, patch, { user } = {}) {
-  const current = await getPapeleta(id);
-  if (!current) throw new Error('Papeleta no encontrada');
-  if (!puedeEditar(current.status)) {
-    throw new Error('Papeleta bloqueada (ya entregada)');
-  }
-
+/**
+ * Patch con merge de `salida`, guard de inmutabilidad y conflicto de `revision`.
+ * @param {string} id
+ * @param {object} patch
+ * @param {{ user?: object, knownRevision?: number }} [opts]
+ */
+export async function actualizarPapeleta(id, patch, { user, knownRevision } = {}) {
+  const ref = _col().doc(id);
   const meta = _userMeta(user);
-  const nextZonas = patch.zonas != null ? patch.zonas : current.zonas;
-  const nextChecklist = patch.checklist != null ? patch.checklist : current.checklist;
-  const status = computeStatusAfterSave({
-    status: current.status,
-    zonas: nextZonas,
-    checklist: nextChecklist,
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new Error('Papeleta no encontrada');
+    const current = { id: snap.id, ...snap.data() };
+
+    if (!isSalidaMutable(current.status)) {
+      const keys = Object.keys(patch || {});
+      const touchesLocked = keys.some((k) =>
+        SALIDA_LOCKED_KEYS.has(k)
+        || k === 'salida'
+        || (k === 'status' && patch.status !== current.status && patch.status !== STATUS.EN_RETORNO && patch.status !== STATUS.CERRADA_HISTORIAL)
+      );
+      if (touchesLocked) {
+        const err = new Error('Salida inmutable (papeleta ya entregada o cerrada)');
+        err.code = 'SALIDA_IMMUTABLE';
+        throw err;
+      }
+    } else if (!puedeEditar(current.status)) {
+      throw new Error('Papeleta bloqueada (ya entregada)');
+    }
+
+    const remoteRev = Number(current.revision) || 0;
+    if (knownRevision != null && Number(knownRevision) !== remoteRev) {
+      const err = new Error('Conflicto de revisión');
+      err.code = 'REVISION_CONFLICT';
+      err.remote = current;
+      throw err;
+    }
+
+    const nextZonas = patch.zonas != null ? patch.zonas : current.zonas;
+    const nextChecklist = patch.checklist != null ? patch.checklist : current.checklist;
+    const data = { ...patch };
+
+    if (patch.salida && typeof patch.salida === 'object') {
+      data.salida = { ...(current.salida || {}), ...patch.salida };
+    }
+
+    const mergedForStatus = {
+      ...current,
+      ...data,
+      zonas: nextZonas,
+      checklist: nextChecklist,
+      salida: data.salida || current.salida,
+    };
+
+    const status = computeStatusAfterSave({
+      status: current.status,
+      zonas: nextZonas,
+      checklist: nextChecklist,
+      papeleta: mergedForStatus,
+    });
+
+    data.status = status;
+    data.revision = remoteRev + 1;
+    data.actualizadoPor = meta.uid;
+    data.actualizadoAt = _fv();
+    tx.update(ref, data);
   });
 
-  const data = {
-    ...patch,
-    status,
-    actualizadoPor: meta.uid,
-    actualizadoAt: _fv(),
-  };
-  await _col().doc(id).update(data);
   return getPapeleta(id);
 }
 
 export async function asignarCliente(id, clienteNombre, { user } = {}) {
   const meta = _userMeta(user);
+  const current = await getPapeleta(id);
+  if (!current) throw new Error('Papeleta no encontrada');
   await _col().doc(id).update({
     clienteNombre: String(clienteNombre || '').trim(),
+    revision: (Number(current.revision) || 0) + 1,
     actualizadoPor: meta.uid,
     actualizadoAt: _fv(),
   });
 }
 
+/**
+ * Atomic + idempotent delivery. Single entry point — do not split status/firma/pdf across modules.
+ * @returns {{ ok: true, alreadyFinalized: boolean, papeleta: object }}
+ */
+export async function finalizeDelivery(id, {
+  quienEntrega,
+  km,
+  gas,
+  firma,
+  confirmedWarnings = [],
+  user,
+  pdfUrl = '',
+} = {}) {
+  const meta = _userMeta(user);
+  const ref = _col().doc(id);
+  let alreadyFinalized = false;
+  let cached = null;
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new Error('Papeleta no encontrada');
+    const current = { id: snap.id, ...snap.data() };
+
+    if (current.status === STATUS.ENTREGADA || current.entregaFinalizedAt) {
+      alreadyFinalized = true;
+      cached = current;
+      return;
+    }
+
+    const nextKm = km ?? current.salida?.km ?? null;
+    const nextGas = gas ?? current.salida?.gas ?? null;
+    const gateDoc = {
+      ...current,
+      salida: { ...(current.salida || {}), km: nextKm, gas: nextGas },
+    };
+    const gate = puedeEntregar(gateDoc, { firma, confirmedWarnings });
+    if (!gate.ok) {
+      const err = new Error('No se puede entregar: ' + (gate.hard || []).join(', '));
+      err.code = 'NO_ENTREGAR';
+      err.hard = gate.hard;
+      err.soft = gate.soft;
+      throw err;
+    }
+
+    const firmaMeta = {
+      imagePath: String(firma?.imagePath || firma?.firmaPath || ''),
+      signerName: String(firma?.signerName || ''),
+      signerRole: String(firma?.signerRole || ''),
+      signedAt: firma?.signedAt || _fv(),
+      capturedBy: String(firma?.capturedBy || meta.uid),
+      consentTextVersion: String(firma?.consentTextVersion || 'v1'),
+    };
+
+    const salida = {
+      ...(current.salida || {}),
+      quienEntrega: String(quienEntrega || firmaMeta.signerName || meta.nombre || ''),
+      km: nextKm,
+      gas: nextGas,
+      firma: firmaMeta,
+      // legacy dual-read for PDF / older UI
+      firmaPath: firmaMeta.imagePath || String(current.salida?.firmaPath || ''),
+      firmadoAt: _fv(),
+      entregadoPorUid: meta.uid,
+    };
+
+    tx.update(ref, {
+      status: STATUS.ENTREGADA,
+      salida,
+      entregadaAt: _fv(),
+      entregadaPor: meta.uid,
+      entregadaPorNombre: meta.nombre,
+      entregaFinalizedAt: _fv(),
+      pdfUrl: pdfUrl || current.pdfUrl || '',
+      confirmedWarnings: Array.isArray(confirmedWarnings) ? confirmedWarnings.slice() : [],
+      revision: (Number(current.revision) || 0) + 1,
+      actualizadoPor: meta.uid,
+      actualizadoAt: _fv(),
+    });
+  });
+
+  if (alreadyFinalized) {
+    return { ok: true, alreadyFinalized: true, papeleta: cached };
+  }
+  const papeleta = await getPapeleta(id);
+  return { ok: true, alreadyFinalized: false, papeleta };
+}
+
+/**
+ * @deprecated Prefer finalizeDelivery. Thin wrapper for legacy callers.
+ */
 export async function entregarPapeleta(id, {
   quienEntrega,
   km,
   gas,
   firmaPath,
+  firma,
   user,
+  confirmedWarnings,
 } = {}) {
+  const meta = _userMeta(user);
+  const firmaObj = firma || {
+    imagePath: firmaPath,
+    signerName: quienEntrega || meta.nombre || '',
+    signerRole: 'Cliente',
+    capturedBy: meta.uid,
+    consentTextVersion: 'v1',
+  };
+  const result = await finalizeDelivery(id, {
+    quienEntrega,
+    km,
+    gas,
+    firma: firmaObj,
+    confirmedWarnings,
+    user,
+  });
+  return result.papeleta;
+}
+
+export async function cancelarPapeleta(id, { user, motivo } = {}) {
   const current = await getPapeleta(id);
   if (!current) throw new Error('Papeleta no encontrada');
-  if (current.status !== STATUS.LISTA) {
-    throw new Error('Solo se puede entregar una papeleta en estado lista');
+  if (current.status !== STATUS.BORRADOR && current.status !== STATUS.LISTA) {
+    throw new Error('Solo se pueden cancelar papeletas en borrador o lista');
   }
-  if (!firmaPath) throw new Error('Firma requerida');
 
   const meta = _userMeta(user);
   await _col().doc(id).update({
-    status: STATUS.ENTREGADA,
-    salida: {
-      quienEntrega: String(quienEntrega || meta.nombre || ''),
-      km: km ?? current.salida?.km ?? null,
-      gas: gas ?? current.salida?.gas ?? null,
-      firmadoAt: _fv(),
-      firmaPath,
-      entregadoPorUid: meta.uid,
-    },
+    status: STATUS.CANCELADA,
+    activoPorUnidad: false,
+    canceladaAt: _fv(),
+    canceladaPor: meta.uid,
+    cancelMotivo: String(motivo || '').slice(0, 500),
+    revision: (Number(current.revision) || 0) + 1,
     actualizadoPor: meta.uid,
     actualizadoAt: _fv(),
   });
+  await releasePapeletaActivaLock(current.unidadId);
   return getPapeleta(id);
 }
 
@@ -196,6 +415,7 @@ export async function registrarEntrada(id, {
   gas,
   notas,
   user,
+  entradaExtra = {},
 } = {}) {
   const current = await getPapeleta(id);
   if (!current) throw new Error('Papeleta no encontrada');
@@ -208,6 +428,8 @@ export async function registrarEntrada(id, {
     status: STATUS.EN_RETORNO,
     activoPorUnidad: false,
     entrada: {
+      ...(current.entrada || {}),
+      ...entradaExtra,
       quienRecibe: String(quienRecibe || meta.nombre || ''),
       km: km ?? null,
       gas: gas ?? null,
@@ -215,18 +437,24 @@ export async function registrarEntrada(id, {
       registradoAt: _fv(),
       registradoPorUid: meta.uid,
     },
+    revision: (Number(current.revision) || 0) + 1,
     actualizadoPor: meta.uid,
     actualizadoAt: _fv(),
   });
+  await releasePapeletaActivaLock(current.unidadId);
   return getPapeleta(id);
 }
 
 export async function cerrarPapeletaHistorial(id, { user } = {}) {
   const meta = _userMeta(user);
+  const current = await getPapeleta(id);
+  if (!current) throw new Error('Papeleta no encontrada');
   await _col().doc(id).update({
     status: STATUS.CERRADA_HISTORIAL,
     activoPorUnidad: false,
+    revision: (Number(current?.revision) || 0) + 1,
     actualizadoPor: meta.uid,
     actualizadoAt: _fv(),
   });
+  if (current.unidadId) await releasePapeletaActivaLock(current.unidadId);
 }

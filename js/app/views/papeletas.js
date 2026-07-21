@@ -5,6 +5,7 @@
 import { getState, getCurrentPlaza } from '/js/app/app-state.js';
 import {
   ZONAS_V1,
+  ZONAS_CORE,
   CHECKLIST_KEYS,
   CHECKLIST_LABELS,
   LLANTA_KEYS,
@@ -12,7 +13,9 @@ import {
   puedeEditar,
   puedeEntregar,
   allZonasHaveFoto,
+  coreZonasHaveFoto,
   checklistCompleto,
+  isChecklistComplete,
   truncNota,
   rolPuedeGestionarVentas,
   rolPuedeCerrarCaso,
@@ -25,7 +28,7 @@ import {
   subscribePapeleta,
   crearPapeleta,
   actualizarPapeleta,
-  entregarPapeleta,
+  finalizeDelivery,
   registrarEntrada,
   asignarCliente,
 } from '/js/app/features/papeletas/papeletas-data.js';
@@ -427,6 +430,15 @@ function _filteredItems() {
 
 function _fotosCount(p) {
   return ZONAS_V1.filter((z) => String(p?.zonas?.[z.id]?.fotoPath || '').trim()).length;
+}
+
+function _coreFotosCount(p) {
+  return ZONAS_CORE.filter((id) => String(p?.zonas?.[id]?.fotoPath || '').trim()
+    || (id === 'tablero_kilometraje' && String(p?.fotoTableroPath || p?.salida?.fotoTableroPath || '').trim())).length;
+}
+
+function _deliveryGate(p, opts = {}) {
+  return puedeEntregar(p, opts);
 }
 
 export async function mount(ctx) {
@@ -1076,28 +1088,41 @@ function _panelZonas(p, editable) {
 
 
 function _panelResumen(p) {
-  const ready = puedeEntregar(p.status, p.zonas, p.checklist);
-  const fotosOk = allZonasHaveFoto(p.zonas);
-  const checkOk = checklistCompleto(p.checklist);
-  const canEntregarUi = p.status === 'lista' || (fotosOk && checkOk && puedeEditar(p.status));
+  const gate = _deliveryGate(p, { firma: p.salida?.firma || null });
+  const coreOk = coreZonasHaveFoto(p.zonas, { papeleta: p });
+  const checkOk = isChecklistComplete(p);
+  const hardWithoutFirma = (gate.hard || []).filter((h) => h !== 'firma');
+  const canAskFirma = puedeEditar(p.status) && hardWithoutFirma.length === 0;
+  const HARD_LABELS = {
+    km: 'Kilometraje',
+    gas: 'Gasolina',
+    checklist: 'Checklist / llantas / tapetes',
+    core_photos: 'Fotos core (6)',
+    firma: 'Firma',
+    pending_writes: 'Guardado pendiente',
+    km_justification: 'Justificación de KM',
+    status: 'Estado no elegible',
+  };
   return `
     <div class="pap-panel">
       <h2>Listo para entregar</h2>
       <ul class="pap-checklist-status">
-        <li class="${fotosOk ? 'is-ok' : ''}">Fotos del auto: ${fotosOk ? '12/12' : `${_fotosCount(p)}/12`}</li>
+        <li class="${coreOk ? 'is-ok' : ''}">Fotos core: ${coreOk ? '6/6' : `${_coreFotosCount(p)}/6`}</li>
         <li class="${checkOk ? 'is-ok' : ''}">Accesorios: ${checkOk ? 'completos' : 'faltan por marcar'}</li>
         <li>Estado: ${_esc(STATUS_LABELS[p.status] || p.status)}</li>
       </ul>
-      ${p.status === 'lista' ? '<p class="pap-ready">Ya puedes entregar</p>' : ''}
-      ${!fotosOk || !checkOk ? '<p class="pap-hint">Termina las fotos y los accesorios para poder entregar.</p>' : ''}
+      ${hardWithoutFirma.length ? `
+        <p class="pap-hint">Falta: ${hardWithoutFirma.map((h) => HARD_LABELS[h] || h).join(', ')}</p>
+      ` : '<p class="pap-ready">Listo para pedir firma</p>'}
+      ${(gate.soft || []).includes('faltantes') ? '<p class="pap-hint">Hay ítems marcados como faltante (se pedirá confirmación).</p>' : ''}
       <p class="pap-entregar-a">Entregar a: <b>${_esc(p.clienteNombre || 'Sin cliente')}</b></p>
       <div class="pap-fields-2">
         <div class="pap-field"><label>KM salida</label><input value="${_esc(p.salida?.km ?? _pendingSalida.km ?? '—')}" disabled/></div>
         <div class="pap-field"><label>Gas salida</label><input value="${_esc(p.salida?.gas ?? _pendingSalida.gas ?? '—')}" disabled/></div>
       </div>
       <div class="pap-actions pap-actions--sticky">
-        ${canEntregarUi ? `
-          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="start-entregar" ${(!_busy && (ready || (fotosOk && checkOk))) ? '' : 'disabled'}>
+        ${canAskFirma ? `
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="start-entregar" ${_busy ? 'disabled' : ''}>
             Pedir firma y entregar
           </button>
         ` : ''}
@@ -1732,12 +1757,13 @@ async function _saveCheck() {
 async function _ensureListaAntesDeEntregar() {
   if (!_detail) return false;
   if (_detail.status === 'lista') return true;
-  if (!allZonasHaveFoto(_detail.zonas) || !checklistCompleto(_detail.checklist)) {
-    await _mexAlert('Falta completar', 'Necesitas 12 fotos y checklist completo para entregar.');
+  const gate = _deliveryGate(_detail, { firma: { imagePath: 'pending' } });
+  const hard = (gate.hard || []).filter((h) => h !== 'firma');
+  if (hard.length) {
+    await _mexAlert('Falta completar', 'Completa KM, gas, checklist y las 6 fotos core antes de entregar.');
     return false;
   }
-  // Fuerza recálculo de status → lista
-  await actualizarPapeleta(_detail.id, {}, { user: _user() });
+  await actualizarPapeleta(_detail.id, {}, { user: _user(), knownRevision: _detail.revision });
   return true;
 }
 
@@ -1828,25 +1854,58 @@ async function _confirmFirma() {
   const kmRaw = _pendingSalida.km;
   const gasRaw = _pendingSalida.gas;
   const papeletaId = _detail.id;
+  const softGate = _deliveryGate(
+    {
+      ..._detail,
+      salida: {
+        ...(_detail.salida || {}),
+        km: kmRaw === '' || kmRaw == null ? _detail.salida?.km : Number(kmRaw),
+        gas: gasRaw || _detail.salida?.gas,
+      },
+    },
+    { firma: { imagePath: 'pending' } }
+  );
+  const confirmedWarnings = [];
+  if ((softGate.soft || []).includes('faltantes')) {
+    const ok = await _mexConfirm('Faltantes', 'Hay accesorios marcados como faltante. ¿Continuar con la entrega?', 'warning');
+    if (!ok) return;
+    confirmedWarnings.push('faltantes');
+  }
+  if ((softGate.soft || []).includes('cliente') || !_detail.clienteNombre) {
+    const ok = await _mexConfirm('Sin cliente', 'Sin cliente asignado — ¿continuar?', 'warning');
+    if (!ok) return;
+    confirmedWarnings.push('cliente');
+  }
+
   _busy = true; _render();
   try {
-    const okLista = await _ensureListaAntesDeEntregar();
-    if (!okLista) return;
     const firmaPath = await uploadFirma(papeletaId, blob);
-    await entregarPapeleta(papeletaId, {
+    const firma = {
+      imagePath: firmaPath,
+      signerName: String(_detail.clienteNombre || _user().nombre || ''),
+      signerRole: _detail.clienteNombre ? 'Cliente' : 'Otro',
+      signedAt: new Date().toISOString(),
+      capturedBy: _user().uid || '',
+      consentTextVersion: 'v1',
+    };
+    const result = await finalizeDelivery(papeletaId, {
       quienEntrega: _user().nombre,
       km: kmRaw === '' || kmRaw == null ? null : Number(kmRaw),
       gas: gasRaw || null,
-      firmaPath,
+      firma,
+      confirmedWarnings,
       user: _user(),
     });
-    const firmaUrl = await getDownloadUrl(firmaPath);
-    const updated = {
-      ..._detail,
-      status: 'entregada',
-      salida: { ...(_detail.salida || {}), firmaPath, km: kmRaw, gas: gasRaw },
-    };
-    await openPapeletaPdf(updated, { firmaUrl });
+    if (result.alreadyFinalized) {
+      await _mexAlert('Ya entregada', 'Esta papeleta ya estaba finalizada.');
+    } else {
+      const firmaUrl = await getDownloadUrl(firmaPath);
+      await openPapeletaPdf(result.papeleta || {
+        ..._detail,
+        status: 'entregada',
+        salida: { ...(_detail.salida || {}), firma, firmaPath, km: kmRaw, gas: gasRaw },
+      }, { firmaUrl });
+    }
     _pendingSalida = { km: null, gas: null };
     _wizardStep = 'resumen';
   } catch (e) {

@@ -12,6 +12,7 @@ export const STATUS_LABELS = Object.freeze({
   entregada: 'Entregada',
   en_retorno: 'Ya regresó',
   cerrada_historial: 'Cerrada',
+  cancelada: 'Cancelada',
 });
 
 /** Etiquetas cortas para chips / mobile */
@@ -21,6 +22,7 @@ export const STATUS_LABELS_SHORT = Object.freeze({
   entregada: 'Entregada',
   en_retorno: 'Regresó',
   cerrada_historial: 'Cerrada',
+  cancelada: 'Cancelada',
 });
 
 export const REPORTE_STATUS = Object.freeze({
