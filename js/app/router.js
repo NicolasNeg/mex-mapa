@@ -141,6 +141,11 @@ const ROUTE_TABLE = {
     loader: () => import('/js/app/views/cuadrarflota-ventas.js'),
     navRoute: '/app/cuadrarflota',
   },
+  '/app/cuadre/flota': {
+    loader: () => import('/js/app/views/cuadre-flota.js'),
+    navRoute: '/cuadre',
+    feature: 'cuadre'
+  },
   "/app/traslados": { loader: () => import("/js/app/views/traslados.js"), navRoute: "/app/traslados" },
   '/app/admin': {
     loader:   () => import('/js/app/views/admin-shell.js'),
@@ -222,7 +227,7 @@ const ROUTE_STYLES = {
   "/app/unidades": [{ href: "/css/app-unidades.css?v=20260715f", attr: "data-app-unidades-css" }],
   "/app/cuadre/u": [
     { href: "/css/app-unidades.css?v=20260715f", attr: "data-app-unidades-css" },
-    { href: "/css/app-unidad-expediente.css?v=20260718a", attr: "data-app-unidad-exp-css" }
+    { href: "/css/app-unidad-expediente.css?v=20260720a", attr: "data-app-unidad-exp-css" }
   ],
   "/app/mapa": [
     { href: "/css/mapa.css", attr: "data-lmapa-css" },
@@ -235,6 +240,7 @@ const ROUTE_STYLES = {
   ],
   "/app/cuadrarflota": [{ href: "/css/app-cuadrarflota.css?v=20260715cf", attr: "data-app-cuadrarflota-css" }],
   "/app/cuadrarflota/ventas": [{ href: "/css/app-cuadrarflota.css?v=20260715cf", attr: "data-app-cuadrarflota-css" }],
+  "/app/cuadre/flota": [{ href: "/css/app-cuadre-flota.css?v=20260720a", attr: "data-app-cuadre-flota-css" }],
   "/app/traslados": [{ href: "/css/app-traslados.css", attr: "data-app-traslados-css" }],
   "/app/admin": [{ href: "/css/app-admin.css?v=20260720a", attr: "data-app-admin-spa-css" }],
   "/app/gestion": [{ href: "/css/app-gestion.css", id: "app-gestion-css" }],

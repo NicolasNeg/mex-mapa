@@ -98,6 +98,16 @@ export const ROUTE_MAP = {
     fullModuleMigrated: true,
     feature: 'cuadre',
   },
+  cuadreFlota: {
+    id: 'cuadreFlota', label: 'Cuadre de flota',
+    legacyRoute:  '/app/cuadre/flota',
+    appRoute:     '/app/cuadre/flota',
+    navRoute:     '/cuadre',
+    fallbackRoute:'/app/cuadre/flota',
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
+    feature: 'cuadre',
+  },
   traslados: {
     id: "traslados", label: "Traslados",
     legacyRoute:  "/traslados",

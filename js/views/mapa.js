@@ -2824,6 +2824,22 @@ function iniciarApp(esNuevoLogin = true) {
   if (new URLSearchParams(window.location.search).get('editor') === '1') {
     setTimeout(() => abrirEditorMapa(), 800);
   }
+
+  // Deep-link desde /app/cuadre/flota: abre el historial y dispara el PDF
+  // de ese registro puntual (reusa la generacion existente, sin duplicarla).
+  // abrirHistorialCuadres() no espera la carga async del historial (fire-and-
+  // forget), asi que sondeamos globalHistorialAuditorias hasta que aparezca.
+  const verPdfId = new URLSearchParams(window.location.search).get('verPdf');
+  if (verPdfId) {
+    setTimeout(async () => {
+      await abrirHistorialCuadres();
+      for (let intento = 0; intento < 12; intento += 1) {
+        if ((globalHistorialAuditorias || []).some(c => String(c.id) === String(verPdfId))) break;
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      verPdfCuadreHistorial(verPdfId);
+    }, 500);
+  }
   if (!isDedicatedCuadreRoute && !_isShellEmbeddedMode()) {
     initNotificationCenter()
       .then(() => {
