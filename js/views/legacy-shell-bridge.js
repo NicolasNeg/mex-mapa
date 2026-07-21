@@ -9,7 +9,7 @@
     '/profile': '/app/profile',
     '/mensajes': '/app/mensajes',
     '/cola-preparacion': '/app/cola-preparacion',
-    '/incidencias': '/app/incidencias',
+    '/incidencias': '/app/notas',
     '/cuadre': '/app/cuadre',
     '/gestion': '/app/admin',
     '/programador': '/app/programador',

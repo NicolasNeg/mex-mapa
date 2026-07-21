@@ -59,14 +59,34 @@ export const ROUTE_MAP = {
     feature: 'cola_preparacion',
   },
   incidencias: {
-    id: 'incidencias', label: 'Incidencias',
+    id: 'incidencias', label: 'Notas',
     legacyRoute:  '/incidencias',
-    appRoute:     '/app/incidencias',
-    navRoute:     '/incidencias',
-    fallbackRoute:'/incidencias',
+    appRoute:     '/app/notas',
+    navRoute:     '/app/notas',
+    fallbackRoute:'/app/notas',
     shellIntegrated:    true,
     fullModuleMigrated: true,
     feature: 'incidencias',
+  },
+  notas: {
+    id: 'notas', label: 'Notas',
+    legacyRoute:  '/incidencias',
+    appRoute:     '/app/notas',
+    navRoute:     '/app/notas',
+    fallbackRoute:'/app/notas',
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
+    feature: 'incidencias',
+  },
+  reportesDanos: {
+    id: 'reportes-danos', label: 'Reportes de daños',
+    legacyRoute:  '/app/reportes-danos',
+    appRoute:     '/app/reportes-danos',
+    navRoute:     '/app/reportes-danos',
+    fallbackRoute:'/app/reportes-danos',
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
+    feature: 'papeletas',
   },
   cuadre: {
     id: 'cuadre', label: 'Cuadre',
@@ -230,6 +250,7 @@ function _dynamicAppRoute(pathname, tail = '') {
   if (path.startsWith('/editmap/')) return '/app' + path + tail;
   if (path.startsWith('/app/papeletas/')) return path + tail;
   if (path.startsWith('/papeletas/')) return '/app' + path + tail;
+  if (path.startsWith('/app/reportes-danos/')) return path + tail;
   return '';
 }
 
@@ -241,6 +262,7 @@ function _dynamicRouteEntry(pathname) {
   if (path.startsWith('/mensajes/')) return ROUTE_MAP.mensajes;
   if (path.startsWith('/app/editmap/')) return ROUTE_MAP.editmap;
   if (path.startsWith('/editmap/')) return ROUTE_MAP.editmap;
+  if (path.startsWith('/app/reportes-danos/') || path === '/app/reportes-danos') return ROUTE_MAP.reportesDanos;
   if (path.startsWith('/app/papeletas/') || path === '/app/papeletas') return ROUTE_MAP.papeletas;
   if (path.startsWith('/papeletas/') || path === '/papeletas') return ROUTE_MAP.papeletas;
   return null;

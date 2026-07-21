@@ -104,7 +104,7 @@ let _saveState = 'idle'; // idle | saving | saved | conflict
 let _entradaCompareDraft = [];
 
 const LIST_ROUTE = '/app/papeletas';
-const VENTAS_ROUTE = '/app/papeletas/ventas';
+const VENTAS_ROUTE = '/app/reportes-danos';
 const DETAIL_PREFIX = '/app/papeletas/p/';
 
 const FILTER_LABELS = Object.freeze({
@@ -148,7 +148,7 @@ const STEP_LABELS = Object.freeze({
   firma: 'Firma',
   salida: 'Salida',
   entrada: 'Regreso',
-  reporte: 'Reportar',
+  reporte: 'Reportes',
 });
 
 const NEW_ROUTE = '/app/papeletas/nueva';
@@ -882,9 +882,7 @@ function _gotoList() {
 }
 
 function _gotoVentas() {
-  _mode = 'ventas';
   _navigate?.(VENTAS_ROUTE);
-  _render();
 }
 
 function _openDetail(id) {
@@ -956,7 +954,7 @@ function _renderList() {
           <p>Inspecciones de salida y regreso</p>
         </div>
         <div class="pap-actions-bar">
-          ${canV ? `<button type="button" class="pap-btn pap-btn--ghost" data-act="tab-ventas">Ventas</button>` : ''}
+          ${canV ? `<button type="button" class="pap-btn pap-btn--ghost" data-act="tab-ventas">Reportes de daños</button>` : ''}
           <button type="button" class="pap-btn pap-btn--primary" data-act="nueva">
             <span class="material-symbols-outlined">add</span> Nueva
           </button>
@@ -1681,32 +1679,25 @@ function _danosSalidaHtml(p) {
 }
 
 function _panelReporte(p) {
-  // TODO(future): vectorize car-drawable selectable zones + auto-mark from Ventas
-  // report / sync preexisting vs new damages. For now keep Reportar lists fully manual.
+  const open = (_reportes || []).filter((r) => r.papeletaId === p?.id && r.status === 'abierto');
   return `
     <div class="pap-panel">
-      <h2>Reportar daño / faltante</h2>
-      <div class="pap-field">
-        <label>Tipo</label>
-        <select id="papRepTipo"><option value="dano">Daño</option><option value="faltante">Faltante</option></select>
-      </div>
-      <div class="pap-field">
-        <label>Zonas (daño)</label>
-        <select id="papRepZonas" multiple size="6">
-          ${ZONAS_V1.map((z) => `<option value="${z.id}">${_esc(z.label)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="pap-field">
-        <label>Ítems faltantes</label>
-        <select id="papRepItems" multiple size="6">
-          ${CHECKLIST_KEYS.map((k) => `<option value="${k}">${_esc(CHECKLIST_LABELS[k])}</option>`).join('')}
-        </select>
-      </div>
-      <div class="pap-field"><label>Foto placas *</label><input type="file" accept="image/*" id="papRepPlacas"/></div>
-      <div class="pap-field"><label>Foto VIN *</label><input type="file" accept="image/*" id="papRepVin"/></div>
-      <div class="pap-field"><label>Fotos daño</label><input type="file" accept="image/*" id="papRepDanos" multiple/></div>
+      <h2>Reportes de daños</h2>
+      <p class="pap-hint">La creación de reportes se hace en el módulo <strong>Reportes de daños</strong>. Aquí solo se muestran casos abiertos vinculados a esta papeleta.</p>
+      ${open.length ? `
+        <ul class="pap-dano-list">
+          ${open.map((r) => `
+            <li>
+              <strong>${_esc(r.tipo)}</strong> · ${_esc(r.status)}
+              <button type="button" class="pap-btn pap-btn--ghost" data-act="goto-reporte" data-id="${_esc(r.id)}">Ver</button>
+            </li>
+          `).join('')}
+        </ul>
+      ` : `<p class="pap-hint">Sin reportes abiertos vinculados.</p>`}
       <div class="pap-actions">
-        <button type="button" class="pap-btn pap-btn--danger" data-act="send-reporte" ${_busy ? 'disabled' : ''}>Enviar a Ventas</button>
+        <button type="button" class="pap-btn pap-btn--primary" data-act="goto-reportes-spa">
+          <span class="material-symbols-outlined">open_in_new</span> Ir a Reportes de daños
+        </button>
       </div>
     </div>
   `;
@@ -1856,6 +1847,13 @@ function _bind() {
 
   root.querySelector('[data-act="tab-list"]')?.addEventListener('click', () => _gotoList());
   root.querySelector('[data-act="tab-ventas"]')?.addEventListener('click', () => _gotoVentas());
+  root.querySelector('[data-act="goto-reportes-spa"]')?.addEventListener('click', () => _gotoVentas());
+  root.querySelectorAll('[data-act="goto-reporte"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      if (id) _navigate?.(`/app/reportes-danos/${id}`);
+    });
+  });
   root.querySelector('[data-act="nueva"]')?.addEventListener('click', () => {
     _navigate?.(NEW_ROUTE);
   });
@@ -2049,7 +2047,9 @@ function _bind() {
     });
     _render();
   });
-  root.querySelector('[data-act="send-reporte"]')?.addEventListener('click', () => _sendReporte());
+  root.querySelector('[data-act="send-reporte"]')?.addEventListener('click', () => {
+    _gotoVentas();
+  });
   root.querySelectorAll('[data-act="promover"]').forEach((btn) => {
     btn.addEventListener('click', () => _promover(btn.dataset.id));
   });

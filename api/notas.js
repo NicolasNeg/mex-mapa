@@ -88,6 +88,7 @@
         resueltaEn: ""
       }, actor, [...adjuntosManual, ...adjuntosSubidos], ts);
       if (plazaNotaUp) payload.plaza = plazaNotaUp;
+      if (!Array.isArray(payload.seguidores)) payload.seguidores = [];
 
       await db.collection(COL.NOTAS).doc(id).set(payload);
       return "OK";

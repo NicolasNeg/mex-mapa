@@ -78,6 +78,7 @@ const _PREF_ROUTES = new Set([
   '/app/mapa',
   '/app/cola-preparacion',
   '/app/incidencias',
+  '/app/notas',
   '/app/unidades',
   '/app/mensajes',
   '/app/cuadre',
@@ -118,11 +119,12 @@ const ROUTE_TABLE = {
   '/app/mensajes':         { loader: () => import('/js/app/views/mensajes.js'),         navRoute: '/mensajes',         feature: 'mensajeria' },
   '/app/cola-preparacion': { loader: () => import('/js/app/views/cola-preparacion.js'), navRoute: '/cola-preparacion', feature: 'cola_preparacion' },
   '/app/cola':              { redirect: '/app/cola-preparacion' },
-  '/app/incidencias':       {
+  '/app/notas': {
     loader:   () => import('/js/app/views/incidencias.js'),
-    navRoute: '/incidencias',
+    navRoute: '/app/notas',
     feature:  'incidencias'
   },
+  '/app/incidencias':       { redirect: '/app/notas' },
   '/app/unidades': {
     loader:   () => import('/js/app/views/unidades.js'),
     navRoute: '/app/unidades',
@@ -206,9 +208,10 @@ const ROUTE_TABLE = {
     feature: 'papeletas',
     permission: 'view_papeletas',
   },
-  '/app/papeletas/ventas': {
-    loader: () => import('/js/app/views/papeletas.js'),
-    navRoute: '/app/papeletas',
+  '/app/papeletas/ventas': { redirect: '/app/reportes-danos' },
+  '/app/reportes-danos': {
+    loader: () => import('/js/app/views/reportes-danos.js'),
+    navRoute: '/app/reportes-danos',
     feature: 'papeletas',
     permission: 'view_papeletas',
   },
@@ -224,6 +227,8 @@ const ROUTE_STYLES = {
   "/app/mensajes": [{ href: "/css/app-mensajes.css", attr: "data-app-mensajes-css" }],
   "/app/cola-preparacion": [{ href: "/css/cola-preparacion.css", attr: "data-cola-css" }],
   "/app/incidencias": [{ href: "/css/app-incidencias.css", attr: "data-app-incidencias-css" }],
+  "/app/notas": [{ href: "/css/app-incidencias.css", attr: "data-app-incidencias-css" }],
+  "/app/reportes-danos": [{ href: "/css/app-reportes-danos.css", attr: "data-app-reportes-danos-css" }],
   "/app/unidades": [{ href: "/css/app-unidades.css?v=20260715f", attr: "data-app-unidades-css" }],
   "/app/cuadre/u": [
     { href: "/css/app-unidades.css?v=20260715f", attr: "data-app-unidades-css" },
@@ -305,6 +310,7 @@ function _routeForPath(path) {
   if (key.startsWith('/app/cuadre/u/')) return ROUTE_TABLE['/app/cuadre/u'];
   if (key.startsWith('/app/editmap/')) return ROUTE_TABLE['/app/editmap'];
   if (key.startsWith('/app/papeletas/')) return ROUTE_TABLE['/app/papeletas'];
+  if (key.startsWith('/app/reportes-danos/')) return ROUTE_TABLE['/app/reportes-danos'];
   return ROUTE_TABLE[key];
 }
 
@@ -316,6 +322,7 @@ function _styleKeyForPath(path) {
   if (key.startsWith('/app/cuadre/u/')) return '/app/cuadre/u';
   if (key.startsWith('/app/editmap/')) return '/app/editmap';
   if (key.startsWith('/app/papeletas/')) return '/app/papeletas';
+  if (key.startsWith('/app/reportes-danos/')) return '/app/reportes-danos';
   return key;
 }
 

@@ -1,0 +1,370 @@
+/* Reportes de daños SPA — ESTILO.md tokens */
+.rd {
+  --rd-accent: #3b82f6;
+  --rd-accent-hover: #2563eb;
+  padding: 16px 20px 32px;
+  max-width: 960px;
+  margin: 0 auto;
+  font-family: Inter, system-ui, sans-serif;
+  color: var(--text, #0f172a);
+}
+
+.rd-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.rd-title {
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.rd-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+}
+
+.rd-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--rd-accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.rd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.rd-btn--primary {
+  background: var(--rd-accent);
+  border-color: var(--rd-accent);
+  color: #fff;
+}
+
+.rd-btn--primary:hover {
+  background: var(--rd-accent-hover);
+}
+
+.rd-btn--ghost {
+  background: transparent;
+}
+
+.rd-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rd-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.rd-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 220px;
+  min-width: 180px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--surface, #fff);
+}
+
+.rd-search input,
+.rd-input,
+.rd-textarea,
+.rd-select-multi,
+.rd-controls select {
+  font: inherit;
+  font-size: 13px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  width: 100%;
+  padding: 10px 0;
+}
+
+.rd-controls select,
+.rd-input,
+.rd-textarea,
+.rd-select-multi {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface, #fff);
+}
+
+.rd-list {
+  display: grid;
+  gap: 12px;
+}
+
+.rd-card {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: var(--surface, #fff);
+  cursor: pointer;
+}
+
+.rd-card__top,
+.rd-card__mid,
+.rd-card__bot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rd-card__mid {
+  margin-top: 8px;
+}
+
+.rd-card__desc {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+}
+
+.rd-card__bot {
+  margin-top: 12px;
+}
+
+.rd-mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.rd-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.rd-chip--soft {
+  background: var(--bg, #f8fafc);
+  color: var(--text-muted, #64748b);
+}
+
+.rd-chip--abierto { background: #fef3c7; color: #b45309; }
+.rd-chip--promovido { background: #dcfce7; color: #15803d; }
+.rd-chip--cerrado { background: #e2e8f0; color: #475569; }
+.rd-chip--descartado { background: #fee2e2; color: #b91c1c; }
+
+.rd-muted { color: var(--text-muted, #64748b); font-size: 12px; }
+
+.rd-empty,
+.rd-empty-sm {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-muted, #64748b);
+  font-size: 14px;
+}
+
+.rd-empty-sm { padding: 12px; font-size: 13px; }
+
+.rd-form {
+  display: grid;
+  gap: 16px;
+}
+
+.rd-fieldset {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 0;
+  background: var(--surface, #fff);
+}
+
+.rd-fieldset legend {
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+}
+
+.rd-seg {
+  display: flex;
+  gap: 8px;
+}
+
+.rd-seg__btn {
+  flex: 1;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  background: transparent;
+  padding: 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rd-seg__btn.is-on {
+  border-color: var(--rd-accent);
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.rd-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.rd-picked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.rd-hits {
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.rd-hit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+  background: var(--bg, #f8fafc);
+  padding: 10px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.rd-hit:hover { background: #eff6ff; }
+
+.rd-diagram {
+  min-height: 280px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f6f8fc;
+}
+
+.rd-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+}
+
+.rd-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.rd-block {
+  margin-top: 20px;
+}
+
+.rd-block-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+  margin: 0 0 10px;
+}
+
+.rd-detail-desc {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.rd-ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+
+.rd-fotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.rd-foto {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-decoration: none;
+  color: inherit;
+  font-size: 12px;
+}
+
+.rd-foto img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.rd-actions-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+body.dark-theme .rd-card,
+body.dark-theme .rd-fieldset,
+body.dark-theme .rd-search,
+body.dark-theme .rd-controls select,
+body.dark-theme .rd-input,
+body.dark-theme .rd-textarea,
+body.dark-theme .rd-select-multi {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+@media (max-width: 768px) {
+  .rd { padding: 12px 12px 28px; }
+  .rd-title { font-size: 20px; }
+  .rd-head { flex-direction: column; align-items: stretch; }
+  .rd-btn--primary { justify-content: center; }
+}

@@ -15,7 +15,7 @@ import { getColaItemForMva } from '/js/app/features/cola-preparacion/cola-data.j
 import { cpProgress, deriveEstadoCola } from '/js/app/features/cola-preparacion/cola-view-model.js';
 import { resolverEstadoFlota, leerEstadoPatioDoc, precheckContratoUnidad } from '/js/app/features/estados/estado-view-model.js';
 import { normalizeIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
-import { stripEmoji } from '/domain/historial-log.model.js';
+import { historialIconName, stripEmoji } from '/domain/historial-log.model.js';
 import {
   FIELD_ORDER,
   normalizeUnit,
@@ -89,7 +89,7 @@ export function unmount() {
 function _ensureCss() {
   [
     { href: '/css/app-unidades.css?v=20260715f', attr: 'data-app-unidades-css' },
-    { href: '/css/app-unidad-expediente.css?v=20260718b', attr: 'data-app-unidad-exp-css' }
+    { href: '/css/app-unidad-expediente.css?v=20260720a', attr: 'data-app-unidad-exp-css' }
   ].forEach(({ href, attr }) => {
     let link = document.querySelector(`link[${attr}="1"]`);
     if (link) {
@@ -281,7 +281,7 @@ function _paintBody() {
     </section>
 
     <section class="uexp-panel uexp-panel--wide">
-      <h2>Bitácora reciente</h2>
+      <h2 class="uexp-log-heading"><span class="material-symbols-outlined" aria-hidden="true">history</span>Bitácora reciente</h2>
       ${_bitacoraHtml(_s.data?.bitacora || [])}
     </section>
   `;
@@ -498,15 +498,20 @@ function _colaBanner(cola, plaza) {
 
 function _bitacoraHtml(rows) {
   if (!rows.length) return '<p class="uexp-empty">Sin movimientos recientes.</p>';
-  return `<ul class="uexp-log">${rows.slice(0, 30).map(r => `
-    <li>
-      <span class="uexp-log-dot"></span>
-      <div>
-        <div class="uexp-log-text">${esc(stripEmoji(r.detalles || r.accion || r.evento || r.tipo || 'Movimiento'))}</div>
-        <div class="uexp-log-meta">${esc(_fmtTs(r.timestamp || r.creadoEn || r.fecha))}${r.autor ? ' · ' + esc(r.autor) : ''}</div>
-      </div>
-    </li>
-  `).join('')}</ul>`;
+  return `<ul class="uexp-log">${rows.slice(0, 30).map(r => {
+    const rawText = r.detalles || r.accion || r.evento || r.tipo || 'Movimiento';
+    const cleanText = stripEmoji(rawText) || 'Movimiento';
+    const icon = historialIconName(rawText, r.tipo);
+    return `
+      <li>
+        <span class="material-symbols-outlined uexp-log-icon" aria-hidden="true">${esc(icon)}</span>
+        <div class="uexp-log-content">
+          <div class="uexp-log-text">${esc(cleanText)}</div>
+          <div class="uexp-log-meta">${esc(_fmtTs(r.timestamp || r.creadoEn || r.fecha))}${r.autor ? ' · ' + esc(r.autor) : ''}</div>
+        </div>
+      </li>
+    `;
+  }).join('')}</ul>`;
 }
 
 function _onClick(event) {
@@ -537,7 +542,7 @@ function _onClick(event) {
     return;
   }
   if (action === 'incidencias') {
-    _go(`/app/incidencias?mva=${encodeURIComponent(_s.mva)}`);
+    _go(`/app/notas?mva=${encodeURIComponent(_s.mva)}`);
     return;
   }
   if (action === 'toggle-adjunto') {

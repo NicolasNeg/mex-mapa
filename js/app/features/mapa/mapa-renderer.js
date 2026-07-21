@@ -720,7 +720,7 @@ function _detailIncBlock(mva, byMva, ready, failed) {
         <li class="app-mapa-inc-last"><span>Última</span><span>${lastLine}</span></li>
       </ul>
       ${miniHtml}
-      <a class="app-mapa-mini-cta app-mapa-mini-cta--block" href="/app/incidencias?mva=${encodeURIComponent(mva)}">Ver bitácora completa</a>
+      <a class="app-mapa-mini-cta app-mapa-mini-cta--block" href="/app/notas?mva=${encodeURIComponent(mva)}">Ver bitácora completa</a>
     </div>
   `;
 }
@@ -910,7 +910,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
         <td>${esc(incLabel)}</td>
         <td class="app-mapa-list-actions">
           <button type="button" class="app-mapa-list-action" data-copy-mva="${esc(nu.mva)}">Copiar MVA</button>
-          <a class="app-mapa-list-action" href="/app/incidencias?mva=${mvaEnc}">Bitácora</a>
+          <a class="app-mapa-list-action" href="/app/notas?mva=${mvaEnc}">Bitácora</a>
           <button type="button" class="app-mapa-list-action" data-app-mapa-official-unit="edit-unit">Editar</button>
         </td>
       </tr>`;
@@ -989,8 +989,8 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
           ${selected ? `<aside class="info-sidebar app-mapa-detail app-mapa-info-aside open">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>` : ''}
         </div>
         <div class="zoom-controls app-mapa-zoom-controls" aria-hidden="true">
-          <button type="button" class="btn-zoom" data-app-mapa-zoom="in">+</button>
-          <button type="button" class="btn-zoom" data-app-mapa-zoom="out">-</button>
+          <button type="button" class="btn-zoom" data-app-mapa-zoom="in" aria-label="Acercar"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
+          <button type="button" class="btn-zoom" data-app-mapa-zoom="out" aria-label="Alejar"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
         </div>
       </div>
     </div>

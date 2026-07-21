@@ -6,7 +6,20 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
-import { subscribeIncidencias, createIncidencia, resolveIncidencia, deleteIncidencia, updateIncidenciaField, toggleSeguidor, addComentario, searchUsuarios } from '/js/app/features/incidencias/incidencias-data.js';
+import { subscribeIncidencias, createIncidencia, resolveIncidencia, deleteIncidencia, updateIncidenciaField, toggleSeguidor } from '/js/app/features/incidencias/incidencias-data.js';
+
+function _canCreateNota() {
+  return window.mexPerms?.canDo?.('create_incidencia') !== false;
+}
+function _canEditNota() {
+  return window.mexPerms?.canDo?.('edit_incidencia') !== false;
+}
+function _canDeleteNota() {
+  return window.mexPerms?.canDo?.('delete_incidencia') === true;
+}
+function _canViewNotas() {
+  return window.mexPerms?.canDo?.('view_incidencias') !== false;
+}
 
 let _container = null;
 let _state = null;
@@ -52,9 +65,9 @@ function _makeState(plaza) {
     priorityFilter,
     statusFilter,
     tipoFilter,
-    activeTab: 'todas', // 'todas' | 'mias' | 'sin_asignar' | 'vencen_hoy'
+    activeTab: 'todas', // 'todas' | 'mias' | 'sigo'
     sortBy: 'recent', // 'recent' | 'priority'
-    viewMode: 'list', // 'list' | 'table' | 'board'
+    viewMode: 'list',
     selectedId: '',
     selectedIds: [],
     detailOpenId: '',
@@ -76,10 +89,6 @@ function _makeState(plaza) {
       mva: ''
     },
     toastTimer: null,
-    asignarSelected: null,   // { uid, nombre, email, rol, plaza, isGlobal }
-    asignarSearchTerm: '',
-    asignarResults: [],
-    asignarSearchTimer: null,
   };
 }
 
@@ -176,7 +185,7 @@ function _bindGlobalSearch() {
   const handler = event => {
     if (!_state || !_container) return;
     const route = String(event?.detail?.route || '');
-    if (!(route.startsWith('/app/incidencias') || route === '/incidencias')) return;
+    if (!(route.startsWith('/app/notas') || route.startsWith('/app/incidencias') || route === '/incidencias')) return;
     _state.query = String(event?.detail?.query || '').trim().toLowerCase();
     _applyFilters();
     _render();
@@ -207,7 +216,7 @@ function _startListener() {
     onError: err => {
       if (!_state) return;
       _state.loading = false;
-      _state.errorMessage = err?.message || 'Error al cargar notas e incidencias.';
+      _state.errorMessage = err?.message || 'Error al cargar notas.';
       _state.hasPermissionDenied = String(err?.code || '').toLowerCase() === 'permission-denied';
       _render();
     }
@@ -276,7 +285,7 @@ function _bindUi() {
     });
   });
 
-  // Botones "Nueva incidencia"
+  // Botones "Nueva nota"
   q('incBtnNew')?.addEventListener('click', () => _toggleCreateDialog(true));
   q('incBtnNewRail')?.addEventListener('click', () => _toggleCreateDialog(true));
 
@@ -345,86 +354,11 @@ function _bindUi() {
   q('incResolverCancelar')?.addEventListener('click', () => _toggleResolverModal(false));
   q('btnConfirmarResInc')?.addEventListener('click', _confirmResolve);
 
-  // Asignar a — búsqueda en tiempo real
-  q('incAsignarInput')?.addEventListener('input', _onAsignarInput);
-  q('incAsignarClear')?.addEventListener('click', _clearAsignar);
-
   // Keyboard shortcut N para abrir create
   if (!_bindUi._kbBound) {
     _bindUi._kbBound = true;
     window.addEventListener('keydown', _onGlobalKey);
   }
-}
-
-// ────────────────────────────────────────────────────────────
-// ASIGNAR A — búsqueda de usuarios
-// ────────────────────────────────────────────────────────────
-function _onAsignarInput(e) {
-  if (!_state) return;
-  const term = String(e.target?.value || '').trim();
-  _state.asignarSearchTerm = term;
-  clearTimeout(_state.asignarSearchTimer);
-  if (term.length < 2) {
-    _renderAsignarDropdown([]);
-    return;
-  }
-  _state.asignarSearchTimer = setTimeout(async () => {
-    try {
-      const results = await searchUsuarios(term, _state.plaza || '');
-      if (_state?.asignarSearchTerm === term) _renderAsignarDropdown(results);
-    } catch (_) { _renderAsignarDropdown([]); }
-  }, 250);
-}
-
-function _renderAsignarDropdown(results) {
-  const drop = q('incAsignarDropdown');
-  if (!drop) return;
-  if (!results.length) { drop.style.display = 'none'; drop.innerHTML = ''; return; }
-  drop.style.display = 'block';
-  drop.innerHTML = results.map(u => `
-    <button type="button" class="ci-assign-result" data-uid="${esc(u.uid)}">
-      <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;">${esc(_initialsFrom(u.nombre || u.email))}</span>
-      <span class="ci-assign-result-name">${esc(u.nombre || _displayName(u.email))}</span>
-      <span class="ci-assign-result-meta">${esc(u.rol)}${u.plaza ? ' · ' + esc(u.plaza) : ''}${u.isGlobal ? ' · Global' : ''}</span>
-    </button>
-  `).join('');
-  drop.querySelectorAll('.ci-assign-result').forEach((btn, i) => {
-    btn.addEventListener('click', () => _selectAsignar(results[i]));
-  });
-}
-
-function _selectAsignar(user) {
-  if (!_state) return;
-  _state.asignarSelected = user;
-  _state.asignarSearchTerm = '';
-  // Actualiza UI
-  const sel = q('incAsignarSelected');
-  const wrap = q('incAsignarSearchWrap');
-  const av = q('incAsignarAvatar');
-  const nm = q('incAsignarNombre');
-  const rl = q('incAsignarRole');
-  if (sel) sel.style.display = 'flex';
-  if (wrap) wrap.style.display = 'none';
-  if (av) av.textContent = _initialsFrom(user.nombre || user.email);
-  if (nm) nm.textContent = user.nombre || _displayName(user.email);
-  if (rl) rl.textContent = [user.rol, user.plaza, user.isGlobal ? 'Global' : ''].filter(Boolean).join(' · ');
-  const drop = q('incAsignarDropdown');
-  if (drop) { drop.style.display = 'none'; drop.innerHTML = ''; }
-  const input = q('incAsignarInput');
-  if (input) input.value = '';
-  _renderCreatePreview();
-}
-
-function _clearAsignar() {
-  if (!_state) return;
-  _state.asignarSelected = null;
-  const sel = q('incAsignarSelected');
-  const wrap = q('incAsignarSearchWrap');
-  if (sel) sel.style.display = 'none';
-  if (wrap) wrap.style.display = 'flex';
-  const input = q('incAsignarInput');
-  if (input) { input.value = ''; input.focus(); }
-  _renderCreatePreview();
 }
 
 function _onGlobalKey(e) {
@@ -666,7 +600,17 @@ function _applyFilters() {
     // Tabs
     const author = String(item?.autor || item?.creadoPor || '').toLowerCase();
     if (tab === 'mias' && me && author !== me) return false;
-    if (tab === 'sin_asignar' && author) return false;
+    if (tab === 'sigo') {
+      const profile = getState()?.profile || null;
+      const myUid = String(profile?.uid || profile?.id || window._auth?.currentUser?.uid || '');
+      const myEmail = String(profile?.email || window._auth?.currentUser?.email || '').toLowerCase();
+      const segs = Array.isArray(item?.seguidores) ? item.seguidores : [];
+      const follows = segs.some(s =>
+        (myUid && String(s.uid || '') === myUid) ||
+        (myEmail && String(s.email || '').toLowerCase() === myEmail)
+      );
+      if (!follows) return false;
+    }
 
     if (!query) return true;
     const hay = [
@@ -727,7 +671,7 @@ function _renderHeader() {
   if (!sub) return;
   const total = (_state.allItems || []).length;
   const shown = (_state.items || []).length;
-  sub.textContent = `Bitácora operativa · ${shown} de ${total} incidencia${total === 1 ? '' : 's'}`;
+  sub.textContent = `Bitácora operativa · ${shown} de ${total} nota${total === 1 ? '' : 's'}`;
 }
 
 function _renderMetrics() {
@@ -760,8 +704,6 @@ function _renderMetrics() {
     { label: 'Críticas',       value: criticas,       sub: 'Atención inmediata',      tone: 'danger' },
     { label: 'En proceso',     value: enProceso,      sub: 'Trabajándose',            tone: 'neutral' },
     { label: 'Resueltas hoy',  value: resueltasHoy,   sub: 'Cerradas en el día',      tone: 'ok' },
-    { label: 'SLA en riesgo',  value: '?',            sub: 'Sin cálculo de SLA',      tone: 'warning' },
-    { label: 'Tiempo prom.',   value: '—',            sub: 'Próximamente',            tone: 'neutral' },
   ];
 
   cont.innerHTML = cards.map(c => `
@@ -834,7 +776,16 @@ function _renderToolbar() {
   const all = _state.allItems || [];
   const countTodas = all.length;
   const countMias = all.filter(it => me && String(it?.autor || it?.creadoPor || '').toLowerCase() === me).length;
-  const countSinAsignar = all.filter(it => !String(it?.autor || it?.creadoPor || '').trim()).length;
+  const profile = getState()?.profile || null;
+  const myUid = String(profile?.uid || window._auth?.currentUser?.uid || '');
+  const myEmail = String(profile?.email || window._auth?.currentUser?.email || '').toLowerCase();
+  const countSigo = all.filter(it => {
+    const segs = Array.isArray(it?.seguidores) ? it.seguidores : [];
+    return segs.some(s =>
+      (myUid && String(s.uid || '') === myUid) ||
+      (myEmail && String(s.email || '').toLowerCase() === myEmail)
+    );
+  }).length;
   const selCount = (_state.selectedIds || []).length;
 
   if (selCount > 0) {
@@ -845,12 +796,6 @@ function _renderToolbar() {
       <div class="bulk-sep"></div>
       <button class="bulk-act" data-bulk-resolve><span class="material-icons" style="font-size:13px">check</span>Marcar resuelta</button>
       <button class="bulk-act" data-bulk-copy><span class="material-icons" style="font-size:13px">content_copy</span>Copiar CSV</button>
-      <div style="flex:1"></div>
-      <div class="inc-view-toggle">
-        <button class="inc-view-btn ${_state.viewMode === 'list' ? 'is-active' : ''}" data-view="list" title="Lista"><span class="material-icons">view_list</span></button>
-        <button class="inc-view-btn ${_state.viewMode === 'table' ? 'is-active' : ''}" data-view="table" title="Tabla"><span class="material-icons">table_rows</span></button>
-        <button class="inc-view-btn ${_state.viewMode === 'board' ? 'is-active' : ''}" data-view="board" title="Tablero"><span class="material-icons">view_kanban</span></button>
-      </div>
     `;
   } else {
     toolbar.className = 'inc-toolbar';
@@ -860,8 +805,8 @@ function _renderToolbar() {
           <span class="material-icons">filter_list</span> Filtros
         </button>
         <button class="inc-tab ${_state.activeTab === 'todas' ? 'is-active' : ''}" data-tab="todas">Todas <span class="inc-tab-count" id="tabCount_todas">${countTodas}</span></button>
-        <button class="inc-tab ${_state.activeTab === 'mias' ? 'is-active' : ''}" data-tab="mias">Asignadas a mí <span class="inc-tab-count" id="tabCount_mias">${countMias}</span></button>
-        <button class="inc-tab ${_state.activeTab === 'sin_asignar' ? 'is-active' : ''}" data-tab="sin_asignar">Sin asignar <span class="inc-tab-count" id="tabCount_sin_asignar">${countSinAsignar}</span></button>
+        <button class="inc-tab ${_state.activeTab === 'mias' ? 'is-active' : ''}" data-tab="mias">Mis notas <span class="inc-tab-count" id="tabCount_mias">${countMias}</span></button>
+        <button class="inc-tab ${_state.activeTab === 'sigo' ? 'is-active' : ''}" data-tab="sigo">Sigo <span class="inc-tab-count" id="tabCount_sigo">${countSigo}</span></button>
       </div>
       <div class="inc-toolbar-right">
         <span class="inc-results-count" id="incResultsCount">${_state.items.length} resultado${_state.items.length === 1 ? '' : 's'}</span>
@@ -869,11 +814,6 @@ function _renderToolbar() {
           <option value="recent" ${_state.sortBy === 'recent' ? 'selected' : ''}>Más recientes</option>
           <option value="priority" ${_state.sortBy === 'priority' ? 'selected' : ''}>Prioridad</option>
         </select>
-        <div class="inc-view-toggle">
-          <button class="inc-view-btn ${_state.viewMode === 'list' ? 'is-active' : ''}" data-view="list" title="Lista"><span class="material-icons">view_list</span></button>
-          <button class="inc-view-btn ${_state.viewMode === 'table' ? 'is-active' : ''}" data-view="table" title="Tabla"><span class="material-icons">table_rows</span></button>
-          <button class="inc-view-btn ${_state.viewMode === 'board' ? 'is-active' : ''}" data-view="board" title="Tablero"><span class="material-icons">view_kanban</span></button>
-        </div>
         <button class="inc-refresh-btn" id="incRefreshBtn" title="Actualizar"><span class="material-icons">refresh</span></button>
       </div>
     `;
@@ -886,12 +826,6 @@ function _attachToolbarHandlers() {
     btn.addEventListener('click', () => {
       _state.activeTab = btn.dataset.tab;
       _applyFilters();
-      _render();
-    });
-  });
-  qsa('[data-view]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      _state.viewMode = btn.dataset.view;
       _render();
     });
   });
@@ -935,15 +869,15 @@ function _renderView(items) {
   if (!cont) return;
 
   if (!_state.plaza) {
-    cont.innerHTML = _empty('Selecciona una plaza para ver notas e incidencias.', 'place');
+    cont.innerHTML = _empty('Selecciona una plaza para ver notas.', 'place');
     return;
   }
   if (_state.loading) {
     cont.innerHTML = _empty('Cargando registros…', 'loading', true);
     return;
   }
-  if (_state.hasPermissionDenied) {
-    cont.innerHTML = _empty('No tienes permisos para ver notas e incidencias de esta plaza.', 'block');
+  if (_state.hasPermissionDenied || !_canViewNotas()) {
+    cont.innerHTML = _empty('No tienes permisos para ver notas de esta plaza.', 'block');
     return;
   }
   if (_state.errorMessage) {
@@ -951,7 +885,7 @@ function _renderView(items) {
     return;
   }
   if (!_state.allItems.length) {
-    cont.innerHTML = _empty('No hay notas e incidencias registradas.', 'inbox');
+    cont.innerHTML = _empty('No hay notas registradas.', 'inbox');
     return;
   }
   if (!items.length) {
@@ -959,13 +893,8 @@ function _renderView(items) {
     return;
   }
 
-  if (_state.viewMode === 'table') {
-    cont.innerHTML = _renderTable(items);
-  } else if (_state.viewMode === 'board') {
-    cont.innerHTML = _renderBoard(items);
-  } else {
-    cont.innerHTML = _renderList(items);
-  }
+  _state.viewMode = 'list';
+  cont.innerHTML = _renderList(items);
 
   _attachRowHandlers();
 }
@@ -1102,7 +1031,7 @@ function _emptyListHtml() {
   return `
     <div class="inc-empty">
       <div class="inc-empty-mark"><span class="material-icons">inbox</span></div>
-      <div class="inc-empty-title">No hay incidencias con estos filtros</div>
+      <div class="inc-empty-title">No hay notas con estos filtros</div>
       <div class="inc-empty-sub">Ajusta los filtros del panel izquierdo o crea una nueva.</div>
     </div>
   `;
@@ -1287,19 +1216,12 @@ function _renderDetailPanel() {
   const amFollowing = seguidores.some(s =>
     (myUid && s.uid === myUid) || (myEmail && String(s.email || '').toLowerCase() === myEmail)
   );
-  const asignadoA = item.asignadoA && (item.asignadoA.nombre || item.asignadoA.email)
-    ? item.asignadoA : null;
 
   // Related (same tipo, excluir actual, máx 3)
   const tipoCur = String(item?.tipo || 'OTRO').toUpperCase().trim() || 'OTRO';
   const related = (_state.allItems || [])
     .filter(r => (r.legacyNotaId || r.id) !== id && (String(r?.tipo || 'OTRO').toUpperCase().trim() || 'OTRO') === tipoCur)
     .slice(0, 3);
-
-  // Usuario actual (para caja de comentario)
-  const gs = getState();
-  const me = gs?.profile?.nombreCompleto || gs?.profile?.nombre || gs?.profile?.email || 'Usuario';
-  const meInitials = _initialsFrom(me);
 
   const adjuntoAttachmentsHtml = evidencias.length || chipLabel
     ? `<div class="dp-adjunto-attachments">
@@ -1325,7 +1247,6 @@ function _renderDetailPanel() {
       <div class="dp-pills">
         <span class="dp-pill"><span class="prio-dot is-${esc(prLower)}"></span>${esc(_priorityLabel(pr))}</span>
         <span class="status-pill is-${esc(stKey)}"><span class="status-pill-dot"></span>${esc(stLabel)}</span>
-        <span class="schedule-chip sla-neutral">—</span>
       </div>`}
     </div>
 
@@ -1361,13 +1282,6 @@ function _renderDetailPanel() {
         <div>
           <div class="dp-section-label">Tipo</div>
           <div class="dp-meta-val">${esc(String(item.tipo || 'OTRO').toUpperCase())}</div>
-        </div>
-        <div>
-          <div class="dp-section-label">Asignada a</div>
-          <div class="dp-meta-val-plain">${asignadoA
-            ? `<span class="dp-assign-pill"><span class="inc-avatar" style="width:18px;height:18px;font-size:8px;">${esc(_initialsFrom(asignadoA.nombre || asignadoA.email))}</span>${esc(asignadoA.nombre || _displayName(asignadoA.email))}</span>`
-            : `<span class="dp-unassigned">Sin asignar</span>`
-          }</div>
         </div>
         <div>
           <div class="dp-section-label">Visibilidad</div>
@@ -1484,13 +1398,6 @@ function _renderDetailPanel() {
               <div class="inc-timeline-when">${esc(_longDate(item.creadoEn || item.fecha))}</div>
             </li>
           ` : ''}
-          ${(item.comentarios || []).map(c => `
-            <li class="inc-timeline-item is-comment">
-              <div class="inc-timeline-mark"><span class="material-icons">chat_bubble_outline</span></div>
-              <div class="inc-timeline-text"><b>${esc(_displayName(c.autor || c.email || 'Usuario'))}</b> · ${esc(String(c.texto || ''))}</div>
-              <div class="inc-timeline-when">${esc(_longDate(c.fecha || c.ts))}</div>
-            </li>
-          `).join('')}
           ${resolved ? `
             <li class="inc-timeline-item is-resolve">
               <div class="inc-timeline-mark"><span class="material-icons">check</span></div>
@@ -1500,44 +1407,20 @@ function _renderDetailPanel() {
           ` : ''}
         </ol>
       </section>
-
-      ${open ? `
-        <section class="dp-section" id="incReasignarSection" style="display:none">
-          <div class="dp-section-label">Reasignar a</div>
-          <div style="position:relative">
-            <input id="incReasignarInput" placeholder="Buscar por nombre, correo o rol…" autocomplete="off"
-              style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:inherit;font-size:13px;outline:none;">
-            <div id="incReasignarDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#1e293b;border:1px solid rgba(255,255,255,0.15);border-radius:8px;z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.35)"></div>
-          </div>
-          <button class="dp-btn dp-btn-secondary" id="incReasignarCancel" style="margin-top:6px;font-size:12px">Cancelar</button>
-        </section>
-      ` : ''}
-
-      <section class="dp-section">
-        <div class="dp-section-label">Comentar</div>
-        <div class="dp-comment">
-          <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;">${esc(meInitials)}</span>
-          <input id="incCommentInput" placeholder="Escribe un comentario…">
-          <button class="dp-send" id="incCommentSend"><span class="material-icons">send</span></button>
-        </div>
-      </section>
     </div>
 
     <div class="dp-foot">
       ${isAdjunto ? `
         <span class="dp-foot-hint">Documento adjunto · no requiere resolución</span>
-      ` : open ? `
-        <button class="dp-btn dp-btn-secondary" id="incReasignarBtn" data-reasignar-id="${esc(item.legacyNotaId || item.id)}" data-stop>
-          <span class="material-icons" style="font-size:13px">person</span> Reasignar
-        </button>
+      ` : open && _canEditNota() ? `
         <button class="dp-btn dp-btn-primary" data-resolve-id="${esc(item.legacyNotaId || item.id)}" data-stop>
           <span class="material-icons" style="font-size:13px">check</span> Marcar resuelta
         </button>
-      ` : `
+      ` : !isAdjunto && !open && _canEditNota() ? `
         <button class="dp-btn dp-btn-secondary" data-reopen-id="${esc(item.legacyNotaId || item.id)}" data-stop>
-          <span class="material-icons" style="font-size:13px">refresh</span> Reabrir incidencia
+          <span class="material-icons" style="font-size:13px">refresh</span> Reabrir nota
         </button>
-      `}
+      ` : ''}
       ${canDelete ? `
         <button class="dp-btn is-danger" data-delete-id="${esc(item.legacyNotaId || item.id)}" data-stop>
           <span class="material-icons" style="font-size:13px">delete</span>
@@ -1575,7 +1458,7 @@ function _renderDetailPanel() {
           resueltaEn: '',
           solucion: '',
         });
-        _showToast('Reabierta', 'La incidencia fue marcada como pendiente.', 'ok');
+        _showToast('Reabierta', 'La nota fue marcada como pendiente.', 'ok');
       } catch (err) {
         _showToast('Error', err?.message || 'No se pudo reabrir.', 'error');
       } finally {
@@ -1612,92 +1495,15 @@ function _renderDetailPanel() {
     });
   }
 
-  // Reasignar
-  const reasignarBtn = q('incReasignarBtn');
-  const reasignarSection = q('incReasignarSection');
-  if (reasignarBtn && reasignarSection) {
-    reasignarBtn.addEventListener('click', () => {
-      const visible = reasignarSection.style.display !== 'none';
-      reasignarSection.style.display = visible ? 'none' : '';
-      if (!visible) setTimeout(() => q('incReasignarInput')?.focus(), 50);
-    });
-    q('incReasignarCancel')?.addEventListener('click', () => {
-      reasignarSection.style.display = 'none';
-    });
-
-    let _reaSearchTimer = null;
-    q('incReasignarInput')?.addEventListener('input', e => {
-      const term = String(e.target?.value || '').trim();
-      clearTimeout(_reaSearchTimer);
-      const drop = q('incReasignarDropdown');
-      if (!drop) return;
-      if (term.length < 2) { drop.style.display = 'none'; drop.innerHTML = ''; return; }
-      _reaSearchTimer = setTimeout(async () => {
-        try {
-          const results = await searchUsuarios(term, _state?.plaza || '');
-          if (!results.length) { drop.style.display = 'none'; drop.innerHTML = ''; return; }
-          drop.style.display = 'block';
-          drop.innerHTML = results.map(u => `
-            <button type="button" class="ci-assign-result" data-uid="${esc(u.uid)}" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;background:none;border:none;color:inherit;cursor:pointer;font-size:13px;text-align:left">
-              <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;flex-shrink:0">${esc(_initialsFrom(u.nombre || u.email))}</span>
-              <span>${esc(u.nombre || _displayName(u.email))}</span>
-              <span style="opacity:.5;font-size:11px;margin-left:auto">${esc(u.rol)}${u.plaza ? ' · ' + esc(u.plaza) : ''}</span>
-            </button>
-          `).join('');
-          drop.querySelectorAll('.ci-assign-result').forEach((btn, i) => {
-            btn.addEventListener('click', async () => {
-              const u = results[i];
-              try {
-                reasignarBtn.disabled = true;
-                await updateIncidenciaField(id, {
-                  asignadoA: { uid: u.uid, nombre: u.nombre, email: u.email, rol: u.rol }
-                });
-                reasignarSection.style.display = 'none';
-                _showToast('Reasignada', `Asignada a ${u.nombre || _displayName(u.email)}`, 'ok');
-              } catch (err) {
-                _showToast('Error', err?.message || 'No se pudo reasignar.', 'error');
-              } finally {
-                reasignarBtn.disabled = false;
-              }
-            });
-          });
-        } catch (_) {}
-      }, 250);
-    });
-  }
-
-  // Comentario
-  const sendComment = async () => {
-    const inp = q('incCommentInput');
-    const txt = String(inp?.value || '').trim();
-    if (!txt) return;
-    const gs4 = getState();
-    const sendBtn = q('incCommentSend');
-    if (sendBtn) sendBtn.disabled = true;
-    try {
-      await addComentario(id, {
-        texto: txt,
-        autor: gs4?.profile?.nombreCompleto || gs4?.profile?.nombre || gs4?.profile?.email || 'Usuario',
-        uid: gs4?.profile?.id || gs4?.profile?.uid || '',
-        email: gs4?.profile?.email || '',
-      });
-      if (inp) inp.value = '';
-    } catch (err) {
-      _showToast('Error', err?.message || 'No se pudo enviar el comentario.', 'error');
-    } finally {
-      if (sendBtn) sendBtn.disabled = false;
-    }
-  };
-  q('incCommentSend')?.addEventListener('click', sendComment);
-  q('incCommentInput')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); }
-  });
 }
 
 // ────────────────────────────────────────────────────────────
 // CREATE / RESOLVE / DELETE
 // ────────────────────────────────────────────────────────────
 function _toggleCreateDialog(show) {
+  if (show && !_canCreateNota()) {
+    return _showNotice('No tienes permiso para crear notas.', 'error');
+  }
   const bd = q('incCreateBackdrop');
   bd?.classList.toggle('is-open', !!show);
   if (show) {
@@ -1711,7 +1517,7 @@ function _toggleCreateDialog(show) {
 }
 
 async function _onCreateIncidencia() {
-  if (!_state?.plaza) return _showNotice('Selecciona una plaza para registrar notas e incidencias.', 'error');
+  if (!_state?.plaza) return _showNotice('Selecciona una plaza para registrar notas.', 'error');
   _syncRichEditorToTextarea();
   const titulo = String(q('nuevaNotaTitulo')?.value || '').trim();
   const descripcion = String(q('nuevaNotaTxt')?.value || '').trim();
@@ -1747,7 +1553,6 @@ async function _onCreateIncidencia() {
       estado: esAdjunto ? 'ADJUNTO' : 'PENDIENTE',
       chipLabel: esAdjunto ? chipLabel : '',
       source: 'notas_admin',
-      asignadoA: esAdjunto ? null : (_state.asignarSelected || null),
       seguidores: [],
     };
     const links = (_state.linksNuevaNota || []).map(item => ({
@@ -1767,7 +1572,7 @@ async function _onCreateIncidencia() {
     }
 
     await createIncidencia(payload);
-    _showToast('Incidencia publicada', titulo.slice(0, 60), 'ok');
+    _showToast('Nota publicada', titulo.slice(0, 60), 'ok');
     const createAnother = !!q('incCreateAgain')?.checked;
     _resetComposer();
     if (!createAnother) _toggleCreateDialog(false);
@@ -1796,16 +1601,6 @@ function _resetComposer() {
     _state.archivosNuevaNota = [];
   }
   _state.linksNuevaNota = [];
-  _state.asignarSelected = null;
-  _state.asignarSearchTerm = '';
-  const selEl = q('incAsignarSelected');
-  const wrapEl = q('incAsignarSearchWrap');
-  const dropEl = q('incAsignarDropdown');
-  if (selEl) selEl.style.display = 'none';
-  if (wrapEl) wrapEl.style.display = 'flex';
-  if (dropEl) { dropEl.style.display = 'none'; dropEl.innerHTML = ''; }
-  const assignInput = q('incAsignarInput');
-  if (assignInput) assignInput.value = '';
   _state.createDraft = { titulo: '', descripcion: '', prioridad: 'ALTA', tipo: 'OTRO', mva: '', chipLabel: '' };
   _renderAdjuntosNuevos();
   _renderLinksNuevos();
@@ -1939,7 +1734,7 @@ function _priorityLabel(p) {
 }
 
 function _canDelete(item) {
-  return false;
+  return _canDeleteNota();
 }
 
 function _evidenceRows(item) {
@@ -2156,18 +1951,7 @@ function _onDraftChange() {
 
 function _syncAdjuntoFormMode(isAdjunto) {
   const prioWrap = q('nuevaNotaPrioridadWrap');
-  const assignWrap = q('nuevaNotaAsignarWrap');
   if (prioWrap) prioWrap.hidden = !!isAdjunto;
-  if (assignWrap) assignWrap.hidden = !!isAdjunto;
-  if (isAdjunto && _state?.asignarSelected) {
-    _state.asignarSelected = null;
-    const sel = q('incAsignarSelected');
-    const wrap = q('incAsignarSearchWrap');
-    if (sel) sel.style.display = 'none';
-    if (wrap) wrap.style.display = 'flex';
-    const input = q('incAsignarInput');
-    if (input) input.value = '';
-  }
 }
 
 function _renderCreatePreview() {
@@ -2224,7 +2008,7 @@ function _renderCreatePreview() {
       <span class="ci-prev-dot">·</span>
       <span>justo ahora</span>
     </div>
-    <h2 class="ci-prev-title">${d.titulo ? esc(d.titulo) : '<span class="ci-prev-empty">Título de la incidencia</span>'}</h2>
+    <h2 class="ci-prev-title">${d.titulo ? esc(d.titulo) : '<span class="ci-prev-empty">Título de la nota</span>'}</h2>
     <div class="ci-prev-pills">
       <span class="ci-prev-pill"><span class="prio-dot is-${esc(prLower)}"></span>${esc(_priorityLabel(d.prioridad))}</span>
       <span class="status-pill is-pendiente"><span class="status-pill-dot"></span>Pendiente</span>
@@ -2399,9 +2183,9 @@ function _renderLayout() {
           <p class="mod-sub" id="incModSub">Bitácora operativa</p>
         </div>
         <div class="mod-actions">
-          <button class="btn-ghost" id="incBtnNew" title="Nueva incidencia (N)">
-            <span class="material-icons" style="font-size:13px;">add</span> Nueva incidencia
-          </button>
+          ${_canCreateNota() ? `<button class="btn-ghost" id="incBtnNew" title="Nueva nota (N)">
+            <span class="material-icons">add</span> Nueva nota
+          </button>` : ''}
         </div>
       </header>
 
@@ -2409,11 +2193,11 @@ function _renderLayout() {
 
       <div class="workspace">
         <aside class="rail">
-          <button class="rail-new" id="incBtnNewRail" title="Nueva incidencia (N)">
+          ${_canCreateNota() ? `<button class="rail-new" id="incBtnNewRail" title="Nueva nota (N)">
             <span class="material-icons" style="font-size:14px;">add</span>
-            Nueva incidencia
+            Nueva nota
             <span class="rail-new-kbd">N</span>
-          </button>
+          </button>` : ''}
 
           <div class="rail-section">
             <div class="rail-title">Prioridad</div>
@@ -2436,36 +2220,6 @@ function _renderLayout() {
             </div>
           </div>
 
-          <div class="rail-section">
-            <div class="rail-title">Asignado a</div>
-            <div class="rail-list">
-              <label class="rail-check is-on">
-                <input type="radio" name="incAssignTo" checked>
-                <span class="rail-radio"></span>
-                <span class="rail-label">Cualquiera</span>
-              </label>
-              <label class="rail-check">
-                <input type="radio" name="incAssignTo">
-                <span class="rail-radio"></span>
-                <span class="rail-label">Sin asignar</span>
-              </label>
-              <label class="rail-check">
-                <input type="radio" name="incAssignTo">
-                <span class="rail-radio"></span>
-                <span class="rail-label">Yo</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="rail-section">
-            <div class="rail-title">Vistas guardadas</div>
-            <div class="rail-list">
-              <button type="button" class="rail-saved"><span class="rail-saved-dot"></span>Mi día</button>
-              <button type="button" class="rail-saved"><span class="rail-saved-dot"></span>SLA crítico</button>
-              <button type="button" class="rail-saved"><span class="rail-saved-dot"></span>Por flota</button>
-              <button type="button" class="rail-saved"><span class="rail-saved-dot"></span>Cerradas semana</button>
-            </div>
-          </div>
         </aside>
 
         <main class="inc-canvas">
@@ -2476,14 +2230,14 @@ function _renderLayout() {
         <aside class="detail" id="incDetailPanel"></aside>
       </div>
 
-      <!-- Dialog Nueva incidencia (split form + live preview) -->
+      <!-- Dialog Nueva nota (split form + live preview) -->
       <div class="ci-backdrop" id="incCreateBackdrop">
         <div class="ci-sheet" role="dialog" aria-modal="true" aria-labelledby="incCreateTitle">
           <header class="ci-head">
             <div class="ci-head-left">
               <div class="ci-head-icon"><span class="material-icons">add</span></div>
               <div>
-                <div class="ci-head-title" id="incCreateTitle">Nueva incidencia</div>
+                <div class="ci-head-title" id="incCreateTitle">Nueva nota</div>
                 <div class="ci-head-sub" id="incCreateSub">Se publicará en la bitácora</div>
               </div>
             </div>
@@ -2548,24 +2302,6 @@ function _renderLayout() {
                   <label class="ci-label">Reportado por</label>
                   <input type="text" id="autorNuevaNota" class="ci-input" disabled>
                 </div>
-              </div>
-
-              <div class="ci-field" id="nuevaNotaAsignarWrap" style="position:relative">
-                <label class="ci-label">Asignar a <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--fg-muted)">(opcional)</span></label>
-                <div class="ci-assign-selected" id="incAsignarSelected" style="display:none">
-                  <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;" id="incAsignarAvatar"></span>
-                  <span id="incAsignarNombre" style="font-size:13px;color:var(--fg-strong);flex:1"></span>
-                  <span id="incAsignarRole" style="font-size:11px;color:var(--fg-muted)"></span>
-                  <button type="button" class="ci-assign-clear" id="incAsignarClear" title="Quitar asignación">
-                    <span class="material-icons" style="font-size:14px">close</span>
-                  </button>
-                </div>
-                <div class="ci-assign-search-wrap" id="incAsignarSearchWrap">
-                  <span class="material-icons" style="font-size:14px;color:var(--fg-muted)">person_search</span>
-                  <input type="text" id="incAsignarInput" class="ci-assign-search-input"
-                    placeholder="Buscar por nombre, correo o rol…" autocomplete="off">
-                </div>
-                <div class="ci-assign-dropdown" id="incAsignarDropdown" style="display:none"></div>
               </div>
 
               <div class="ci-field">

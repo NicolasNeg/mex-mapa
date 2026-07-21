@@ -225,6 +225,7 @@ export async function createIncidencia(payload = {}) {
     source: basePayload.source,
     legacyNotaId: basePayload.legacyNotaId,
     version: Number(basePayload.version || 1) || 1,
+    seguidores: Array.isArray(basePayload.seguidores) ? basePayload.seguidores : [],
   });
   return 'OK';
 }

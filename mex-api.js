@@ -816,6 +816,19 @@ function _normalizeIncidentAttachments(data = {}) {
   ));
 }
 
+function _normalizeSeguidores(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((s) => s && typeof s === 'object')
+    .map((s) => ({
+      uid: _sanitizeText(s.uid || ''),
+      email: _sanitizeText(s.email || ''),
+      nombre: _sanitizeText(s.nombre || s.displayName || ''),
+      ...(s.rol ? { rol: _sanitizeText(s.rol) } : {}),
+    }))
+    .filter((s) => s.uid || s.email);
+}
+
 function _buildIncidentPayload(data = {}, autor = "", adjuntos = [], timestampValue = null) {
   const timestamp = Number(timestampValue || data.timestamp || _ts()) || _ts();
   const descripcion = String(data.descripcion ?? data.nota ?? "").trim();
@@ -849,6 +862,7 @@ function _buildIncidentPayload(data = {}, autor = "", adjuntos = [], timestampVa
     codigo: _sanitizeText(data.codigo || "") || _buildIncidentCode(timestamp),
     adjuntos: archivos,
     version: Number(data.version || 1) || 1,
+    seguidores: _normalizeSeguidores(data.seguidores),
     ...(plazaField ? { plaza: plazaField.toUpperCase().trim() } : {}),
     ...(mvaField ? { mva: mvaField.toUpperCase().trim() } : {}),
     ...(tipoField ? { tipo: tipoField } : {}),
@@ -1370,11 +1384,14 @@ const API_FUNCTIONS = {
     const usersSnap = await db.collection(COL.USERS).get();
     return usersSnap.docs.map(d => {
       const data = d.data();
+      const safeData = { ...data };
+      delete safeData.password;
+      delete safeData.faceDescriptor;
       const roleData = _normalizeUserRoleData(data);
       // Normalizar: usuarios nuevos (Firebase Auth) tienen nombre+email, los viejos tenían usuario
       const displayName = (data.nombre || data.usuario || data.email || '').toUpperCase();
       return {
-        ...data,
+        ...safeData,
         ...roleData,
         usuario: displayName, // campo unificado que usa el resto de la app
       };
@@ -2784,6 +2801,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     }
   },
   async modificarUsuario(nombreOriginal, nuevoNombre, nuevoPin, isAdmin, telefono, isGlobalAdmin) {
+    // Firma legacy: los cambios de contrasena deben realizarse mediante Firebase Auth.
     const origUpper = nombreOriginal.trim().toUpperCase();
     const nuevoUpper = nuevoNombre.trim().toUpperCase();
     const snap = await db.collection(COL.USERS).where("usuario", "==", origUpper).limit(1).get();
@@ -2792,7 +2810,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     const esGlobal = isGlobalAdmin === true || isGlobalAdmin === "true";
     await snap.docs[0].ref.update({
       usuario: nuevoUpper,
-      password: nuevoPin.toString(),
+      password: firebase.firestore.FieldValue.delete(),
       isAdmin: esAdmin,
       telefono: (telefono || "").trim()
     });
@@ -2802,10 +2820,14 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       // Siempre mantener en admins — solo cambia el flag isGlobal
       if (adminSnap.empty) {
         await db.collection(COL.ADMINS).doc(nuevoUpper).set({
-          usuario: nuevoUpper, password: nuevoPin.toString(), isGlobal: esGlobal
+          usuario: nuevoUpper, isGlobal: esGlobal
         });
       } else {
-        await adminSnap.docs[0].ref.update({ usuario: nuevoUpper, password: nuevoPin.toString(), isGlobal: esGlobal });
+        await adminSnap.docs[0].ref.update({
+          usuario: nuevoUpper,
+          password: firebase.firestore.FieldValue.delete(),
+          isGlobal: esGlobal
+        });
       }
     } else {
       // Ya no es admin — eliminar de admins

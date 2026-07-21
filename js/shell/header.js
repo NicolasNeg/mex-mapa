@@ -101,7 +101,8 @@ export class ShellHeader {
     const route = String(this._currentRoute || '');
     if (route === '/app/dashboard' || route === '/home') return 'Buscar módulo, unidad o acción...';
     if (route === '/app/cuadre' || route === '/cuadre') return 'Buscar MVA, modelo, placas o ubicación...';
-    if (route === '/app/incidencias' || route === '/incidencias') return 'Buscar incidencia, MVA, autor...';
+    if (route === '/app/notas' || route === '/app/incidencias' || route === '/incidencias') return 'Buscar nota, MVA, autor...';
+    if (route === '/app/reportes-danos' || String(route || '').startsWith('/app/reportes-danos/')) return 'Buscar reporte, MVA, tipo...';
     if (route === '/app/cola-preparacion' || route === '/cola-preparacion') return 'Buscar unidad en cola...';
     if (route === '/app/admin' || route.startsWith('/app/admin/') || route === '/gestion') return 'Buscar usuarios, roles, plazas...';
     if (route === '/app/programador' || route === '/programador') return 'Buscar diagnóstico, API, cache...';

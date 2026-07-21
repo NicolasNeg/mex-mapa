@@ -127,11 +127,20 @@ export const NAV_GROUPS = [
       },
       {
         id: 'incidencias',
-        label: 'Notas e incidencias',
-        icon: 'warning',
-        route: '/incidencias',
+        label: 'Notas',
+        icon: 'sticky_note_2',
+        route: '/app/notas',
         roles: '*',
         feature: 'incidencias'
+      },
+      {
+        id: 'reportes-danos',
+        label: 'Reportes de daños',
+        icon: 'car_crash',
+        route: '/app/reportes-danos',
+        roles: '*',
+        feature: 'papeletas',
+        permission: 'view_papeletas',
       },
       {
         id: 'papeletas',
@@ -229,7 +238,7 @@ export const ROUTE_TITLES = {
   '/mensajes':          'Mensajes',
   '/cola-preparacion':  'Cola de preparación',
   '/cuadre':            'Cuadre',
-  '/incidencias':       'Notas e incidencias',
+  '/incidencias':       'Notas',
   '/gestion':           'Panel administrativo',
   '/profile':           'Mi perfil',
   '/editmap':           'Editor de mapa',
@@ -238,7 +247,9 @@ export const ROUTE_TITLES = {
   '/app/profile':          'Mi perfil',
   '/app/mensajes':         'Mensajes',
   '/app/cola-preparacion': 'Cola de preparación',
-  '/app/incidencias':      'Notas e incidencias',
+  '/app/incidencias':      'Notas',
+  '/app/notas':            'Notas',
+  '/app/reportes-danos':   'Reportes de daños',
   '/app/unidades':         'Unidades',
   '/app/cuadre':           'Cuadre',
   '/app/cuadrarflota':     'Cuadrar flota',
@@ -254,7 +265,7 @@ export const ROUTE_TITLES = {
   '/app/turnos':                   'Turnos y horarios',
   '/app/historial-operativo':      'Historial de cambios',
   '/app/papeletas':                'Papeletas',
-  '/app/papeletas/ventas':         'Papeletas · Ventas',
+  '/app/papeletas/ventas':         'Reportes de daños',
   '/app/papeletas/nueva':          'Papeletas · Nueva',
   '/app/papeletas/p':              'Papeletas · Detalle',
   '/programador':                  'Programador',
@@ -265,6 +276,10 @@ export function routeTitle(route = '') {
   const [path] = String(route).split('?');
   const normalized = path.replace(/\.html$/, '').replace(/\/+$/, '') || '/';
   if (ROUTE_TITLES[normalized]) return ROUTE_TITLES[normalized];
+  if (normalized.startsWith('/app/reportes-danos/')) {
+    if (normalized.endsWith('/nuevo') || normalized === '/app/reportes-danos/nuevo') return 'Nuevo reporte de daños';
+    return 'Detalle de reporte';
+  }
   if (normalized.startsWith('/app/papeletas/p/')) return ROUTE_TITLES['/app/papeletas/p'] || 'Papeletas · Detalle';
   // /app/admin/:section(/:id)? → label de ADMIN_NAV_GROUPS (Usuarios, Choferes, …)
   const adminTitle = adminRouteTitle(normalized);

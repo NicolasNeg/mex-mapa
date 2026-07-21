@@ -223,7 +223,7 @@ function _buildIncidentUrl(unit, context = {}) {
   if (mva) params.set('mva', mva);
   if (plaza) params.set('plaza', plaza);
   const qs = params.toString();
-  return qs ? `/app/incidencias?${qs}` : '/app/incidencias';
+  return qs ? `/app/notas?${qs}` : '/app/notas';
 }
 
 function _validateCommon(action, unit, payload = {}, context = {}) {
