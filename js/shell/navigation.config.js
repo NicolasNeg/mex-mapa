@@ -247,6 +247,7 @@ export const ROUTE_TITLES = {
   '/app/historial-operativo':      'Historial de cambios',
   '/app/papeletas':                'Papeletas',
   '/app/papeletas/ventas':         'Papeletas · Ventas',
+  '/app/papeletas/nueva':          'Papeletas · Nueva',
   '/app/papeletas/p':              'Papeletas · Detalle',
   '/programador':                  'Programador',
   '/app/programador':              'Programador',

@@ -5,6 +5,7 @@ import {
 } from '/js/core/export-signing.js';
 import { exportMatrixCsv, exportMatrixXls } from '/js/core/export-menu.js';
 import { ZONAS_V1, CHECKLIST_KEYS, CHECKLIST_LABELS } from '/domain/papeleta.model.js';
+import { getDownloadUrl } from '/js/app/features/papeletas/papeletas-storage.js';
 
 function _esc(s) {
   return String(s ?? '')
@@ -12,6 +13,17 @@ function _esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function _checkLabel(v) {
+  if (v === 'ok') return '✓';
+  if (v === 'faltante') return 'X';
+  if (v === 'na') return 'N/A';
+  return '—';
+}
+
+function _marca(p) {
+  return String(p?.marcaLlantas || p?.checklist?.marca_llantas || p?.salida?.marcaLlantas || '').trim();
 }
 
 /** Matriz plana de una papeleta para XLS/CSV. */
@@ -24,6 +36,7 @@ export function papeletaExportMatrix(papeleta) {
     ['Placas', papeleta.placas || ''],
     ['Color', papeleta.color || ''],
     ['VIN', papeleta.vin || ''],
+    ['Contrato', papeleta.contrato || ''],
     ['Cliente', papeleta.clienteNombre || ''],
     ['Plaza', papeleta.plazaId || ''],
     ['KM salida', papeleta.salida?.km ?? ''],
@@ -32,7 +45,8 @@ export function papeletaExportMatrix(papeleta) {
     ['KM entrada', papeleta.entrada?.km ?? ''],
     ['Gas entrada', papeleta.entrada?.gas ?? ''],
     ['Quién recibe', papeleta.entrada?.quienRecibe || ''],
-    ['Notas entrada', papeleta.entrada?.notas || ''],
+    ['Notas / interiores', papeleta.notasInteriores || papeleta.entrada?.notas || ''],
+    ['Marca de llantas', _marca(papeleta)],
   ];
   for (const k of CHECKLIST_KEYS) {
     rows.push([`Checklist · ${CHECKLIST_LABELS[k] || k}`, papeleta.checklist?.[k] || '']);
@@ -56,18 +70,41 @@ export function exportPapeletaCsv(papeleta) {
   exportMatrixCsv(data.headers, data.body, { filename: buildExportFilename('csv') });
 }
 
+async function _loadFotoMap(papeleta) {
+  const map = {};
+  for (const z of ZONAS_V1) {
+    const path = papeleta.zonas?.[z.id]?.fotoPath;
+    if (!path) continue;
+    try {
+      map[z.id] = await getDownloadUrl(path);
+    } catch (_) { /* ignore */ }
+  }
+  return map;
+}
+
 /**
- * Abre ventana imprimible / PDF cliente (patrón turnos).
+ * Abre ventana imprimible / PDF cliente (hoja de inspección organizada).
  * @param {object} papeleta
- * @param {{ firmaUrl?: string }} opts
+ * @param {{ firmaUrl?: string, fotoUrls?: Record<string,string> }} opts
  */
-export function openPapeletaPdf(papeleta, { firmaUrl = '' } = {}) {
+export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null } = {}) {
   const fileTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
   const id = getExportIdentity();
+  const fotos = fotoUrls || await _loadFotoMap(papeleta);
   const zonasDano = ZONAS_V1.filter((z) => papeleta.zonas?.[z.id]?.estado === 'dano');
   const checklistRows = CHECKLIST_KEYS.map((k) => {
-    const v = papeleta.checklist?.[k] || '—';
-    return `<tr><td>${_esc(CHECKLIST_LABELS[k] || k)}</td><td>${_esc(v)}</td></tr>`;
+    const v = papeleta.checklist?.[k] || '';
+    return `<tr><td>${_esc(CHECKLIST_LABELS[k] || k)}</td><td class="center">${_esc(_checkLabel(v))}</td></tr>`;
+  }).join('');
+
+  const photosHtml = ZONAS_V1.map((z) => {
+    const url = fotos[z.id];
+    const dano = papeleta.zonas?.[z.id]?.estado === 'dano';
+    const nota = papeleta.zonas?.[z.id]?.nota || '';
+    return `<figure class="ph${dano ? ' dano' : ''}">
+      ${url ? `<img src="${_esc(url)}" alt=""/>` : '<div class="ph-empty">Sin foto</div>'}
+      <figcaption>${_esc(z.label)}${dano ? ' · daño' : ''}${nota ? ` — ${_esc(nota)}` : ''}</figcaption>
+    </figure>`;
   }).join('');
 
   const html = `<!DOCTYPE html>
@@ -75,48 +112,99 @@ export function openPapeletaPdf(papeleta, { firmaUrl = '' } = {}) {
 <title>${_esc(fileTitle)}</title>
 <style>
   *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  body{font-family:Inter,Arial,sans-serif;margin:24px;color:#0f172a;font-size:13px}
-  h1{font-size:18px;margin:0 0 4px;font-weight:600}
-  .meta{color:#64748b;margin-bottom:16px;font-size:12px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:16px}
-  .label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
-  .val{font-weight:500}
-  table{width:100%;border-collapse:collapse;margin:12px 0}
-  th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left}
-  th{background:#f8fafc;font-size:11px}
-  .firma{margin-top:20px;max-width:280px}
-  .firma img{max-width:100%;border:1px solid #e2e8f0;border-radius:8px}
-  .footer{margin-top:28px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b}
-  .no-print{margin-top:16px}
-  .btn-print{padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
-  @media print{body{margin:12mm}.no-print{display:none}}
+  body{font-family:Inter,Arial,sans-serif;margin:18px;color:#0f172a;font-size:12px}
+  h1{font-size:18px;margin:0 0 2px;font-weight:700}
+  h2{font-size:13px;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#334155}
+  .meta{color:#64748b;margin-bottom:12px;font-size:11px}
+  .head{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;margin-bottom:8px}
+  .box{border:1px solid #cbd5e1;border-radius:4px;padding:10px 12px}
+  .box .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
+  .val{font-weight:600;font-size:13px;margin-top:2px}
+  .io{width:100%;border-collapse:collapse;margin:8px 0 4px}
+  .io th,.io td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left}
+  .io th{background:#f1f5f9;font-size:10px;text-transform:uppercase}
+  table.chk{width:100%;border-collapse:collapse;margin:4px 0}
+  table.chk th,table.chk td{border:1px solid #e2e8f0;padding:5px 8px}
+  table.chk th{background:#f8fafc;font-size:10px}
+  .center{text-align:center;font-weight:700}
+  .photos{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+  .ph{margin:0;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;background:#0f172a}
+  .ph.dano{border-color:#ef4444}
+  .ph img{width:100%;height:72px;object-fit:cover;display:block}
+  .ph-empty{height:72px;display:grid;place-items:center;color:#94a3b8;font-size:10px;background:#1e293b}
+  .ph figcaption{font-size:9px;padding:3px 5px;background:#fff;color:#475569}
+  .firma{margin-top:12px;max-width:240px}
+  .firma img{max-width:100%;border:1px solid #e2e8f0;border-radius:4px;background:#fff}
+  .footer{margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b}
+  .no-print{margin-top:14px}
+  .btn-print{padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600}
+  @media print{body{margin:10mm}.no-print{display:none}.photos{grid-template-columns:repeat(4,1fr)}}
 </style></head><body>
-<h1>Papeleta digital — ${_esc(papeleta.mva || '')}</h1>
-<div class="meta">${_esc(id.companyName)} · ${_esc(papeleta.status)} · ${_esc(id.dateLabel)}</div>
-<div class="grid">
-  <div><div class="label">Modelo</div><div class="val">${_esc(papeleta.modelo)}</div></div>
-  <div><div class="label">Placas</div><div class="val">${_esc(papeleta.placas)}</div></div>
-  <div><div class="label">Color</div><div class="val">${_esc(papeleta.color)}</div></div>
-  <div><div class="label">VIN</div><div class="val">${_esc(papeleta.vin)}</div></div>
-  <div><div class="label">Cliente</div><div class="val">${_esc(papeleta.clienteNombre || '—')}</div></div>
-  <div><div class="label">Plaza</div><div class="val">${_esc(papeleta.plazaId)}</div></div>
-  <div><div class="label">KM salida</div><div class="val">${_esc(papeleta.salida?.km ?? '—')}</div></div>
-  <div><div class="label">Gas salida</div><div class="val">${_esc(papeleta.salida?.gas ?? '—')}</div></div>
-  <div><div class="label">Quién entrega</div><div class="val">${_esc(papeleta.salida?.quienEntrega || '—')}</div></div>
+<div class="head">
+  <div>
+    <h1>Hoja de inspección — ${_esc(papeleta.mva || '')}</h1>
+    <div class="meta">${_esc(id.companyName)} · ${_esc(papeleta.status)} · ${_esc(id.dateLabel)}</div>
+  </div>
+  <div class="box">
+    <div class="label">Contrato</div>
+    <div class="val">${_esc(papeleta.contrato || '—')}</div>
+  </div>
 </div>
-<h2 style="font-size:14px;margin:16px 0 8px">Checklist</h2>
-<table><thead><tr><th>Ítem</th><th>Estado</th></tr></thead><tbody>${checklistRows}</tbody></table>
-<h2 style="font-size:14px;margin:16px 0 8px">Daños marcados (${zonasDano.length})</h2>
+
+<div class="box" style="margin-bottom:12px">
+  <div class="row">
+    <div><div class="label">Económico (MVA)</div><div class="val">${_esc(papeleta.mva || '—')}</div></div>
+    <div><div class="label">Modelo</div><div class="val">${_esc(papeleta.modelo || '—')}</div></div>
+    <div><div class="label">Placas</div><div class="val">${_esc(papeleta.placas || '—')}</div></div>
+    <div><div class="label">Color</div><div class="val">${_esc(papeleta.color || '—')}</div></div>
+    <div><div class="label">VIN</div><div class="val">${_esc(papeleta.vin || '—')}</div></div>
+    <div><div class="label">Cliente</div><div class="val">${_esc(papeleta.clienteNombre || '—')}</div></div>
+    <div><div class="label">Plaza</div><div class="val">${_esc(papeleta.plazaId || '—')}</div></div>
+    <div><div class="label">Marca llantas</div><div class="val">${_esc(_marca(papeleta) || '—')}</div></div>
+  </div>
+</div>
+
+<h2>Entrega / Out · Recibe / In</h2>
+<table class="io">
+  <thead><tr><th></th><th>Nombre</th><th>KM</th><th>Gas</th></tr></thead>
+  <tbody>
+    <tr>
+      <th>Entrega / Out</th>
+      <td>${_esc(papeleta.salida?.quienEntrega || '—')}</td>
+      <td>${_esc(papeleta.salida?.km ?? '—')}</td>
+      <td>${_esc(papeleta.salida?.gas || '—')}</td>
+    </tr>
+    <tr>
+      <th>Recibe / In</th>
+      <td>${_esc(papeleta.entrada?.quienRecibe || '—')}</td>
+      <td>${_esc(papeleta.entrada?.km ?? '—')}</td>
+      <td>${_esc(papeleta.entrada?.gas || '—')}</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Checklist</h2>
+<table class="chk"><thead><tr><th>Ítem</th><th>Estado</th></tr></thead><tbody>${checklistRows}</tbody></table>
+
+<h2>Notas / interiores</h2>
+<p>${_esc(papeleta.notasInteriores || papeleta.entrada?.notas || '—')}</p>
+
+<h2>Daños marcados (${zonasDano.length})</h2>
 ${zonasDano.length
     ? `<ul>${zonasDano.map((z) => {
       const n = papeleta.zonas[z.id];
       return `<li><b>${_esc(z.label)}</b>${n?.nota ? ` — ${_esc(n.nota)}` : ''}</li>`;
     }).join('')}</ul>`
     : '<p>Sin daños documentados.</p>'}
+
+<h2>Fotos de salida</h2>
+<div class="photos">${photosHtml}</div>
+
 ${firmaUrl ? `<div class="firma"><div class="label">Firma cliente</div><img src="${_esc(firmaUrl)}" alt="Firma"/></div>` : ''}
 <div class="footer">${exportFooterHtml({ escapeHtml: _esc })}</div>
 <div class="no-print"><button class="btn-print" type="button" onclick="window.print()">Imprimir / Guardar PDF</button></div>
-<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
+<script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>
 </body></html>`;
 
   const w = window.open('', '_blank');

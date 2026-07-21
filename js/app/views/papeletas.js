@@ -55,7 +55,7 @@ let _items = [];
 let _reportes = [];
 let _detail = null;
 let _detailUnsub = null;
-let _mode = 'list'; // list | detail | ventas
+let _mode = 'list'; // list | detail | ventas | nueva
 let _filter = 'activas';
 let _query = '';
 let _wizardStep = 'datos'; // datos | zonas | checklist | resumen | firma | entrada | reporte
@@ -93,15 +93,16 @@ const FIELD_LABELS = Object.freeze({
 });
 
 const STEP_LABELS = Object.freeze({
-  datos: '1 · Unidad',
-  zonas: '2 · Fotos',
-  checklist: '3 · Accesorios',
-  resumen: '4 · Entregar',
+  datos: '1 · Datos',
+  zonas: '2 · Fotos y daños',
+  resumen: '3 · Entregar',
   firma: 'Firma',
   salida: 'Salida',
   entrada: 'Regreso',
   reporte: 'Reportar',
 });
+
+const NEW_ROUTE = '/app/papeletas/nueva';
 
 const POST_ENTREGA = new Set(['entregada', 'en_retorno', 'cerrada_historial']);
 
@@ -188,10 +189,14 @@ function _isVentasPath() {
   return _normPath() === VENTAS_ROUTE;
 }
 
+function _isNuevaPath() {
+  return _normPath() === NEW_ROUTE;
+}
+
 function _isLegacyDetailPath() {
   const path = _normPath();
   if (path.startsWith(DETAIL_PREFIX)) return false;
-  if (path === VENTAS_ROUTE || path === LIST_ROUTE) return false;
+  if (path === VENTAS_ROUTE || path === LIST_ROUTE || path === NEW_ROUTE) return false;
   return /^\/app\/papeletas\/[^/]+$/.test(path);
 }
 
@@ -288,10 +293,15 @@ export async function mount(ctx) {
   }
 
   if (_isVentasPath()) _mode = 'ventas';
+  else if (_isNuevaPath()) { _mode = 'nueva'; _showNueva = true; }
   else if (_pathId()) _mode = 'detail';
   else _mode = 'list';
 
   _render();
+  if (_mode === 'nueva') {
+    _runUnitAutocomplete('');
+    queueMicrotask(() => _container?.querySelector('#papUnitQ')?.focus());
+  }
 
   const plaza = String(getCurrentPlaza() || ctx?.state?.currentPlaza || '').toUpperCase();
   _unsubs.push(subscribePapeletasPlaza({
@@ -388,8 +398,8 @@ function _render() {
           </header>
           <div class="pap-ventas-host">${_renderVentas()}</div>
         </main>
-      ` : editor ? _renderDetail() : _renderList()}
-      ${_showNueva ? _renderNuevaModal() : ''}
+      ` : _mode === 'nueva' ? _renderNuevaScreen() : editor ? _renderDetail() : _renderList()}
+      ${_showNueva && _mode !== 'nueva' ? _renderNuevaModal() : ''}
     </section>
   `;
   _bind();
@@ -552,7 +562,6 @@ function _renderDetail() {
     : [
       ['datos', STEP_LABELS.datos],
       ['zonas', STEP_LABELS.zonas],
-      ['checklist', STEP_LABELS.checklist],
       ['resumen', STEP_LABELS.resumen],
     ];
   const statusLabel = STATUS_LABELS_SHORT[p.status] || STATUS_LABELS[p.status] || p.status;
@@ -582,7 +591,6 @@ function _renderDetail() {
         </div>
         ${_wizardStep === 'datos' ? _panelDatos(p, editable) : ''}
         ${_wizardStep === 'zonas' ? _panelZonas(p, editable) : ''}
-        ${_wizardStep === 'checklist' ? _panelChecklist(p, editable) : ''}
         ${_wizardStep === 'resumen' ? _panelResumen(p, editable) : ''}
         ${_wizardStep === 'firma' ? _panelFirma(p) : ''}
         ${_wizardStep === 'salida' ? _panelSalidaView(p) : ''}
@@ -593,37 +601,94 @@ function _renderDetail() {
   `;
 }
 
-function _panelDatos(p, editable) {
+function _ternaryEditable(k, val, editable) {
+  const v = String(val || '');
   return `
-    <div class="pap-panel">
-      <h2>Datos de la unidad</h2>
-      <p class="pap-hint">Revisa que coincidan con el auto. Si algo está mal, corrígelo aquí.</p>
+    <span class="pap-ternary" role="group" aria-label="${_esc(CHECKLIST_LABELS[k] || k)}">
+      <button type="button" class="pap-ternary__btn ${v === 'ok' ? 'is-on is-ok' : ''}" data-act="check-set" data-key="${_esc(k)}" data-val="ok" ${editable ? '' : 'disabled'} title="Está" aria-label="Está">
+        <span class="material-symbols-outlined">check</span>
+      </button>
+      <button type="button" class="pap-ternary__btn ${v === 'faltante' ? 'is-on is-bad' : ''}" data-act="check-set" data-key="${_esc(k)}" data-val="faltante" ${editable ? '' : 'disabled'} title="No está" aria-label="No está">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      <button type="button" class="pap-ternary__btn ${v === 'na' ? 'is-on is-na' : ''}" data-act="check-set" data-key="${_esc(k)}" data-val="na" ${editable ? '' : 'disabled'} title="N/A" aria-label="N/A">
+        <span class="material-symbols-outlined">block</span>
+      </button>
+    </span>
+  `;
+}
+
+function _panelDatos(p, editable) {
+  const km = p.salida?.km ?? _pendingSalida.km ?? '';
+  const gas = p.salida?.gas ?? _pendingSalida.gas ?? '';
+  const marca = _marcaLlantas(p);
+  const notas = String(p.notasInteriores || p.notas || '');
+  const contrato = String(p.contrato || '');
+  return `
+    <div class="pap-panel pap-panel--wide">
+      <h2>Datos de la papeleta</h2>
+      <p class="pap-hint">Primero completa todos los datos. Las fotos y daños van al final.</p>
+      ${_unitIdentityHtml(p)}
       <div class="pap-fields-2">
-        ${['mva', 'placas', 'modelo', 'color', 'vin'].map((k) => `
-          <div class="pap-field${k === 'vin' || k === 'modelo' ? ' pap-field--full' : ''}">
-            <label>${FIELD_LABELS[k] || k}</label>
-            <input data-field="${k}" value="${_esc(p[k] || '')}" ${editable ? '' : 'disabled'} autocomplete="off"/>
-          </div>
-        `).join('')}
-      </div>
-      ${_canVentas() ? `
         <div class="pap-field">
-          <label>Entregar a (nombre del cliente)</label>
-          <input data-field="clienteNombre" value="${_esc(p.clienteNombre || '')}" placeholder="Ej: Juan Pérez" autocomplete="off"/>
+          <label>Contrato (opcional)</label>
+          <input data-field="contrato" value="${_esc(contrato)}" ${editable ? '' : 'disabled'} autocomplete="off"/>
         </div>
-      ` : `
         <div class="pap-field">
           <label>Cliente</label>
-          <input value="${_esc(p.clienteNombre || 'Sin asignar')}" disabled/>
+          ${_canVentas()
+            ? `<input data-field="clienteNombre" value="${_esc(p.clienteNombre || '')}" placeholder="Nombre del cliente" autocomplete="off"/>`
+            : `<input value="${_esc(p.clienteNombre || 'Sin asignar')}" disabled/>`}
         </div>
-      `}
+        <div class="pap-field">
+          <label>KM salida</label>
+          <input id="papKmSalida" type="text" inputmode="numeric" pattern="[0-9]*" value="${_esc(km ?? '')}" ${editable ? '' : 'disabled'} autocomplete="off"/>
+        </div>
+        <div class="pap-field">
+          <label>Gas salida</label>
+          <select id="papGasSalida" ${editable ? '' : 'disabled'}>${_gasOptionsHtml(gas || '')}</select>
+        </div>
+      </div>
+
+      <h3 class="pap-subhead">Checklist</h3>
+      <div class="pap-check-readonly pap-check-edit">
+        ${CHECKLIST_KEYS.map((k) => `
+          <div class="pap-check-readonly__row">
+            <span class="pap-check-readonly__name">${_esc(CHECKLIST_LABELS[k] || k)}</span>
+            ${_ternaryEditable(k, p.checklist?.[k], editable)}
+          </div>
+        `).join('')}
+        <div class="pap-check-readonly__row pap-check-readonly__row--text">
+          <span class="pap-check-readonly__name">Marca de llantas</span>
+          <input class="pap-inline-input" data-field="marcaLlantas" value="${_esc(marca)}" placeholder="Ej: Michelin" ${editable ? '' : 'disabled'} autocomplete="off"/>
+        </div>
+      </div>
+
+      <div class="pap-field">
+        <label>Notas / interiores</label>
+        <textarea data-field="notasInteriores" rows="3" ${editable ? '' : 'disabled'}>${_esc(notas)}</textarea>
+      </div>
+
       ${editable || _canVentas() ? `
         <div class="pap-actions pap-actions--sticky">
-          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-datos" ${_busy ? 'disabled' : ''}>Guardar y seguir</button>
+          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-datos" ${_busy ? 'disabled' : ''}>Guardar y ir a fotos</button>
         </div>
       ` : ''}
     </div>
   `;
+}
+
+function _zonaChipClass(p, z, idx) {
+  const data = p.zonas?.[z.id] || {};
+  const hasFoto = String(data.fotoPath || '').trim();
+  const dano = data.estado === 'dano';
+  const active = idx === _zonaIdx;
+  return [
+    'pap-zona-chip',
+    active ? 'is-active' : '',
+    hasFoto ? 'has-foto' : '',
+    dano ? 'has-dano' : '',
+  ].filter(Boolean).join(' ');
 }
 
 function _panelZonas(p, editable) {
@@ -631,92 +696,78 @@ function _panelZonas(p, editable) {
   const data = p.zonas?.[z.id] || { estado: 'ok', nota: '', fotoPath: '' };
   const n = _fotosCount(p);
   return `
-    <div class="pap-panel pap-panel--zona">
-      <div class="pap-zona-nav">
-        <button type="button" class="pap-icon-btn" data-act="zona-prev" ${_zonaIdx <= 0 ? 'disabled' : ''} aria-label="Anterior">
-          <span class="material-symbols-outlined">chevron_left</span>
-        </button>
-        <div class="pap-progress">
-          <strong>${_esc(z.label)}</strong>
-          <span>Paso ${_zonaIdx + 1} de 12 · ${n}/12 fotos</span>
-        </div>
-        <button type="button" class="pap-icon-btn" data-act="zona-next" ${_zonaIdx >= 11 ? 'disabled' : ''} aria-label="Siguiente">
-          <span class="material-symbols-outlined">chevron_right</span>
-        </button>
+    <div class="pap-panel pap-panel--wide pap-panel--zona">
+      <h2>Fotos y daños</h2>
+      <p class="pap-hint">Último paso: toca una zona para saltar. ${n}/12 fotos.</p>
+      <div class="pap-zona-chips" role="tablist" aria-label="Zonas del vehículo">
+        ${ZONAS_V1.map((zona, idx) => `
+          <button type="button" class="${_zonaChipClass(p, zona, idx)}" data-act="zona-jump" data-idx="${idx}" title="${_esc(zona.label)}">
+            <span class="pap-zona-chip__n">${idx + 1}</span>
+            <span class="pap-zona-chip__l">${_esc(zona.label)}</span>
+          </button>
+        `).join('')}
       </div>
-      <div class="pap-seg">
-        <button type="button" class="pap-seg__btn ${data.estado !== 'dano' ? 'is-on' : ''}" data-act="zona-ok" ${editable ? '' : 'disabled'}>Sin daño</button>
-        <button type="button" class="pap-seg__btn ${data.estado === 'dano' ? 'is-on is-bad' : ''}" data-act="zona-dano" ${editable ? '' : 'disabled'}>Hay daño</button>
-      </div>
-      <input type="hidden" data-zona-estado value="${data.estado === 'dano' ? 'dano' : 'ok'}"/>
-      ${data.estado === 'dano' ? `
-        <div class="pap-field">
-          <label>Nota corta (opcional)</label>
-          <input data-zona-nota maxlength="40" value="${_esc(data.nota || '')}" placeholder="Ej: rayón puerta" ${editable ? '' : 'disabled'}/>
+      <div class="pap-zona-active">
+        <div class="pap-zona-nav">
+          <button type="button" class="pap-icon-btn" data-act="zona-prev" ${_zonaIdx <= 0 ? 'disabled' : ''} aria-label="Anterior">
+            <span class="material-symbols-outlined">chevron_left</span>
+          </button>
+          <div class="pap-progress">
+            <strong>${_esc(z.label)}</strong>
+            <span>${_zonaIdx + 1}/12 · ${n}/12 fotos</span>
+          </div>
+          <button type="button" class="pap-icon-btn" data-act="zona-next" ${_zonaIdx >= 11 ? 'disabled' : ''} aria-label="Siguiente">
+            <span class="material-symbols-outlined">chevron_right</span>
+          </button>
         </div>
-      ` : `<input type="hidden" data-zona-nota value="${_esc(data.nota || '')}"/>`}
-      <div class="pap-cam">
-        <img data-zona-preview alt="" class="pap-cam__preview"${data.fotoPath ? '' : ' hidden'}/>
-        <div class="pap-cam__status" data-foto-status>${data.fotoPath ? 'Foto lista ✓' : 'Falta foto de esta parte'}</div>
-        ${editable ? `
-          <label class="pap-cam__btn">
-            <input type="file" accept="image/*" capture="environment" data-zona-foto data-autosave="1" hidden/>
-            <span class="material-symbols-outlined">photo_camera</span>
-            ${data.fotoPath ? 'Repetir foto' : 'Tomar foto'}
-          </label>
-          ${data.estado === 'dano' ? `
-            <label class="pap-cam__btn pap-cam__btn--ghost">
-              <input type="file" accept="image/*" capture="environment" data-zona-detalle hidden/>
-              <span class="material-symbols-outlined">add_a_photo</span>
-              Foto detalle
+        <div class="pap-seg">
+          <button type="button" class="pap-seg__btn ${data.estado !== 'dano' ? 'is-on' : ''}" data-act="zona-ok" ${editable ? '' : 'disabled'}>Sin daño</button>
+          <button type="button" class="pap-seg__btn ${data.estado === 'dano' ? 'is-on is-bad' : ''}" data-act="zona-dano" ${editable ? '' : 'disabled'}>Hay daño</button>
+        </div>
+        <input type="hidden" data-zona-estado value="${data.estado === 'dano' ? 'dano' : 'ok'}"/>
+        ${data.estado === 'dano' ? `
+          <div class="pap-field">
+            <label>Nota corta (opcional)</label>
+            <input data-zona-nota maxlength="40" value="${_esc(data.nota || '')}" placeholder="Ej: rayón puerta" ${editable ? '' : 'disabled'}/>
+          </div>
+        ` : `<input type="hidden" data-zona-nota value="${_esc(data.nota || '')}"/>`}
+        <div class="pap-cam">
+          <img data-zona-preview alt="" class="pap-cam__preview"${data.fotoPath ? '' : ' hidden'}/>
+          <div class="pap-cam__status" data-foto-status>${data.fotoPath ? 'Foto lista ✓' : 'Falta foto de esta parte'}</div>
+          ${editable ? `
+            <label class="pap-cam__btn">
+              <input type="file" accept="image/*" capture="environment" data-zona-foto data-autosave="1" hidden/>
+              <span class="material-symbols-outlined">photo_camera</span>
+              ${data.fotoPath ? 'Repetir foto' : 'Tomar foto'}
             </label>
+            ${data.estado === 'dano' ? `
+              <label class="pap-cam__btn pap-cam__btn--ghost">
+                <input type="file" accept="image/*" capture="environment" data-zona-detalle hidden/>
+                <span class="material-symbols-outlined">add_a_photo</span>
+                Foto detalle
+              </label>
+            ` : ''}
           ` : ''}
-        ` : ''}
+        </div>
       </div>
       ${editable ? `
         <div class="pap-actions pap-actions--sticky">
           <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-zona" ${_busy ? 'disabled' : ''}>
-            ${data.fotoPath ? 'Guardar y siguiente' : 'Guardar foto'}
+            ${data.fotoPath ? (_zonaIdx < 11 ? 'Guardar y siguiente zona' : 'Guardar y continuar') : 'Guardar foto'}
           </button>
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="goto-resumen">Ir a entregar</button>
         </div>
       ` : ''}
     </div>
   `;
 }
 
-function _panelChecklist(p, editable) {
-  return `
-    <div class="pap-panel">
-      <h2>Accesorios</h2>
-      <p class="pap-hint">Marca si cada cosa está, falta o no aplica.</p>
-      <div class="pap-check-grid">
-        ${CHECKLIST_KEYS.map((k) => `
-          <div class="pap-check-item">
-            <div class="pap-check-item__name">${_esc(CHECKLIST_LABELS[k] || k)}</div>
-            <select data-check="${k}" ${editable ? '' : 'disabled'}>
-              <option value="">Elegir…</option>
-              <option value="ok" ${p.checklist?.[k] === 'ok' ? 'selected' : ''}>Sí está</option>
-              <option value="faltante" ${p.checklist?.[k] === 'faltante' ? 'selected' : ''}>Falta</option>
-              <option value="na" ${p.checklist?.[k] === 'na' ? 'selected' : ''}>No aplica</option>
-            </select>
-          </div>
-        `).join('')}
-      </div>
-      ${editable ? `
-        <div class="pap-actions pap-actions--sticky">
-          <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-check" ${_busy ? 'disabled' : ''}>Guardar accesorios</button>
-        </div>
-      ` : ''}
-    </div>
-  `;
-}
 
 function _panelResumen(p) {
   const ready = puedeEntregar(p.status, p.zonas, p.checklist);
   const fotosOk = allZonasHaveFoto(p.zonas);
   const checkOk = checklistCompleto(p.checklist);
   const canEntregarUi = p.status === 'lista' || (fotosOk && checkOk && puedeEditar(p.status));
-  const kmGasEditable = canEntregarUi && puedeEditar(p.status);
   return `
     <div class="pap-panel">
       <h2>Listo para entregar</h2>
@@ -729,14 +780,8 @@ function _panelResumen(p) {
       ${!fotosOk || !checkOk ? '<p class="pap-hint">Termina las fotos y los accesorios para poder entregar.</p>' : ''}
       <p class="pap-entregar-a">Entregar a: <b>${_esc(p.clienteNombre || 'Sin cliente')}</b></p>
       <div class="pap-fields-2">
-        <div class="pap-field">
-          <label>Kilometraje al salir</label>
-          <input id="papKmSalida" type="number" inputmode="numeric" value="${_esc(p.salida?.km ?? _pendingSalida.km ?? '')}" ${kmGasEditable ? '' : 'disabled'}/>
-        </div>
-        <div class="pap-field">
-          <label>Gasolina al salir</label>
-          <input id="papGasSalida" value="${_esc(p.salida?.gas ?? _pendingSalida.gas ?? '')}" placeholder="Ej: 3/4" ${kmGasEditable ? '' : 'disabled'}/>
-        </div>
+        <div class="pap-field"><label>KM salida</label><input value="${_esc(p.salida?.km ?? _pendingSalida.km ?? '—')}" disabled/></div>
+        <div class="pap-field"><label>Gas salida</label><input value="${_esc(p.salida?.gas ?? _pendingSalida.gas ?? '—')}" disabled/></div>
       </div>
       <div class="pap-actions pap-actions--sticky">
         ${canEntregarUi ? `
@@ -1012,6 +1057,38 @@ function _scheduleUnitAutocomplete(raw) {
   _unitSearchTimer = setTimeout(() => _runUnitAutocomplete(raw), 160);
 }
 
+function _renderNuevaScreen() {
+  return `
+    <main class="pap-editor-shell">
+      <header class="pap-editor-top">
+        <div>
+          <nav class="pap-breadcrumb" aria-label="Ruta">
+            <button type="button" data-act="back">Papeletas</button>
+            <span>/</span>
+            <strong>Nueva</strong>
+          </nav>
+          <h1>Nueva papeleta</h1>
+          <p class="pap-editor-sub">Busca la unidad — MVA, placas o modelo. Los datos se rellenan solos.</p>
+        </div>
+        <div class="pap-actions-bar">
+          <button type="button" class="pap-btn pap-btn--ghost" data-act="back">Volver</button>
+        </div>
+      </header>
+      <div class="pap-panel pap-panel--wide pap-nueva-panel">
+        <label class="pap-ac">
+          <span class="material-symbols-outlined">directions_car</span>
+          <input id="papUnitQ" type="search" inputmode="search" enterkeyhint="search"
+            placeholder="Económico, placas o modelo…"
+            value="${_esc(_unitQ)}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+        </label>
+        <div class="pap-ac-list" id="papUnitHits" role="listbox">
+          ${_renderUnitHitsHtml()}
+        </div>
+      </div>
+    </main>
+  `;
+}
+
 function _renderNuevaModal() {
   return `
     <div class="pap-modal-backdrop" data-act="close-modal">
@@ -1043,14 +1120,8 @@ function _bind() {
 
   root.querySelector('[data-act="tab-list"]')?.addEventListener('click', () => _gotoList());
   root.querySelector('[data-act="tab-ventas"]')?.addEventListener('click', () => _gotoVentas());
-  root.querySelector('[data-act="nueva"]')?.addEventListener('click', async () => {
-    _showNueva = true;
-    _unitHits = [];
-    _unitQ = '';
-    _render();
-    // Prefetch sugerencias de plaza
-    _runUnitAutocomplete('');
-    queueMicrotask(() => _container?.querySelector('#papUnitQ')?.focus());
+  root.querySelector('[data-act="nueva"]')?.addEventListener('click', () => {
+    _navigate?.(NEW_ROUTE);
   });
   root.querySelector('#papSearch')?.addEventListener('input', (e) => {
     _query = e.target.value;
@@ -1069,6 +1140,31 @@ function _bind() {
   root.querySelectorAll('[data-act="step"]').forEach((btn) => {
     btn.addEventListener('click', () => { _wizardStep = btn.dataset.step; _render(); });
   });
+  root.querySelectorAll('[data-act="check-set"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!_detail || !puedeEditar(_detail.status)) return;
+      if (!_detail.checklist) _detail.checklist = {};
+      _detail.checklist[btn.dataset.key] = btn.dataset.val;
+      _render();
+    });
+  });
+  root.querySelectorAll('[data-act="zona-jump"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      _zonaIdx = Math.max(0, Math.min(11, Number(btn.dataset.idx) || 0));
+      _render();
+    });
+  });
+  root.querySelector('[data-act="goto-resumen"]')?.addEventListener('click', () => {
+    _wizardStep = 'resumen';
+    _render();
+  });
+  const kmOut = root.querySelector('#papKmSalida');
+  if (kmOut && !kmOut.disabled) {
+    kmOut.addEventListener('input', () => {
+      const digits = String(kmOut.value || '').replace(/\D+/g, '');
+      if (kmOut.value !== digits) kmOut.value = digits;
+    });
+  }
   root.querySelector('[data-act="zona-prev"]')?.addEventListener('click', () => {
     _zonaIdx = Math.max(0, _zonaIdx - 1); _render();
   });
@@ -1182,16 +1278,34 @@ async function _saveDatos() {
   _container.querySelectorAll('[data-field]').forEach((el) => {
     patch[el.dataset.field] = el.value.trim();
   });
+  const kmRaw = _container.querySelector('#papKmSalida')?.value ?? '';
+  const gasRaw = _container.querySelector('#papGasSalida')?.value ?? '';
+  const kmDigits = String(kmRaw).replace(/\D+/g, '');
+  const km = kmDigits === '' ? null : Number(kmDigits);
+  const checklist = { ...(_detail.checklist || {}) };
+  CHECKLIST_KEYS.forEach((k) => { if (checklist[k] == null) checklist[k] = ''; });
+  _pendingSalida = { km, gas: gasRaw || null };
   _busy = true; _render();
   try {
     if (patch.clienteNombre != null && _canVentas()) {
       await asignarCliente(_detail.id, patch.clienteNombre, { user: _user() });
       delete patch.clienteNombre;
     }
-    if (puedeEditar(_detail.status) && Object.keys(patch).length) {
-      await actualizarPapeleta(_detail.id, patch, { user: _user() });
+    if (puedeEditar(_detail.status)) {
+      await actualizarPapeleta(_detail.id, {
+        ...patch,
+        checklist,
+        marcaLlantas: patch.marcaLlantas || '',
+        notasInteriores: patch.notasInteriores || '',
+        contrato: patch.contrato || '',
+        salida: {
+          ...(_detail.salida || {}),
+          km: Number.isFinite(km) ? km : (_detail.salida?.km ?? null),
+          gas: gasRaw || _detail.salida?.gas || null,
+        },
+      }, { user: _user() });
+      _wizardStep = 'zonas';
     }
-    if (puedeEditar(_detail.status)) _wizardStep = 'zonas';
   } catch (e) {
     await _mexAlert('Error', e.message || String(e));
   } finally {
@@ -1218,6 +1332,7 @@ async function _saveZona() {
     zonas[z.id] = cur;
     await actualizarPapeleta(_detail.id, { zonas }, { user: _user() });
     if (_zonaIdx < 11) _zonaIdx += 1;
+    else _wizardStep = 'resumen';
   } catch (e) {
     await _mexAlert('Error', e.message || String(e));
   } finally {
@@ -1256,9 +1371,11 @@ async function _ensureListaAntesDeEntregar() {
 
 async function _startEntregar() {
   if (!_detail) return;
+  const kmEl = _container.querySelector('#papKmSalida');
+  const gasEl = _container.querySelector('#papGasSalida');
   _pendingSalida = {
-    km: _container.querySelector('#papKmSalida')?.value ?? '',
-    gas: _container.querySelector('#papGasSalida')?.value ?? '',
+    km: kmEl ? kmEl.value : (_detail.salida?.km ?? _pendingSalida.km ?? ''),
+    gas: gasEl ? gasEl.value : (_detail.salida?.gas ?? _pendingSalida.gas ?? ''),
   };
   if (!_detail.clienteNombre) {
     const ok = await _mexConfirm('Sin cliente asignado', 'Sin cliente asignado — ¿continuar?', 'warning');
@@ -1357,7 +1474,7 @@ async function _confirmFirma() {
       status: 'entregada',
       salida: { ...(_detail.salida || {}), firmaPath, km: kmRaw, gas: gasRaw },
     };
-    openPapeletaPdf(updated, { firmaUrl });
+    await openPapeletaPdf(updated, { firmaUrl });
     _pendingSalida = { km: null, gas: null };
     _wizardStep = 'resumen';
   } catch (e) {
@@ -1375,7 +1492,7 @@ async function _doPdf() {
     subtitle: `${p.mva || 'Papeleta'} · PDF / XLS / CSV`,
     onPdf: async () => {
       const firmaUrl = await getDownloadUrl(p.salida?.firmaPath);
-      openPapeletaPdf(p, { firmaUrl });
+      await openPapeletaPdf(p, { firmaUrl });
     },
     onXls: () => exportPapeletaXls(p),
     onCsv: () => exportPapeletaCsv(p),

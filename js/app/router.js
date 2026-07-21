@@ -250,7 +250,7 @@ const ROUTE_STYLES = {
   "/app/editmap": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
   "/app/turnos": [{ href: "/css/app-turnos.css", attr: "data-app-turnos-css" }],
   "/app/historial-operativo": [{ href: "/css/app-historial-operativo.css?v=20260715a", attr: "data-app-historial-operativo-css" }],
-  "/app/papeletas": [{ href: "/css/app-papeletas.css?v=20260720b", attr: "data-app-papeletas-css" }],
+  "/app/papeletas": [{ href: "/css/app-papeletas.css?v=20260720c", attr: "data-app-papeletas-css" }],
 };
 
 function _sameStylesheetHref(link, href) {
