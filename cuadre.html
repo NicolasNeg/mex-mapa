@@ -222,31 +222,52 @@
       min-height: 44px !important;
     }
 
+    /* Switch compacto Flota Regular / Cuadre Admins — vive en la misma fila
+       que el buscador (ya no ocupa una fila propia arriba de la tabla). */
+    #fleet-modal .cuadre-toolbar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    #fleet-modal .cuadre-toolbar-row .cuadre-search-wrap {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    #fleet-modal .cuadre-view-switch {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+      flex-shrink: 0;
+    }
+    #fleet-modal .cuadre-view-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #64748b;
+      cursor: pointer;
+      transition: background .15s ease, color .15s ease;
+    }
+    #fleet-modal .cuadre-view-btn:hover {
+      background: #e2e8f0;
+    }
+    #fleet-modal .cuadre-view-btn.is-active {
+      background: #0ea5e9;
+      color: #ffffff;
+    }
+
     @media (max-width: 768px) {
-      /* Tabs: fila compacta con scroll horizontal */
-      #fleet-modal .toolbar-flota {
-        flex-direction: row !important;
-        align-items: stretch !important;
-        gap: 8px !important;
-      }
-      #fleet-modal .flota-tabs-slider {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-        scrollbar-width: none !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        margin-bottom: 8px !important;
-        padding: 4px !important;
-        gap: 8px !important;
-      }
-      #fleet-modal .flota-tabs-slider::-webkit-scrollbar { display: none !important; }
-      #fleet-modal .flota-tabs-slider button {
-        flex: 0 0 auto !important;
-        white-space: nowrap !important;
-        min-height: 40px !important;
-        padding: 8px 14px !important;
+      #fleet-modal .cuadre-view-btn {
+        width: 40px;
+        height: 40px;
       }
 
       /* Tabla móvil: headers compactos + celdas consistentes */
@@ -797,36 +818,29 @@
         <div class="main-grid-flota">
 
           <div class="col-table">
-            <div class="toolbar-flota">
-              <div class="flota-tabs-slider"
-                style="display: flex; gap: 8px; margin-bottom: 10px; padding: 4px; flex-wrap: wrap; justify-content: flex-start; border: 1.5px dashed #bfdbfe; border-radius: 8px; width: fit-content; background: white;">
-                <button id="tabFlotaNormal" onclick="cambiarTabFlota('NORMAL')"
-                  style="background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; text-transform: uppercase;">
-                  <span class="material-symbols-outlined" style="font-size: 18px;">directions_car</span> FLOTA REGULAR
-                </button>
-                <button id="tabFlotaAdmins" onclick="cambiarTabFlota('ADMINS')"
-                  style="background: transparent; color: #64748b; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; text-transform: uppercase;">
-                  <span class="material-symbols-outlined" style="font-size: 18px;">admin_panel_settings</span> CUADRE ADMINS
-                </button>
-                <button id="tabFlotaHistorial" onclick="window.abrirHistorialCuadres && window.abrirHistorialCuadres()"
-                  style="background: transparent; color: #64748b; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; text-transform: uppercase;">
-                  <span class="material-symbols-outlined" style="font-size: 18px;">history</span> HISTORIAL DE CUADRE
+            <!-- Buscador LOCAL del cuadre (filtra esta plaza) + switch de vista,
+                 en una sola fila para no restarle espacio a la tabla. El header
+                 solo abre el buscador global de unidades/usuarios. -->
+            <div class="cuadre-toolbar-row">
+              <div class="cuadre-search-wrap" style="position:relative;">
+                <span class="material-symbols-outlined cuadre-search-icon" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:20px; pointer-events:none;">search</span>
+                <input type="text" id="searchFlota" class="search-box-flota cuadre-search-input" onkeyup="window.filtrarFlota && window.filtrarFlota()"
+                  placeholder="Buscar en esta plaza: MVA, notas, placas, modelo..."
+                  style="width:100%; height:40px; padding:0 44px 0 44px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; font-family:'Inter',sans-serif; font-weight:500; background:#fff; outline:none; color:#0f172a; box-sizing:border-box;">
+                <button type="button" id="btnClearSearchFlota" class="cuadre-search-clear" hidden
+                  onclick="window.limpiarFiltrosFlota && window.limpiarFiltrosFlota()"
+                  title="Limpiar filtros" aria-label="Limpiar filtros">
+                  <span class="material-icons" aria-hidden="true">filter_alt_off</span>
                 </button>
               </div>
-            </div>
-            
-            <!-- Buscador LOCAL del cuadre (filtra esta plaza). El header solo abre
-                 el buscador global de unidades/usuarios. -->
-            <div class="cuadre-search-wrap" style="position:relative; margin-bottom:8px;">
-              <span class="material-symbols-outlined cuadre-search-icon" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:20px; pointer-events:none;">search</span>
-              <input type="text" id="searchFlota" class="search-box-flota cuadre-search-input" onkeyup="window.filtrarFlota && window.filtrarFlota()"
-                placeholder="Buscar en esta plaza: MVA, notas, placas, modelo..."
-                style="width:100%; height:40px; padding:0 44px 0 44px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; font-family:'Inter',sans-serif; font-weight:500; background:#fff; outline:none; color:#0f172a; box-sizing:border-box;">
-              <button type="button" id="btnClearSearchFlota" class="cuadre-search-clear" hidden
-                onclick="window.limpiarFiltrosFlota && window.limpiarFiltrosFlota()"
-                title="Limpiar filtros" aria-label="Limpiar filtros">
-                <span class="material-icons" aria-hidden="true">filter_alt_off</span>
-              </button>
+              <div class="cuadre-view-switch" role="tablist" aria-label="Vista de flota">
+                <button type="button" id="tabFlotaNormal" class="cuadre-view-btn is-active" onclick="cambiarTabFlota('NORMAL')" title="Flota Regular" aria-label="Flota Regular">
+                  <span class="material-symbols-outlined" aria-hidden="true">directions_car</span>
+                </button>
+                <button type="button" id="tabFlotaAdmins" class="cuadre-view-btn" onclick="cambiarTabFlota('ADMINS')" title="Cuadre Admins" aria-label="Cuadre Admins">
+                  <span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span>
+                </button>
+              </div>
             </div>
 
             <!-- Barra de acciones batch -->
@@ -848,7 +862,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th onclick="sortFlota('mva')" class="sortable">MVA ↕</th>
+                    <th onclick="sortFlota('mva')" class="sortable">MVA <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
                     <th>
                       <select id="filter-cat" class="excel-filter" onchange="filtrarFlota()">
                         <option value="">CATEGORIA (ALL)</option>
@@ -875,9 +889,9 @@
                         <option value="">MODELO (ALL)</option>
                       </select>
                     </th>
-                    <th onclick="sortFlota('placas')" class="sortable">Placas ↕</th>
-                    <th onclick="sortFlota('gasolina')" class="sortable">Gas ↕</th>
-                    <th onclick="sortFlota('km')" class="sortable">KM ↕</th>
+                    <th onclick="sortFlota('placas')" class="sortable">Placas <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
+                    <th onclick="sortFlota('gasolina')" class="sortable">Gas <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
+                    <th onclick="sortFlota('km')" class="sortable">KM <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
                     <th>
                       <select id="filter-est" class="excel-filter" onchange="filtrarFlota()" title="Estado operativo en patio">
                         <option value="">ESTADO (ALL)</option>
@@ -953,8 +967,8 @@
 
             <!-- Zoom de la tabla (móvil): acota el zoom a la tabla, no a la página -->
             <div class="cuadre-zoom-ctrl">
-              <button type="button" onclick="cuadreZoom(0.1)" aria-label="Acercar tabla">+</button>
-              <button type="button" onclick="cuadreZoom(-0.1)" aria-label="Alejar tabla">−</button>
+              <button type="button" onclick="cuadreZoom(0.1)" aria-label="Acercar tabla"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
+              <button type="button" onclick="cuadreZoom(-0.1)" aria-label="Alejar tabla"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
             </div>
 
           </div>
@@ -1059,7 +1073,7 @@
                 </div>
 
                 <div class="field">
-                  <label>KILOMETRAJE 🛞</label>
+                  <label><span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px;vertical-align:-3px;">speed</span> KILOMETRAJE</label>
                   <input type="text" id="f_km" inputmode="numeric" autocomplete="off"
                     placeholder="Km actual del tablero" onchange="validarBotonGuardar()">
                 </div>
@@ -1102,6 +1116,16 @@
                 <div class="field">
                   <label>Notas / observaciones</label>
                   <textarea id="f_not" rows="3" placeholder="Agrega observaciones operativas" oninput="validarBotonGuardar()"></textarea>
+                  <div id="f_not_meta" class="gestor-nota-meta" hidden aria-hidden="true">
+                    <div class="usel-note-head">
+                      <span class="material-symbols-outlined" aria-hidden="true">edit_note</span>
+                      <span class="usel-note-author" id="f_not_meta_autor">Sin autor</span>
+                    </div>
+                    <div class="usel-note-time" id="f_not_meta_fecha_wrap" hidden>
+                      <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+                      <span id="f_not_meta_fecha"></span>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="field" id="admin-evidence-field" style="display:none;">

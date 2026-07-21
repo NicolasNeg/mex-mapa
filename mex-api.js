@@ -1,8 +1,15 @@
 // ─── CONFIGURACIÓN FIREBASE ─────────────────────────────────
 // Los valores llegan desde /js/core/firebase-config.js antes de firebase-init.js y este script.
 if (!window.FIREBASE_CONFIG) {
+  if (!document.querySelector('link[href*="Material+Symbols+Outlined"]')) {
+    const symbolsLink = document.createElement('link');
+    symbolsLink.rel = 'stylesheet';
+    symbolsLink.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap';
+    document.head.appendChild(symbolsLink);
+  }
   document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;text-align:center;color:#ef4444;">'
-    + '<h2>⚠️ Error de configuración</h2>'
+    + '<span class="material-symbols-outlined" aria-hidden="true" style="display:block;font-size:36px;margin-bottom:8px;">warning</span>'
+    + '<h2>Error de configuración</h2>'
     + '<p>No está definido <code>window.FIREBASE_CONFIG</code>. '
     + 'La app debe cargar <code>/js/core/firebase-config.js</code> antes de Firebase.<br>'
     + 'Si ves esto en producción, contacta al administrador.</p></div>';
@@ -699,21 +706,52 @@ function _resolveLogAutorName(autor) {
   return local ? local.toUpperCase() : "Sistema";
 }
 
+/** Desconcatena nota operativa "(fecha) [autor] texto" (o texto crudo). */
+function _parseNotaOperativa(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return { fecha: "", autor: "", texto: "" };
+  const m = s.match(/^\(([^)]*)\)\s*(?:\[([^\]]*)\]\s*)?([\s\S]*)$/);
+  if (m) {
+    return {
+      fecha: String(m[1] || "").trim(),
+      autor: String(m[2] || "").trim(),
+      texto: String(m[3] || "").trim()
+    };
+  }
+  return { fecha: "", autor: "", texto: s };
+}
+
+/**
+ * Formatea notas de unidad con sello de autor/fecha.
+ * Si el texto operativo cambia, siempre re-estampa con el actor actual y ahora
+ * (no conserva un sello viejo pegado en el textarea del gestor).
+ */
 function _formatNotasCuadreLikeFlota(notasFormulario, actor, opts = {}) {
   const { borrarNotas = false, previousNotas = "" } = opts;
   const nombreAutor = _sanitizeText(actor) || "Sistema";
   const ahora = _now();
   const sello = `(${ahora}) [${nombreAutor}]`;
   const prev = String(previousNotas || "").trim();
-  const notaEntrada = _sanitizeText(notasFormulario);
+  const notaEntrada = String(notasFormulario || "").trim();
+  const textoEntrada = _parseNotaOperativa(notaEntrada).texto;
+  const textoPrev = _parseNotaOperativa(prev).texto;
+
   if (borrarNotas === true || borrarNotas === "true") {
-    return notaEntrada !== "" ? `${sello} ${notaEntrada}` : "";
+    return textoEntrada ? `${sello} ${textoEntrada}` : "";
   }
-  if (notaEntrada !== "" && notaEntrada !== prev) {
-    const tieneSello = /\(\d{4}/.test(notaEntrada);
-    return tieneSello ? notaEntrada : `${sello} ${notaEntrada}`;
-  }
-  return prev;
+  if (!notaEntrada) return prev;
+  if (notaEntrada === prev) return prev;
+  // Mismo texto operativo (solo cambió sello / espacios) → no re-estampa
+  if (textoEntrada && textoEntrada === textoPrev) return prev;
+  return textoEntrada ? `${sello} ${textoEntrada}` : "";
+}
+
+function _notaMetaFields(notaFinal) {
+  const parsed = _parseNotaOperativa(notaFinal);
+  return {
+    notaAutor: parsed.autor || "",
+    notaFecha: parsed.fecha || ""
+  };
 }
 
 function _resolveAdminResponsibleValue(data = {}) {
@@ -957,6 +995,7 @@ function _buildCuadreAdminPayload(datos = {}, evidencias = []) {
   payload.plaza = plaza;
   payload.plazaId = plaza;
   payload.notas = notas;
+  Object.assign(payload, _notaMetaFields(notas));
   payload.adminResponsable = adminResponsable;
   payload.responsable = responsable;
   payload.responsableVisual = adminResponsable || responsable;
@@ -1258,10 +1297,10 @@ function _feedAccionUnidad(mvaStr, actual = {}, estado = '', ubi = '', gas = '',
   if ((entered.includes('DOBLE CERO') || newNotes.includes('DOBLE CERO')) && !oldNotes.includes('DOBLE CERO')) return `DOBLE_CERO: ${mvaStr}`;
   if ((entered.includes('APARTAD') || entered.includes('RESERVAD') || newNotes.includes('APARTAD') || newNotes.includes('RESERVAD')) && !(oldNotes.includes('APARTAD') || oldNotes.includes('RESERVAD'))) return `APARTADO: ${mvaStr}`;
   if ((entered.includes('URGENTE') || newNotes.includes('URGENTE')) && !oldNotes.includes('URGENTE')) return `URGENTE: ${mvaStr}`;
-  if (String(actual.estado || '') !== estado) return `${mvaStr} · ${actual.estado || 'SIN ESTADO'} ➜ ${estado} (${ubi})`;
-  if (String(actual.gasolina || '') !== gas) return `GAS: ${mvaStr} · ${actual.gasolina || '?'} ➜ ${gas} (${ubi})`;
+  if (String(actual.estado || '') !== estado) return `${mvaStr} · ${actual.estado || 'SIN ESTADO'} → ${estado} (${ubi})`;
+  if (String(actual.gasolina || '') !== gas) return `GAS: ${mvaStr} · ${actual.gasolina || '?'} → ${gas} (${ubi})`;
   if (String(notaFinal || '').trim() !== String(actual.notas || '').trim() && String(notaEntrada || '').trim()) return `NOTA: ${mvaStr}`;
-  return `${mvaStr} · ${actual.estado || 'SIN ESTADO'} ➜ ${estado} (${ubi})`;
+  return `${mvaStr} · ${actual.estado || 'SIN ESTADO'} → ${estado} (${ubi})`;
 }
 
 const MAPA_SNAPSHOT_MERGE_MS = 90;
@@ -1274,6 +1313,7 @@ window._mex = {
   db, auth, firebase, FIREBASE_CONFIG, COL, MAPA_SNAPSHOT_MERGE_MS,
   // Tiempo y texto
   _now, _ts, _fecha, _sanitizeText, _sanitizeStorageSegment, _sanitizeRole,
+  _parseNotaOperativa, _formatNotasCuadreLikeFlota, _notaMetaFields,
   // Plaza
   _normalizePlazaId, _inferPlazaId, _matchesPlaza,
   _normalizeLocationScope, _locationMatchesPlaza,
@@ -1590,7 +1630,7 @@ const API_FUNCTIONS = {
     if (extras && typeof extras === 'object' && Object.keys(extras).length) {
       await db.collection('mapa_config').doc(docId).set({ mapEditorExtras: extras }, { merge: true });
     }
-    await _registrarLog('SISTEMA', `🗺️ Estructura del mapa (${p}) actualizada`, 'Sistema', p);
+    await _registrarLog('SISTEMA', `Estructura del mapa (${p}) actualizada`, 'Sistema', p);
     return 'OK';
   },
 
@@ -1618,19 +1658,26 @@ const API_FUNCTIONS = {
       actual = found.data;
     }
     const ahora = _now();
-    const sello = `(${ahora}) [${nombreAutor || "?"}]`;
-
-    let notaFinal = actual.notas || "";
-    const notaEntrada = notasFormulario ? notasFormulario.trim() : "";
-    if (borrarNotas === true || borrarNotas === "true") {
-      notaFinal = notaEntrada !== "" ? `${sello} ${notaEntrada}` : "";
-    } else if (notaEntrada !== "" && notaEntrada !== (actual.notas || "").trim()) {
-      const tieneSello = /\(\d{4}/.test(notaEntrada);
-      notaFinal = tieneSello ? notaEntrada : `${sello} ${notaEntrada}`;
-    }
+    const actorNota = nombreAutor || responsableSesion || "?";
+    const notaFinal = _formatNotasCuadreLikeFlota(notasFormulario, actorNota, {
+      borrarNotas,
+      previousNotas: actual.notas || ""
+    });
+    const notaMeta = _notaMetaFields(notaFinal);
+    const notaEntrada = notasFormulario ? String(notasFormulario).trim() : "";
 
     // Si el doc no tiene plaza (legacy), stampearla ahora
-    const updatePayload = { gasolina: gas, estado, ubicacion: ubi, notas: notaFinal, _updatedAt: ahora, _updatedBy: responsableSesion || nombreAutor, _version: db.FieldValue.increment(1) }; // [1.6]
+    const updatePayload = {
+      gasolina: gas,
+      estado,
+      ubicacion: ubi,
+      notas: notaFinal,
+      notaAutor: notaMeta.notaAutor,
+      notaFecha: notaMeta.notaFecha,
+      _updatedAt: ahora,
+      _updatedBy: responsableSesion || nombreAutor,
+      _version: db.FieldValue.increment(1)
+    }; // [1.6]
     if (plazaUp && !actual.plaza) updatePayload.plaza = plazaUp;
     await docRef.update(updatePayload);
     await _actualizarFeed(_feedAccionUnidad(mvaStr, actual, estado, ubi, gas, notaFinal, notaEntrada, borrarNotas), responsableSesion, plazaUp); // [F1]
@@ -1651,8 +1698,8 @@ const API_FUNCTIONS = {
     }
 
     const logMsg = cambiosReales.length > 0
-      ? `✏️ ${mvaStr}: ${cambiosReales.join(' | ')}`
-      : `🔄 ${mvaStr} (revisión sin cambios)`;
+      ? `${mvaStr}: ${cambiosReales.join(' | ')}`
+      : `${mvaStr} (revisión sin cambios)`;
     const cambioHuman = cambiosReales.length > 0
       ? cambiosReales
           .map(c => c
@@ -1801,7 +1848,11 @@ const API_FUNCTIONS = {
     if (!existeLeg.empty) return `La unidad ${mvaStr} ya está registrada en el patio.`;
 
     const ahora = _now();
-    const notaFinal = objeto.notas ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${objeto.notas}` : "";
+    const textoNota = _parseNotaOperativa(objeto.notas).texto;
+    const notaFinal = textoNota
+      ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${textoNota}`
+      : "";
+    const notaMeta = _notaMetaFields(notaFinal);
     const indexSnap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
     const indexData = indexSnap.empty ? {} : indexSnap.docs[0].data();
 
@@ -1824,6 +1875,8 @@ const API_FUNCTIONS = {
       estado:       objeto.estado || "SUCIO",
       ubicacion:    objeto.ubicacion || "PATIO",
       notas:        notaFinal,
+      notaAutor:    notaMeta.notaAutor,
+      notaFecha:    notaMeta.notaFecha,
       pos:          "LIMBO",
       plaza:        plazaUp || null, // [F1] siempre inyectar campo plaza
       fechaIngreso: new Date().toISOString(),
@@ -1835,7 +1888,7 @@ const API_FUNCTIONS = {
     await db.collection(COL.CUADRE).doc(docId).set(unitData); // [F1]
 
     await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp); // [F1]
-    await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
+    await _registrarLog("IN", `INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
       mva: mvaStr,
       cambio: 'Unidad insertada'
     }); // [F1]
@@ -1855,7 +1908,11 @@ const API_FUNCTIONS = {
     if (!existeLeg.empty) return `La unidad externa ${mvaStr} ya está registrada.`;
 
     const ahora = _now();
-    const notaFinal = objeto.notas ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${objeto.notas}` : "";
+    const textoNota = _parseNotaOperativa(objeto.notas).texto;
+    const notaFinal = textoNota
+      ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${textoNota}`
+      : "";
+    const notaMeta = _notaMetaFields(notaFinal);
 
     const unitData = {
       mva:          mvaStr,
@@ -1866,6 +1923,8 @@ const API_FUNCTIONS = {
       ubicacion:    "EXTERNO",
       gasolina:     "N/A",
       notas:        notaFinal,
+      notaAutor:    notaMeta.notaAutor,
+      notaFecha:    notaMeta.notaFecha,
       pos:          "LIMBO",
       plaza:        plazaUp || null, // [F1] siempre inyectar campo plaza
       tipo:         "externo",
@@ -1878,7 +1937,7 @@ const API_FUNCTIONS = {
     await db.collection(COL.EXTERNOS).doc(docId).set(unitData); // [F1]
 
     await _actualizarFeed(`EXT IN: ${mvaStr} (${objeto.modelo || 'S/M'})`, objeto.responsableSesion, plazaUp); // [F1]
-    await _registrarLog("IN", `🚗 EXTERNO INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
+    await _registrarLog("IN", `EXTERNO INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
       mva: mvaStr,
       cambio: 'Unidad externa insertada'
     }); // [F1]
@@ -1907,7 +1966,7 @@ const API_FUNCTIONS = {
 
       if (eliminado) {
         await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion, plazaUp); // [F1]
-        await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp, {
+        await _registrarLog("BAJA", `SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp, {
           mva: mvaStr,
           cambio: 'Unidad eliminada'
         }); // [F1]
@@ -2952,7 +3011,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   },
   async registrarCierreCuadre(autor, plaza) {
     await _setSettings({ ultimoCuadreTexto: `${autor} (${_now()})` }, plaza); // [F1]
-    await _registrarLog("CUADRE", `✅ CUADRE CERRADO POR ${autor}`, autor, plaza); // [F1]
+    await _registrarLog("CUADRE", `CUADRE CERRADO POR ${autor}`, autor, plaza); // [F1]
     return "OK";
   },
   async marcarUltimaModificacion(autor, plaza) {
@@ -3091,7 +3150,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     const auxiliarNombre = String(meta.auxiliarNombre || revisionMeta.auxiliarNombre || revisionMeta.auxiliar || stats?.auxiliar || '').trim();
     const firmaAuxiliar = String(meta.firmaAuxiliar || revisionMeta.firmaAuxiliar || revisionMeta.auxiliarFirmaNombre || '').trim();
     const firmaVentas = String(meta.firmaVentas || meta.firmaNombre || autorAdmin || '').trim();
-    await _registrarLog("CUADRE", `✅ CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin, plazaUp);
+    await _registrarLog("CUADRE", `CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin, plazaUp);
     const registro = {
       timestamp: _ts(), fecha: _now(),
       tipo:      'CUADRE_FLOTA',
@@ -3216,7 +3275,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
 
   // ─── EMAIL / AI / PDF ────────────────────────────────────
   async enviarReporteCuadreEmail(base64Image, autor, stats) {
-    await _registrarLog("EMAIL", `📧 Reporte de cuadre enviado por ${autor}`, autor);
+    await _registrarLog("EMAIL", `Reporte de cuadre enviado por ${autor}`, autor);
     return "EXITO";
   },
   async enviarAuditoriaAVentas(auditList, autor, plaza, meta = {}) {
@@ -3252,17 +3311,17 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       ultimaModificacion: _now(),
       ultimoEditor: autor || "Sistema"
     }, plazaUp);
-    await _registrarLog("AUDITORIA", `📋 Auditoría enviada a Ventas por ${autor} (${units.length} unidades)`, autor, plazaUp);
+    await _registrarLog("AUDITORIA", `Auditoría enviada a Ventas por ${autor} (${units.length} unidades)`, autor, plazaUp);
     return { exito: true, plaza: plazaUp, missionId: payload.missionId, unidades: units.length };
   },
 
   async llamarGeminiAI(instruccionUsuario, contextoPatio, ultimoMVA) { return null; },
   async generarPDFActividadDiaria(reservas, regresos, vencidos, autor, fechaFront) {
-    await _registrarLog("PDF", `📄 Reporte Actividad Diaria generado por ${autor}`, autor);
+    await _registrarLog("PDF", `Reporte Actividad Diaria generado por ${autor}`, autor);
     return "EXITO";
   },
   async generarExcelPrediccion(datosFamilias, fechaEscogida, autor) {
-    await _registrarLog("EXCEL", `📊 Excel Predicción generado por ${autor}`, autor);
+    await _registrarLog("EXCEL", `Excel Predicción generado por ${autor}`, autor);
     return "EXITO";
   },
 

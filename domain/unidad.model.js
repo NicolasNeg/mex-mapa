@@ -20,6 +20,8 @@ export function normalizarUnidad(raw = {}) {
     ubicacion:   String(raw.ubicacion   || '').toUpperCase(),
     gasolina:    String(raw.gasolina    || 'N/A'),
     notas:       String(raw.notas       || ''),
+    notaAutor:   String(raw.notaAutor   || ''),
+    notaFecha:   String(raw.notaFecha   || ''),
     pos:         String(raw.pos         || 'LIMBO').toUpperCase(),
     plaza:       String(raw.plaza       || '').toUpperCase(),
     tipo:        String(raw.tipo        || 'renta'),

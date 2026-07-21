@@ -3374,6 +3374,8 @@ function _serializeMapUnitForCache(unit = {}) {
     estado: normalized.estado || '',
     gasolina: normalized.gasolina || '',
     notas: normalized.notas || '',
+    notaAutor: normalized.notaAutor || '',
+    notaFecha: normalized.notaFecha || '',
     placas: normalized.placas || '',
     modelo: normalized.modelo || '',
     categoria: normalized.categoria || '',
@@ -4664,6 +4666,8 @@ function _normalizarUnidadMapa(unit = {}) {
     ...unit,
     ...base,
     notas: String(base.notas || '').replace(/[\r\n]+/g, ' ').trim(),
+    notaAutor: String(base.notaAutor || unit?.notaAutor || '').trim(),
+    notaFecha: String(base.notaFecha || unit?.notaFecha || '').trim(),
     fechaIngreso: String(base.fechaIngreso || '').trim(),
     plaza,
     version: Number(unit?.version || unit?._version || base.version || 0) || 0,
@@ -4681,6 +4685,8 @@ function _firmaUnidadMapa(unit) {
     unit.estado,
     unit.gasolina,
     unit.notas,
+    unit.notaAutor,
+    unit.notaFecha,
     unit.placas,
     unit.modelo,
     unit.categoria || '',
@@ -4782,6 +4788,8 @@ function _actualizarNodoUnidadMapa(car, unit, signature) {
   car.dataset.plaza = unitVm.plaza || "";
   car.dataset.ingreso = unitVm.fechaIngreso || "";
   car.dataset.notas = unitVm.notas || "";
+  car.dataset.notaAutor = unitVm.notaAutor || "";
+  car.dataset.notaFecha = unitVm.notaFecha || "";
   car.dataset.version = String(unitVm.version || 0);
   car.dataset.lastTouchedAt = unitVm.lastTouchedAt ? String(unitVm.lastTouchedAt) : "";
   car.dataset.lastTouchedBy = unitVm.lastTouchedBy || "";
@@ -5581,6 +5589,70 @@ function _parseNota(raw) {
   return { fecha: '', autor: '', texto: s };
 }
 
+/** Resuelve nota operativa: prioriza notaAutor/notaFecha; si faltan, parsea `notas`. */
+function _resolveNotaUnidad(d = {}) {
+  const parsed = _parseNota(d.notas) || { fecha: '', autor: '', texto: '' };
+  const texto = String(parsed.texto || '').trim();
+  if (!texto && !String(d.notas || '').trim()) return null;
+  const autor = String(d.notaAutor || parsed.autor || '').trim();
+  const fecha = String(d.notaFecha || parsed.fecha || '').trim();
+  return {
+    autor,
+    fecha,
+    texto: texto || String(d.notas || '').trim()
+  };
+}
+
+function _stampNotaOperativa(texto, autor) {
+  const clean = String(texto || '').trim();
+  if (!clean) return { notas: '', notaAutor: '', notaFecha: '' };
+  const ahora = (typeof window._mex?._now === 'function')
+    ? window._mex._now()
+    : new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' });
+  const who = String(autor || _sessionDisplayName() || 'Sistema').trim() || 'Sistema';
+  return {
+    notas: `(${ahora}) [${who}] ${clean}`,
+    notaAutor: who,
+    notaFecha: ahora
+  };
+}
+
+function _pintarGestorNotaMeta(nota) {
+  const wrap = document.getElementById('f_not_meta');
+  if (!wrap) return;
+  const hasText = !!(nota && String(nota.texto || '').trim());
+  if (!hasText) {
+    wrap.hidden = true;
+    wrap.setAttribute('aria-hidden', 'true');
+    return;
+  }
+  const autorEl = document.getElementById('f_not_meta_autor');
+  const fechaWrap = document.getElementById('f_not_meta_fecha_wrap');
+  const fechaEl = document.getElementById('f_not_meta_fecha');
+  const autor = String(nota.autor || '').trim();
+  const fecha = String(nota.fecha || '').trim();
+  if (autorEl) {
+    autorEl.textContent = autor
+      ? `Nota de ${autor}`
+      : 'Sin autor';
+  }
+  if (fechaWrap && fechaEl) {
+    if (fecha) {
+      fechaEl.textContent = fecha;
+      fechaWrap.hidden = false;
+    } else {
+      fechaEl.textContent = '';
+      fechaWrap.hidden = true;
+    }
+  }
+  wrap.hidden = false;
+  wrap.setAttribute('aria-hidden', 'false');
+}
+
+function _limpiarGestorNotaMeta() {
+  _pintarGestorNotaMeta(null);
+}
+
 function mostrarDetalle(d, esActualizacionRemota = false) {
   if (!esActualizacionRemota) {
     const inputD = document.getElementById('searchInput');
@@ -5619,13 +5691,13 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   const _extra = esDobleCero ? 'DOBLE CERO' : esUrgente ? 'URGENTE' : esApartado ? 'APARTADA' : '';
   const _extraRow = _extra
     ? `<div class="usel-row usel-row--wide"><span class="material-symbols-outlined" aria-hidden="true">flag</span><div><dt>Indicador</dt><dd>${escapeHtml(_extra)}</dd></div></div>` : '';
-  // Nota concatenada "(fecha) [autor] texto" → desconcatenada (autor + texto + fecha)
-  const _nota = _parseNota(d.notas);
+  // Nota: prioriza notaAutor/notaFecha; si faltan, parsea "(fecha) [autor] texto"
+  const _nota = _resolveNotaUnidad(d);
   const _notaHtml = (_nota && _nota.texto) ? `
       <section class="usel-note" aria-label="Nota operativa">
         <div class="usel-note-head">
           <span class="material-symbols-outlined" aria-hidden="true">edit_note</span>
-          <span class="usel-note-author">${_nota.autor ? 'Nota de ' + escapeHtml(_nota.autor) : 'Nota operativa'}</span>
+          <span class="usel-note-author">${_nota.autor ? 'Nota de ' + escapeHtml(_nota.autor) : 'Sin autor'}</span>
         </div>
         <div class="usel-note-text">${escapeHtml(_nota.texto)}</div>
         ${_nota.fecha ? `<div class="usel-note-time"><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span>${escapeHtml(_nota.fecha)}</span></div>` : ''}
@@ -5636,15 +5708,13 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
       <div class="usel-head">
         <div class="usel-heading">
           <span class="usel-eyebrow">Unidad seleccionada</span>
-          <div class="usel-title-line">
-            <div class="usel-mva">${escapeHtml(d.mva || '')}</div>
-            <span class="usel-status" data-state="${escapeHtml(_estado)}">${escapeHtml(_estado)}</span>
-          </div>
-          <div class="usel-model">${escapeHtml(d.modelo || 'Sin modelo')}</div>
+          <div class="usel-mva">${escapeHtml(d.mva || '')}</div>
         </div>
         <button type="button" class="usel-close" onclick="cerrarPanel()" aria-label="Cerrar inspector" title="Cerrar inspector"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
       </div>
       <dl class="usel-grid">
+        <div class="usel-row usel-row--estado"><span class="material-symbols-outlined" aria-hidden="true">info</span><div><dt>Estado</dt><dd><span class="usel-status" data-state="${escapeHtml(_estado)}">${escapeHtml(_estado)}</span></dd></div></div>
+        <div class="usel-row usel-row--modelo"><span class="material-symbols-outlined" aria-hidden="true">directions_car</span><div><dt>Modelo</dt><dd>${escapeHtml(d.modelo || 'Sin modelo')}</dd></div></div>
         <div class="usel-row"><span class="material-symbols-outlined" aria-hidden="true">pin</span><div><dt>Placas</dt><dd>${escapeHtml(d.placas || 'No registradas')}</dd></div></div>
         <div class="usel-row"><span class="material-symbols-outlined" aria-hidden="true">location_on</span><div><dt>Ubicación</dt><dd>${escapeHtml(loc)}</dd></div></div>
         ${_extraRow}
@@ -6831,6 +6901,8 @@ async function seleccionarFilaFlota(index, rowElement) {
       }
     }
 
+    const notaResuelta = _resolveNotaUnidad(SELECT_REF_FLOTA) || { autor: '', fecha: '', texto: '' };
+    SELECT_REF_FLOTA._notaTextoOriginal = notaResuelta.texto || '';
     const values = {
       f_mva: SELECT_REF_FLOTA.mva || "",
       f_cat: SELECT_REF_FLOTA.categoria || SELECT_REF_FLOTA.categ || "N/A",
@@ -6839,12 +6911,13 @@ async function seleccionarFilaFlota(index, rowElement) {
       f_est: SELECT_REF_FLOTA.estado || "",
       f_gas: SELECT_REF_FLOTA.gasolina || "N/A",
       f_ubi: SELECT_REF_FLOTA.ubicacion || "",
-      f_not: SELECT_REF_FLOTA.notas || ""
+      f_not: notaResuelta.texto || ""
     };
     Object.entries(values).forEach(([id, value]) => {
       const el = document.getElementById(id);
       if (el) el.value = value;
     });
+    _pintarGestorNotaMeta(notaResuelta.texto ? notaResuelta : null);
     _pintarSelectEstado(document.getElementById('f_est'));
 
     ['f_est', 'f_gas', 'f_ubi', 'f_not'].forEach(id => {
@@ -7003,6 +7076,7 @@ function prepararNuevoFlota() {
   const delNoteWrapper = document.getElementById('del-note-wrapper');
   if (delNoteWrapper) delNoteWrapper.style.display = 'none';
   if (document.getElementById('f_del_note')) document.getElementById('f_del_note').checked = false;
+  _limpiarGestorNotaMeta();
   if (document.getElementById('btnDelFlota')) document.getElementById('btnDelFlota').style.display = "none";
 
   const btnGuardar = document.getElementById('btnSaveFlota');
@@ -7072,6 +7146,27 @@ async function ejecutarGuardadoFlota() {
     autor: _sessionDisplayName(), responsableSesion: _sessionDisplayName(), adminResponsable: _sessionDisplayName(),
     fila: SELECT_REF_FLOTA ? SELECT_REF_FLOTA.fila : null
   };
+
+  // Estampar autor/fecha localmente para UI optimista (API vuelve a estampar al persistir).
+  const notaTextoPlano = String(payload.notas || '').trim();
+  const notaTextoOriginal = String(SELECT_REF_FLOTA?._notaTextoOriginal || '').trim();
+  const notaCambio = payload.borrarNotas || (notaTextoPlano !== notaTextoOriginal);
+  if (notaCambio) {
+    const stamped = _stampNotaOperativa(
+      payload.borrarNotas && !notaTextoPlano ? '' : notaTextoPlano,
+      payload.autor
+    );
+    payload.notas = stamped.notas;
+    payload.notaAutor = stamped.notaAutor;
+    payload.notaFecha = stamped.notaFecha;
+    // Al API se manda solo el texto (sin sello); el backend re-estampa.
+    payload.notasFormulario = notaTextoPlano;
+  } else {
+    payload.notas = SELECT_REF_FLOTA?.notas || notaTextoPlano;
+    payload.notaAutor = SELECT_REF_FLOTA?.notaAutor || '';
+    payload.notaFecha = SELECT_REF_FLOTA?.notaFecha || '';
+    payload.notasFormulario = notaTextoPlano;
+  }
 
   if (VISTA_ACTUAL_FLOTA === 'NORMAL') {
     // ⚡ APLICACIÓN INSTANTÁNEA (SIN LAG) ⚡
@@ -7147,7 +7242,17 @@ async function ejecutarGuardadoFlota() {
       }
 
       // 3. Enviamos los datos reales a Google sin trabar la pantalla
-      api.aplicarEstado(payload.mva, payload.estado, payload.ubicacion, payload.gasolina, payload.notas, payload.borrarNotas, payload.autor, payload.responsableSesion, _miPlaza()).catch(() => showToast("Error de sincronización", "error"));
+      api.aplicarEstado(
+        payload.mva,
+        payload.estado,
+        payload.ubicacion,
+        payload.gasolina,
+        payload.notasFormulario != null ? payload.notasFormulario : payload.notas,
+        payload.borrarNotas,
+        payload.autor,
+        payload.responsableSesion,
+        _miPlaza()
+      ).catch(() => showToast("Error de sincronización", "error"));
     }
   }
   else {
@@ -7439,7 +7544,12 @@ function aplicarCambioDOM(mva, estado, ubi, gas, notas) {
   car.dataset.estado = estado;
   car.dataset.ubicacion = ubi;
   if (gas) car.dataset.gasolina = gas;
-  if (notas !== undefined) car.dataset.notas = notas;
+  if (notas !== undefined) {
+    car.dataset.notas = notas;
+    const meta = _resolveNotaUnidad({ notas }) || { autor: '', fecha: '' };
+    car.dataset.notaAutor = meta.autor || '';
+    car.dataset.notaFecha = meta.fecha || '';
+  }
 
   // Colores de estado
   const estadoClase = estado.toLowerCase().trim().replace(/\s+/g, '-');
@@ -12606,6 +12716,8 @@ function actualizarTablaLocal(mva, tipoAccion, datosNuevos = null) {
       mva: datosNuevos.mva, categoria: datosNuevos.categ, modelo: datosNuevos.modelo,
       placas: datosNuevos.placas, gasolina: datosNuevos.gasolina, estado: datosNuevos.estado,
       ubicacion: datosNuevos.ubicacion, notas: datosNuevos.notas,
+      notaAutor: datosNuevos.notaAutor || '',
+      notaFecha: datosNuevos.notaFecha || '',
       etiqueta: `${datosNuevos.categ} ${datosNuevos.modelo} ${datosNuevos.placas} ${datosNuevos.mva} ${datosNuevos.estado} ${datosNuevos.ubicacion}`.toUpperCase()
     };
     DB_FLOTA.unshift(nuevaUnidad); // Pone la nueva unidad hasta arriba
@@ -12617,6 +12729,8 @@ function actualizarTablaLocal(mva, tipoAccion, datosNuevos = null) {
       DB_FLOTA[index].gasolina = datosNuevos.gasolina;
       DB_FLOTA[index].ubicacion = datosNuevos.ubicacion;
       DB_FLOTA[index].notas = datosNuevos.notas;
+      if (datosNuevos.notaAutor != null) DB_FLOTA[index].notaAutor = datosNuevos.notaAutor;
+      if (datosNuevos.notaFecha != null) DB_FLOTA[index].notaFecha = datosNuevos.notaFecha;
       DB_FLOTA[index].etiqueta = `${DB_FLOTA[index].categoria} ${DB_FLOTA[index].modelo} ${DB_FLOTA[index].placas} ${mva} ${datosNuevos.estado} ${datosNuevos.ubicacion}`.toUpperCase();
     }
   }
@@ -12993,7 +13107,11 @@ function validarBotonGuardar() {
     const estOriginal = String(SELECT_REF_FLOTA.estado || "").trim();
     const gasOriginal = String(SELECT_REF_FLOTA.gasolina || "N/A").trim();
     const ubiOriginal = String(SELECT_REF_FLOTA.ubicacion || "").trim();
-    const notOriginal = String(SELECT_REF_FLOTA.notas || "").trim();
+    const notOriginal = String(
+      SELECT_REF_FLOTA._notaTextoOriginal != null
+        ? SELECT_REF_FLOTA._notaTextoOriginal
+        : (_resolveNotaUnidad(SELECT_REF_FLOTA)?.texto || SELECT_REF_FLOTA.notas || "")
+    ).trim();
 
     const fKmChk = document.getElementById('f_km');
     const kmCambio = !!(fKmChk && !fKmChk.disabled && String(fKmChk.value).trim() !== String(fKmChk.dataset.kmOriginal || ''));
@@ -26378,7 +26496,8 @@ function _renderNotaRapida(mva) {
   const container = document.getElementById('panel-nota-rapida');
   if (!container) return;
   const unidad = _ultimaFlotaMapa?.find(u => (u.mva || '').toUpperCase() === mva.toUpperCase());
-  const notaActual = unidad?.notas || '';
+  const notaResuelta = _resolveNotaUnidad(unidad) || { texto: '', autor: '', fecha: '' };
+  const notaActual = notaResuelta.texto || '';
   const tieneNota = notaActual.trim().length > 0;
   const collapsed = container.dataset.collapsed !== 'false';
   container.innerHTML = `

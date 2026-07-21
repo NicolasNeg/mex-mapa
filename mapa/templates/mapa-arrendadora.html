@@ -85,11 +85,11 @@
               style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; flex-wrap: wrap; justify-content: flex-start;">
               <button id="tabFlotaNormal" onclick="cambiarTabFlota('NORMAL')"
                 style="background: var(--mex-blue); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; flex: 1 1 140px; text-align: center;">
-                🚗 FLOTA REGULAR
+                <span class="material-symbols-outlined" aria-hidden="true">directions_car</span> FLOTA REGULAR
               </button>
               <button id="tabFlotaAdmins" onclick="cambiarTabFlota('ADMINS')"
                 style="background: #f1f5f9; color: #64748b; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; flex: 1 1 140px; text-align: center;">
-                👑 CUADRE ADMINS
+                <span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span> CUADRE ADMINS
               </button>
             </div>
           </div>
@@ -127,7 +127,7 @@
             <table>
               <thead>
                 <tr>
-                  <th onclick="sortFlota('mva')" class="sortable">MVA ↕</th>
+                  <th onclick="sortFlota('mva')" class="sortable">MVA <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
                   <th>
                     <select id="filter-cat" class="excel-filter" onchange="filtrarFlota()">
                       <option value="">CATEGORIA (ALL)</option>
@@ -153,9 +153,9 @@
                       <option value="">MODELO (ALL)</option>
                     </select>
                   </th>
-                  <th onclick="sortFlota('placas')" class="sortable">Placas ↕</th>
-                  <th onclick="sortFlota('gasolina')" class="sortable">Gas ↕</th>
-                  <th onclick="sortFlota('km')" class="sortable">KM ↕</th>
+                  <th onclick="sortFlota('placas')" class="sortable">Placas <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
+                  <th onclick="sortFlota('gasolina')" class="sortable">Gas <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
+                  <th onclick="sortFlota('km')" class="sortable">KM <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
                   <th>
                     <select id="filter-est" class="excel-filter" onchange="filtrarFlota()" title="Estado operativo en patio">
                       <option value="">PATIO (ALL)</option>
@@ -165,32 +165,32 @@
                     <select id="filter-ubi" class="excel-filter" onchange="filtrarFlota()">
                       <option value="">UBICACION (ALL)</option>
                       <optgroup label="PLAZAS FIJAS">
-                        <option value="PATIO">🏠 PATIO</option>
-                        <option value="TALLER">🔧 TALLER</option>
-                        <option value="AGENCIA">🏢 AGENCIA</option>
-                        <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
-                        <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                        <option value="PATIO">PATIO</option>
+                        <option value="TALLER">TALLER</option>
+                        <option value="AGENCIA">AGENCIA</option>
+                        <option value="TALLER EXTERNO">TALLER EXTERNO</option>
+                        <option value="HYP COBIAN">HYP COBIAN</option>
                       </optgroup>
                       <optgroup label="PERSONA RESPONSABLE">
-                        <option value="JORGE">👤 JORGE</option>
-                        <option value="GERARDO">👤 GERARDO</option>
-                        <option value="OSVALDO">👤 OSVALDO</option>
-                        <option value="BALANDRAN">👤 BALANDRAN</option>
-                        <option value="ULISES">👤 ULISES</option>
-                        <option value="JOSUE">👤 JOSUE</option>
-                        <option value="ISRAEL">👤 ISRAEL</option>
-                        <option value="ISAAC">👤 ISAAC</option>
-                        <option value="ANGEL">👤 ANGEL</option>
-                        <option value="LEO">👤 LEO</option>
-                        <option value="BRAULIO">👤 BRAULIO</option>
-                        <option value="MARTHA">👤 MARTHA</option>
-                        <option value="FERNANDA">👤 FERNANDA</option>
-                        <option value="ZALLO">👤 ZALLO</option>
-                        <option value="UBALDO">👤 UBALDO</option>
-                        <option value="JOSE LUIS">👤 JOSE LUIS</option>
-                        <option value="PASCUAL">👤 PASCUAL</option>
-                        <option value="LALO">👤 LALO</option>
-                        <option value="EDGAR">👤 EDGAR</option>
+                        <option value="JORGE">JORGE</option>
+                        <option value="GERARDO">GERARDO</option>
+                        <option value="OSVALDO">OSVALDO</option>
+                        <option value="BALANDRAN">BALANDRAN</option>
+                        <option value="ULISES">ULISES</option>
+                        <option value="JOSUE">JOSUE</option>
+                        <option value="ISRAEL">ISRAEL</option>
+                        <option value="ISAAC">ISAAC</option>
+                        <option value="ANGEL">ANGEL</option>
+                        <option value="LEO">LEO</option>
+                        <option value="BRAULIO">BRAULIO</option>
+                        <option value="MARTHA">MARTHA</option>
+                        <option value="FERNANDA">FERNANDA</option>
+                        <option value="ZALLO">ZALLO</option>
+                        <option value="UBALDO">UBALDO</option>
+                        <option value="JOSE LUIS">JOSE LUIS</option>
+                        <option value="PASCUAL">PASCUAL</option>
+                        <option value="LALO">LALO</option>
+                        <option value="EDGAR">EDGAR</option>
                       </optgroup>
                     </select>
                   </th>
@@ -259,7 +259,7 @@
 
             <div id="autofill-section" class="field"
               style="background:#f8fafc; padding:12px; border-radius:12px; border:1px dashed var(--mex-accent); position:relative; margin-bottom: 15px;">
-              <label style="color:var(--mex-accent); margin-bottom: 8px;">BUSCAR EN BASE MAESTRA 🔍</label>
+              <label style="color:var(--mex-accent); margin-bottom: 8px;"><span class="material-symbols-outlined" aria-hidden="true">search</span> BUSCAR EN BASE MAESTRA</label>
               <div style="display:flex; gap:8px; align-items:center;">
                 <input type="text" id="autofill-input" placeholder="Escribe MVA, Placas o Modelo..."
                   oninput="debouncedAutofill(this.value)"
@@ -298,7 +298,7 @@
                   </select>
                 </div>
                 <div class="field">
-                  <label>GASOLINA ⛽</label>
+                  <label><span class="material-symbols-outlined" aria-hidden="true">local_gas_station</span> GASOLINA</label>
                   <select id="f_gas" onchange="validarBotonGuardar()">
                     <option value="N/A">Seleccionar...</option>
                     <option value="F">F (Lleno Total)</option>
@@ -328,36 +328,36 @@
               </div>
 
               <div class="field">
-                <label>UBICACIÓN ACTUAL 📍</label>
+                <label><span class="material-symbols-outlined" aria-hidden="true">location_on</span> UBICACIÓN ACTUAL</label>
                 <select id="f_ubi" onchange="validarBotonGuardar(); verificarHabitosUbicacion();">
                   <option value="">Seleccionar...</option>
                   <optgroup label="PLAZAS FIJAS">
-                    <option value="PATIO">🏠 PATIO</option>
-                    <option value="TALLER">🔧 TALLER</option>
-                    <option value="AGENCIA">🏢 AGENCIA</option>
-                    <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
-                    <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                    <option value="PATIO">PATIO</option>
+                    <option value="TALLER">TALLER</option>
+                    <option value="AGENCIA">AGENCIA</option>
+                    <option value="TALLER EXTERNO">TALLER EXTERNO</option>
+                    <option value="HYP COBIAN">HYP COBIAN</option>
                   </optgroup>
                   <optgroup label="PERSONA RESPONSABLE">
-                    <option value="JORGE">👤 JORGE</option>
-                    <option value="GERARDO">👤 GERARDO</option>
-                    <option value="OSVALDO">👤 OSVALDO</option>
-                    <option value="BALANDRAN">👤 BALANDRAN</option>
-                    <option value="ULISES">👤 ULISES</option>
-                    <option value="JOSUE">👤 JOSUE</option>
-                    <option value="ISRAEL">👤 ISRAEL</option>
-                    <option value="ISAAC">👤 ISAAC</option>
-                    <option value="ANGEL">👤 ANGEL</option>
-                    <option value="LEO">👤 LEO</option>
-                    <option value="BRAULIO">👤 BRAULIO</option>
-                    <option value="MARTHA">👤 MARTHA</option>
-                    <option value="FERNANDA">👤 FERNANDA</option>
-                    <option value="ZALLO">👤 ZALLO</option>
-                    <option value="UBALDO">👤 UBALDO</option>
-                    <option value="JOSE LUIS">👤 JOSE LUIS</option>
-                    <option value="PASCUAL">👤 PASCUAL</option>
-                    <option value="LALO">👤 LALO</option>
-                    <option value="EDGAR">👤 EDGAR</option>
+                    <option value="JORGE">JORGE</option>
+                    <option value="GERARDO">GERARDO</option>
+                    <option value="OSVALDO">OSVALDO</option>
+                    <option value="BALANDRAN">BALANDRAN</option>
+                    <option value="ULISES">ULISES</option>
+                    <option value="JOSUE">JOSUE</option>
+                    <option value="ISRAEL">ISRAEL</option>
+                    <option value="ISAAC">ISAAC</option>
+                    <option value="ANGEL">ANGEL</option>
+                    <option value="LEO">LEO</option>
+                    <option value="BRAULIO">BRAULIO</option>
+                    <option value="MARTHA">MARTHA</option>
+                    <option value="FERNANDA">FERNANDA</option>
+                    <option value="ZALLO">ZALLO</option>
+                    <option value="UBALDO">UBALDO</option>
+                    <option value="JOSE LUIS">JOSE LUIS</option>
+                    <option value="PASCUAL">PASCUAL</option>
+                    <option value="LALO">LALO</option>
+                    <option value="EDGAR">EDGAR</option>
                   </optgroup>
                 </select>
               </div>
@@ -365,6 +365,16 @@
               <div class="field">
                 <label>Notas / Observaciones</label>
                 <textarea id="f_not" rows="2" placeholder="Escribe aquí..." oninput="validarBotonGuardar()"></textarea>
+                <div id="f_not_meta" class="gestor-nota-meta" hidden aria-hidden="true">
+                  <div class="usel-note-head">
+                    <span class="material-symbols-outlined" aria-hidden="true">edit_note</span>
+                    <span class="usel-note-author" id="f_not_meta_autor">Sin autor</span>
+                  </div>
+                  <div class="usel-note-time" id="f_not_meta_fecha_wrap" hidden>
+                    <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+                    <span id="f_not_meta_fecha"></span>
+                  </div>
+                </div>
 
                 <div id="del-note-wrapper"
                   style="display:none; align-items:center; gap:8px; margin-top: 8px; background: #fee2e2; padding: 10px 12px; border-radius: 8px; border: 1px solid #f87171;">
@@ -459,7 +469,7 @@
 <!-- ── modal-cuadre-3v ─────────────────────────────── -->
   <div id="modal-cuadre-3v" class="fleet-modal" style="z-index: 40000;">
     <div class="fleet-header-top">
-      <h2 style="color:var(--primary); font-weight:900; margin:0;">🔒 PROTOCOLO DE CUADRE</h2>
+      <h2 style="color:var(--primary); font-weight:900; margin:0;"><span class="material-symbols-outlined" aria-hidden="true">lock</span> PROTOCOLO DE CUADRE</h2>
       <button onclick="cerrarCuadre3V()"
         style="background:#f1f5f9; color:#64748b; border:none; padding:10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CANCELAR</button>
     </div>
@@ -496,7 +506,7 @@
             <div><small style="font-weight:800; color:#94a3b8;">TOTAL:</small> <b id="v3-total"
                 style="color:var(--mex-blue); font-size:18px;">0</b></div>
           </div>
-          <button onclick="irAPaso2()" class="btn-save-global" style="margin-top:0;">LOS DATOS SON CORRECTOS →</button>
+          <button onclick="irAPaso2()" class="btn-save-global" style="margin-top:0;">LOS DATOS SON CORRECTOS <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
         </div>
 
         <div id="paso2-ui" style="display:none;">
@@ -520,7 +530,7 @@
             <small style="display:block; font-weight:800; color:#059669;">RESPONSABLE DEL CUADRE:</small>
             <b id="v3-firma-nombre" style="font-size:18px; color:#064e3b;">--</b>
           </div>
-          <button onclick="finalizarCuadre3V()" class="btn-save-global" style="margin-top:0; background:#10b981;">✅
+          <button onclick="finalizarCuadre3V()" class="btn-save-global" style="margin-top:0; background:#10b981;"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
             SELLAR INVENTARIO FINAL</button>
         </div>
 

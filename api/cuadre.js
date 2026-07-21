@@ -14,7 +14,8 @@
     _uploadAdminEvidenceFiles, _deleteEvidenceFiles,
     _windowLocationAuditExtra, _matchesPlaza, _sanitizeText,
     _getSettings, _setSettings, _ensureGlobalSettingsDoc, _buildPlazaScopedQuery,
-    _isMissingIndexError, _warnQueryFallback, _clasificarMovimientoPatio
+    _isMissingIndexError, _warnQueryFallback, _clasificarMovimientoPatio,
+    _parseNotaOperativa, _formatNotasCuadreLikeFlota, _notaMetaFields
   } = window._mex;
 
   // Sincroniza la ubicación global de la unidad en index_unidades sin leer los
@@ -142,10 +143,10 @@
     if ((entered.includes('DOBLE CERO') || newNotes.includes('DOBLE CERO')) && !oldNotes.includes('DOBLE CERO')) return `DOBLE_CERO: ${mvaStr}`;
     if ((entered.includes('APARTAD') || entered.includes('RESERVAD') || newNotes.includes('APARTAD') || newNotes.includes('RESERVAD')) && !(oldNotes.includes('APARTAD') || oldNotes.includes('RESERVAD'))) return `APARTADO: ${mvaStr}`;
     if ((entered.includes('URGENTE') || newNotes.includes('URGENTE')) && !oldNotes.includes('URGENTE')) return `URGENTE: ${mvaStr}`;
-    if (String(actual.estado || '') !== estado) return `${mvaStr} · ${actual.estado || 'SIN ESTADO'} ➜ ${estado} (${ubi})`;
-    if (String(actual.gasolina || '') !== gas) return `GAS: ${mvaStr} · ${actual.gasolina || '?'} ➜ ${gas} (${ubi})`;
+    if (String(actual.estado || '') !== estado) return `${mvaStr} · ${actual.estado || 'SIN ESTADO'} → ${estado} (${ubi})`;
+    if (String(actual.gasolina || '') !== gas) return `GAS: ${mvaStr} · ${actual.gasolina || '?'} → ${gas} (${ubi})`;
     if (String(notaFinal || '').trim() !== String(actual.notas || '').trim() && String(notaEntrada || '').trim()) return `NOTA: ${mvaStr}`;
-    return `${mvaStr} · ${actual.estado || 'SIN ESTADO'} ➜ ${estado} (${ubi})`;
+    return `${mvaStr} · ${actual.estado || 'SIN ESTADO'} → ${estado} (${ubi})`;
   }
 
   window._mexParts = window._mexParts || {};
@@ -174,8 +175,12 @@
       }
 
       const ahora = _now();
-      const sello = `(${ahora}) [${nombreAutor || "?"}]`;
-      let notaFinal = actual.notas || "";
+      const actorNota = nombreAutor || responsableSesion || "?";
+      const notaFinal = _formatNotasCuadreLikeFlota(notasFormulario, actorNota, {
+        borrarNotas,
+        previousNotas: actual.notas || ""
+      });
+      const notaMeta = _notaMetaFields(notaFinal);
       const expectedVersion = Number(meta?.expectedVersion || meta?.version || 0) || 0;
       const currentVersion = Number(actual?.version || actual?._version || 0) || 0;
       if (expectedVersion && currentVersion && expectedVersion !== currentVersion) {
@@ -187,13 +192,7 @@
           currentVersion
         };
       }
-      const notaEntrada = notasFormulario ? notasFormulario.trim() : "";
-      if (borrarNotas === true || borrarNotas === "true") {
-        notaFinal = notaEntrada !== "" ? `${sello} ${notaEntrada}` : "";
-      } else if (notaEntrada !== "" && notaEntrada !== (actual.notas || "").trim()) {
-        const tieneSello = /\(\d{4}/.test(notaEntrada);
-        notaFinal = tieneSello ? notaEntrada : `${sello} ${notaEntrada}`;
-      }
+      const notaEntrada = notasFormulario ? String(notasFormulario).trim() : "";
 
       const touchActor = responsableSesion || nombreAutor || "Sistema";
       const nextVersion = currentVersion > 0 ? currentVersion + 1 : 1;
@@ -202,6 +201,8 @@
         estado,
         ubicacion: ubi,
         notas: notaFinal,
+        notaAutor: notaMeta.notaAutor,
+        notaFecha: notaMeta.notaFecha,
         _updatedAt: ahora,
         _updatedBy: touchActor,
         _version: nextVersion,
@@ -232,8 +233,8 @@
         cambiosReales.push('Notas eliminadas');
       }
       const logMsg = cambiosReales.length > 0
-        ? `✏️ ${mvaStr}: ${cambiosReales.join(' | ')}`
-        : `🔄 ${mvaStr} (revisión sin cambios)`;
+        ? `${mvaStr}: ${cambiosReales.join(' | ')}`
+        : `${mvaStr} (revisión sin cambios)`;
       const cambioHuman = cambiosReales.length > 0
         ? cambiosReales
             .map(c => c
@@ -312,14 +313,14 @@
           fuente: fuenteUp, usuario: usuario || 'Sistema', plaza: plazaUp || '',
           fecha: ahora, timestamp: _ts(), estado: 'PENDIENTE'
         });
-        await _registrarLog('KM', `⚠️ KM DISCREPANCIA: ${mvaStr} · ${kmAnterior} ➜ ${kmNum} (+${c.delta} km sin salida registrada)`, usuario, plazaUp, {
+        await _registrarLog('KM', `KM DISCREPANCIA: ${mvaStr} · ${kmAnterior} → ${kmNum} (+${c.delta} km sin salida registrada)`, usuario, plazaUp, {
           mva: mvaStr,
           cambio: `Discrepancia de km: ${kmAnterior} → ${kmNum} (+${c.delta} km sin salida registrada)`
         });
         return 'DISCREPANCIA';
       }
       if (esCorreccion) {
-        await _registrarLog('KM', `✏️ KM CORREGIDO: ${mvaStr} · ${kmAnterior} ➜ ${kmNum}`, usuario, plazaUp, {
+        await _registrarLog('KM', `KM CORREGIDO: ${mvaStr} · ${kmAnterior} → ${kmNum}`, usuario, plazaUp, {
           mva: mvaStr,
           cambio: `Km corregido: ${kmAnterior} → ${kmNum}`
         });
@@ -360,7 +361,11 @@
       if (!existeLeg.empty) return `La unidad ${mvaStr} ya está registrada en el patio.`;
 
       const ahora = _now();
-      const notaFinal = objeto.notas ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${objeto.notas}` : "";
+      const textoNota = _parseNotaOperativa(objeto.notas).texto;
+      const notaFinal = textoNota
+        ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${textoNota}`
+        : "";
+      const notaMeta = _notaMetaFields(notaFinal);
       const indexSnap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
       const indexData = indexSnap.empty ? {} : indexSnap.docs[0].data();
 
@@ -386,6 +391,8 @@
         estado:       objeto.estado || "SUCIO",
         ubicacion:    objeto.ubicacion || "PATIO",
         notas:        notaFinal,
+        notaAutor:    notaMeta.notaAutor,
+        notaFecha:    notaMeta.notaFecha,
         pos:          "LIMBO",
         plaza:        plazaUp || null,
         fechaIngreso: new Date().toISOString(),
@@ -422,7 +429,7 @@
         throw e;
       }
       await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp);
-      await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
+      await _registrarLog("IN", `INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
         mva: mvaStr,
         cambio: 'Unidad insertada'
       });
@@ -481,7 +488,11 @@
       }
 
       const ahora = _now();
-      const notaFinal = objeto.notas ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${objeto.notas}` : "";
+      const textoNota = _parseNotaOperativa(objeto.notas).texto;
+      const notaFinal = textoNota
+        ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${textoNota}`
+        : "";
+      const notaMeta = _notaMetaFields(notaFinal);
       const unitData = {
         mva:          mvaStr,
         modelo:       (objeto.modelo || "S/M").toUpperCase(),
@@ -491,6 +502,8 @@
         ubicacion:    "EXTERNO",
         gasolina:     "N/A",
         notas:        notaFinal,
+        notaAutor:    notaMeta.notaAutor,
+        notaFecha:    notaMeta.notaFecha,
         pos:          "LIMBO",
         plaza:        plazaUp || null,
         tipo:         "externo",
@@ -507,7 +520,7 @@
 
       await db.collection(COL.EXTERNOS).doc(docId).set(unitData);
       await _actualizarFeed(`EXT IN: ${mvaStr} (${objeto.modelo || 'S/M'})`, objeto.responsableSesion, plazaUp);
-      await _registrarLog("IN", `🚗 EXTERNO INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
+      await _registrarLog("IN", `EXTERNO INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
         mva: mvaStr,
         cambio: 'Unidad externa insertada'
       });
@@ -544,7 +557,7 @@
 
         if (eliminado) {
           await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion, plazaUp);
-          await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp, {
+          await _registrarLog("BAJA", `SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp, {
             mva: mvaStr,
             cambio: 'Unidad eliminada'
           });
@@ -924,7 +937,7 @@
 
     async registrarCierreCuadre(autor, plaza) {
       await _setSettings({ ultimoCuadreTexto: `${autor} (${_now()})` }, plaza);
-      await _registrarLog("CUADRE", `✅ CUADRE CERRADO POR ${autor}`, autor, plaza);
+      await _registrarLog("CUADRE", `CUADRE CERRADO POR ${autor}`, autor, plaza);
       return "OK";
     },
 
@@ -1028,7 +1041,7 @@
           plaza: plazaUp || ''
         }
       };
-      await _registrarLog("CUADRE", `✅ CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin, plazaUp);
+      await _registrarLog("CUADRE", `CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin, plazaUp);
       const registro = {
         timestamp: _ts(), fecha: _now(),
         tipo:      'CUADRE_FLOTA',

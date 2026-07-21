@@ -89,6 +89,8 @@ export function buildUnitViewModel(unidad, uiState = {}, options = {}) {
     categoria:String(base.categoria|| ''),
     placas:   String(base.placas   || ''),
     notas:    String(base.notas    || ''),
+    notaAutor:String(base.notaAutor|| ''),
+    notaFecha:String(base.notaFecha|| ''),
     pos:      String(base.pos      || 'LIMBO').toUpperCase(),
     tipo:     String(base.tipo     || 'renta'),
   };

@@ -260,9 +260,9 @@
             <label>Nivel de Urgencia</label>
             <select id="alertaNuevaTipo" onchange="_updateAlertaTipoStyle(); _actualizarPreviewAlerta();"
               style="border:2px solid #ef4444; background:#fef2f2; color:#ef4444; font-weight:800;">
-              <option value="URGENTE">🔴 URGENTE</option>
-              <option value="WARNING">🟡 ADVERTENCIA</option>
-              <option value="INFO">🔵 INFORMATIVO</option>
+              <option value="URGENTE">URGENTE</option>
+              <option value="WARNING">ADVERTENCIA</option>
+              <option value="INFO">INFORMATIVO</option>
             </select>
           </div>
 
@@ -326,15 +326,15 @@
             <div style="display:flex; gap:5px;">
               <button id="destBtnGlobal" onclick="_setDestMode('GLOBAL')"
                 style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid var(--mex-blue); background:var(--mex-blue); color:white; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
-                🌐 GLOBAL
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-3px;">public</span> GLOBAL
               </button>
               <button id="destBtnSel" onclick="_setDestMode('SEL')"
                 style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid #e2e8f0; background:white; color:#64748b; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
-                ☑ VARIOS
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-3px;">checklist</span> VARIOS
               </button>
               <button id="destBtnSolo" onclick="_setDestMode('SOLO')"
                 style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid #e2e8f0; background:white; color:#64748b; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
-                👤 SOLO A
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-3px;">person</span> SOLO A
               </button>
             </div>
             <!-- SELECCIONADOS panel -->
@@ -471,11 +471,11 @@
               </div>
               <select id="alertaPlantillasSelect" onchange="cargarPlantillaSeleccionada()"
                 style="font-size:11px; font-weight:700; padding:7px 10px; border-radius:10px; border:1px solid var(--border); outline:none; background:#f8fafc; color:#475569; cursor:pointer;">
-                <option value="">📂 Cargar plantilla...</option>
+                <option value="">Cargar plantilla...</option>
               </select>
               <button onclick="guardarComoPlantilla()"
                 style="font-size:11px; padding:7px 12px; border-radius:10px; border:1px solid var(--mex-accent); background:#e0f2fe; color:var(--mex-accent); cursor:pointer; font-weight:800; transition:0.2s;"
-                onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">💾 Guardar
+                onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-3px;">save</span> Guardar
                 como plantilla</button>
             </div>
           </div>
@@ -593,8 +593,7 @@
                     <span id="alertaPreviewBadge"
                       style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:50px; background:#fee2e2; color:#ef4444; letter-spacing:0.8px;">URGENTE</span>
                     <span id="alertaPreviewModoBadge"
-                      style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:50px; background:#eff6ff; color:#1a73e8; letter-spacing:0.8px;">⚡
-                      INTERRUPTIVA</span>
+                      style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:50px; background:#eff6ff; color:#1a73e8; letter-spacing:0.8px;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-3px;">bolt</span> INTERRUPTIVA</span>
                     <span id="alertaPreviewDestinatarios" class="alerta-preview-recipient">
                       <span class="material-icons" style="font-size:14px;">public</span>
                       GLOBAL
@@ -1194,11 +1193,11 @@
               style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; flex-wrap: wrap; justify-content: flex-start;">
               <button id="tabFlotaNormal" onclick="cambiarTabFlota('NORMAL')"
                 style="background: var(--mex-blue); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; flex: 1 1 140px; text-align: center;">
-                🚗 FLOTA REGULAR
+                <span class="material-symbols-outlined" aria-hidden="true">directions_car</span> FLOTA REGULAR
               </button>
               <button id="tabFlotaAdmins" onclick="cambiarTabFlota('ADMINS')"
                 style="background: #f1f5f9; color: #64748b; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; flex: 1 1 140px; text-align: center;">
-                👑 CUADRE ADMINS
+                <span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span> CUADRE ADMINS
               </button>
             </div>
           </div>
@@ -1234,7 +1233,7 @@
             <table>
               <thead>
                 <tr>
-                  <th onclick="sortFlota('mva')" class="sortable">MVA ↕</th>
+                  <th onclick="sortFlota('mva')" class="sortable">MVA <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
                   <th>
                     <select id="filter-cat" class="excel-filter" onchange="filtrarFlota()">
                       <option value="">CATEGORIA (ALL)</option>
@@ -1260,9 +1259,9 @@
                       <option value="">MODELO (ALL)</option>
                     </select>
                   </th>
-                  <th onclick="sortFlota('placas')" class="sortable">Placas ↕</th>
-                  <th onclick="sortFlota('gasolina')" class="sortable">Gas ↕</th>
-                  <th onclick="sortFlota('km')" class="sortable">KM ↕</th>
+                  <th onclick="sortFlota('placas')" class="sortable">Placas <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
+                  <th onclick="sortFlota('gasolina')" class="sortable">Gas <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
+                  <th onclick="sortFlota('km')" class="sortable">KM <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:middle;">unfold_more</span></th>
                   <th>
                     <select id="filter-est" class="excel-filter" onchange="filtrarFlota()" title="Estado operativo en patio">
                       <option value="">PATIO (ALL)</option>
@@ -1272,32 +1271,32 @@
                     <select id="filter-ubi" class="excel-filter" onchange="filtrarFlota()">
                       <option value="">UBICACION (ALL)</option>
                       <optgroup label="PLAZAS FIJAS">
-                        <option value="PATIO">🏠 PATIO</option>
-                        <option value="TALLER">🔧 TALLER</option>
-                        <option value="AGENCIA">🏢 AGENCIA</option>
-                        <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
-                        <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                        <option value="PATIO">PATIO</option>
+                        <option value="TALLER">TALLER</option>
+                        <option value="AGENCIA">AGENCIA</option>
+                        <option value="TALLER EXTERNO">TALLER EXTERNO</option>
+                        <option value="HYP COBIAN">HYP COBIAN</option>
                       </optgroup>
                       <optgroup label="PERSONA RESPONSABLE">
-                        <option value="JORGE">👤 JORGE</option>
-                        <option value="GERARDO">👤 GERARDO</option>
-                        <option value="OSVALDO">👤 OSVALDO</option>
-                        <option value="BALANDRAN">👤 BALANDRAN</option>
-                        <option value="ULISES">👤 ULISES</option>
-                        <option value="JOSUE">👤 JOSUE</option>
-                        <option value="ISRAEL">👤 ISRAEL</option>
-                        <option value="ISAAC">👤 ISAAC</option>
-                        <option value="ANGEL">👤 ANGEL</option>
-                        <option value="LEO">👤 LEO</option>
-                        <option value="BRAULIO">👤 BRAULIO</option>
-                        <option value="MARTHA">👤 MARTHA</option>
-                        <option value="FERNANDA">👤 FERNANDA</option>
-                        <option value="ZALLO">👤 ZALLO</option>
-                        <option value="UBALDO">👤 UBALDO</option>
-                        <option value="JOSE LUIS">👤 JOSE LUIS</option>
-                        <option value="PASCUAL">👤 PASCUAL</option>
-                        <option value="LALO">👤 LALO</option>
-                        <option value="EDGAR">👤 EDGAR</option>
+                        <option value="JORGE">JORGE</option>
+                        <option value="GERARDO">GERARDO</option>
+                        <option value="OSVALDO">OSVALDO</option>
+                        <option value="BALANDRAN">BALANDRAN</option>
+                        <option value="ULISES">ULISES</option>
+                        <option value="JOSUE">JOSUE</option>
+                        <option value="ISRAEL">ISRAEL</option>
+                        <option value="ISAAC">ISAAC</option>
+                        <option value="ANGEL">ANGEL</option>
+                        <option value="LEO">LEO</option>
+                        <option value="BRAULIO">BRAULIO</option>
+                        <option value="MARTHA">MARTHA</option>
+                        <option value="FERNANDA">FERNANDA</option>
+                        <option value="ZALLO">ZALLO</option>
+                        <option value="UBALDO">UBALDO</option>
+                        <option value="JOSE LUIS">JOSE LUIS</option>
+                        <option value="PASCUAL">PASCUAL</option>
+                        <option value="LALO">LALO</option>
+                        <option value="EDGAR">EDGAR</option>
                       </optgroup>
                     </select>
                   </th>
@@ -1355,7 +1354,7 @@
 
             <div id="autofill-section" class="field"
               style="background:#f8fafc; padding:12px; border-radius:12px; border:1px dashed var(--mex-accent); position:relative; margin-bottom: 15px;">
-              <label style="color:var(--mex-accent); margin-bottom: 8px;">BUSCAR EN BASE MAESTRA 🔍</label>
+              <label style="color:var(--mex-accent); margin-bottom: 8px;"><span class="material-symbols-outlined" aria-hidden="true">search</span> BUSCAR EN BASE MAESTRA</label>
               <div style="display:flex; gap:8px; align-items:center;">
                 <input type="text" id="autofill-input" placeholder="Escribe MVA, Placas o Modelo..."
                   oninput="debouncedAutofill(this.value)"
@@ -1394,7 +1393,7 @@
                   </select>
                 </div>
                 <div class="field">
-                  <label>GASOLINA ⛽</label>
+                  <label><span class="material-symbols-outlined" aria-hidden="true">local_gas_station</span> GASOLINA</label>
                   <select id="f_gas" onchange="validarBotonGuardar()">
                     <option value="N/A">Seleccionar...</option>
                     <option value="F">F (Lleno Total)</option>
@@ -1424,36 +1423,36 @@
               </div>
 
               <div class="field">
-                <label>UBICACIÓN ACTUAL 📍</label>
+                <label><span class="material-symbols-outlined" aria-hidden="true">location_on</span> UBICACIÓN ACTUAL</label>
                 <select id="f_ubi" onchange="validarBotonGuardar(); verificarHabitosUbicacion();">
                   <option value="">Seleccionar...</option>
                   <optgroup label="PLAZAS FIJAS">
-                    <option value="PATIO">🏠 PATIO</option>
-                    <option value="TALLER">🔧 TALLER</option>
-                    <option value="AGENCIA">🏢 AGENCIA</option>
-                    <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
-                    <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                    <option value="PATIO">PATIO</option>
+                    <option value="TALLER">TALLER</option>
+                    <option value="AGENCIA">AGENCIA</option>
+                    <option value="TALLER EXTERNO">TALLER EXTERNO</option>
+                    <option value="HYP COBIAN">HYP COBIAN</option>
                   </optgroup>
                   <optgroup label="PERSONA RESPONSABLE">
-                    <option value="JORGE">👤 JORGE</option>
-                    <option value="GERARDO">👤 GERARDO</option>
-                    <option value="OSVALDO">👤 OSVALDO</option>
-                    <option value="BALANDRAN">👤 BALANDRAN</option>
-                    <option value="ULISES">👤 ULISES</option>
-                    <option value="JOSUE">👤 JOSUE</option>
-                    <option value="ISRAEL">👤 ISRAEL</option>
-                    <option value="ISAAC">👤 ISAAC</option>
-                    <option value="ANGEL">👤 ANGEL</option>
-                    <option value="LEO">👤 LEO</option>
-                    <option value="BRAULIO">👤 BRAULIO</option>
-                    <option value="MARTHA">👤 MARTHA</option>
-                    <option value="FERNANDA">👤 FERNANDA</option>
-                    <option value="ZALLO">👤 ZALLO</option>
-                    <option value="UBALDO">👤 UBALDO</option>
-                    <option value="JOSE LUIS">👤 JOSE LUIS</option>
-                    <option value="PASCUAL">👤 PASCUAL</option>
-                    <option value="LALO">👤 LALO</option>
-                    <option value="EDGAR">👤 EDGAR</option>
+                    <option value="JORGE">JORGE</option>
+                    <option value="GERARDO">GERARDO</option>
+                    <option value="OSVALDO">OSVALDO</option>
+                    <option value="BALANDRAN">BALANDRAN</option>
+                    <option value="ULISES">ULISES</option>
+                    <option value="JOSUE">JOSUE</option>
+                    <option value="ISRAEL">ISRAEL</option>
+                    <option value="ISAAC">ISAAC</option>
+                    <option value="ANGEL">ANGEL</option>
+                    <option value="LEO">LEO</option>
+                    <option value="BRAULIO">BRAULIO</option>
+                    <option value="MARTHA">MARTHA</option>
+                    <option value="FERNANDA">FERNANDA</option>
+                    <option value="ZALLO">ZALLO</option>
+                    <option value="UBALDO">UBALDO</option>
+                    <option value="JOSE LUIS">JOSE LUIS</option>
+                    <option value="PASCUAL">PASCUAL</option>
+                    <option value="LALO">LALO</option>
+                    <option value="EDGAR">EDGAR</option>
                   </optgroup>
                 </select>
               </div>
@@ -1461,6 +1460,16 @@
               <div class="field">
                 <label>Notas / Observaciones</label>
                 <textarea id="f_not" rows="2" placeholder="Escribe aquí..." oninput="validarBotonGuardar()"></textarea>
+                <div id="f_not_meta" class="gestor-nota-meta" hidden aria-hidden="true">
+                  <div class="usel-note-head">
+                    <span class="material-symbols-outlined" aria-hidden="true">edit_note</span>
+                    <span class="usel-note-author" id="f_not_meta_autor">Sin autor</span>
+                  </div>
+                  <div class="usel-note-time" id="f_not_meta_fecha_wrap" hidden>
+                    <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+                    <span id="f_not_meta_fecha"></span>
+                  </div>
+                </div>
 
                 <div id="del-note-wrapper"
                   style="display:none; align-items:center; gap:8px; margin-top: 8px; background: #fee2e2; padding: 10px 12px; border-radius: 8px; border: 1px solid #f87171;">
@@ -1543,8 +1552,8 @@
     <div id="panel-recomendacion" style="display:none;"></div>
 
     <div class="zoom-controls">
-      <button class="btn-zoom" onclick="adjustZoom(0.1)">+</button>
-      <button class="btn-zoom" onclick="adjustZoom(-0.1)">-</button>
+      <button class="btn-zoom" onclick="adjustZoom(0.1)" aria-label="Acercar"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
+      <button class="btn-zoom" onclick="adjustZoom(-0.1)" aria-label="Alejar"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
       <!-- CONTROLES: gear button with dropdown -->
       <div style="position:relative">
         <button id="btnControles" class="btn-zoom" onclick="toggleControlesMenu(event)" title="Vista y filtros"
@@ -1695,7 +1704,7 @@
             class="search-mic-btn" style="color:#64748b;">
             <span class="material-icons" style="font-size:17px;">mic</span>
           </button>
-          <button class="clear-btn" onclick="limpiarBusqueda()" style="background:#e2e8f0; color:#64748b;">✕</button>
+          <button class="clear-btn" onclick="limpiarBusqueda()" aria-label="Limpiar búsqueda" style="background:#e2e8f0; color:#64748b;"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
           <div id="voz-transcript-bar-mobile" class="voz-transcript-bar" style="display:none;"></div>
         </div>
         <div id="no-results-message"
@@ -2199,7 +2208,7 @@
           <div class="inner-card admin-form-card">
             <div class="grid-2">
               <div class="field">
-                <label>Gasolina ⛽</label>
+                <label><span class="material-symbols-outlined" aria-hidden="true">local_gas_station</span> Gasolina</label>
                 <select id="a_mod_gas">
                   <option value="N/A">Seleccionar...</option>
                   <option value="F">F (Lleno Total)</option>
@@ -2234,36 +2243,36 @@
               </div>
             </div>
             <div class="field" style="margin-top:10px">
-              <label>Ubicación Física 📍</label>
+              <label><span class="material-symbols-outlined" aria-hidden="true">location_on</span> Ubicación física</label>
               <select id="a_mod_ubi">
                 <option value="">Seleccionar...</option>
-                <option value="PATIO">🏠 PATIO</option>
-                <option value="TALLER">🔧 TALLER</option>
-                <option value="AGENCIA">🏢 AGENCIA</option>
-                <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
-                <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
-                <option value="OTRA PLAZA">📌 OTRA PLAZA</option>
+                <option value="PATIO">PATIO</option>
+                <option value="TALLER">TALLER</option>
+                <option value="AGENCIA">AGENCIA</option>
+                <option value="TALLER EXTERNO">TALLER EXTERNO</option>
+                <option value="HYP COBIAN">HYP COBIAN</option>
+                <option value="OTRA PLAZA">OTRA PLAZA</option>
                 <optgroup label="PERSONA RESPONSABLE">
-                  <option value="JORGE">👤 JORGE</option>
-                  <option value="GERARDO">👤 GERARDO</option>
-                  <option value="OSVALDO">👤 OSVALDO</option>
-                  <option value="BALANDRAN">👤 BALANDRAN</option>
-                  <option value="ULISES">👤 ULISES</option>
-                  <option value="JOSUE">👤 JOSUE</option>
-                  <option value="ISRAEL">👤 ISRAEL</option>
-                  <option value="ISAAC">👤 ISAAC</option>
-                  <option value="ANGEL">👤 ANGEL</option>
-                  <option value="LEO">👤 LEO</option>
-                  <option value="BRAULIO">👤 BRAULIO</option>
-                  <option value="LONGORIA">👤 LONGORIA</option>
-                  <option value="MARTHA">👤 MARTHA</option>
-                  <option value="FERNANDA">👤 FERNANDA</option>
-                  <option value="ZALLO">👤 ZALLO</option>
-                  <option value="UBALDO">👤 UBALDO</option>
-                  <option value="JOSE LUIS">👤 JOSE LUIS</option>
-                  <option value="PASCUAL">👤 PASCUAL</option>
-                  <option value="EDUARDO">👤 EDUARDO</option>
-                  <option value="EDGAR">👤 EDGAR</option>
+                  <option value="JORGE">JORGE</option>
+                  <option value="GERARDO">GERARDO</option>
+                  <option value="OSVALDO">OSVALDO</option>
+                  <option value="BALANDRAN">BALANDRAN</option>
+                  <option value="ULISES">ULISES</option>
+                  <option value="JOSUE">JOSUE</option>
+                  <option value="ISRAEL">ISRAEL</option>
+                  <option value="ISAAC">ISAAC</option>
+                  <option value="ANGEL">ANGEL</option>
+                  <option value="LEO">LEO</option>
+                  <option value="BRAULIO">BRAULIO</option>
+                  <option value="LONGORIA">LONGORIA</option>
+                  <option value="MARTHA">MARTHA</option>
+                  <option value="FERNANDA">FERNANDA</option>
+                  <option value="ZALLO">ZALLO</option>
+                  <option value="UBALDO">UBALDO</option>
+                  <option value="JOSE LUIS">JOSE LUIS</option>
+                  <option value="PASCUAL">PASCUAL</option>
+                  <option value="EDUARDO">EDUARDO</option>
+                  <option value="EDGAR">EDGAR</option>
                 </optgroup>
               </select>
             </div>
@@ -2272,7 +2281,7 @@
           <div class="admin-section-title">Evidencia y Seguimiento</div>
           <div class="inner-card admin-form-card">
             <div class="field admin-upload-box">
-              <label>📂 Cargar nuevos archivos al expediente</label>
+              <label><span class="material-symbols-outlined" aria-hidden="true">upload_file</span> Cargar nuevos archivos al expediente</label>
               <input type="file" id="a_mod_file" multiple
                 onchange="actualizarEstadoArchivosAdmin('a_mod_file', 'a_mod_fileStatus')"
                 style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
@@ -2306,10 +2315,10 @@
           </div>
 
           <div id="a_mod_btn_container" class="admin-actions" style="display:flex; gap:10px; margin-top:20px;">
-            <button class="btn-save-global" onclick="guardarEdicionAdmin('MODIFICAR')" style="margin-top:0;">💾 GUARDAR
+            <button class="btn-save-global" onclick="guardarEdicionAdmin('MODIFICAR')" style="margin-top:0;"><span class="material-symbols-outlined" aria-hidden="true">save</span> GUARDAR
               CAMBIOS</button>
             <button class="btn-save-global" onclick="guardarEdicionAdmin('ELIMINAR')"
-              style="margin-top:0; background:#fff1f2; color:#ef4444; box-shadow:none;">🗑️ RETIRAR DE CUADRE</button>
+              style="margin-top:0; background:#fff1f2; color:#ef4444; box-shadow:none;"><span class="material-symbols-outlined" aria-hidden="true">delete_outline</span> RETIRAR DE CUADRE</button>
           </div>
         </div>
       </div>
@@ -2478,7 +2487,7 @@
 
   <div id="modal-cuadre-3v" class="fleet-modal" style="z-index: 40000;">
     <div class="fleet-header-top">
-      <h2 style="color:var(--primary); font-weight:900; margin:0;">🔒 PROTOCOLO DE CUADRE</h2>
+      <h2 style="color:var(--primary); font-weight:900; margin:0;"><span class="material-symbols-outlined" aria-hidden="true">lock</span> PROTOCOLO DE CUADRE</h2>
       <button onclick="cerrarCuadre3V()"
         style="background:#f1f5f9; color:#64748b; border:none; padding:10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CANCELAR</button>
     </div>
@@ -2515,7 +2524,7 @@
             <div><small style="font-weight:800; color:#94a3b8;">TOTAL:</small> <b id="v3-total"
                 style="color:var(--mex-blue); font-size:18px;">0</b></div>
           </div>
-          <button onclick="irAPaso2()" class="btn-save-global" style="margin-top:0;">LOS DATOS SON CORRECTOS →</button>
+          <button onclick="irAPaso2()" class="btn-save-global" style="margin-top:0;">LOS DATOS SON CORRECTOS <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
         </div>
 
         <div id="paso2-ui" style="display:none;">
@@ -2539,7 +2548,7 @@
             <small style="display:block; font-weight:800; color:#059669;">RESPONSABLE DEL CUADRE:</small>
             <b id="v3-firma-nombre" style="font-size:18px; color:#064e3b;">--</b>
           </div>
-          <button onclick="finalizarCuadre3V()" class="btn-save-global" style="margin-top:0; background:#10b981;">✅
+          <button onclick="finalizarCuadre3V()" class="btn-save-global" style="margin-top:0; background:#10b981;"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
             SELLAR INVENTARIO FINAL</button>
         </div>
 
@@ -3107,7 +3116,7 @@
       <div id="modal-lector-reservas" class="modal-overlay" style="z-index: 76000;">
         <div class="console-card" style="max-width: 640px; text-align: left; padding: 28px 28px 24px; position:relative;">
           <button onclick="document.getElementById('modal-lector-reservas').classList.remove('active')"
-            style="position:absolute; right:15px; top:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:900;">✕</button>
+            aria-label="Cerrar" style="position:absolute; right:15px; top:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:900;"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
 
           <h2 style="color: var(--primary, #0f172a); font-weight: 600; margin: 0 0 6px 0; font-size: 20px;">Reporte de actividad diaria</h2>
           <p style="color: #6b7280; font-size: 13px; margin: 0 0 20px; font-weight: 400;">Sube la captura del sistema. Se generará el PDF automáticamente.</p>
@@ -3168,7 +3177,7 @@
               </p>
             </div>
             <button onclick="document.getElementById('modal-prediccion').classList.remove('active')"
-              style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;">✕</button>
+              aria-label="Cerrar" style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
           </div>
 
           <div id="prediccion-paso-1" style="padding: 25px; display: block;">
@@ -3238,7 +3247,7 @@
             <span class="material-icons" style="font-size: 18px; color: #38bdf8;">smart_toy</span> IA
           </div>
           <button onclick="document.getElementById('ai-response-panel').style.display='none'"
-            style="background: transparent; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 16px;">✕</button>
+            aria-label="Cerrar" style="background: transparent; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 16px;"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
         </div>
         <div class="ai-panel-body" id="ai-response-content">
         </div>
@@ -3386,10 +3395,10 @@
                     <span class="material-symbols-outlined">align_vertical_bottom</span>
                   </button>
                   <button type="button" onclick="editorDistribuirGrupo('H')" data-tip="Distribuye la separación horizontal del grupo.">
-                    <span>↔</span>
+                    <span class="material-symbols-outlined" aria-hidden="true">horizontal_distribute</span>
                   </button>
                   <button type="button" onclick="editorDistribuirGrupo('V')" data-tip="Distribuye la separación vertical del grupo.">
-                    <span>↕</span>
+                    <span class="material-symbols-outlined" aria-hidden="true">vertical_distribute</span>
                   </button>
                 </div>
 
@@ -3450,19 +3459,19 @@
                   <div class="mapa-field-group">
                     <label class="mapa-field-label">Ancho</label>
                     <div class="mapa-size-ctrl">
-                      <button type="button" onclick="editorSpanChange('width',-10)">−</button>
+                      <button type="button" onclick="editorSpanChange('width',-10)" aria-label="Reducir ancho"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
                       <input id="ep-width" type="number" min="40" step="10" class="mapa-input"
                         style="width:58px; text-align:center;" oninput="editorPropChange()">
-                      <button type="button" onclick="editorSpanChange('width',10)">+</button>
+                      <button type="button" onclick="editorSpanChange('width',10)" aria-label="Aumentar ancho"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
                     </div>
                   </div>
                   <div class="mapa-field-group">
                     <label class="mapa-field-label">Alto</label>
                     <div class="mapa-size-ctrl">
-                      <button type="button" onclick="editorSpanChange('height',-10)">−</button>
+                      <button type="button" onclick="editorSpanChange('height',-10)" aria-label="Reducir alto"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
                       <input id="ep-height" type="number" min="30" step="10" class="mapa-input"
                         style="width:58px; text-align:center;" oninput="editorPropChange()">
-                      <button type="button" onclick="editorSpanChange('height',10)">+</button>
+                      <button type="button" onclick="editorSpanChange('height',10)" aria-label="Aumentar alto"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
                     </div>
                   </div>
                 </div>
