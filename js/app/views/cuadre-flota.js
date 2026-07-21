@@ -4,7 +4,7 @@
 // de mision de cuadre al auxiliar (Ventas + roles admin).
 // ============================================================================
 
-import { getState, getCurrentPlaza } from '/js/app/app-state.js';
+import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
 import {
   db,
   COL,
@@ -19,6 +19,7 @@ import { generarHtmlAuditoriaCuadrePdf, abrirReporteImpresion } from '/js/core/c
 let _ctr = null;
 let _navigate = null;
 let _s = null;
+let _offPlazaChange = null;
 
 export async function mount({ container, navigate }) {
   unmount();
@@ -41,9 +42,24 @@ export async function mount({ container, navigate }) {
   _bind();
   _paint();
   await _load();
+
+  // Multi-tenancy: si cambia la plaza activa, este contexto debe cambiar
+  // con ella (recargar historial/mision/flota de la nueva plaza).
+  _offPlazaChange = onPlazaChange(nextPlaza => {
+    if (!_s) return;
+    const plaza = _normPlaza(nextPlaza);
+    if (!plaza || plaza === _s.plaza) return;
+    _s.plaza = plaza;
+    _s.historialSearch = '';
+    _s.mission = null;
+    _s.fleetUnits = [];
+    _s.auxiliares = [];
+    void _load();
+  });
 }
 
 export function unmount() {
+  if (_offPlazaChange) { try { _offPlazaChange(); } catch (_) {} _offPlazaChange = null; }
   _ctr = null;
   _navigate = null;
   _s = null;
