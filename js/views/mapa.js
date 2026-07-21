@@ -13994,6 +13994,28 @@ function _cuadrePdfCell(value) {
   return escapeHtml(text);
 }
 
+// Colores por estado de patio (mismos tokens que .fl-dot-* en css/mapa.css).
+const CUADRE_PDF_ESTADO_COLOR = {
+  LISTO: '#22c55e',
+  SUCIO: '#f59e0b',
+  MANTENIMIENTO: '#ef4444',
+  TRASLADO: '#8b5cf6',
+  RESGUARDO: '#94a3b8',
+  VENTA: '#94a3b8',
+  RETENIDA: '#94a3b8',
+  'NO ARRENDABLE': '#94a3b8'
+};
+
+function _cuadrePdfEstadoColor(estado) {
+  return CUADRE_PDF_ESTADO_COLOR[String(estado || '').toUpperCase()] || '#ef4444';
+}
+
+function _cuadrePdfPill(label, colorHex) {
+  const text = String(label || '').trim();
+  if (!text) return '';
+  return `<span class="cuadre-pdf-pill" style="background:${colorHex}1a;color:${colorHex}">${escapeHtml(text)}</span>`;
+}
+
 function _cuadrePdfFirmaHtml(title, name, dataUrl) {
   const safeTitle = escapeHtml(title);
   const safeName = escapeHtml(name || 'Pendiente');
@@ -14025,24 +14047,34 @@ function generarHtmlAuditoriaCuadrePdf(auditList = window.AUDIT_LIST || [], stat
   const plaza = meta.plaza || empresa.plaza || _miPlaza() || '';
   const rows = units.map(u => {
     const status = String(u.status || '').toUpperCase();
-    const estadoLabel = status === 'OK' ? 'CUADRE PERFECTO'
-      : (status === 'FALTANTE' ? 'FALTANTE FISICO' : (status === 'EXTRA' ? 'SOBRANTE FISICO' : status || 'PENDIENTE'));
     const gas = u.gasolinaCorregida || u.gasolina || u.gas || 'N/A';
-    const ubicacion = u.ubicacion || u.pos || (status === 'EXTRA' ? 'SOBRANTE' : 'PATIO');
-    const notas = [
-      u.km != null && u.km !== '' ? `KM ${u.km}` : '',
-      u.gasolinaSistema && String(u.gasolinaSistema) !== String(gas) ? `Gas sistema ${u.gasolinaSistema}` : '',
-      u.notas || ''
-    ].filter(Boolean).join(' | ');
+    const km = u.km != null && u.km !== '' ? String(u.km) : '—';
+    const notas = String(u.notas || '').trim();
+
+    let estadoHtml;
+    let ubicacionHtml;
+    if (status === 'FALTANTE') {
+      estadoHtml = _cuadrePdfPill('FALTANTE', '#ef4444');
+      ubicacionHtml = _cuadrePdfPill('NO LOCALIZADA', '#94a3b8');
+    } else if (status === 'EXTRA') {
+      estadoHtml = _cuadrePdfPill('SOBRANTE', '#f59e0b');
+      ubicacionHtml = _cuadrePdfPill(u.ubicacion || u.pos || 'SOBRANTE', '#94a3b8');
+    } else {
+      const estadoPatio = normalizarEstadoPatio(u.estado) || String(u.estado || '').toUpperCase() || 'DESCONOCIDO';
+      estadoHtml = _cuadrePdfPill(estadoPatio, _cuadrePdfEstadoColor(estadoPatio));
+      ubicacionHtml = _cuadrePdfPill(u.ubicacion || u.pos || 'PATIO', '#94a3b8');
+    }
+
     return `
       <tr class="status-${escapeHtml(status || 'PENDIENTE')}">
         <td>${_cuadrePdfCell(u.mva)}</td>
         <td>${_cuadrePdfCell(u.modelo)}</td>
         <td>${_cuadrePdfCell(u.placas)}</td>
         <td>${_cuadrePdfCell(gas)}</td>
-        <td>${_cuadrePdfCell(estadoLabel)}</td>
-        <td>${_cuadrePdfCell(ubicacion)}</td>
-        <td>${_cuadrePdfCell(notas || 'Sin observaciones')}</td>
+        <td>${_cuadrePdfCell(km)}</td>
+        <td>${estadoHtml}</td>
+        <td>${ubicacionHtml}</td>
+        <td class="cuadre-pdf-note-cell">${notas ? `<em>${escapeHtml(notas)}</em>` : '<span class="cuadre-pdf-note-empty">Sin observaciones</span>'}</td>
       </tr>
     `;
   }).join('');
@@ -14065,6 +14097,10 @@ function generarHtmlAuditoriaCuadrePdf(auditList = window.AUDIT_LIST || [], stat
       }
       .cuadre-pdf-page:last-child {
         page-break-after: auto;
+      }
+      .cuadre-pdf-page:first-child {
+        border-top: 4px solid #3b82f6;
+        padding-top: 10px;
       }
       .cuadre-pdf-header {
         display: flex;
@@ -14174,6 +14210,23 @@ function generarHtmlAuditoriaCuadrePdf(auditList = window.AUDIT_LIST || [], stat
       .cuadre-pdf-table tr.status-EXTRA td {
         background: #fffbeb;
       }
+      .cuadre-pdf-pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        font-size: 7.5px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: .02em;
+        white-space: nowrap;
+      }
+      .cuadre-pdf-note-cell em {
+        font-style: italic;
+        color: #374151;
+      }
+      .cuadre-pdf-note-empty {
+        color: #9ca3af;
+      }
       .cuadre-pdf-sign-page {
         min-height: 510px;
         display: flex;
@@ -14277,11 +14330,11 @@ function generarHtmlAuditoriaCuadrePdf(auditList = window.AUDIT_LIST || [], stat
         </div>
 
         <div class="cuadre-pdf-kpis">
-          <div class="cuadre-pdf-kpi"><small>Total revisadas</small><strong>${escapeHtml(String(stats.total || units.length || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Cuadre perfecto</small><strong>${escapeHtml(String(stats.ok || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Faltantes fisicos</small><strong>${escapeHtml(String(stats.faltantes || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Sobrantes fisicos</small><strong>${escapeHtml(String(stats.sobrantes || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Pendientes</small><strong>${escapeHtml(String(stats.pendientes || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Total revisadas</small><strong style="color:#3b82f6">${escapeHtml(String(stats.total || units.length || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Cuadre perfecto</small><strong style="color:#16a34a">${escapeHtml(String(stats.ok || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Faltantes fisicos</small><strong style="color:#ef4444">${escapeHtml(String(stats.faltantes || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Sobrantes fisicos</small><strong style="color:#f59e0b">${escapeHtml(String(stats.sobrantes || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Pendientes</small><strong style="color:#64748b">${escapeHtml(String(stats.pendientes || 0))}</strong></div>
         </div>
 
         <table class="cuadre-pdf-table">
@@ -14291,12 +14344,13 @@ function generarHtmlAuditoriaCuadrePdf(auditList = window.AUDIT_LIST || [], stat
               <th>Modelo</th>
               <th>Placas</th>
               <th>Gas</th>
+              <th>KM</th>
               <th>Estado</th>
               <th>Ubicacion</th>
-              <th>Notas adicionales</th>
+              <th>Notas</th>
             </tr>
           </thead>
-          <tbody>${rows || '<tr><td colspan="7">Sin unidades revisadas.</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="8">Sin unidades revisadas.</td></tr>'}</tbody>
         </table>
       </section>
 
