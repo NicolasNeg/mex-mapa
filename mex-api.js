@@ -128,8 +128,8 @@ const COL = {
 };
 
 // [F1] SETTINGS_DOC eliminado — settings se lean/escriben por plaza: settings/{plazaActual}
-const EVIDENCE_FOLDER = "evidencias_cuadre_admins";
-const NOTE_ATTACHMENT_FOLDER = "notas_admin_adjuntos";
+const EVIDENCE_FOLDER = "evidencias_cuadre";
+const NOTE_ATTACHMENT_FOLDER = "notas_adjuntos";
 
 // [F1] Helpers eliminados: _cuadreRef, _externosRef, _cuadreAdmRef, _histCuadreRef
 // [F1] migrarDatosLegacyAPlazas eliminada (ya no tiene sentido con colecciones planas por plaza)

@@ -70,7 +70,7 @@ In `configuracion/empresa` (surfaced as `MEX_CONFIG.media` / `MEX_CONFIG.empresa
   "media": {
     "provider": "cloudinary",
     "cloudName": "YOUR_CLOUD_NAME",
-    "baseFolder": "mex/prod"
+    "baseFolder": "mapgestion/prod"
   }
 }
 ```
@@ -78,9 +78,37 @@ In `configuracion/empresa` (surfaced as `MEX_CONFIG.media` / `MEX_CONFIG.empresa
 - `cloudName` and `baseFolder` are public-safe.
 - **Do not** put `apiSecret` in Firestore or any client bundle.
 
-Folder convention: `{baseFolder}/{feature}/…`  
-Examples: `mex/prod/papeletas/…`, `mex/prod/mensajes_chat/…`, `mex/prod/alertas/…`.  
-Allowed prefixes on the server: `mex/prod/`, `mex/staging/`, `mex/dev/`.
+## Folder tree (canonical)
+
+Root: **`mapgestion`** (not `mex`). Default base: `mapgestion/prod`.
+
+Callers pass a **relative** feature folder; `uploadMedia` / `resolveUploadFolder` joins it under `baseFolder` and de-dupes accidental doubles.
+
+```
+mapgestion/prod/
+├── catalogo_modelos/
+├── profile_avatars/{uid}/
+├── licencias_choferes/{uid}/
+├── papeletas/{id}/
+│   ├── zonas/
+│   ├── danos/
+│   └── firma/
+├── papeletas_reportes/{id}/
+├── papeletas_ventas/{id}/
+├── notas_adjuntos/{id}/
+├── evidencias_cuadre/{id}/
+├── mensajes_chat/
+├── alertas/
+├── turnos/
+│   ├── checadas/{uid}/
+│   └── firmas/{uid}/
+└── maps/backgrounds/{viewId}/
+```
+
+Staging / dev equivalents: `mapgestion/staging/…`, `mapgestion/dev/…`  
+Allowed prefixes on the server: `mapgestion/prod/`, `mapgestion/staging/`, `mapgestion/dev/`.
+
+Cloudinary creates folders on first upload with that prefix — no Admin API bootstrap required.
 
 ## What stays on Firebase Storage
 
@@ -99,6 +127,6 @@ Uploads fail with a clear `mexAlert`: **“Configura Cloudinary”**. No fake cr
 ## Deploy checklist
 
 1. Set Functions secrets / env vars (above).
-2. Set `configuracion/empresa.media.cloudName` (+ `baseFolder`).
+2. Set `configuracion/empresa.media.cloudName` (+ `baseFolder: "mapgestion/prod"`).
 3. `npm run deploy:functions` (and hosting if client changes): `npm run deploy:full`.
 4. Smoke-test one upload (avatar or papeleta foto) while signed in.

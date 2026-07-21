@@ -7,6 +7,7 @@ import * as R from '/js/app/features/mensajes/mensajes-renderer.js';
 let _unsub = null, _me = null, _all = [], _convs = [], _meta = new Map();
 let _allUsers = [];
 let _identityDirectory = D.buildIdentityDirectory([]);
+let _directoryReady = false;
 let _activePeer = null, _archivedMode = false, _archived = {};
 let _pendingFile = null, _pendingAudio = null, _replyTo = null;
 let _recorder = null, _audioCtx = null, _analyser = null, _specRaf = null, _recTimer = null;
@@ -25,6 +26,33 @@ function _peerValue(peerKey) {
 function _lookupAlias(value) {
   return String(value || '').trim().replace(/\s+/g, ' ').toUpperCase()
     .normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function _enrichMyIdentityFromDirectory(users) {
+  const before = JSON.stringify(_me?.queryIdentities || []);
+  const mine = D.getCanonicalMessageIdentity(_me?.display, _me?.email, _identityDirectory, _me?.uid);
+  const queryIdentities = new Set(_me?.queryIdentities || []);
+  const aliases = new Set(_me?.aliases || []);
+
+  users.forEach(user => {
+    if (_identityForUser(user).key !== mine.key) return;
+    [user.authUid, user.uid, user.email, user.id, user.nombre, user.nombreCompleto, user.usuario]
+      .map(value => String(value || '').trim())
+      .filter(Boolean)
+      .forEach(value => {
+        queryIdentities.add(value === _me.uid ? value : value.toUpperCase());
+        aliases.add(_lookupAlias(value));
+      });
+  });
+
+  _me = {
+    ..._me,
+    key: mine.key,
+    uid: mine.uid || _me.uid,
+    aliases,
+    queryIdentities: [...queryIdentities]
+  };
+  return before !== JSON.stringify(_me.queryIdentities);
 }
 
 function _identityForUser(user) {
@@ -83,6 +111,7 @@ export async function mount(ctx) {
   _ensureCss();
   const { profile } = getState();
   _me = D.buildMyIdentity(profile);
+  _directoryReady = false;
   _archived = D.loadArchived(_me.email);
   container.innerHTML = R.shellLayout(_me.display);
   _bindEvents(container);
@@ -92,14 +121,23 @@ export async function mount(ctx) {
   D.getAllUsers().then(async users => {
     _allUsers = users;
     _identityDirectory = D.buildIdentityDirectory(users);
+    _directoryReady = true;
+    const listenerAliasesChanged = _enrichMyIdentityFromDirectory(users);
     const previousArchived = _archived;
     _archived = D.canonicalizeArchivedConversations(_archived, _identityDirectory);
     if (JSON.stringify(previousArchived) !== JSON.stringify(_archived)) {
       D.saveArchived(_me.email, _archived);
     }
     if (_activePeer) _activePeer = D.canonicalizePeerKey(_activePeer, _identityDirectory);
+    if (listenerAliasesChanged) {
+      _unsub?.();
+      _unsub = D.startRealtimeListener(_me, msgs => { _all = msgs; _refresh(); });
+    }
     await _refresh();
-  }).catch(() => {});
+  }).catch(err => {
+    console.error('[mensajes] No se pudo cargar el directorio', err);
+    _toast('No se pudo verificar el directorio de contactos.');
+  });
   const searchHandler = event => {
     const route = String(event?.detail?.route || '');
     if (!(route.startsWith('/app/mensajes') || route === '/mensajes')) return;
@@ -119,6 +157,7 @@ export function unmount() {
   if (_pendingAudio?.localUrl) URL.revokeObjectURL(_pendingAudio.localUrl);
   _all = []; _convs = []; _meta = new Map(); _allUsers = [];
   _identityDirectory = D.buildIdentityDirectory([]);
+  _directoryReady = false;
   _activePeer = null; _pendingFile = null; _pendingAudio = null; _replyTo = null;
   _pendingDeepLinkPeer = "";
 }
@@ -257,11 +296,9 @@ async function _refresh() {
   const newMeta = await D.hydratePeerMeta(_convs);
   newMeta.forEach((v,k) => _meta.set(k,v));
   _populateFilters();
+  if (_activePeer) _syncActiveChatIdentity();
   _renderContacts();
-  if (_activePeer) {
-    _syncActiveChatIdentity();
-    _renderMessages();
-  }
+  if (_activePeer) _renderMessages();
   _consumeNotificationDeepLink();
 }
 
@@ -323,7 +360,7 @@ function _renderContacts() {
     const myEmail = (_me?.email || '').toLowerCase();
     directoryItems = _allUsers.map(user => ({ user, identity: _identityForUser(user) })).filter(({ user: u, identity }) => {
       const email = String(identity.email || '').toLowerCase();
-      if ((!email && !identity.key) || email === myEmail || identity.key === _me?.key) return false;
+      if ((!email && !identity.uid) || email === myEmail || identity.key === _me?.key) return false;
       if (existingKeys.has(identity.key)) return false;
       if (directorySeen.has(identity.key)) return false;
       const uPlaza = String(u.plazaAsignada || u.plaza || '').toUpperCase();
@@ -408,7 +445,10 @@ function _syncActiveChatIdentity() {
       if (pk === _activePeer) { msg.leido = true; idsToMark.push(msg.id); }
     }
   });
-  if (idsToMark.length) D.marcarMensajesLeidosArray(idsToMark).catch(e => console.error(e));
+  if (idsToMark.length) {
+    if (conv) conv.unread = 0;
+    D.marcarMensajesLeidosArray(idsToMark).catch(e => console.error(e));
+  }
 }
 
 function _closeChat() {
@@ -588,6 +628,10 @@ function _hideInfo() { document.getElementById('amUserInfoModal')?.classList.rem
 async function _openNewChat() {
   const name = await _mexPrompt('Nuevo chat', 'Escribe el nombre o correo del usuario:', 'Nombre o correo', 'text', '');
   if (!name?.trim()) return;
+  if (!_directoryReady && !D.normalizeEmail(name)) {
+    await _mexAlert('Directorio no disponible', 'No se pudo verificar ese nombre. Busca el contacto por correo.', 'warning');
+    return;
+  }
   const identity = D.getCanonicalMessageIdentity(name.trim(), '', _identityDirectory);
   const requestedAlias = _lookupAlias(name);
   const matchingKeys = new Set(_allUsers.filter(user => [
@@ -599,6 +643,10 @@ async function _openNewChat() {
   ].some(value => _lookupAlias(value) === requestedAlias)).map(user => _identityForUser(user).key));
   if (matchingKeys.size > 1) {
     await _mexAlert('Contacto ambiguo', 'Hay más de un usuario con ese nombre. Busca el contacto por correo.', 'warning');
+    return;
+  }
+  if (identity.key.startsWith('LEGACY:')) {
+    await _mexAlert('Contacto no verificado', 'Selecciona un contacto del directorio o escribe su correo.', 'warning');
     return;
   }
   _activePeer = identity.key;
@@ -649,9 +697,10 @@ async function _send() {
   _clearStaging();
   // Optimistic local message
   const now = new Date();
+  const localId = `tmp_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
   const tempDate = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const local = {
-    id: Date.now(),
+    id: localId,
     fecha: tempDate,
     timestamp: Date.now(),
     remitente: senderHandle,
@@ -665,7 +714,14 @@ async function _send() {
   if (archivoUrl) { local.archivoUrl = archivoUrl; local.archivoNombre = archivoNombre; }
   _all.unshift(local);
   _refresh();
-  D.enviarMensajePrivado(senderHandle, dest, txt, archivoUrl, archivoNombre, capturedReply, messageIdentity).catch(e => console.error(e));
+  try {
+    await D.enviarMensajePrivado(senderHandle, dest, txt, archivoUrl, archivoNombre, capturedReply, messageIdentity);
+  } catch (e) {
+    console.error(e);
+    _all = _all.filter(message => message.id !== localId);
+    _refresh();
+    _toast('No se pudo enviar el mensaje.');
+  }
 }
 
 // ── File staging ──────────────────────────────────────────

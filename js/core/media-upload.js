@@ -6,7 +6,7 @@
 
 import { storage, functions } from '/js/core/database.js';
 
-const DEFAULT_BASE_FOLDER = 'mex/prod';
+const DEFAULT_BASE_FOLDER = 'mapgestion/prod';
 const DEFAULT_CLOUD_NAME = 'dcoma38r'; // public delivery cloud name only — never API secret
 const PROVIDER = 'cloudinary';
 
@@ -46,6 +46,37 @@ function _joinFolder(...parts) {
     .map((p) => _safeText(p).replace(/^\/+|\/+$/g, ''))
     .filter(Boolean)
     .join('/');
+}
+
+const KNOWN_BASE_FOLDERS = ['mapgestion/prod', 'mapgestion/staging', 'mapgestion/dev'];
+
+/**
+ * Join feature folder under baseFolder without duplicating prefixes.
+ * Callers pass relative folders like `papeletas/{id}/zonas` or `profile_avatars/{uid}`.
+ * Absolute `mapgestion/{env}/…` is accepted and de-duped.
+ */
+export function resolveUploadFolder(folder) {
+  const cfg = getMediaConfig();
+  const base = _sanitizeSegment(cfg.baseFolder || DEFAULT_BASE_FOLDER, DEFAULT_BASE_FOLDER);
+  let rel = _sanitizeSegment(folder || 'misc', 'misc');
+
+  // Collapse accidental doubles: mapgestion/prod/mapgestion/prod/…
+  for (const kb of KNOWN_BASE_FOLDERS) {
+    const doubled = `${kb}/${kb}/`;
+    while (rel.startsWith(doubled)) rel = rel.slice(kb.length + 1);
+    if (rel === `${kb}/${kb}`) rel = kb;
+  }
+
+  // Strip configured base once if already present
+  while (rel === base || rel.startsWith(`${base}/`)) {
+    if (rel === base) return base;
+    rel = rel.slice(base.length + 1);
+  }
+
+  if (KNOWN_BASE_FOLDERS.some((kb) => rel === kb || rel.startsWith(`${kb}/`))) {
+    return rel;
+  }
+  return _joinFolder(base, rel || 'misc');
 }
 
 function _guessResourceType(file, explicit) {
@@ -202,9 +233,7 @@ export async function uploadMedia({ folder, file, blob, publicId, resourceType }
   if (!mediaFile) throw new Error('Archivo requerido para uploadMedia.');
 
   const cfg = getMediaConfig();
-  const base = cfg.baseFolder || DEFAULT_BASE_FOLDER;
-  const relFolder = _sanitizeSegment(folder || 'misc', 'misc');
-  const fullFolder = relFolder.startsWith(base) ? relFolder : _joinFolder(base, relFolder);
+  const fullFolder = resolveUploadFolder(folder);
   const type = _guessResourceType(mediaFile, resourceType);
   const safePublicId = publicId
     ? _sanitizeSegment(publicId, `f_${Date.now()}`)
@@ -299,6 +328,7 @@ if (typeof window !== 'undefined') {
     destroyMedia,
     normalizeMediaRef,
     getMediaConfig,
+    resolveUploadFolder,
     publicIdFromCloudinaryUrl,
   };
 }

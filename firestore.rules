@@ -885,9 +885,26 @@ service cloud.firestore {
       allow read, write: if puedeEmitirAlertasMaestras();
     }
 
+    function mensajeNuevoValido() {
+      let data = request.resource.data;
+      let senderUid = data.get('remitenteUid', '');
+      let senderEmail = data.get('remitenteEmail', '');
+      let recipientUid = data.get('destinatarioUid', '');
+      let recipientEmail = data.get('destinatarioEmail', '');
+      return tienePerfilActivo()
+        && request.auth.token.email != null
+        && senderUid is string
+        && senderUid == request.auth.uid
+        && senderEmail is string
+        && senderEmail.lower() == request.auth.token.email.lower()
+        && recipientUid is string
+        && recipientEmail is string
+        && (recipientUid != '' || recipientEmail != '');
+    }
+
     match /mensajes/{doc} {
       allow read: if tienePerfilActual();
-      allow create: if tienePerfilActual();
+      allow create: if mensajeNuevoValido();
       allow update, delete: if tienePerfilActual();
     }
 

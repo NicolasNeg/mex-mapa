@@ -181,6 +181,7 @@
     return {
       ...safeObject(raw),
       id: safeText(raw.id || email || fallbackUser?.uid),
+      authUid: safeText(raw.authUid || raw.uid || fallbackUser?.uid),
       email,
       nombre: nombreCompleto,
       nombreCompleto,
@@ -495,7 +496,7 @@
   const DEFAULT_MEDIA_CONFIG = Object.freeze({
     provider: 'cloudinary',
     cloudName: 'dcoma38r',
-    baseFolder: 'mex/prod'
+    baseFolder: 'mapgestion/prod'
   });
 
   function normalizeMediaConfig(media = {}, empresa = {}) {

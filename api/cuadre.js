@@ -688,8 +688,8 @@
       const media = window.mexMedia?.uploadMedia
         ? window.mexMedia
         : await import('/js/core/media-upload.js');
-      const folderFromPath = String(rutaStorage || 'evidencias_cuadre_admins')
-        .replace(/\/[^/]+$/, '') || 'evidencias_cuadre_admins';
+      const folderFromPath = String(rutaStorage || 'evidencias_cuadre')
+        .replace(/\/[^/]+$/, '') || 'evidencias_cuadre';
       const leaf = String(rutaStorage || '').split('/').pop()?.replace(/\.[^.]+$/, '') || `ev_${Date.now()}`;
       const type = String(file?.type || '');
       const resourceType = type.startsWith('image/')

@@ -105,6 +105,34 @@ test('correos historico y actual del mismo UID conservan una identidad', () => {
   );
 });
 
+test('absorbe un perfil antiguo sin UID cuando comparte correo con el perfil actual', () => {
+  const directory = buildIdentityDirectory([
+    { id: 'angel@example.com', email: 'angel@example.com', nombre: 'Angel Armenta' },
+    { authUid: 'uid-angel', email: 'angel@example.com', nombre: 'Angel Armenta' }
+  ]);
+
+  assert.equal(
+    getCanonicalMessageIdentity('ANGEL ARMENTA', '', directory).key,
+    'UID:uid-angel'
+  );
+  assert.equal(
+    getCanonicalMessageIdentity('angel@example.com', '', directory).key,
+    'UID:uid-angel'
+  );
+});
+
+test('elige el correo del perfil activo al consolidar varias fichas del mismo UID', () => {
+  const directory = buildIdentityDirectory([
+    { uid: 'uid-angel', email: 'anterior@example.com', nombre: 'Angel Anterior', status: 'INACTIVO' },
+    { uid: 'uid-angel', email: 'actual@example.com', nombre: 'Angel Armenta', status: 'ACTIVO' }
+  ]);
+  const identity = getCanonicalMessageIdentity('anterior@example.com', '', directory);
+
+  assert.equal(identity.key, 'UID:uid-angel');
+  assert.equal(identity.email, 'actual@example.com');
+  assert.equal(identity.label, 'ANGEL ARMENTA');
+});
+
 test('detecta mensajes propios por UID, correo y alias de nombre', () => {
   const me = buildMyIdentity({
     uid: 'uid-me',

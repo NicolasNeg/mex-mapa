@@ -98,7 +98,7 @@ export async function uploadDamageFoto(papeletaId, damageId, file) {
 
 export async function uploadFirma(papeletaId, blob) {
   const result = await _uploadToCloudinary(
-    `papeletas/${papeletaId}`,
+    `papeletas/${papeletaId}/firma`,
     blob,
     'firma',
     'image'

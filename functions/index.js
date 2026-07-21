@@ -1146,11 +1146,21 @@ exports.onPrivateMessageCreated = functions.region(REGION).firestore.document("m
   try {
     const data = snap.data();
     if (!data) return;
-    const recipientHandle = data.destinatarioUid || data.destinatarioEmail || data.destinatario;
-    const recipients = await resolveUserDocIdsByHandle(recipientHandle);
+    const recipientHandle = data.destinatarioEmail || data.destinatarioUid || data.destinatario;
+    const actorHandle = data.remitenteEmail || data.remitenteUid || data.remitente;
+    const [recipients, actorDocIds] = await Promise.all([
+      resolveUserDocIdsByHandle(recipientHandle),
+      resolveUserDocIdsByHandle(actorHandle)
+    ]);
     const eventId = `msg_${context.params.msgId}`;
-    const actorName = normalizeUpper(data.remitenteNombre || data.remitenteEmail || data.remitente || "Sistema");
-    const actorHandle = data.remitenteUid || data.remitenteEmail || data.remitente || actorName;
+    let actorName = normalizeUpper(data.remitenteEmail || data.remitente || "Sistema");
+    if (actorDocIds.length) {
+      const actorDoc = await db.collection(USERS_COL).doc(actorDocIds[0]).get();
+      const actorProfile = actorDoc.exists ? actorDoc.data() || {} : {};
+      actorName = normalizeUpper(
+        actorProfile.nombre || actorProfile.nombreCompleto || actorProfile.usuario || actorName
+      );
+    }
     const deepLink = `/mapa?notif=chat&chatUser=${encodeURIComponent(actorHandle)}`;
     const bodyText = normalizeString(data.mensaje || data.archivoNombre || "Tienes un nuevo mensaje.");
     await writeOpsEvent(eventId, {
@@ -3122,20 +3132,29 @@ function getCloudinarySdk() {
   return { cloudinary, env };
 }
 
-const CLOUDINARY_BASE_FOLDER = "mex/prod";
+const CLOUDINARY_BASE_FOLDER = "mapgestion/prod";
 const CLOUDINARY_ALLOWED_FOLDER_PREFIXES = [
-  "mex/prod/",
-  "mex/staging/",
-  "mex/dev/"
+  "mapgestion/prod/",
+  "mapgestion/staging/",
+  "mapgestion/dev/"
 ];
 
 function sanitizeCloudinaryFolder(folder) {
-  const cleaned = normalizeString(folder)
+  let cleaned = normalizeString(folder)
     .replace(/\\/g, "/")
     .replace(/[^a-zA-Z0-9/_-]/g, "_")
     .replace(/\/+/g, "/")
     .replace(/^\/+|\/+$/g, "");
-  const full = cleaned.startsWith("mex/")
+
+  // Collapse accidental doubles: mapgestion/prod/mapgestion/prod/…
+  for (const prefix of CLOUDINARY_ALLOWED_FOLDER_PREFIXES) {
+    const base = prefix.replace(/\/$/, "");
+    const doubled = `${base}/${base}/`;
+    while (cleaned.startsWith(doubled)) cleaned = cleaned.slice(base.length + 1);
+    if (cleaned === `${base}/${base}`) cleaned = base;
+  }
+
+  const full = cleaned.startsWith("mapgestion/")
     ? cleaned
     : `${CLOUDINARY_BASE_FOLDER}/${cleaned || "misc"}`;
   if (!CLOUDINARY_ALLOWED_FOLDER_PREFIXES.some((p) => full.startsWith(p))) {

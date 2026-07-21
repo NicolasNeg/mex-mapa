@@ -90,11 +90,11 @@ export function messageSnippet(msg) {
 export function startRealtimeListener(me, callback) {
   const identities = me.queryIdentities;
   const unsubs = [];
-  const buckets = { sent: [], recv: [] };
+  const buckets = { sent: new Map(), recv: new Map() };
 
   function _merge() {
     const seen = new Set();
-    const all = [...buckets.sent, ...buckets.recv]
+    const all = [...buckets.sent.values(), ...buckets.recv.values()].flat()
       .filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; })
       .sort((a, b) => msgTs(b) - msgTs(a))
       .map(m => ({
@@ -108,7 +108,7 @@ export function startRealtimeListener(me, callback) {
 
   // Listen for all identities the user may have
   for (const identity of identities) {
-    const safeId = _up(identity);
+    const safeId = me.uid && identity === me.uid ? identity : _up(identity);
     if (!safeId) continue;
 
     let q1 = db.collection('mensajes').where('remitente', '==', safeId);
@@ -116,12 +116,7 @@ export function startRealtimeListener(me, callback) {
       q1.orderBy('timestamp', 'desc').limit(300)
         .onSnapshot(snap => {
           const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          // Merge into sent bucket, keeping unique by id
-          const existing = new Set(rows.map(r => r.id));
-          buckets.sent = [
-            ...buckets.sent.filter(r => !existing.has(r.id)),
-            ...rows
-          ];
+          buckets.sent.set(safeId, rows);
           _merge();
         }, err => console.error('[mensajes-data] sent listener', safeId, err))
     );
@@ -131,11 +126,7 @@ export function startRealtimeListener(me, callback) {
       q2.orderBy('timestamp', 'desc').limit(300)
         .onSnapshot(snap => {
           const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          const existing = new Set(rows.map(r => r.id));
-          buckets.recv = [
-            ...buckets.recv.filter(r => !existing.has(r.id)),
-            ...rows
-          ];
+          buckets.recv.set(safeId, rows);
           _merge();
         }, err => console.error('[mensajes-data] recv listener', safeId, err))
     );
@@ -298,6 +289,6 @@ export async function getAllUsers() {
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (err) {
     console.warn('[mensajes-data] getAllUsers', err);
-    return [];
+    throw err;
   }
 }

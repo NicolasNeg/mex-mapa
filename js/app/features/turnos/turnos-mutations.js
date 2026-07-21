@@ -79,7 +79,7 @@ async function uploadChecadaFirma(firmaDataURL, { uid, tipo }) {
   try {
     const { uploadMedia } = await import('/js/core/media-upload.js');
     const result = await uploadMedia({
-      folder: `turnos_firmas/${uid}`,
+      folder: `turnos/firmas/${uid}`,
       file: blob,
       publicId: `${tipo}_${Date.now()}`,
       resourceType: 'image',

@@ -38,6 +38,38 @@ function profileLabel(profile, email = '') {
   );
 }
 
+function timestampMillis(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value?.toMillis === 'function') return Number(value.toMillis()) || 0;
+  if (typeof value?.seconds === 'number') return value.seconds * 1000;
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function profilePriority(profile = {}) {
+  const status = upper(profile.status || 'ACTIVO');
+  const enabled = !['INACTIVO', 'RECHAZADO', 'BLOQUEADO', 'SUSPENDIDO'].includes(status)
+    && profile.activo !== false
+    && profile.autorizado !== false
+    && profile.accesoSistema !== false;
+  const recency = Math.max(...[
+    profile.updatedAt,
+    profile.lastSeenAt,
+    profile.lastActiveAt,
+    profile.ultimaConexionTs,
+    profile.fechaActualizacion
+  ].map(timestampMillis));
+  return [enabled ? 1 : 0, profile.isOnline === true ? 1 : 0, recency, profileUid(profile) ? 1 : 0];
+}
+
+function isHigherPriority(next, current) {
+  if (!current) return true;
+  for (let i = 0; i < next.length; i += 1) {
+    if (next[i] !== current[i]) return next[i] > current[i];
+  }
+  return false;
+}
+
 function fallbackIdentity(raw, explicitEmail = '', explicitUid = '') {
   const uid = clean(explicitUid);
   const email = normalizeEmail(explicitEmail) || normalizeEmail(raw);
@@ -104,10 +136,24 @@ export function buildIdentityDirectory(users = []) {
   const identities = new Map();
   const aliasIndex = new Map();
   const records = [];
+  const identityPriorities = new Map();
+  const profiles = Array.isArray(users) ? users : [];
+  const emailUidCandidates = new Map();
 
-  for (const profile of Array.isArray(users) ? users : []) {
-    const uid = profileUid(profile);
+  for (const profile of profiles) {
     const email = profileEmail(profile);
+    const uid = profileUid(profile);
+    if (!email || !uid) continue;
+    const matches = emailUidCandidates.get(email) || new Set();
+    matches.add(uid);
+    emailUidCandidates.set(email, matches);
+  }
+
+  for (const profile of profiles) {
+    const directUid = profileUid(profile);
+    const email = profileEmail(profile);
+    const uidCandidates = email ? emailUidCandidates.get(email) : null;
+    const uid = directUid || (uidCandidates?.size === 1 ? [...uidCandidates][0] : '');
     const label = profileLabel(profile, email);
     const legacy = normalizeAlias(label);
     const key = uid
@@ -119,14 +165,17 @@ export function buildIdentityDirectory(users = []) {
     if (!uid && !email && !legacy) continue;
 
     const current = identities.get(key);
+    const priority = profilePriority(profile);
+    const useProfile = isHigherPriority(priority, identityPriorities.get(key));
     const identity = {
       key,
       uid: uid || current?.uid || '',
-      email: email || current?.email || '',
-      label: label !== 'USUARIO' ? label : (current?.label || label),
-      raw: label
+      email: (useProfile ? email : current?.email) || email || current?.email || '',
+      label: (useProfile && label !== 'USUARIO' ? label : current?.label) || label,
+      raw: (useProfile ? label : current?.raw) || label
     };
     identities.set(key, identity);
+    if (useProfile) identityPriorities.set(key, priority);
     records.push({ profile, identity });
   }
 

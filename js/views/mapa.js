@@ -1,4 +1,11 @@
 import { parseKm } from '/domain/kilometraje.model.js';
+import {
+  buildIdentityDirectory as buildChatIdentityDirectory,
+  buildMyIdentity as buildChatMyIdentity,
+  getCanonicalMessageIdentity as getChatCanonicalIdentity,
+  getPeerSide as getChatPeerSide,
+  isMessageMine as isChatMessageMine
+} from '/domain/mensajes-identity.model.js';
 import { generarHtmlAuditoriaCuadrePdf, abrirReporteImpresion } from '/js/core/cuadre-pdf.js';
 // Estados flota/patio: preferir window.mexEstados (estado-bridge.js) para no
 // romper si el SW sirve un domain/estado.model.js cacheado sin los exports nuevos.
@@ -14810,6 +14817,8 @@ function renderHistorialCuadres() {
 // ==========================================
 let allChatMessages = [];
 let activeChatUser = null;
+let _chatIdentityDirectory = buildChatIdentityDirectory([]);
+let _chatMe = buildChatMyIdentity({});
 let pendingChatFile = null;   // { file, previewUrl, isImg }
 let pendingAudioBlob = null;   // { blob, localUrl, mimeType, extension }
 let replyingToMsg = null;   // { id, remitente, mensaje }
@@ -14878,14 +14887,63 @@ function _chatUserName(value = '') {
   return String(value || '').trim().toUpperCase();
 }
 
+function _refreshChatIdentityModel() {
+  _chatIdentityDirectory = buildChatIdentityDirectory(dbUsuariosLogin);
+  _chatMe = buildChatMyIdentity({
+    ...(currentUserProfile || {}),
+    authUid: currentUserProfile?.authUid || currentUserProfile?.uid || auth.currentUser?.uid || '',
+    email: currentUserProfile?.email || auth.currentUser?.email || '',
+    nombre: currentUserProfile?.nombre || currentUserProfile?.nombreCompleto || USER_NAME
+  });
+  const queryIdentities = new Set(_chatMe.queryIdentities || []);
+  const aliases = new Set(_chatMe.aliases || []);
+  dbUsuariosLogin.forEach(user => {
+    const email = String(user.email || (String(user.id || '').includes('@') ? user.id : '') || '').trim().toLowerCase();
+    const uid = String(user.authUid || user.uid || '').trim();
+    const name = user.nombre || user.nombreCompleto || user.usuario || email || user.id || uid;
+    const identity = getChatCanonicalIdentity(name, email, _chatIdentityDirectory, uid);
+    if (identity.key !== _chatMe.key) return;
+    [user.authUid, user.uid, user.email, user.id, user.nombre, user.nombreCompleto, user.usuario]
+      .map(value => String(value || '').trim())
+      .filter(Boolean)
+      .forEach(value => {
+        queryIdentities.add(value === _chatMe.uid ? value : _chatUserName(value));
+        aliases.add(_chatUserName(value).normalize('NFKD').replace(/[\u0300-\u036f]/g, ''));
+      });
+  });
+  _chatMe = { ..._chatMe, queryIdentities: [...queryIdentities], aliases };
+}
+
+function _chatPeerIdentity(message = {}) {
+  return getChatPeerSide(message, _chatMe, _chatIdentityDirectory);
+}
+
 function _chatMessageTimestamp(msg = {}) {
   return _coerceTimestamp(msg.timestamp || msg.ts || msg.createdAt || msg.id);
+}
+
+function _chatIdentityForUser(user = {}) {
+  const email = String(user.email || (String(user.id || '').includes('@') ? user.id : '') || '').trim().toLowerCase();
+  const uid = String(user.authUid || user.uid || '').trim();
+  const name = user.nombre || user.nombreCompleto || user.usuario || email || user.id || uid;
+  return getChatCanonicalIdentity(name, email, _chatIdentityDirectory, uid);
 }
 
 function _chatContactByName(name = '') {
   const normalized = _chatUserName(name);
   if (!normalized) return null;
-  return dbUsuariosLogin.find(user => _chatUserName(user.usuario || user.nombre) === normalized) || null;
+  return dbUsuariosLogin.find(user => {
+    const identity = _chatIdentityForUser(user);
+    return [
+      identity.label,
+      identity.key,
+      user.nombre,
+      user.nombreCompleto,
+      user.usuario,
+      user.email,
+      user.id
+    ].some(value => _chatUserName(value) === normalized);
+  }) || null;
 }
 
 function _chatContactByIdentifier(identifier = '') {
@@ -14968,7 +15026,7 @@ function _chatConversationLastTimestamp(name = '') {
   const target = _chatUserName(name);
   if (!target) return 0;
   return allChatMessages.reduce((max, msg) => {
-    const other = _chatUserName(msg.esMio ? msg.destinatario : msg.remitente);
+    const other = _chatUserName(_chatPeerIdentity(msg).label || (msg.esMio ? msg.destinatario : msg.remitente));
     if (other !== target) return max;
     const ts = _chatMessageTimestamp(msg);
     return ts > max ? ts : max;
@@ -15709,28 +15767,43 @@ async function _subirBlobAvatarPerfil(fileBlob, contentType = 'image/jpeg') {
   const docId = _currentUserDocId();
   if (!fileBlob || !docId) return;
 
-  const ext = _avatarExtensionFromContentType(contentType);
-  const avatarPath = `profile_avatars/${docId}/avatar_${Date.now()}.${ext}`;
   const previousPath = String(currentUserProfile?.avatarPath || '').trim();
+  const previousPublicId = String(currentUserProfile?.avatarPublicId || '').trim();
   const previousUrl = String(currentUserProfile?.avatarUrl || '').trim();
+  const previousProvider = String(currentUserProfile?.avatarProvider || '').trim();
+  const storageBucket = String(auth.currentUser?.uid || docId).trim();
 
   showToast('Subiendo foto de perfil...', 'info');
-  const ref = firebase.storage().ref(avatarPath);
-  await ref.put(fileBlob, { contentType });
-  const avatarUrl = await ref.getDownloadURL();
+  const media = window.mexMedia?.uploadMedia
+    ? window.mexMedia
+    : await import('/js/core/media-upload.js');
+  const uploaded = await media.uploadMedia({
+    folder: `profile_avatars/${storageBucket}`,
+    file: fileBlob,
+    publicId: `avatar_${Date.now()}`,
+    resourceType: 'image'
+  });
+  const avatarUrl = uploaded.url;
+  const avatarPath = uploaded.publicId || '';
+  const avatarPublicId = uploaded.publicId || '';
+  const avatarProvider = uploaded.provider || 'cloudinary';
 
   const payload = {
     avatarUrl,
     avatarPath,
+    avatarPublicId,
+    avatarProvider,
     photoURL: avatarUrl,
     fotoURL: avatarUrl,
     profilePhotoUrl: avatarUrl
   };
 
   await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
-  if (previousPath && previousPath !== avatarPath) {
+  if (previousProvider === 'cloudinary' || previousPublicId || (previousUrl && /cloudinary/i.test(previousUrl))) {
+    media.destroyMedia?.({ publicId: previousPublicId, url: previousUrl, provider: 'cloudinary' })?.catch?.(() => { });
+  } else if (previousPath && previousPath !== avatarPath) {
     firebase.storage().ref(previousPath).delete().catch(() => { });
-  } else if (!previousPath && previousUrl && previousUrl !== avatarUrl) {
+  } else if (!previousPath && previousUrl && previousUrl !== avatarUrl && /firebasestorage/i.test(previousUrl)) {
     firebase.storage().refFromURL(previousUrl).delete().catch(() => { });
   }
 
@@ -15838,15 +15911,24 @@ async function eliminarAvatarPerfil() {
   if (!ok) return;
 
   try {
-    if (avatarPath) {
+    const previousPublicId = String(currentUserProfile?.avatarPublicId || '').trim();
+    const previousProvider = String(currentUserProfile?.avatarProvider || '').trim();
+    if (previousProvider === 'cloudinary' || previousPublicId || (avatarUrl && /cloudinary/i.test(avatarUrl))) {
+      const media = window.mexMedia?.destroyMedia
+        ? window.mexMedia
+        : await import('/js/core/media-upload.js');
+      await media.destroyMedia?.({ publicId: previousPublicId, url: avatarUrl, provider: 'cloudinary' }).catch(() => { });
+    } else if (avatarPath) {
       await firebase.storage().ref(avatarPath).delete().catch(() => { });
-    } else if (avatarUrl) {
+    } else if (avatarUrl && /firebasestorage/i.test(avatarUrl)) {
       await firebase.storage().refFromURL(avatarUrl).delete().catch(() => { });
     }
 
     const payload = {
       avatarUrl: '',
       avatarPath: '',
+      avatarPublicId: '',
+      avatarProvider: '',
       photoURL: '',
       fotoURL: '',
       profilePhotoUrl: ''
@@ -15876,6 +15958,7 @@ function abrirBuzon() {
   const _buzonEl = document.getElementById('buzon-modal');
   if (!_buzonEl) { console.error('[DEBUG] buzon-modal no encontrado en el DOM'); return; }
   _buzonEl.classList.add('active');
+  _refreshChatIdentityModel();
   _loadChatArchivedThreads();
   _chatArchivedMode = false;
 
@@ -15918,37 +16001,48 @@ function _stopChatListener() {
 
 function _startChatListener() {
   _stopChatListener();
-  const me = USER_NAME.trim().toUpperCase();
-  let _sentMsgs = [];
-  let _recvMsgs = [];
+  _refreshChatIdentityModel();
+  const identities = [...new Set([
+    ...(_chatMe.queryIdentities || []),
+    USER_NAME,
+    currentUserProfile?.email,
+    auth.currentUser?.email,
+    auth.currentUser?.uid
+  ].map(value => value === _chatMe.uid ? value : _chatUserName(value)).filter(Boolean))];
+  const sentByIdentity = new Map();
+  const receivedByIdentity = new Map();
 
   function _mergeAndRender() {
     const seen = new Set();
-    allChatMessages = [..._sentMsgs, ..._recvMsgs]
+    const sent = [...sentByIdentity.values()].flat();
+    const received = [...receivedByIdentity.values()].flat();
+    allChatMessages = [...sent, ...received]
       .filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; })
       .sort((a, b) => _chatMessageTimestamp(b) - _chatMessageTimestamp(a))
-      .map(m => ({ ...m, esMio: _chatUserName(m.remitente) === me, leido: m.leido === true || m.leido === 'SI' }));
+      .map(m => ({
+        ...m,
+        esMio: isChatMessageMine(m, _chatMe, _chatIdentityDirectory),
+        leido: m.leido === true || m.leido === 'SI'
+      }));
     renderContactos();
     if (activeChatUser) renderChatWindow();
   }
 
-  _chatListenerUnsubs.push((() => {
-    let q = db.collection('mensajes').where('remitente', '==', me);
-    return q.orderBy('timestamp', 'desc').limit(300)
+  identities.forEach(identity => {
+    const sentQuery = db.collection('mensajes').where('remitente', '==', identity);
+    _chatListenerUnsubs.push(sentQuery.orderBy('timestamp', 'desc').limit(300)
       .onSnapshot(snap => {
-        _sentMsgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        sentByIdentity.set(identity, snap.docs.map(d => ({ id: d.id, ...d.data() })));
         _mergeAndRender();
-      }, err => console.error('chat:sent', err));
-  })());
+      }, err => console.error('chat:sent', identity, err)));
 
-  _chatListenerUnsubs.push((() => {
-    let q = db.collection('mensajes').where('destinatario', '==', me);
-    return q.orderBy('timestamp', 'desc').limit(300)
+    const receivedQuery = db.collection('mensajes').where('destinatario', '==', identity);
+    _chatListenerUnsubs.push(receivedQuery.orderBy('timestamp', 'desc').limit(300)
       .onSnapshot(snap => {
-        _recvMsgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        receivedByIdentity.set(identity, snap.docs.map(d => ({ id: d.id, ...d.data() })));
         _mergeAndRender();
-      }, err => console.error('chat:recv', err));
-  })());
+      }, err => console.error('chat:recv', identity, err)));
+  });
 }
 
 function _linkifyText(text) {
@@ -15970,7 +16064,7 @@ function renderContactos() {
 
   // Agrupamos los mensajes por conversación
   allChatMessages.forEach(m => {
-    const elOtro = _chatUserName(m.esMio ? m.destinatario : m.remitente);
+    const elOtro = _chatUserName(_chatPeerIdentity(m).label || (m.esMio ? m.destinatario : m.remitente));
     if (!elOtro) return;
     const ts = _chatMessageTimestamp(m);
     if (!ultimosMensajes[elOtro] || ts > (lastMessageTs[elOtro] || 0)) {
@@ -15981,13 +16075,20 @@ function renderContactos() {
     if (!m.esMio && !m.leido) noLeidos[elOtro]++;
   });
 
-  const miNombre = _chatUserName(USER_NAME);
+  const miNombre = _chatUserName(_chatMe.display || USER_NAME);
   const usuariosMap = new Map();
 
   dbUsuariosLogin
-    .filter(user => _chatUserName(user.usuario || user.nombre) !== miNombre)
+    .filter(user => _chatIdentityForUser(user).key !== _chatMe.key)
     .forEach(user => {
-      usuariosMap.set(_chatUserName(user.usuario || user.nombre), user);
+      const identity = _chatIdentityForUser(user);
+      const displayName = _chatUserName(identity.label || user.nombre || user.usuario);
+      usuariosMap.set(displayName, {
+        ...user,
+        usuario: displayName,
+        nombre: displayName,
+        _chatIdentityKey: identity.key
+      });
     });
 
   Object.keys(ultimosMensajes).forEach(nombre => {
@@ -16222,8 +16323,8 @@ function abrirChat(nombre) {
 
   let idsToMark = [];
   allChatMessages.forEach(m => {
-    let rem = _chatUserName(m.remitente);
-    if (rem === activeChatUser && !m.leido && !m.esMio) {
+    const peer = _chatUserName(_chatPeerIdentity(m).label || m.remitente);
+    if (peer === activeChatUser && !m.leido && !m.esMio) {
       m.leido = true;
       idsToMark.push(m.id);
     }
@@ -16292,10 +16393,9 @@ function renderChatWindow() {
   if (!container) return;
   _actualizarHeaderChatActivo();
 
-  let history = allChatMessages.filter(m =>
-    _chatUserName(m.remitente) === activeChatUser ||
-    _chatUserName(m.destinatario) === activeChatUser
-  ).reverse();
+  let history = allChatMessages
+    .filter(m => _chatUserName(_chatPeerIdentity(m).label) === activeChatUser)
+    .reverse();
 
   if (history.length === 0) {
     container.innerHTML = `<div style="text-align:center; padding:40px 20px; color:#94a3b8; font-weight:600; font-size:12px; background:white; border-radius:16px; border:1px solid #f1f5f9; margin-top:20px;">
@@ -16463,6 +16563,20 @@ async function enviarMensajeChat() {
   const txt = input.value.trim();
   if (!txt && !pendingChatFile && !pendingAudioBlob) return;
   if (!activeChatUser) return;
+  _refreshChatIdentityModel();
+  const destinationProfile = _chatContactByName(activeChatUser) || {};
+  const messageIdentity = {
+    remitenteUid: _chatMe.uid || '',
+    remitenteEmail: _chatMe.email || '',
+    remitenteNombre: _chatMe.display || USER_NAME,
+    destinatarioUid: String(destinationProfile.authUid || destinationProfile.uid || '').trim(),
+    destinatarioEmail: String(destinationProfile.email || '').trim().toLowerCase(),
+    destinatarioNombre: _chatUserName(destinationProfile.nombre || destinationProfile.nombreCompleto || destinationProfile.usuario || activeChatUser)
+  };
+  if (!messageIdentity.destinatarioUid && !messageIdentity.destinatarioEmail) {
+    showToast('No se pudo verificar la identidad del contacto.', 'error');
+    return;
+  }
   _restoreChatConversation(activeChatUser, { silent: true });
 
   input.value = "";
@@ -16534,15 +16648,24 @@ async function enviarMensajeChat() {
   const msgLocal = {
     id: tempId, fecha: tempDate, remitente: USER_NAME, destinatario: activeChatUser,
     mensaje: finalTxt, leido: false, esMio: true,
-    replyTo: capturedReply || undefined
+    replyTo: capturedReply || undefined,
+    ...messageIdentity
   };
   if (archivoUrl) { msgLocal.archivoUrl = archivoUrl; msgLocal.archivoNombre = archivoNombre; }
 
   allChatMessages.unshift(msgLocal);
   renderChatWindow();
 
-  api.enviarMensajePrivado(USER_NAME, activeChatUser, finalTxt, archivoUrl, archivoNombre, capturedReply)
-    .then(() => hacerPingNotificaciones()).catch(e => console.error(e));
+  try {
+    await api.enviarMensajePrivado(USER_NAME, activeChatUser, finalTxt, archivoUrl, archivoNombre, capturedReply, messageIdentity);
+    hacerPingNotificaciones();
+  } catch (e) {
+    console.error(e);
+    allChatMessages = allChatMessages.filter(message => message.id !== tempId);
+    renderChatWindow();
+    renderContactos();
+    showToast('No se pudo enviar el mensaje.', 'error');
+  }
 }
 
 // Stage a selected file (no auto-send)
@@ -19714,21 +19837,19 @@ async function _cfgUploadModelImage(prefix = 'cfg-add') {
   const file = fileInput?.files?.[0];
   if (!file || !urlInput) return;
 
-  if (typeof firebase === 'undefined' || typeof firebase.storage !== 'function') {
-    showToast('Firebase Storage no está disponible para subir imágenes.', 'error');
-    return;
-  }
-
   try {
     if (statusEl) statusEl.textContent = removeBg ? 'Procesando fondo y subiendo...' : 'Subiendo imagen...';
     const sourceBlob = removeBg ? await _cfgRemoveLightBackground(file) : file;
-    const ext = removeBg ? 'png' : ((_safeText(file.name).split('.').pop() || 'png').toLowerCase());
-    const folder = `catalogo_modelos/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const ref = firebase.storage().ref(folder);
-    const snapshot = await ref.put(sourceBlob, {
-      contentType: removeBg ? 'image/png' : (file.type || 'image/png')
+    const media = window.mexMedia?.uploadMedia
+      ? window.mexMedia
+      : await import('/js/core/media-upload.js');
+    const uploaded = await media.uploadMedia({
+      folder: 'catalogo_modelos',
+      file: sourceBlob,
+      publicId: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      resourceType: 'image'
     });
-    const url = await snapshot.ref.getDownloadURL();
+    const url = uploaded.url;
     urlInput.value = url;
     _cfgPreviewModeloImg(url, prefix);
     if (statusEl) statusEl.textContent = removeBg ? 'PNG generado y cargado.' : 'Imagen cargada correctamente.';
@@ -22379,16 +22500,35 @@ function _choferesValidarArchivo(file) {
 }
 
 async function _choferesSubirLicencia(user, file) {
-  const storageRoot = window._storage || (firebase?.storage ? firebase.storage() : null);
-  if (!storageRoot || typeof storageRoot.ref !== 'function') throw new Error('Storage no esta disponible.');
   const safeUser = _choferesSafeSegment(user.id || user.email || user.nombre);
-  const safeName = _choferesSafeSegment(file.name || 'licencia');
-  const path = `licencias_choferes/${safeUser}/licencia_${Date.now()}_${safeName}`;
-  const ref = storageRoot.ref(path);
-  const contentType = file.type || (String(file.name || '').toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
-  const snap = await ref.put(file, { contentType });
-  const url = await snap.ref.getDownloadURL();
-  return { path, url, contentType };
+  const safeName = _choferesSafeSegment(file.name || 'licencia').replace(/\.[^.]+$/, '');
+  const contentType = file.type
+    || (String(file.name || '').toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+  const resourceType = contentType.startsWith('image/') ? 'image' : 'raw';
+  const media = window.mexMedia?.uploadMedia
+    ? window.mexMedia
+    : await import('/js/core/media-upload.js');
+  const result = await media.uploadMedia({
+    folder: `licencias_choferes/${safeUser}`,
+    file,
+    publicId: `licencia_${Date.now()}_${safeName}`,
+    resourceType
+  });
+  if (user.licenciaArchivoPublicId || (user.licenciaArchivoUrl && /cloudinary/i.test(String(user.licenciaArchivoUrl)))) {
+    media.destroyMedia?.({
+      publicId: user.licenciaArchivoPublicId,
+      url: user.licenciaArchivoUrl,
+      provider: 'cloudinary',
+      resourceType: String(user.licenciaArchivoTipo || '').includes('pdf') ? 'raw' : 'image'
+    })?.catch?.(() => {});
+  }
+  return {
+    path: result.publicId || '',
+    publicId: result.publicId || '',
+    provider: result.provider || 'cloudinary',
+    url: result.url,
+    contentType
+  };
 }
 
 async function _choferesGuardarRegistro() {
@@ -22424,11 +22564,14 @@ async function _choferesGuardarRegistro() {
     if (file) {
       const uploaded = await _choferesSubirLicencia(user, file);
       updateData.licenciaArchivoUrl = uploaded.url;
-      updateData.licenciaArchivoPath = uploaded.path;
+      updateData.licenciaArchivoPath = uploaded.path || uploaded.publicId || '';
+      updateData.licenciaArchivoPublicId = uploaded.publicId || '';
+      updateData.licenciaArchivoProvider = uploaded.provider || 'cloudinary';
       updateData.licenciaArchivoNombre = file.name || 'licencia';
       updateData.licenciaArchivoTipo = uploaded.contentType || file.type || '';
       updateData.licenciaSubidaAt = firebase.firestore.FieldValue.serverTimestamp();
-      if (user.licenciaArchivoPath) {
+      // Previous Cloudinary asset is cleaned inside _choferesSubirLicencia; legacy Firebase only here
+      if (user.licenciaArchivoPath && !/cloudinary/i.test(String(user.licenciaArchivoUrl || '')) && !user.licenciaArchivoPublicId) {
         const storageRoot = window._storage || (firebase?.storage ? firebase.storage() : null);
         try { storageRoot?.ref(user.licenciaArchivoPath)?.delete()?.catch(() => {}); } catch (_) {}
       }
@@ -22476,7 +22619,17 @@ async function _choferesDeshabilitar(id) {
       licenciaActualizadaAt: del,
       licenciaSubidaPor: del
     }, { merge: true });
-    if (user.licenciaArchivoPath) {
+    if (user.licenciaArchivoPublicId || (user.licenciaArchivoUrl && /cloudinary/i.test(String(user.licenciaArchivoUrl)))) {
+      const media = window.mexMedia?.destroyMedia
+        ? window.mexMedia
+        : await import('/js/core/media-upload.js');
+      media.destroyMedia?.({
+        publicId: user.licenciaArchivoPublicId,
+        url: user.licenciaArchivoUrl,
+        provider: 'cloudinary',
+        resourceType: String(user.licenciaArchivoTipo || '').includes('pdf') ? 'raw' : 'image'
+      })?.catch?.(() => {});
+    } else if (user.licenciaArchivoPath) {
       const storageRoot = window._storage || (firebase?.storage ? firebase.storage() : null);
       try { storageRoot?.ref(user.licenciaArchivoPath)?.delete()?.catch(() => {}); } catch (_) {}
     }

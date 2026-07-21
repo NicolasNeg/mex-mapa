@@ -16,7 +16,9 @@
     "test:security:hosting": "firebase emulators:exec --only hosting \"node scripts/test-hosting-surface.js\"",
     "test:security:rules": "firebase emulators:exec --only firestore \"node scripts/test-security-baseline-rules.js\"",
     "test:security": "npm run security:preflight && npm run test:security:rules",
-    "test:messages:identity": "node --test domain/mensajes-identity.model.test.mjs"
+    "test:messages:identity": "node --test domain/mensajes-identity.model.test.mjs",
+    "test:messages:write": "node --test scripts/test-messages-write-contract.js",
+    "test:messages:rules": "firebase emulators:exec --only firestore \"node scripts/test-messages-rules.js\""
   },
   "engines": {
     "node": ">=18"
