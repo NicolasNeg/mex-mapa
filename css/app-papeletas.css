@@ -2504,3 +2504,158 @@ body.dark-theme .pap-table tbody tr:hover { background: #1f1f1f; }
   .pap-hoja__head { flex-direction: column; }
   .pap-contrato { width: 100%; }
 }
+
+/* -- Damage bottom sheet ----------------------------------- */
+.pap-dmg-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.pap-dmg-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+.pap-dmg-sheet__panel {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 100%);
+  max-height: min(88vh, 640px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.18);
+}
+.pap-dmg-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.pap-dmg-sheet__grid,
+.pap-dmg-sheet__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.pap-dmg-chip {
+  border: 1px solid var(--pap-border, #e2e8f0);
+  background: #F6F8FC;
+  border-radius: 12px;
+  min-height: 40px;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.pap-dmg-chip.is-on {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+.pap-dmg-sheet__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+.pap-dmg-sheet__actions .pap-btn { min-height: 48px; border-radius: 12px; }
+
+/* -- Mobile dashboard cards -------------------------------- */
+.pap-cards {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 0 16px;
+}
+.pap-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--pap-border, #e2e8f0);
+  border-radius: 16px;
+  padding: 14px 16px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.pap-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.pap-card__mid {
+  font-size: 13px;
+  color: var(--pap-muted, #64748b);
+  margin-bottom: 8px;
+}
+.pap-card__bot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 12px;
+  color: var(--pap-muted, #64748b);
+}
+.pap-card__bot--actions {
+  margin-top: 10px;
+}
+.pap-chip--soft {
+  background: #F6F8FC;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+.pap-chip--cancelada {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.pap-ventas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pap-card--ventas { cursor: default; }
+
+.pap-compare-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pap-compare-item {
+  border: 1px solid var(--pap-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+}
+.pap-compare-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.pap-compare-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 860px) {
+  .pap-cards { display: flex; }
+  .pap-table-wrap--desktop { display: none; }
+}
+@media (min-width: 861px) {
+  .pap-cards { display: none; }
+  .pap-table-wrap--desktop { display: block; }
+}

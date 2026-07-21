@@ -28,6 +28,7 @@ import {
   kmTableroRetakeNeeded,
   createDamageMark,
   nextDisplayNumber,
+  buildEntradaDamageComparison,
 } from '/domain/papeleta.model.js';
 import { STATUS_LABELS, STATUS_LABELS_SHORT } from '/js/app/features/papeletas/papeletas-constants.js';
 import {
@@ -61,7 +62,7 @@ import {
   countReportesAbiertosUnidad,
 } from '/js/app/features/papeletas/papeletas-reportes-data.js';
 import { buscarUnidad } from '/js/app/features/unidades/unidades-data.js';
-import { mountDiagram, strokesToDataUrl } from '/js/app/features/papeletas/papeletas-diagram.js';
+import { mountDiagram, strokesToDataUrl, DIAGRAM_IMAGE_URL } from '/js/app/features/papeletas/papeletas-diagram.js';
 import { openGuidedCamera } from '/js/app/features/papeletas/papeletas-camera.js';
 
 let _container = null;
@@ -94,6 +95,8 @@ let _diagramApi = null;
 let _localStrokes = null;
 let _cameraApi = null;
 let _saveState = 'idle'; // idle | saving | saved | conflict
+/** Local draft for regreso comparison — never mutates salida.danosMarcados */
+let _entradaCompareDraft = [];
 
 const LIST_ROUTE = '/app/papeletas';
 const VENTAS_ROUTE = '/app/papeletas/ventas';
@@ -281,51 +284,19 @@ function _mountDiagramIfNeeded(p, editable) {
 
 async function _addDamageFromTap({ x, y, view }) {
   if (!_detail || !puedeEditar(_detail.status)) return;
-  const typeOpts = DAMAGE_TYPES.map((t) => DAMAGE_TYPE_LABELS[t] || t).join(' / ');
-  let typeLabel = '';
-  try {
-    if (typeof window.mexPrompt === 'function') {
-      typeLabel = await window.mexPrompt(
-        'Tipo de daño',
-        `Elige: ${typeOpts}`,
-        DAMAGE_TYPE_LABELS.scratch
-      );
-    }
-  } catch (_) {
-    return;
-  }
-  if (typeLabel == null) return;
-  const damageType = DAMAGE_TYPES.find((t) =>
-    (DAMAGE_TYPE_LABELS[t] || t).toLowerCase() === String(typeLabel).trim().toLowerCase()
-    || t === String(typeLabel).trim().toLowerCase()
-  ) || 'scratch';
-
-  let sevLabel = DAMAGE_SEVERITY_LABELS.medium;
-  try {
-    if (typeof window.mexPrompt === 'function') {
-      sevLabel = await window.mexPrompt(
-        'Severidad',
-        'Chico / Medio / Grande',
-        DAMAGE_SEVERITY_LABELS.medium
-      );
-    }
-  } catch (_) {
-    return;
-  }
-  const severity = DAMAGE_SEVERITIES.find((s) =>
-    (DAMAGE_SEVERITY_LABELS[s] || s).toLowerCase() === String(sevLabel || '').trim().toLowerCase()
-    || s === String(sevLabel || '').trim().toLowerCase()
-  ) || 'medium';
+  const result = await _openDamageSheet({ x, y, view: view || 'top' });
+  if (!result) return;
 
   const existing = Array.isArray(_detail.danosMarcados) ? _detail.danosMarcados.slice() : [];
   const lastAssigned = Number(_detail.danosLastDisplayNumber) || 0;
   const num = nextDisplayNumber(existing, lastAssigned);
   const mark = createDamageMark({
-    view: view || 'top',
-    x,
-    y,
-    damageType,
-    severity,
+    view: result.view || 'top',
+    x: result.x,
+    y: result.y,
+    damageType: result.damageType,
+    severity: result.severity,
+    note: result.note || '',
     nextDisplayNumber: num,
     source: 'salida',
   });
@@ -347,21 +318,104 @@ async function _addDamageFromTap({ x, y, view }) {
   }
 }
 
+/**
+ * Bottom sheet: tipo → severidad → nota → guardar.
+ * @returns {Promise<null|{ damageType: string, severity: string, note: string, x: number, y: number, view: string }>}
+ */
+function _openDamageSheet({ x, y, view }) {
+  return new Promise((resolve) => {
+    const existing = document.querySelector('.pap-dmg-sheet');
+    if (existing) existing.remove();
+
+    let damageType = 'scratch';
+    let severity = 'medium';
+    const root = document.createElement('div');
+    root.className = 'pap-dmg-sheet';
+    root.setAttribute('role', 'dialog');
+    root.setAttribute('aria-modal', 'true');
+    root.innerHTML = `
+      <div class="pap-dmg-sheet__backdrop" data-dmg="cancel"></div>
+      <div class="pap-dmg-sheet__panel">
+        <header class="pap-dmg-sheet__head">
+          <strong>Marcar daño</strong>
+          <button type="button" class="pap-icon-btn" data-dmg="cancel" aria-label="Cerrar">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </header>
+        <p class="pap-hint">Tipo</p>
+        <div class="pap-dmg-sheet__grid" data-dmg-types>
+          ${DAMAGE_TYPES.map((t) => `
+            <button type="button" class="pap-dmg-chip ${t === 'scratch' ? 'is-on' : ''}" data-dmg-type="${t}">
+              ${_esc(DAMAGE_TYPE_LABELS[t] || t)}
+            </button>
+          `).join('')}
+        </div>
+        <p class="pap-hint">Severidad</p>
+        <div class="pap-dmg-sheet__row" data-dmg-sevs>
+          ${DAMAGE_SEVERITIES.map((s) => `
+            <button type="button" class="pap-dmg-chip ${s === 'medium' ? 'is-on' : ''}" data-dmg-sev="${s}">
+              ${_esc(DAMAGE_SEVERITY_LABELS[s] || s)}
+            </button>
+          `).join('')}
+        </div>
+        <label class="pap-field pap-field--full">
+          <span>Nota (opcional)</span>
+          <textarea data-dmg-note rows="2" placeholder="Detalle breve…" maxlength="500"></textarea>
+        </label>
+        <p class="pap-hint">Foto del daño: recomendada (no bloquea guardar).</p>
+        <div class="pap-dmg-sheet__actions">
+          <button type="button" class="pap-btn pap-btn--ghost" data-dmg="cancel">Cancelar</button>
+          <button type="button" class="pap-btn pap-btn--primary" data-dmg="save">Guardar marca</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+
+    const close = (value) => {
+      try { root.remove(); } catch (_) { /* ignore */ }
+      resolve(value);
+    };
+
+    root.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-dmg-type]');
+      if (t) {
+        damageType = t.getAttribute('data-dmg-type');
+        root.querySelectorAll('[data-dmg-type]').forEach((b) => b.classList.toggle('is-on', b === t));
+        return;
+      }
+      const s = e.target.closest('[data-dmg-sev]');
+      if (s) {
+        severity = s.getAttribute('data-dmg-sev');
+        root.querySelectorAll('[data-dmg-sev]').forEach((b) => b.classList.toggle('is-on', b === s));
+        return;
+      }
+      const act = e.target.closest('[data-dmg]');
+      if (!act) return;
+      const kind = act.getAttribute('data-dmg');
+      if (kind === 'cancel') close(null);
+      if (kind === 'save') {
+        const note = String(root.querySelector('[data-dmg-note]')?.value || '').trim();
+        close({ damageType, severity, note, x, y, view });
+      }
+    });
+  });
+}
+
 function _diagramReadonlyHtml(p) {
   const strokes = Array.isArray(p?.diagramaStrokes) ? p.diagramaStrokes : [];
-  const url = strokes.length ? strokesToDataUrl(strokes, { withBg: false }) : '';
+  const danos = Array.isArray(p?.danosMarcados) ? p.danosMarcados : [];
+  const url = (strokes.length || danos.length)
+    ? strokesToDataUrl(strokes, { withBg: false, danosMarcados: danos })
+    : '';
   return `
     <div class="pap-diagram pap-diagram--ro">
       <div class="pap-diagram__toolbar">
         <span class="pap-diagram__title">Diagrama · salida</span>
-        ${strokes.length ? '' : '<span class="pap-muted">Sin marcas</span>'}
+        ${(strokes.length || danos.length) ? '' : '<span class="pap-muted">Sin marcas</span>'}
       </div>
       <div class="pap-diagram__stage">
-        <img class="pap-diagram__bg" src="/assets/papeletas/hoja-inspeccion-auto.png" alt="Diagrama del vehículo" draggable="false"/>
+        <img class="pap-diagram__bg" src="${DIAGRAM_IMAGE_URL}" alt="Silueta del vehículo" draggable="false"/>
         ${url ? `<img class="pap-diagram__marks" src="${_esc(url)}" alt="Marcas"/>` : ''}
-      </div>
-      <div class="pap-diagram__legend pap-diagram__legend--ro">
-        ${['0 Abolladura', '* Rotura', 'F Faltante', '— Rayón', '= Profundo'].map((t) => `<span>${t}</span>`).join('')}
       </div>
     </div>
   `;
@@ -707,8 +761,10 @@ function _openDetail(id) {
   _mode = 'detail';
   _detail = null;
   _localStrokes = null;
+  _entradaCompareDraft = [];
   _destroyDiagram();
   _wizardStep = 'datos';
+  _step6Phase = 'fotos';
   _navigate?.(_detailRoute(token));
   _watchDetail(token);
 }
@@ -755,11 +811,10 @@ function _renderList() {
   const canV = _canVentas();
   return `
     <main class="pap-main pap-main--full">
-      <header class="pap-page-header pap-sheet-head">
+      <header class="pap-page-header">
         <div class="pap-page-title">
-          <p class="pap-kicker">MapGestion · Patio</p>
           <h1>Papeletas</h1>
-          <p>HOJA DE INSPECCIÓN digital · activas, entregadas e historial</p>
+          <p>Inspecciones de salida y regreso</p>
         </div>
         <div class="pap-actions-bar">
           ${canV ? `<button type="button" class="pap-btn pap-btn--ghost" data-act="tab-ventas">Ventas</button>` : ''}
@@ -769,14 +824,14 @@ function _renderList() {
         </div>
       </header>
 
-      <div class="pap-controls pap-controls--sheet">
+      <div class="pap-controls">
         <div class="pap-controls-row">
           <label class="pap-search">
             <span class="material-symbols-outlined">search</span>
-            <input id="papSearch" value="${_esc(_query)}" placeholder="Buscar MVA, placas, modelo o cliente" autocomplete="off" enterkeyhint="search"/>
+            <input id="papSearch" value="${_esc(_query)}" placeholder="MVA, placas, modelo o cliente" autocomplete="off" enterkeyhint="search"/>
           </label>
           <div class="pap-quick-status" role="tablist" aria-label="Filtro">
-            ${['activas', 'entregadas', 'historial', 'ventas'].map((f) => `
+            ${['activas', 'entregadas', 'historial', 'canceladas', 'ventas'].map((f) => `
               <button type="button" class="${_filter === f ? 'active' : ''}" data-act="filter" data-f="${f}">
                 ${FILTER_LABELS[f] || f}
               </button>
@@ -785,7 +840,7 @@ function _renderList() {
         </div>
       </div>
 
-      <p id="pap-count" class="pap-meta pap-meta--sheet">${rows.length ? `${rows.length} REGISTRO${rows.length === 1 ? '' : 'S'}` : '0 REGISTROS'}</p>
+      <p id="pap-count" class="pap-meta">${rows.length ? `${rows.length} registro${rows.length === 1 ? '' : 's'}` : '0 registros'}</p>
       <div id="pap-table-host" class="pap-table-host">${_tableHtml(rows)}</div>
     </main>
   `;
@@ -796,11 +851,14 @@ function _tableHtml(rows) {
     return `
       <div class="pap-empty">
         <strong>Sin papeletas</strong>
-        <small>No hay registros con este filtro. Usa <b>Nueva</b> y busca la unidad por económico o placas.</small>
+        <small>No hay registros con este filtro. Usa <b>Nueva</b> para empezar.</small>
       </div>`;
   }
   return `
-    <div class="pap-table-wrap">
+    <div class="pap-cards" aria-label="Listado mobile">
+      ${rows.map(_cardHtml).join('')}
+    </div>
+    <div class="pap-table-wrap pap-table-wrap--desktop">
       <table class="pap-table">
         <thead>
           <tr>
@@ -808,7 +866,7 @@ function _tableHtml(rows) {
             <th>Unidad</th>
             <th>Plaza</th>
             <th>Cliente</th>
-            <th>Fotos</th>
+            <th>Core</th>
             <th>Actualizado</th>
             <th>Reporte</th>
             <th>Estatus</th>
@@ -822,8 +880,29 @@ function _tableHtml(rows) {
   `;
 }
 
+function _cardHtml(it) {
+  const core = _coreFotosCount(it);
+  const short = STATUS_LABELS_SHORT[it.status] || STATUS_LABELS[it.status] || it.status;
+  const updated = _fmtDate(it.actualizadoAt || it.creadoAt);
+  const reporte = _hasReporte(it);
+  return `
+    <button type="button" class="pap-card" data-act="open" data-id="${_esc(it.id)}">
+      <div class="pap-card__top">
+        <strong class="pap-td-mono">${_esc(it.mva || '—')}</strong>
+        <span class="pap-chip pap-chip--${_esc(it.status)}">${_esc(short)}</span>
+      </div>
+      <div class="pap-card__mid">${_esc(it.modelo || '—')} · ${_esc(it.placas || 'Sin placas')}</div>
+      <div class="pap-card__bot">
+        <span>${_esc(it.clienteNombre || 'Sin cliente')}</span>
+        <span>Core ${core}/6${reporte ? ' · reporte' : ''}</span>
+        <span>${updated || '—'}</span>
+      </div>
+    </button>
+  `;
+}
+
 function _rowHtml(it) {
-  const fotos = _fotosCount(it);
+  const core = _coreFotosCount(it);
   const short = STATUS_LABELS_SHORT[it.status] || STATUS_LABELS[it.status] || it.status;
   const updated = _fmtDate(it.actualizadoAt || it.creadoAt);
   const reporte = _hasReporte(it);
@@ -836,7 +915,7 @@ function _rowHtml(it) {
       </td>
       <td>${_esc(it.plazaId || '—')}</td>
       <td>${_esc(it.clienteNombre || '—')}</td>
-      <td class="pap-td-mono">${fotos}/12</td>
+      <td class="pap-td-mono">${core}/6</td>
       <td class="pap-td-date">${updated ? _esc(updated) : '<span class="pap-muted">—</span>'}</td>
       <td>${reporte ? '<span class="pap-flag pap-flag--warn">Sí</span>' : '<span class="pap-muted">—</span>'}</td>
       <td><span class="pap-chip pap-chip--${_esc(it.status)}">${_esc(short)}</span></td>
@@ -863,7 +942,7 @@ function _paintList() {
 function _bindTableRows(host) {
   const root = host || _container;
   if (!root) return;
-  root.querySelectorAll('tr[data-act="open"]').forEach((row) => {
+  root.querySelectorAll('tr[data-act="open"], button.pap-card[data-act="open"]').forEach((row) => {
     row.addEventListener('click', () => _openDetail(row.dataset.id));
     row.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -1169,33 +1248,76 @@ function _panelSalidaView(p) {
 function _panelEntrada(p) {
   const locked = p.status === 'en_retorno' || p.status === 'cerrada_historial';
   const e = p.entrada || {};
+  const salidaMarks = Array.isArray(p.danosMarcados) ? p.danosMarcados : [];
+  if (!locked) _ensureEntradaCompareDraft(p);
+  const compared = buildEntradaDamageComparison(
+    salidaMarks,
+    locked ? (Array.isArray(e.danosMarcados) ? e.danosMarcados : []) : _entradaCompareDraft
+  );
+  const COMPARE_LABELS = {
+    preexisting: 'Sigue',
+    new: 'Nuevo',
+    repaired: 'Reparado',
+    unchanged: 'Sin cambio',
+  };
   return `
-    <div class="pap-panel pap-panel--wide pap-panel--regreso pap-hoja">
+    <div class="pap-panel pap-panel--app pap-panel--regreso">
       <h2>${locked ? 'Regreso registrado' : 'Registrar regreso'}</h2>
+      <p class="pap-hint">La salida firmada no se modifica. Compara daños abajo.</p>
       ${_salidaSummaryHtml(p, { compact: true })}
 
       <section class="pap-entrada-block">
-        <section class="pap-io-table" aria-label="Entrada">
-          <div class="pap-io-table__row pap-io-table__row--head">
-            <span></span><span>Nombre</span><span>KM</span><span>Gas</span>
+        <div class="pap-fields-2">
+          <div class="pap-field">
+            <label>Quién recibe</label>
+            <input id="papQuienRecibe" value="${_esc(e.quienRecibe || _user().nombre)}" ${locked ? 'disabled' : ''} autocomplete="name"/>
           </div>
-          <div class="pap-io-table__row">
-            <strong>Recibe / In</strong>
-            <div class="pap-field pap-field--bare">
-              <input id="papQuienRecibe" value="${_esc(e.quienRecibe || _user().nombre)}" ${locked ? 'disabled' : ''} autocomplete="name"/>
-            </div>
-            <div class="pap-field pap-field--bare">
-              <input id="papKmIn" type="text" inputmode="numeric" pattern="[0-9]*" value="${_esc(e.km ?? '')}" ${locked ? 'disabled' : ''} autocomplete="off" placeholder="0"/>
-            </div>
-            <div class="pap-field pap-field--bare pap-field--gas">
-              ${_gasChipsHtml(e.gas || '', 'papGasIn', locked)}
-            </div>
+          <div class="pap-field">
+            <label>KM entrada</label>
+            <input id="papKmIn" type="text" inputmode="numeric" pattern="[0-9]*" value="${_esc(e.km ?? '')}" ${locked ? 'disabled' : ''} autocomplete="off" placeholder="0"/>
           </div>
-        </section>
+        </div>
         <div class="pap-field">
-          <label>Notas / interiores</label>
+          <label>Gas entrada</label>
+          ${_gasChipsHtml(e.gas || '', 'papGasIn', locked)}
+        </div>
+        <div class="pap-field">
+          <label>Notas</label>
           <textarea id="papNotasIn" rows="2" ${locked ? 'disabled' : ''}>${_esc(e.notas || '')}</textarea>
         </div>
+
+        <h3 class="pap-subhead">Comparación de daños</h3>
+        ${salidaMarks.length ? `
+          <ul class="pap-compare-list">
+            ${salidaMarks.map((d) => {
+              const match = compared.find((c) => c.sourceDamageId === d.id);
+              const st = match?.comparisonStatus || 'preexisting';
+              return `
+                <li class="pap-compare-item" data-salida-damage="${_esc(d.id)}">
+                  <div>
+                    <b>#${_esc(d.displayNumber)}</b>
+                    ${_esc(DAMAGE_TYPE_LABELS[d.damageType] || d.damageType)}
+                    · ${_esc(DAMAGE_SEVERITY_LABELS[d.severity] || d.severity)}
+                    <span class="pap-chip pap-chip--soft">${_esc(COMPARE_LABELS[st] || st)}</span>
+                  </div>
+                  ${!locked ? `
+                    <div class="pap-compare-actions">
+                      <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny" data-act="compare-set" data-id="${_esc(d.id)}" data-status="unchanged">Sin cambios</button>
+                      <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny" data-act="compare-set" data-id="${_esc(d.id)}" data-status="repaired">Reparado</button>
+                      <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny" data-act="compare-set" data-id="${_esc(d.id)}" data-status="preexisting">Sigue</button>
+                    </div>
+                  ` : ''}
+                </li>`;
+            }).join('')}
+          </ul>
+        ` : '<p class="pap-hint">Sin daños tipados en salida.</p>'}
+        ${!locked ? `
+          <div class="pap-compare-new">
+            <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="compare-new-damage">Daño nuevo en regreso</button>
+            <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="compare-new-faltante">Faltante nuevo</button>
+          </div>
+        ` : ''}
+
         <h3 class="pap-subhead">Fotos salida (referencia)</h3>
         <div class="pap-photos" id="papCompare"></div>
       </section>
@@ -1203,7 +1325,7 @@ function _panelEntrada(p) {
         <div class="pap-actions pap-actions--sticky">
           <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="save-entrada" ${_busy ? 'disabled' : ''}>Registrar entrada</button>
         </div>
-      ` : `<p class="pap-card__meta">Entrada registrada · unidad liberada para nueva papeleta</p>`}
+      ` : `<p class="pap-card__meta">Entrada registrada · unidad liberada</p>`}
     </div>
   `;
 }
@@ -1223,22 +1345,20 @@ function _zonaChipClass(p, z, idx) {
 }
 
 function _panelZonas(p, editable) {
+  const coreCount = _coreFotosCount(p);
   const z = ZONAS_V1[_zonaIdx] || ZONAS_V1[0];
   const data = p.zonas?.[z.id] || { estado: 'ok', nota: '', fotoPath: '' };
   const n = _fotosCount(p);
-  const nextPending = ZONAS_V1.findIndex((zona) => !String(p.zonas?.[zona.id]?.fotoPath || '').trim());
-  const startHint = nextPending >= 0 ? nextPending + 1 : Math.min(_zonaIdx + 1, 12);
   return `
-    <div class="pap-panel pap-panel--wide pap-panel--zona">
-      <h2>Fotos y daños</h2>
-      <p class="pap-hint">Recorre las 12 partes en orden. ${n}/12 fotos listas.</p>
+    <div class="pap-panel pap-panel--app pap-panel--zona">
+      <h2>Fotos core</h2>
+      <p class="pap-hint">Obligatorias: 6 zonas core (${coreCount}/6). El resto es opcional (${n}/12 inspección).</p>
       ${editable ? `
         <div class="pap-cam-cta">
           <button type="button" class="pap-btn pap-btn--primary pap-btn--block pap-btn--cam" data-act="open-camera" ${_busy ? 'disabled' : ''}>
             <span class="material-symbols-outlined">photo_camera</span>
-            Abrir cámara guiada · desde ${startHint}/12
+            Cámara guiada · core ${coreCount}/6
           </button>
-          <p class="pap-cam-cta__hint">Pantalla completa: captura y avanza sin salir. También puedes subir desde galería dentro de la cámara.</p>
         </div>
       ` : ''}
       <div class="pap-zona-chips" role="tablist" aria-label="Zonas del vehículo">
@@ -1256,57 +1376,37 @@ function _panelZonas(p, editable) {
           </button>
           <div class="pap-progress">
             <strong>${_esc(z.label)}</strong>
-            <span>${_zonaIdx + 1}/12 · ${n}/12 fotos</span>
+            <span>${_zonaIdx + 1}/12 · core ${coreCount}/6</span>
           </div>
           <button type="button" class="pap-icon-btn" data-act="zona-next" ${_zonaIdx >= 11 ? 'disabled' : ''} aria-label="Siguiente">
             <span class="material-symbols-outlined">chevron_right</span>
           </button>
         </div>
-        <div class="pap-seg">
-          <button type="button" class="pap-seg__btn ${data.estado !== 'dano' ? 'is-on' : ''}" data-act="zona-ok" ${editable ? '' : 'disabled'}>Sin daño</button>
-          <button type="button" class="pap-seg__btn ${data.estado === 'dano' ? 'is-on is-bad' : ''}" data-act="zona-dano" ${editable ? '' : 'disabled'}>Hay daño</button>
-        </div>
-        <input type="hidden" data-zona-estado value="${data.estado === 'dano' ? 'dano' : 'ok'}"/>
-        ${data.estado === 'dano' ? `
-          <div class="pap-field">
-            <label>Nota corta (opcional)</label>
-            <input data-zona-nota maxlength="40" value="${_esc(data.nota || '')}" placeholder="Ej: rayón puerta" ${editable ? '' : 'disabled'}/>
-          </div>
-        ` : `<input type="hidden" data-zona-nota value="${_esc(data.nota || '')}"/>`}
         <div class="pap-cam">
-          <img data-zona-preview alt="" class="pap-cam__preview"${data.fotoPath ? '' : ' hidden'}/>
-          <div class="pap-cam__status" data-foto-status>${data.fotoPath ? 'Foto lista ✓' : 'Falta foto de esta parte'}</div>
+          ${data.fotoPath
+            ? `<img class="pap-cam__preview" data-zona-preview alt="Foto zona" style="display:block"/>`
+            : `<div class="pap-cam__empty">Sin foto</div>`}
+          <input type="hidden" data-zona-estado value="${_esc(data.estado || 'ok')}"/>
           ${editable ? `
             <label class="pap-cam__btn pap-cam__btn--ghost">
               <input type="file" accept="image/*" data-zona-foto data-autosave="1" hidden/>
               <span class="material-symbols-outlined">upload</span>
-              Subir desde dispositivo
+              Subir
             </label>
-            ${data.estado === 'dano' ? `
-              <label class="pap-cam__btn pap-cam__btn--ghost">
-                <input type="file" accept="image/*" capture="environment" data-zona-detalle hidden/>
-                <span class="material-symbols-outlined">add_a_photo</span>
-                Foto detalle
-              </label>
-            ` : ''}
           ` : ''}
         </div>
       </div>
       ${editable ? `
-        <div class="pap-actions pap-actions--sticky">
+        <div class="pap-actions">
           <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="open-camera" ${_busy ? 'disabled' : ''}>
             Continuar con cámara guiada
           </button>
-          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="save-zona" ${_busy ? 'disabled' : ''}>
-            ${data.fotoPath ? (_zonaIdx < 11 ? 'Guardar nota y siguiente' : 'Guardar y continuar') : 'Guardar zona (requiere foto)'}
-          </button>
-          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="goto-resumen">Ir a entregar</button>
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="goto-resumen">Ir a resumen</button>
         </div>
       ` : ''}
     </div>
   `;
 }
-
 
 function _panelResumen(p) {
   const gate = _deliveryGate(p, { firma: p.salida?.firma || null });
@@ -1359,9 +1459,25 @@ function _panelResumen(p) {
 }
 
 function _panelFirma(p) {
+  const firma = p.salida?.firma || {};
   return `
-    <div class="pap-panel">
-      <h2>${_esc(p.clienteNombre || 'Cliente')} — Firma</h2>
+    <div class="pap-panel pap-panel--app">
+      <h2>Firma de entrega</h2>
+      <p class="pap-hint">Firma en el pad. Se rechazan trazos vacíos o de un solo punto.</p>
+      <div class="pap-fields-2">
+        <div class="pap-field">
+          <label>Nombre quien firma</label>
+          <input id="papSignerName" value="${_esc(firma.signerName || p.clienteNombre || '')}" placeholder="Nombre completo" autocomplete="name"/>
+        </div>
+        <div class="pap-field">
+          <label>Relación</label>
+          <select id="papSignerRole">
+            ${['Cliente', 'Conductor', 'Representante', 'Otro'].map((r) => `
+              <option value="${r}" ${(firma.signerRole || (p.clienteNombre ? 'Cliente' : 'Otro')) === r ? 'selected' : ''}>${r}</option>
+            `).join('')}
+          </select>
+        </div>
+      </div>
       <canvas class="pap-sig" id="papSig" width="480" height="180"></canvas>
       <div class="pap-actions">
         <button type="button" class="pap-btn pap-btn--ghost" data-act="sig-clear">Limpiar</button>
@@ -1450,20 +1566,20 @@ function _renderVentas() {
   if (!_canVentas()) return `<div class="pap-empty">Sin permiso de Ventas.</div>`;
   if (!_reportes.length) return `<div class="pap-empty">No hay reportes abiertos.</div>`;
   return `
-    <div class="pap-grid">
+    <div class="pap-ventas-list">
       ${_reportes.map((r) => `
-        <div class="pap-card" style="cursor:default">
+        <article class="pap-card pap-card--ventas">
           <div class="pap-card__top">
-            <span class="pap-card__mva">${_esc(r.mva || r.unidadId)}</span>
-            <span class="pap-status">${_esc(r.tipo)} · ${_esc(r.status)}</span>
+            <strong class="pap-td-mono">${_esc(r.mva || r.unidadId)}</strong>
+            <span class="pap-chip pap-chip--soft">${_esc(r.tipo)} · ${_esc(r.status)}</span>
           </div>
-          <div class="pap-card__meta">Papeleta ${_esc(r.papeletaId)}</div>
-          <div class="pap-actions">
+          <div class="pap-card__mid">Papeleta ${_esc(r.papeletaId)}</div>
+          <div class="pap-card__bot pap-card__bot--actions">
             <button type="button" class="pap-btn pap-btn--ghost" data-act="open" data-id="${_esc(r.papeletaId)}">Ver</button>
             <button type="button" class="pap-btn pap-btn--primary" data-act="promover" data-id="${_esc(r.id)}">Promover</button>
-            ${rolPuedeCerrarCaso(_role()) ? `<button type="button" class="pap-btn pap-btn--ghost" data-act="cerrar-caso" data-id="${_esc(r.id)}">Cerrar caso</button>` : ''}
+            ${rolPuedeCerrarCaso(_role()) ? `<button type="button" class="pap-btn pap-btn--ghost" data-act="cerrar-caso" data-id="${_esc(r.id)}">Cerrar</button>` : ''}
           </div>
-        </div>
+        </article>
       `).join('')}
     </div>
   `;
@@ -1734,6 +1850,55 @@ function _bind() {
     });
   }
   root.querySelector('[data-act="save-entrada"]')?.addEventListener('click', () => _saveEntrada());
+  root.querySelectorAll('[data-act="compare-set"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!_detail) return;
+      _ensureEntradaCompareDraft(_detail);
+      const id = btn.dataset.id;
+      const status = btn.dataset.status || 'unchanged';
+      const row = _entradaCompareDraft.find((d) => d.sourceDamageId === id);
+      if (row) row.comparisonStatus = status;
+      else {
+        _entradaCompareDraft.push({
+          id: `e_${id}`,
+          source: 'entrada',
+          sourceDamageId: id,
+          comparisonStatus: status,
+        });
+      }
+      _render();
+    });
+  });
+  root.querySelector('[data-act="compare-new-damage"]')?.addEventListener('click', async () => {
+    if (!_detail) return;
+    _ensureEntradaCompareDraft(_detail);
+    const sheet = await _openDamageSheet({ x: 0.5, y: 0.5, view: 'top' });
+    if (!sheet) return;
+    _entradaCompareDraft.push({
+      id: `e_new_${Date.now().toString(36)}`,
+      source: 'entrada',
+      comparisonStatus: 'new',
+      sourceDamageId: null,
+      damageType: sheet.damageType,
+      severity: sheet.severity,
+      note: sheet.note || '',
+    });
+    _render();
+  });
+  root.querySelector('[data-act="compare-new-faltante"]')?.addEventListener('click', async () => {
+    if (!_detail) return;
+    _ensureEntradaCompareDraft(_detail);
+    _entradaCompareDraft.push({
+      id: `e_falt_${Date.now().toString(36)}`,
+      source: 'entrada',
+      comparisonStatus: 'new',
+      sourceDamageId: null,
+      damageType: 'missing',
+      severity: 'medium',
+      note: 'Faltante nuevo en regreso',
+    });
+    _render();
+  });
   root.querySelector('[data-act="send-reporte"]')?.addEventListener('click', () => _sendReporte());
   root.querySelectorAll('[data-act="promover"]').forEach((btn) => {
     btn.addEventListener('click', () => _promover(btn.dataset.id));
@@ -2321,10 +2486,12 @@ async function _confirmFirma() {
   _busy = true; _render();
   try {
     const firmaPath = await uploadFirma(papeletaId, blob);
+    const signerName = String(_container.querySelector('#papSignerName')?.value || _detail.clienteNombre || _user().nombre || '').trim();
+    const signerRole = String(_container.querySelector('#papSignerRole')?.value || 'Cliente').trim();
     const firma = {
       imagePath: firmaPath,
-      signerName: String(_detail.clienteNombre || _user().nombre || ''),
-      signerRole: _detail.clienteNombre ? 'Cliente' : 'Otro',
+      signerName,
+      signerRole,
       signedAt: new Date().toISOString(),
       capturedBy: _user().uid || '',
       consentTextVersion: 'v1',
@@ -2372,17 +2539,48 @@ async function _doPdf() {
   });
 }
 
+function _ensureEntradaCompareDraft(p) {
+  if (!_entradaCompareDraft.length && p) {
+    const salidaMarks = Array.isArray(p.danosMarcados) ? p.danosMarcados : [];
+    const existing = Array.isArray(p.entrada?.danosMarcados) ? p.entrada.danosMarcados : [];
+    if (existing.length) {
+      _entradaCompareDraft = existing.map((d) => ({ ...d }));
+    } else {
+      _entradaCompareDraft = salidaMarks.map((d) => ({
+        id: `e_${d.id}`,
+        source: 'entrada',
+        comparisonStatus: 'preexisting',
+        sourceDamageId: d.id,
+        damageType: d.damageType,
+        severity: d.severity,
+        displayNumber: d.displayNumber,
+        note: '',
+      }));
+    }
+  }
+  return _entradaCompareDraft;
+}
+
 async function _saveEntrada() {
   if (!_detail) return;
+  _ensureEntradaCompareDraft(_detail);
   _busy = true; _render();
   try {
+    // Never touch salida.danosMarcados — comparison lives under entrada only
     await registrarEntrada(_detail.id, {
       quienRecibe: _container.querySelector('#papQuienRecibe')?.value || _user().nombre,
       km: Number(_container.querySelector('#papKmIn')?.value || 0) || null,
       gas: _container.querySelector('#papGasIn')?.value || null,
       notas: _container.querySelector('#papNotasIn')?.value || '',
       user: _user(),
+      entradaExtra: {
+        danosMarcados: buildEntradaDamageComparison(
+          _detail.danosMarcados || [],
+          _entradaCompareDraft
+        ),
+      },
     });
+    _entradaCompareDraft = [];
     await _mexAlert('Entrada', 'Entrada registrada. La unidad queda libre para una nueva papeleta.');
   } catch (e) {
     await _mexAlert('Error', e.message || String(e));
