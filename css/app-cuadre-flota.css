@@ -1,11 +1,17 @@
 /* Cuadre de flota — historial (tabla) + envio de mision (ESTILO tokens) */
+/* .mex-main (shell) tiene altura fija + overflow:hidden — esta vista debe
+   ser su propio contexto de scroll o el contenido queda inalcanzable en
+   mobile (tabla de historial mas alta que el viewport). */
 .cfl {
-  min-height: min(100dvh, calc(100vh - 64px));
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 24px 20px 40px;
   color: var(--text, #0f172a);
   background: var(--bg, #f8fafc);
   font-family: Inter, sans-serif;
   font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
 }
 
 .cfl-shell {
@@ -134,12 +140,14 @@
 .cfl-table-container {
   border: 1px solid var(--border, #e2e8f0);
   border-radius: var(--radius-md, 8px);
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   background: var(--surface, #ffffff);
 }
 
 .cfl-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
 }
 

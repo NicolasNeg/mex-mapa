@@ -14,6 +14,7 @@ import {
   obtenerDatosFlotaConsola,
   iniciarProtocoloDesdeAdmin
 } from '/js/core/database.js';
+import { generarHtmlAuditoriaCuadrePdf, abrirReporteImpresion } from '/js/core/cuadre-pdf.js';
 
 let _ctr = null;
 let _navigate = null;
@@ -177,6 +178,35 @@ function _historialRowHtml(item) {
   `;
 }
 
+// obtenerHistorialCuadres() mapea el JSON completo original al campo pdfUrl.
+function _historialCuadrePayload(item = {}) {
+  if (item.pdfUrl) {
+    try {
+      const parsed = JSON.parse(item.pdfUrl);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (_) {}
+  }
+  return {
+    unidades: Array.isArray(item.unidades) ? item.unidades : [],
+    stats: {
+      total: Number(item.ok || 0) + Number(item.faltantes || 0) + Number(item.sobrantes || 0),
+      ok: Number(item.ok || 0),
+      faltantes: Number(item.faltantes || 0),
+      sobrantes: Number(item.sobrantes || 0),
+      extras: Number(item.sobrantes || 0),
+      auxiliar: item.auxiliar || ''
+    },
+    meta: {
+      auxiliarNombre: item.auxiliar || '',
+      firmaAuxiliar: item.firmaAuxiliar || '',
+      firmaVentas: item.firmaVentas || item.admin || '',
+      cerradoPor: item.admin || '',
+      cerradoEn: item.fecha || '',
+      plaza: item.plaza || _s.plaza
+    }
+  };
+}
+
 function _filteredHistorial() {
   const term = _normSearch(_s.historialSearch);
   if (!term) return _s.historial;
@@ -255,7 +285,16 @@ async function _onClick(event) {
     return;
   }
   if (action === 'ver-pdf') {
-    _navigate?.(`/app/cuadre?verPdf=${encodeURIComponent(el.dataset.id || '')}`);
+    const item = _s.historial.find(h => String(h.id) === String(el.dataset.id));
+    if (!item) {
+      _toast('No encontré ese registro de cuadre.', 'error');
+      return;
+    }
+    const payload = _historialCuadrePayload(item);
+    abrirReporteImpresion(
+      generarHtmlAuditoriaCuadrePdf(payload.unidades, payload.stats, payload.meta, { plaza: _s.plaza, actorName: _actorName() }),
+      { onError: () => _toast('No se pudo abrir el generador de PDF.', 'error') }
+    );
     return;
   }
   if (action === 'go-revision') {

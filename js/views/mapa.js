@@ -1,4 +1,5 @@
 import { parseKm } from '/domain/kilometraje.model.js';
+import { generarHtmlAuditoriaCuadrePdf, abrirReporteImpresion } from '/js/core/cuadre-pdf.js';
 // Estados flota/patio: preferir window.mexEstados (estado-bridge.js) para no
 // romper si el SW sirve un domain/estado.model.js cacheado sin los exports nuevos.
 const _mexEst = (typeof window !== 'undefined' && window.mexEstados) ? window.mexEstados : {};
@@ -2440,80 +2441,7 @@ async function registrarEventoGestion(tipo, mensaje, extra = {}) {
 
 // generarSlugArchivo / descargarArchivoLocal \u2192 /mapa/features/core/utils.js (Fase 4)
 
-function abrirReporteImpresion(htmlContenido) {
-  let container = document.getElementById('reporte-pdf-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'reporte-pdf-container';
-    container.style.display = 'none';
-    document.body.appendChild(container);
-  }
-
-  const originalScrollX = window.scrollX || window.pageXOffset || 0;
-  const originalScrollY = window.scrollY || window.pageYOffset || 0;
-  const originalBodyOverflow = document.body.style.overflow;
-  const originalHtmlOverflow = document.documentElement.style.overflow;
-  const originalTitle = document.title;
-  const signedTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
-  document.title = signedTitle;
-  let cleaned = false;
-  let fallbackTimer = null;
-  let mediaQueryList = null;
-  let mediaQueryHandler = null;
-
-  const cleanup = () => {
-    if (cleaned) return;
-    cleaned = true;
-    if (fallbackTimer) {
-      clearTimeout(fallbackTimer);
-      fallbackTimer = null;
-    }
-    if (mediaQueryList && mediaQueryHandler) {
-      if (typeof mediaQueryList.removeEventListener === 'function') {
-        mediaQueryList.removeEventListener('change', mediaQueryHandler);
-      } else if (typeof mediaQueryList.removeListener === 'function') {
-        mediaQueryList.removeListener(mediaQueryHandler);
-      }
-    }
-    container.innerHTML = '';
-    container.style.display = 'none';
-    document.body.style.overflow = originalBodyOverflow;
-    document.documentElement.style.overflow = originalHtmlOverflow;
-    document.title = originalTitle;
-    window.requestAnimationFrame(() => {
-      window.scrollTo(originalScrollX, originalScrollY);
-    });
-  };
-
-  window.addEventListener('afterprint', cleanup, { once: true });
-  container.innerHTML = htmlContenido;
-  container.style.display = 'block';
-  document.body.style.overflow = 'hidden';
-  document.documentElement.style.overflow = 'hidden';
-
-  try {
-    mediaQueryList = window.matchMedia('print');
-    mediaQueryHandler = event => {
-      if (!event.matches) cleanup();
-    };
-    if (typeof mediaQueryList.addEventListener === 'function') {
-      mediaQueryList.addEventListener('change', mediaQueryHandler);
-    } else if (typeof mediaQueryList.addListener === 'function') {
-      mediaQueryList.addListener(mediaQueryHandler);
-    }
-  } catch (_) {}
-
-  setTimeout(() => {
-    try {
-      window.print();
-      fallbackTimer = setTimeout(cleanup, 12000);
-    } catch (error) {
-      cleanup();
-      console.error('No se pudo abrir la impresión:', error);
-      showToast('No se pudo abrir el generador de PDF.', 'error');
-    }
-  }, 80);
-}
+// abrirReporteImpresion -> /js/core/cuadre-pdf.js (compartido con /app/cuadre/flota)
 
 // formatearFechaDocumento → /mapa/features/core/utils.js (Fase 4)
 
@@ -2825,21 +2753,6 @@ function iniciarApp(esNuevoLogin = true) {
     setTimeout(() => abrirEditorMapa(), 800);
   }
 
-  // Deep-link desde /app/cuadre/flota: abre el historial y dispara el PDF
-  // de ese registro puntual (reusa la generacion existente, sin duplicarla).
-  // abrirHistorialCuadres() no espera la carga async del historial (fire-and-
-  // forget), asi que sondeamos globalHistorialAuditorias hasta que aparezca.
-  const verPdfId = new URLSearchParams(window.location.search).get('verPdf');
-  if (verPdfId) {
-    setTimeout(async () => {
-      await abrirHistorialCuadres();
-      for (let intento = 0; intento < 12; intento += 1) {
-        if ((globalHistorialAuditorias || []).some(c => String(c.id) === String(verPdfId))) break;
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-      verPdfCuadreHistorial(verPdfId);
-    }, 500);
-  }
   if (!isDedicatedCuadreRoute && !_isShellEmbeddedMode()) {
     initNotificationCenter()
       .then(() => {
@@ -14155,407 +14068,8 @@ function compartirWhatsApp() {
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
 }
 
-function _cuadreEmpresaPdfData() {
-  const empresa = window.MEX_CONFIG?.empresa || {};
-  const plaza = _miPlaza();
-  const plazasDetalle = Array.isArray(empresa.plazasDetalle) ? empresa.plazasDetalle : [];
-  const plazaDetalle = plazasDetalle.find(p => String(p.id || p.nombre || '').trim().toUpperCase() === plaza) || {};
-  const nombre = String(empresa.nombre || empresa.razonSocial || empresa.empresa || APP_DEFAULT_COMPANY_NAME || '').trim();
-  const logo = String(empresa.logoURL || empresa.logoUrl || empresa.logo || empresa.logoEmpresa || '').trim();
-  const rfc = String(empresa.rfc || empresa.RFC || empresa.rfcEmpresa || '').trim();
-  const direccion = String(
-    plazaDetalle.direccion
-    || plazaDetalle.direccionFiscal
-    || empresa.direccionFiscal
-    || empresa.direccion
-    || empresa.domicilio
-    || ''
-  ).trim();
-  const correo = String(plazaDetalle.correo || empresa.correoEmpresa || empresa.correoFacturacion || empresa.email || '').trim();
-  const telefono = String(plazaDetalle.telefono || empresa.telefono || empresa.telefonoEmpresa || '').trim();
-  return { nombre, logo, rfc, direccion, correo, telefono, plaza };
-}
-
-function _cuadrePdfCell(value) {
-  const text = value == null || value === '' ? 'N/D' : String(value);
-  return escapeHtml(text);
-}
-
-// Colores por estado de patio (mismos tokens que .fl-dot-* en css/mapa.css).
-const CUADRE_PDF_ESTADO_COLOR = {
-  LISTO: '#22c55e',
-  SUCIO: '#f59e0b',
-  MANTENIMIENTO: '#ef4444',
-  TRASLADO: '#8b5cf6',
-  RESGUARDO: '#94a3b8',
-  VENTA: '#94a3b8',
-  RETENIDA: '#94a3b8',
-  'NO ARRENDABLE': '#94a3b8'
-};
-
-function _cuadrePdfEstadoColor(estado) {
-  return CUADRE_PDF_ESTADO_COLOR[String(estado || '').toUpperCase()] || '#ef4444';
-}
-
-function _cuadrePdfPill(label, colorHex) {
-  const text = String(label || '').trim();
-  if (!text) return '';
-  return `<span class="cuadre-pdf-pill" style="background:${colorHex}1a;color:${colorHex}">${escapeHtml(text)}</span>`;
-}
-
-function _cuadrePdfFirmaHtml(title, name, dataUrl) {
-  const safeTitle = escapeHtml(title);
-  const safeName = escapeHtml(name || 'Pendiente');
-  const img = dataUrl
-    ? `<img src="${escapeHtml(dataUrl)}" alt="${safeTitle}" class="cuadre-pdf-sign-img">`
-    : '';
-  return `
-    <div class="cuadre-pdf-sign-box">
-      <div class="cuadre-pdf-sign-area">${img}</div>
-      <div class="cuadre-pdf-sign-line"></div>
-      <strong>${safeName}</strong>
-      <span>${safeTitle}</span>
-    </div>
-  `;
-}
-
-function generarHtmlAuditoriaCuadrePdf(auditList = window.AUDIT_LIST || [], statsInput = null, metaInput = {}) {
-  const units = Array.isArray(auditList) ? auditList : [];
-  const stats = {
-    ..._cuadreResumenAuditoria(units),
-    ...(statsInput || {})
-  };
-  stats.sobrantes = stats.sobrantes ?? stats.extras ?? 0;
-  const meta = metaInput || {};
-  const empresa = _cuadreEmpresaPdfData();
-  const fecha = meta.cerradoEn || meta.enviadoEn || formatearFechaDocumento(new Date());
-  const auxiliar = meta.auxiliarNombre || meta.destinatarioNombre || stats.auxiliar || '';
-  const ventas = meta.firmaVentas || meta.firmaNombre || meta.cerradoPor || USER_NAME || '';
-  const plaza = meta.plaza || empresa.plaza || _miPlaza() || '';
-  const rows = units.map(u => {
-    const status = String(u.status || '').toUpperCase();
-    const gas = u.gasolinaCorregida || u.gasolina || u.gas || 'N/A';
-    const km = u.km != null && u.km !== '' ? String(u.km) : '—';
-    const notas = String(u.notas || '').trim();
-
-    let estadoHtml;
-    let ubicacionHtml;
-    if (status === 'FALTANTE') {
-      estadoHtml = _cuadrePdfPill('FALTANTE', '#ef4444');
-      ubicacionHtml = _cuadrePdfPill('NO LOCALIZADA', '#94a3b8');
-    } else if (status === 'EXTRA') {
-      estadoHtml = _cuadrePdfPill('SOBRANTE', '#f59e0b');
-      ubicacionHtml = _cuadrePdfPill(u.ubicacion || u.pos || 'SOBRANTE', '#94a3b8');
-    } else {
-      const estadoPatio = normalizarEstadoPatio(u.estado) || String(u.estado || '').toUpperCase() || 'DESCONOCIDO';
-      estadoHtml = _cuadrePdfPill(estadoPatio, _cuadrePdfEstadoColor(estadoPatio));
-      ubicacionHtml = _cuadrePdfPill(u.ubicacion || u.pos || 'PATIO', '#94a3b8');
-    }
-
-    return `
-      <tr class="status-${escapeHtml(status || 'PENDIENTE')}">
-        <td>${_cuadrePdfCell(u.mva)}</td>
-        <td>${_cuadrePdfCell(u.modelo)}</td>
-        <td>${_cuadrePdfCell(u.placas)}</td>
-        <td>${_cuadrePdfCell(gas)}</td>
-        <td>${_cuadrePdfCell(km)}</td>
-        <td>${estadoHtml}</td>
-        <td>${ubicacionHtml}</td>
-        <td class="cuadre-pdf-note-cell">${notas ? `<em>${escapeHtml(notas)}</em>` : '<span class="cuadre-pdf-note-empty">Sin observaciones</span>'}</td>
-      </tr>
-    `;
-  }).join('');
-
-  return `
-    <style>
-      @page { size: A4 landscape; margin: 12mm; }
-      #reporte-pdf-container {
-        background: #ffffff !important;
-      }
-      .cuadre-pdf {
-        min-height: 100vh;
-        background: #ffffff;
-        color: #111827;
-        font-family: Inter, Arial, sans-serif;
-        padding: 0;
-      }
-      .cuadre-pdf-page {
-        page-break-after: always;
-      }
-      .cuadre-pdf-page:last-child {
-        page-break-after: auto;
-      }
-      .cuadre-pdf-page:first-child {
-        border-top: 4px solid #3b82f6;
-        padding-top: 10px;
-      }
-      .cuadre-pdf-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 18px;
-        border-bottom: 2px solid #111827;
-        padding-bottom: 10px;
-        margin-bottom: 12px;
-      }
-      .cuadre-pdf-brand {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-      }
-      .cuadre-pdf-logo {
-        width: 54px;
-        height: 54px;
-        object-fit: contain;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        padding: 5px;
-      }
-      .cuadre-pdf-company h1 {
-        margin: 0 0 4px;
-        font-size: 18px;
-        line-height: 1.1;
-        font-weight: 900;
-      }
-      .cuadre-pdf-company p,
-      .cuadre-pdf-meta p {
-        margin: 1px 0;
-        color: #4b5563;
-        font-size: 9px;
-        line-height: 1.35;
-      }
-      .cuadre-pdf-meta {
-        min-width: 230px;
-        text-align: right;
-      }
-      .cuadre-pdf-title {
-        margin: 12px 0 10px;
-        display: flex;
-        justify-content: space-between;
-        align-items: end;
-        gap: 12px;
-      }
-      .cuadre-pdf-title h2 {
-        margin: 0;
-        font-size: 24px;
-        font-weight: 900;
-        letter-spacing: 0;
-      }
-      .cuadre-pdf-title span {
-        color: #4b5563;
-        font-size: 10px;
-        font-weight: 800;
-      }
-      .cuadre-pdf-kpis {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 8px;
-        margin: 10px 0 12px;
-      }
-      .cuadre-pdf-kpi {
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        padding: 8px 10px;
-        background: #f9fafb;
-      }
-      .cuadre-pdf-kpi small {
-        display: block;
-        color: #6b7280;
-        font-size: 8px;
-        font-weight: 900;
-        text-transform: uppercase;
-        margin-bottom: 4px;
-      }
-      .cuadre-pdf-kpi strong {
-        display: block;
-        color: #111827;
-        font-size: 21px;
-        line-height: 1;
-        font-weight: 900;
-      }
-      .cuadre-pdf-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 8.5px;
-      }
-      .cuadre-pdf-table th,
-      .cuadre-pdf-table td {
-        border: 1px solid #d1d5db;
-        padding: 5px 6px;
-        text-align: left;
-        vertical-align: top;
-      }
-      .cuadre-pdf-table th {
-        background: #111827;
-        color: #ffffff;
-        font-size: 8px;
-        text-transform: uppercase;
-      }
-      .cuadre-pdf-table tr.status-FALTANTE td {
-        background: #fff1f2;
-      }
-      .cuadre-pdf-table tr.status-EXTRA td {
-        background: #fffbeb;
-      }
-      .cuadre-pdf-pill {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 9999px;
-        font-size: 7.5px;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: .02em;
-        white-space: nowrap;
-      }
-      .cuadre-pdf-note-cell em {
-        font-style: italic;
-        color: #374151;
-      }
-      .cuadre-pdf-note-empty {
-        color: #9ca3af;
-      }
-      .cuadre-pdf-sign-page {
-        min-height: 510px;
-        display: flex;
-        flex-direction: column;
-      }
-      .cuadre-pdf-sign-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 28px;
-        margin-top: 34px;
-      }
-      .cuadre-pdf-sign-box {
-        min-height: 150px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        align-items: center;
-        text-align: center;
-      }
-      .cuadre-pdf-sign-area {
-        width: 100%;
-        height: 76px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .cuadre-pdf-sign-img {
-        max-width: 260px;
-        max-height: 74px;
-        object-fit: contain;
-      }
-      .cuadre-pdf-sign-line {
-        width: 78%;
-        border-top: 1.5px solid #111827;
-        margin: 8px auto 8px;
-      }
-      .cuadre-pdf-sign-box strong {
-        color: #111827;
-        font-size: 12px;
-        font-weight: 900;
-      }
-      .cuadre-pdf-sign-box span {
-        color: #6b7280;
-        font-size: 9px;
-        font-weight: 800;
-        text-transform: uppercase;
-        margin-top: 3px;
-      }
-      .cuadre-pdf-final-mark {
-        margin-top: auto;
-        padding-top: 28px;
-        text-align: right;
-        color: #111827;
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .08em;
-      }
-      .cuadre-pdf-final-mark::before {
-        content: "";
-        display: inline-block;
-        width: 190px;
-        border-top: 1px solid #111827;
-        margin: 0 0 8px auto;
-      }
-      @media print {
-        body * { visibility: hidden !important; }
-        #reporte-pdf-container, #reporte-pdf-container * { visibility: visible !important; }
-        #reporte-pdf-container {
-          position: fixed !important;
-          inset: 0 !important;
-          display: block !important;
-          overflow: visible !important;
-        }
-      }
-    </style>
-    <div class="cuadre-pdf">
-      <section class="cuadre-pdf-page">
-        <header class="cuadre-pdf-header">
-          <div class="cuadre-pdf-brand">
-            ${empresa.logo ? `<img class="cuadre-pdf-logo" src="${escapeHtml(empresa.logo)}" alt="Logo">` : ''}
-            <div class="cuadre-pdf-company">
-              <h1>${escapeHtml(empresa.nombre || 'Empresa')}</h1>
-              ${empresa.rfc ? `<p>RFC: ${escapeHtml(empresa.rfc)}</p>` : ''}
-              ${empresa.direccion ? `<p>${escapeHtml(empresa.direccion)}</p>` : ''}
-              ${empresa.correo ? `<p>${escapeHtml(empresa.correo)}</p>` : ''}
-              ${empresa.telefono ? `<p>${escapeHtml(empresa.telefono)}</p>` : ''}
-            </div>
-          </div>
-          <div class="cuadre-pdf-meta">
-            <p><strong>Fecha de corte:</strong> ${escapeHtml(fecha)}</p>
-            <p><strong>Plaza:</strong> ${escapeHtml(plaza || 'N/D')}</p>
-            <p><strong>Auxiliar en patio:</strong> ${escapeHtml(auxiliar || 'N/D')}</p>
-            <p><strong>Autorizado por:</strong> ${escapeHtml(ventas || 'N/D')}</p>
-            ${meta.missionId ? `<p><strong>Mision:</strong> ${escapeHtml(meta.missionId)}</p>` : ''}
-          </div>
-        </header>
-
-        <div class="cuadre-pdf-title">
-          <h2>Reporte de Auditoria Cruzada</h2>
-          <span>Cuadre de flota operativo</span>
-        </div>
-
-        <div class="cuadre-pdf-kpis">
-          <div class="cuadre-pdf-kpi"><small>Total revisadas</small><strong style="color:#3b82f6">${escapeHtml(String(stats.total || units.length || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Cuadre perfecto</small><strong style="color:#16a34a">${escapeHtml(String(stats.ok || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Faltantes fisicos</small><strong style="color:#ef4444">${escapeHtml(String(stats.faltantes || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Sobrantes fisicos</small><strong style="color:#f59e0b">${escapeHtml(String(stats.sobrantes || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Pendientes</small><strong style="color:#64748b">${escapeHtml(String(stats.pendientes || 0))}</strong></div>
-        </div>
-
-        <table class="cuadre-pdf-table">
-          <thead>
-            <tr>
-              <th>MVA</th>
-              <th>Modelo</th>
-              <th>Placas</th>
-              <th>Gas</th>
-              <th>KM</th>
-              <th>Estado</th>
-              <th>Ubicacion</th>
-              <th>Notas</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="8">Sin unidades revisadas.</td></tr>'}</tbody>
-        </table>
-      </section>
-
-      <section class="cuadre-pdf-page cuadre-pdf-sign-page">
-        <div class="cuadre-pdf-title">
-          <h2>Firmas de Conformidad</h2>
-          <span>Responsables del cuadre</span>
-        </div>
-        <div class="cuadre-pdf-sign-grid">
-          ${_cuadrePdfFirmaHtml('Auxiliar en patio', meta.firmaAuxiliar || meta.firmaAuxiliarNombre || auxiliar, meta.firmaAuxiliarUrl || meta.auxiliarFirmaUrl || '')}
-          ${_cuadrePdfFirmaHtml('Agente de ventas', ventas, meta.firmaDataUrl || meta.ventasFirmaUrl || '')}
-        </div>
-        <div class="cuadre-pdf-final-mark">GENERADO POR MAP GESTION</div>
-        ${exportFooterHtml({ escapeHtml })}
-      </section>
-    </div>
-  `;
-}
+// generarHtmlAuditoriaCuadrePdf / _cuadreEmpresaPdfData / etc. -> /js/core/cuadre-pdf.js
+// (compartido con la vista SPA /app/cuadre/flota, ver import al inicio del archivo)
 
 // ☁️ EL AUXILIAR O EL ADMIN MANDAN EL REPORTE (SIN ALERTS NATIVOS)
 async function enviarReporteAuditoriaFinal() {
@@ -14620,7 +14134,7 @@ async function enviarReporteAuditoriaFinal() {
       const res = await api.procesarAuditoriaDesdeAdmin(payload, USER_NAME, stats, _miPlaza(), meta);
       if (res === 'EXITO' || (res && res.exito)) {
         showToast('Cuadre firmado y cerrado.', 'success');
-        abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(payload, stats, meta));
+        abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(payload, stats, meta, { plaza: _miPlaza(), actorName: USER_NAME }), { onError: () => showToast('No se pudo abrir el generador de PDF.', 'error') });
         _cuadreResetFlujo();
         window.AUDIT_LIST = [];
         hacerPingNotificaciones();
@@ -15168,7 +14682,7 @@ function verPdfCuadreHistorial(id) {
   const units = Array.isArray(payload.unidades) ? payload.unidades : [];
   const stats = payload.stats || {};
   const meta = payload.meta || {};
-  abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(units, stats, meta));
+  abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(units, stats, meta, { plaza: _miPlaza(), actorName: USER_NAME }), { onError: () => showToast('No se pudo abrir el generador de PDF.', 'error') });
 }
 
 function _historialMisionActivaHtml(mission) {
@@ -17624,7 +17138,7 @@ async function procesarActividadDiaria() {
     const fechaFront = new Date().toISOString();
 
     await api.generarPDFActividadDiaria(reservas, regresos, vencidos, USER_NAME, fechaFront).catch(e => console.warn('No se pudo registrar el reporte diario:', e));
-    abrirReporteImpresion(generarHtmlActividadDiaria(reservas, regresos, vencidos, USER_NAME, fechaFront));
+    abrirReporteImpresion(generarHtmlActividadDiaria(reservas, regresos, vencidos, USER_NAME, fechaFront), { onError: () => showToast('No se pudo abrir el generador de PDF.', 'error') });
 
     document.getElementById('textoBrutoReservas').value = "";
     document.getElementById('textoBrutoRegresos').value = "";
@@ -17861,7 +17375,7 @@ async function descargarPDFPrediccion() {
   btn.innerHTML = `<span class="material-icons spinner">sync</span> PREPARANDO PDF...`;
 
   try {
-    abrirReporteImpresion(generarHtmlPrediccionPdf());
+    abrirReporteImpresion(generarHtmlPrediccionPdf(), { onError: () => showToast('No se pudo abrir el generador de PDF.', 'error') });
     showToast('Se abrió el generador de PDF de la predicción.', 'success');
   } finally {
     btn.disabled = false;
@@ -24731,7 +24245,7 @@ async function procesarSolicitud(docId, esAprobado, collectionHint = '') {
   const solicitudInfo = await _obtenerSolicitudDoc(docId, collectionHint);
   if (!solicitudInfo?.docSnap?.exists) return showToast("La solicitud ya no existe", "error");
 
-  const { email, nombre, puesto, telefono, password, rolSolicitado, plazaSolicitada } = solicitudInfo.data;
+  const { email, nombre, puesto, telefono, rolSolicitado, plazaSolicitada } = solicitudInfo.data;
   const requestedRole = _resolveStoredRoleForEmail(
     email,
     _sanitizeRole(rolSolicitado) || _inferRequestedAccessRole(puesto, email)
@@ -24755,8 +24269,7 @@ async function procesarSolicitud(docId, esAprobado, collectionHint = '') {
       puesto,
       telefono,
       requestedRole,
-      requestedPlaza,
-      password
+      requestedPlaza
     });
     if (!approvalPayload) return;
   }
@@ -24764,8 +24277,9 @@ async function procesarSolicitud(docId, esAprobado, collectionHint = '') {
   showToast("Procesando...", "info"); // Aviso visual mientras piensa
 
   try {
+    let approvalResult = null;
     if (esAprobado) {
-      await _procesarSolicitudCallable({
+      approvalResult = await _procesarSolicitudCallable({
         action: 'approve',
         docId: solicitudInfo.id,
         collectionName: solicitudInfo.collectionName,
@@ -24774,8 +24288,7 @@ async function procesarSolicitud(docId, esAprobado, collectionHint = '') {
         puesto,
         telefono: approvalPayload ? approvalPayload.telefono : telefono,
         role: approvalPayload ? approvalPayload.role : requestedRole,
-        plaza: approvalPayload ? approvalPayload.plaza : requestedPlaza,
-        password
+        plaza: approvalPayload ? approvalPayload.plaza : requestedPlaza
       });
     } else {
       await _procesarSolicitudCallable({
@@ -24794,7 +24307,12 @@ async function procesarSolicitud(docId, esAprobado, collectionHint = '') {
       enviarCorreoWebhook(email, nombre, esAprobado ? "APROBADO" : "RECHAZADO", motivo);
     }
 
-    showToast(`Solicitud ${esAprobado ? 'APROBADA' : 'RECHAZADA'} con éxito`, "success");
+    const approvalMessage = approvalResult?.passwordSetupRequired
+      ? (approvalResult.passwordSetupEmailSent
+          ? 'Solicitud APROBADA. Enviamos el enlace para configurar la contrasena.'
+          : 'Solicitud APROBADA. El usuario debe usar Recuperar contrasena en Login.')
+      : `Solicitud ${esAprobado ? 'APROBADA' : 'RECHAZADA'} con éxito`;
+    showToast(approvalMessage, "success");
     // Recargar el tab actual del panel de solicitudes v2
     if (typeof cargarSolicitudesDeTab === 'function' && document.getElementById('contenedor-solicitudes-v2')) {
       cargarSolicitudesDeTab(window._filtroSolicitudesEstatus || 'PENDIENTE');
