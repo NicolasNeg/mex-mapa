@@ -102,13 +102,14 @@ export function renderContactItem(c, meta, isActive, isArchived) {
   const truncated = display.length > 55 ? display.substring(0, 55) + '…' : display;
   const time = c.last ? formatMsgTime(c.last) : '';
   const m = meta || {};
+  const contactName = String(m.nombre || c.displayLabel || c.peerEmail || 'USUARIO').trim().toUpperCase();
   const badge = [m.plaza, m.rol].filter(Boolean).join(' · ');
   return `
 <div class="am-contact${isActive ? ' active' : ''}${unread ? ' has-unread' : ''}${isArchived ? ' archived' : ''}" data-peer="${esc(c.peerKey)}">
-  <div class="am-contact-av">${esc(initials(c.displayLabel || c.peerEmail))}</div>
+  <div class="am-contact-av">${esc(initials(contactName))}</div>
   <div class="am-contact-body">
     <div class="am-contact-top">
-      <span class="am-contact-name">${esc(c.displayLabel)}${isArchived ? ' <span class="am-archived-tag">Archivado</span>' : ''}</span>
+      <span class="am-contact-name">${esc(contactName)}${isArchived ? ' <span class="am-archived-tag">Archivado</span>' : ''}</span>
       <span class="am-contact-time${unread ? ' unread' : ''}">${esc(time)}</span>
     </div>
     <div class="am-contact-sub">${esc(badge || 'Contacto')}</div>
@@ -197,13 +198,13 @@ export function renderContactInfo(user) {
 </div>`;
 }
 
-export function renderDirectoryContact(user, isActive) {
-  const email  = String(user.id || user.email || '').toLowerCase();
-  const nombre = String(user.nombre || user.nombreCompleto || user.usuario || '').trim() || email;
+export function renderDirectoryContact(user, isActive, identity = null) {
+  const email  = String(identity?.email || user.email || user.id || '').toLowerCase();
+  const nombre = String(identity?.label || user.nombre || user.nombreCompleto || user.usuario || '').trim() || email;
   const plaza  = String(user.plazaAsignada || user.plaza || '').toUpperCase();
   const rol    = String(user.rol || '').toUpperCase();
   const badge  = [rol, plaza].filter(Boolean).join(' · ') || 'Directorio';
-  const peerKey = email ? `EMAIL:${email}` : `LEGACY:${nombre.toUpperCase()}`;
+  const peerKey = identity?.key || (email ? `EMAIL:${email}` : `LEGACY:${nombre.toUpperCase()}`);
   return `
 <div class="am-contact am-contact--dir${isActive ? ' active' : ''}" data-peer="${esc(peerKey)}">
   <div class="am-contact-av">${esc(initials(nombre))}</div>

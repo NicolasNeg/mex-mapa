@@ -1240,7 +1240,15 @@ async function _compressHeaderImage(file) {
   if (label) label.textContent = 'Procesando...';
   try {
     const base64 = await _compressImage(file, { maxWidth: 900, quality: 0.62 });
-    q('#alertaNuevaImagen').value = base64;
+    const blob = await (await fetch(base64)).blob();
+    const { uploadMedia } = await import('/js/core/media-upload.js');
+    const uploaded = await uploadMedia({
+      folder: 'alertas',
+      file: blob,
+      publicId: `header_${Date.now()}`,
+      resourceType: 'image',
+    });
+    q('#alertaNuevaImagen').value = uploaded.url;
     if (label) label.textContent = 'Imagen cargada lista para enviar';
     _updatePreview();
   } catch (error) {
@@ -1260,8 +1268,16 @@ async function _insertBodyImage(file, input) {
   if (!file) return;
   try {
     const base64 = await _compressImage(file, { maxWidth: 1100, quality: 0.7 });
+    const blob = await (await fetch(base64)).blob();
+    const { uploadMedia } = await import('/js/core/media-upload.js');
+    const uploaded = await uploadMedia({
+      folder: 'alertas',
+      file: blob,
+      publicId: `body_${Date.now()}`,
+      resourceType: 'image',
+    });
     const alt = esc((file.name || 'Imagen alerta').replace(/\.[^.]+$/, ''));
-    _insertHtml(`<div style="text-align:center; margin:14px 0;"><img src="${base64}" alt="${alt}" style="display:block; max-width:100%; width:auto; margin:0 auto; border-radius:18px;"></div>`);
+    _insertHtml(`<div style="text-align:center; margin:14px 0;"><img src="${esc(uploaded.url)}" alt="${alt}" style="display:block; max-width:100%; width:auto; margin:0 auto; border-radius:18px;"></div>`);
   } catch (error) {
     _toast('No se pudo insertar la imagen.', 'error');
   } finally {

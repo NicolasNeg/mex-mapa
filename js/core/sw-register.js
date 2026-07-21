@@ -22,7 +22,7 @@
           banner.style.display = 'flex';
           msg.textContent = 'Sin conexión — mostrando datos guardados';
         } else {
-          msg.textContent = 'Conexión restaurada ✓';
+          msg.textContent = 'Conexión restaurada';
           banner.style.display = 'flex';
           setTimeout(() => { banner.style.display = 'none'; }, 2500);
         }

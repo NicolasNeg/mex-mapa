@@ -670,22 +670,50 @@ async function enrichDeviceRows(rows = []) {
   });
 }
 
+function isActiveUserProfile(data = {}) {
+  const hasOwn = key => Object.prototype.hasOwnProperty.call(data, key);
+  const status = hasOwn("status") ? data.status : "";
+  const flags = ["activo", "autorizado", "accesoSistema"];
+  if (typeof status !== "string") return false;
+  if (flags.some(key => hasOwn(key) && typeof data[key] !== "boolean")) return false;
+  if (flags.some(key => data[key] === false)) return false;
+  if (hasOwn("authUid") && typeof data.authUid !== "string") return false;
+  return !["INACTIVO", "RECHAZADO", "BLOQUEADO", "SUSPENDIDO"].includes(normalizeUpper(status));
+}
+
+function assertProfileMatchesAuth(profile, auth) {
+  const data = profile?.data || {};
+  if (!isActiveUserProfile(data)) {
+    throw new HttpsError("permission-denied", "Perfil inactivo o bloqueado.");
+  }
+
+  const linkedUid = normalizeString(data.authUid || "");
+  if (linkedUid && linkedUid !== auth.uid) {
+    throw new HttpsError("permission-denied", "El perfil no corresponde a esta sesion.");
+  }
+  return profile;
+}
+
 async function findUserProfileFromAuth(auth) {
   if (!auth?.uid) throw new HttpsError("unauthenticated", "Sesión requerida.");
   const email = normalizeLower(auth.token?.email);
   if (email) {
     const direct = await db.collection(USERS_COL).doc(email).get();
-    if (direct.exists) return { id: direct.id, ref: direct.ref, data: direct.data() || {} };
+    if (direct.exists) {
+      return assertProfileMatchesAuth({ id: direct.id, ref: direct.ref, data: direct.data() || {} }, auth);
+    }
 
     const byEmail = await db.collection(USERS_COL).where("email", "==", email).limit(1).get();
     if (!byEmail.empty) {
       const doc = byEmail.docs[0];
-      return { id: doc.id, ref: doc.ref, data: doc.data() || {} };
+      return assertProfileMatchesAuth({ id: doc.id, ref: doc.ref, data: doc.data() || {} }, auth);
     }
   }
 
   const byUid = await db.collection(USERS_COL).doc(auth.uid).get();
-  if (byUid.exists) return { id: byUid.id, ref: byUid.ref, data: byUid.data() || {} };
+  if (byUid.exists) {
+    return assertProfileMatchesAuth({ id: byUid.id, ref: byUid.ref, data: byUid.data() || {} }, auth);
+  }
 
   throw new HttpsError("permission-denied", "Perfil no encontrado.");
 }
@@ -715,6 +743,8 @@ async function resolveUserDocIdsByHandle(handle) {
   await Promise.all([
     db.collection(USERS_COL).doc(lower).get().then(absorbDoc),
     db.collection(USERS_COL).doc(upper).get().then(absorbDoc),
+    db.collection(USERS_COL).where("authUid", "==", raw).limit(5).get().then(snap => snap.docs.forEach(doc => found.set(doc.id, doc.ref.path))),
+    db.collection(USERS_COL).where("uid", "==", raw).limit(5).get().then(snap => snap.docs.forEach(doc => found.set(doc.id, doc.ref.path))),
     db.collection(USERS_COL).where("email", "==", lower).limit(5).get().then(snap => snap.docs.forEach(doc => found.set(doc.id, doc.ref.path))),
     db.collection(USERS_COL).where("nombre", "==", upper).limit(5).get().then(snap => snap.docs.forEach(doc => found.set(doc.id, doc.ref.path))),
     db.collection(USERS_COL).where("usuario", "==", upper).limit(5).get().then(snap => snap.docs.forEach(doc => found.set(doc.id, doc.ref.path)))
@@ -1116,10 +1146,12 @@ exports.onPrivateMessageCreated = functions.region(REGION).firestore.document("m
   try {
     const data = snap.data();
     if (!data) return;
-    const recipients = await resolveUserDocIdsByHandle(data.destinatario);
+    const recipientHandle = data.destinatarioUid || data.destinatarioEmail || data.destinatario;
+    const recipients = await resolveUserDocIdsByHandle(recipientHandle);
     const eventId = `msg_${context.params.msgId}`;
-    const actorName = normalizeUpper(data.remitente || "Sistema");
-    const deepLink = `/mapa?notif=chat&chatUser=${encodeURIComponent(actorName)}`;
+    const actorName = normalizeUpper(data.remitenteNombre || data.remitenteEmail || data.remitente || "Sistema");
+    const actorHandle = data.remitenteUid || data.remitenteEmail || data.remitente || actorName;
+    const deepLink = `/mapa?notif=chat&chatUser=${encodeURIComponent(actorHandle)}`;
     const bodyText = normalizeString(data.mensaje || data.archivoNombre || "Tienes un nuevo mensaje.");
     await writeOpsEvent(eventId, {
       id: eventId,
@@ -1901,7 +1933,7 @@ exports.enviarCorreoSolicitud = functions
           <p style="color:rgba(255,255,255,0.7);margin:6px 0 0;font-size:13px;">Sistema de Administración de Flota</p>
         </div>
         <div style="padding:32px 36px;background:#fff;">
-          <h2 style="color:#0f172a;font-size:18px;font-weight:800;margin:0 0 8px;">Solicitud recibida ✓</h2>
+          <h2 style="color:#0f172a;font-size:18px;font-weight:800;margin:0 0 8px;">Solicitud recibida</h2>
           <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px;">
             Hola <strong>${nombre}</strong>, recibimos tu solicitud de acceso al sistema.<br>
             Un administrador revisará tu solicitud y te notificará sobre la decisión.
@@ -2044,6 +2076,27 @@ exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data
   }
 });
 
+async function sendPasswordSetupEmail(email, nombre) {
+  const mailConfig = functions.config().mail || {};
+  if (!mailConfig.user || !mailConfig.pass) {
+    logger.warn("[procesarSolicitudAcceso] Sin config de correo; usa Recuperar contrasena en Login.");
+    return false;
+  }
+
+  const resetLink = await admin.auth().generatePasswordResetLink(email);
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: mailConfig.user, pass: mailConfig.pass },
+  });
+  await transporter.sendMail({
+    from: `"MapGestion" <${mailConfig.user}>`,
+    to: email,
+    subject: "Configura tu acceso a MapGestion",
+    text: `Hola ${normalizeString(nombre || "")}. Tu acceso fue aprobado. Configura una contrasena nueva desde este enlace: ${resetLink}`,
+  });
+  return true;
+}
+
 exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (data, context) => {
   try {
     const profile = await findUserProfileFromAuth(context.auth);
@@ -2100,8 +2153,8 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
         throw new HttpsError("invalid-argument", "Debes asignar una plaza para ese rol.");
       }
 
-      const rawPassword = normalizeString(payload.password || solicitudData.password);
       let authUser = null;
+      let createdAuthUser = false;
       try {
         authUser = await admin.auth().getUserByEmail(email);
       } catch (error) {
@@ -2109,14 +2162,12 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
       }
 
       if (!authUser) {
-        if (rawPassword.length < 6) {
-          throw new HttpsError("invalid-argument", "La contraseña de la solicitud ya no es válida.");
-        }
         authUser = await admin.auth().createUser({
           email,
-          password: rawPassword,
+          password: `${crypto.randomBytes(36).toString("base64url")}Aa1!`,
           displayName: nombre
         });
+        createdAuthUser = true;
       } else {
         await admin.auth().updateUser(authUser.uid, {
           displayName: nombre
@@ -2137,6 +2188,7 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
       const userPayload = {
         nombre,
         email,
+        authUid: authUser.uid,
         telefono,
         puesto,
         rol: role,
@@ -2174,7 +2226,7 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
         telefono,
         rolSolicitado: role,
         plazaSolicitada: plazaAsignada,
-        password: "",
+        password: admin.firestore.FieldValue.delete(),
         estado: "APROBADA",
         aprobadoPor: actorName,
         aprobadoPorEmail: actorEmail,
@@ -2201,12 +2253,23 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
         detalles: "Cuenta aprovisionada desde Cloud Functions"
       }, { merge: true });
 
+      let passwordSetupEmailSent = false;
+      if (createdAuthUser) {
+        try {
+          passwordSetupEmailSent = await sendPasswordSetupEmail(email, nombre);
+        } catch (error) {
+          logger.error("[procesarSolicitudAcceso] No se pudo enviar el enlace de alta.", error);
+        }
+      }
+
       return {
         ok: true,
         action: "approve",
         email,
         role,
         plazaAsignada,
+        passwordSetupRequired: createdAuthUser,
+        passwordSetupEmailSent,
         collectionName: solicitud.collectionName
       };
     }
@@ -2222,7 +2285,7 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
       email,
       puesto,
       telefono,
-      password: "",
+      password: admin.firestore.FieldValue.delete(),
       estado: "RECHAZADA",
       motivo_rechazo: motivo,
       rechazadoPor: actorName,
@@ -2814,7 +2877,7 @@ exports.registrarConInvitacion = functions.region(REGION).https.onCall(async (da
   // Crear perfil — registro automático, sin aprobación.
   const userRef = await resolveUserProfileDocRefByEmail(email, authUser);
   await userRef.set({
-    nombre, email, telefono,
+    nombre, email, authUid: authUser.uid, telefono,
     rol: inv.rol,
     plaza: inv.plaza, plazaAsignada: inv.plaza,
     plazasPermitidas: [inv.plaza],
@@ -3017,9 +3080,243 @@ exports.generarReporteActividadDesdeImagen = functions
     };
   });
 
+// ══════════════════════════════════════════════════════════════
+//  Cloudinary — signed uploads (API_SECRET never on client)
+//  Env / secrets:
+//    CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+//  Optional legacy config:
+//    firebase functions:config:set cloudinary.cloud_name=… api_key=… api_secret=…
+// ══════════════════════════════════════════════════════════════
+
+function getCloudinaryEnv() {
+  const cfg = (typeof functions.config === "function" ? (functions.config().cloudinary || {}) : {}) || {};
+  return {
+    cloudName: normalizeString(cfg.cloud_name || process.env.CLOUDINARY_CLOUD_NAME),
+    apiKey: normalizeString(cfg.api_key || process.env.CLOUDINARY_API_KEY),
+    apiSecret: normalizeString(cfg.api_secret || process.env.CLOUDINARY_API_SECRET)
+  };
+}
+
+function assertCloudinaryConfigured() {
+  const env = getCloudinaryEnv();
+  if (!env.cloudName || !env.apiKey || !env.apiSecret) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Configura Cloudinary (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET)."
+    );
+  }
+  return env;
+}
+
+function getCloudinarySdk() {
+  const env = assertCloudinaryConfigured();
+  // Lazy require so deploy/boot works before dependency/secrets exist.
+  // eslint-disable-next-line global-require
+  const cloudinary = require("cloudinary").v2;
+  cloudinary.config({
+    cloud_name: env.cloudName,
+    api_key: env.apiKey,
+    api_secret: env.apiSecret,
+    secure: true
+  });
+  return { cloudinary, env };
+}
+
+const CLOUDINARY_BASE_FOLDER = "mex/prod";
+const CLOUDINARY_ALLOWED_FOLDER_PREFIXES = [
+  "mex/prod/",
+  "mex/staging/",
+  "mex/dev/"
+];
+
+function sanitizeCloudinaryFolder(folder) {
+  const cleaned = normalizeString(folder)
+    .replace(/\\/g, "/")
+    .replace(/[^a-zA-Z0-9/_-]/g, "_")
+    .replace(/\/+/g, "/")
+    .replace(/^\/+|\/+$/g, "");
+  const full = cleaned.startsWith("mex/")
+    ? cleaned
+    : `${CLOUDINARY_BASE_FOLDER}/${cleaned || "misc"}`;
+  if (!CLOUDINARY_ALLOWED_FOLDER_PREFIXES.some((p) => full.startsWith(p))) {
+    throw new HttpsError("invalid-argument", "Folder Cloudinary no permitido.");
+  }
+  if (full.length > 240) {
+    throw new HttpsError("invalid-argument", "Folder Cloudinary demasiado largo.");
+  }
+  return full;
+}
+
+function sanitizeCloudinaryPublicId(publicId) {
+  const cleaned = normalizeString(publicId)
+    .replace(/\\/g, "/")
+    .replace(/^\//, "")
+    .replace(/\.\./g, "")
+    .replace(/[^a-zA-Z0-9/_-]/g, "_");
+  if (!cleaned) return "";
+  if (cleaned.length > 200) {
+    throw new HttpsError("invalid-argument", "publicId demasiado largo.");
+  }
+  return cleaned;
+}
+
+function extractCloudinaryPublicId(ref) {
+  if (!ref) return "";
+  if (typeof ref === "object") {
+    return normalizeString(ref.publicId || ref.public_id || "");
+  }
+  const raw = normalizeString(ref);
+  if (!raw) return "";
+  if (!/^https?:\/\//i.test(raw)) {
+    // Firebase path → not cloudinary
+    if (
+      raw.startsWith("papeletas")
+      || raw.startsWith("profile_")
+      || raw.startsWith("catalogo_")
+      || raw.startsWith("mensajes_")
+      || raw.startsWith("turnos_")
+      || raw.startsWith("maps/")
+      || raw.startsWith("licencias_")
+      || raw.startsWith("notas_")
+      || raw.startsWith("evidencias_")
+      || raw.startsWith("empresa_config")
+    ) {
+      return "";
+    }
+    return raw.includes("/") ? raw.replace(/\.[a-z0-9]+$/i, "") : raw;
+  }
+  try {
+    const u = new URL(raw);
+    if (!/res\.cloudinary\.com$/i.test(u.hostname) && !/res\.cloudinary\.com$/i.test(u.host)) {
+      if (!/cloudinary/i.test(u.hostname)) return "";
+    }
+    const parts = u.pathname.split("/").filter(Boolean);
+    const uploadIdx = parts.findIndex((p) => p === "upload" || p === "authenticated" || p === "private");
+    if (uploadIdx < 0) return "";
+    let rest = parts.slice(uploadIdx + 1);
+    if (rest[0] && /^v\d+$/i.test(rest[0])) rest = rest.slice(1);
+    while (rest.length && /[,]|^(c_|w_|h_|q_|f_|e_|b_|r_|g_|l_|t_|dpr_|ar_)/.test(rest[0])) {
+      rest = rest.slice(1);
+    }
+    if (!rest.length) return "";
+    return rest.join("/").replace(/\.[a-z0-9]+$/i, "");
+  } catch (_) {
+    return "";
+  }
+}
+
+function isFirebaseStoragePath(ref) {
+  const raw = typeof ref === "object"
+    ? normalizeString(ref.path || ref.storagePath || "")
+    : normalizeString(ref);
+  if (!raw || /^https?:\/\//i.test(raw)) return false;
+  return (
+    raw.startsWith("papeletas")
+    || raw.startsWith("profile_")
+    || raw.startsWith("catalogo_")
+    || raw.startsWith("mensajes_")
+    || raw.startsWith("turnos_")
+    || raw.startsWith("maps/")
+    || raw.startsWith("licencias_")
+    || raw.startsWith("notas_")
+    || raw.startsWith("evidencias_")
+    || raw.startsWith("empresa_config")
+    || raw.startsWith("papeletas_reportes")
+    || raw.startsWith("papeletas_ventas")
+  );
+}
+
+async function destroyCloudinaryPublicId(publicId, resourceType = "image") {
+  const id = normalizeString(publicId);
+  if (!id) return { ok: false, skipped: true };
+  const { cloudinary } = getCloudinarySdk();
+  const result = await cloudinary.uploader.destroy(id, {
+    resource_type: normalizeString(resourceType) || "image",
+    invalidate: true
+  });
+  return { ok: true, result };
+}
+
+/**
+ * Callable: getCloudinaryUploadSignature
+ * Auth required. Returns signed params for direct browser upload.
+ */
+const CLOUDINARY_SECRETS = [
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET"
+];
+
+exports.getCloudinaryUploadSignature = functions
+  .region(REGION)
+  .runWith({ secrets: CLOUDINARY_SECRETS, timeoutSeconds: 30 })
+  .https.onCall(async (data, context) => {
+    await findUserProfileFromAuth(context.auth);
+    const env = assertCloudinaryConfigured();
+
+    const folder = sanitizeCloudinaryFolder(data?.folder || CLOUDINARY_BASE_FOLDER);
+    const publicIdLeaf = sanitizeCloudinaryPublicId(data?.publicId || data?.public_id || "");
+    // Cloudinary public_id should NOT include folder when folder param is sent separately
+    const publicId = publicIdLeaf.includes("/")
+      ? publicIdLeaf.split("/").pop()
+      : publicIdLeaf;
+    const resourceType = normalizeString(data?.resourceType || data?.resource_type || "image") || "image";
+    const timestamp = Math.round(Date.now() / 1000);
+
+    const paramsToSign = { timestamp, folder };
+    if (publicId) paramsToSign.public_id = publicId;
+
+    // Prefer SDK helper for exact signature algorithm compatibility
+    let signature;
+    try {
+      const { cloudinary } = getCloudinarySdk();
+      signature = cloudinary.utils.api_sign_request(paramsToSign, env.apiSecret);
+    } catch (err) {
+      // Fallback SHA-1 if SDK missing
+      const sorted = Object.keys(paramsToSign)
+        .sort()
+        .map((k) => `${k}=${paramsToSign[k]}`)
+        .join("&");
+      signature = crypto.createHash("sha1").update(sorted + env.apiSecret).digest("hex");
+      logger.warn("getCloudinaryUploadSignature: SDK sign fallback", { err: err?.message });
+    }
+
+    return {
+      cloudName: env.cloudName,
+      apiKey: env.apiKey,
+      timestamp,
+      signature,
+      folder,
+      publicId: publicId || null,
+      resourceType,
+      provider: "cloudinary"
+    };
+  });
+
+/** Callable: destroyCloudinaryMedia — auth required, best-effort cleanup. */
+exports.destroyCloudinaryMedia = functions
+  .region(REGION)
+  .runWith({ secrets: CLOUDINARY_SECRETS, timeoutSeconds: 30 })
+  .https.onCall(async (data, context) => {
+    await findUserProfileFromAuth(context.auth);
+    assertCloudinaryConfigured();
+    const publicId = extractCloudinaryPublicId(data?.publicId || data?.public_id || data?.url || data);
+    if (!publicId) {
+      throw new HttpsError("invalid-argument", "publicId requerido.");
+    }
+    const resourceType = normalizeString(data?.resourceType || data?.resource_type || "image") || "image";
+    try {
+      return await destroyCloudinaryPublicId(publicId, resourceType);
+    } catch (err) {
+      logger.warn("destroyCloudinaryMedia failed", { publicId, err: err?.message });
+      throw new HttpsError("internal", "No se pudo eliminar el archivo en Cloudinary.");
+    }
+  });
+
 /** Limpia fotos de reportes de papeletas no promovidos tras expiresAt (TTL ~24h). */
 exports.limpiarFotosReportesPapeletas = functions
   .region(REGION)
+  .runWith({ secrets: CLOUDINARY_SECRETS })
   .pubsub.schedule("every 60 minutes")
   .timeZone("America/Mexico_City")
   .onRun(async () => {
@@ -3037,18 +3334,45 @@ exports.limpiarFotosReportesPapeletas = functions
 
     const bucket = admin.storage().bucket();
     let cleaned = 0;
+    let cloudinaryReady = false;
+    try {
+      assertCloudinaryConfigured();
+      cloudinaryReady = true;
+    } catch (_) {
+      cloudinaryReady = false;
+    }
+
     for (const doc of snap.docs) {
       const data = doc.data() || {};
-      const paths = [];
-      if (data.fotos?.placas) paths.push(data.fotos.placas);
-      if (data.fotos?.vin) paths.push(data.fotos.vin);
-      for (const p of data.fotos?.danos || []) if (p) paths.push(p);
+      const refs = [];
+      if (data.fotos?.placas) refs.push(data.fotos.placas);
+      if (data.fotos?.vin) refs.push(data.fotos.vin);
+      for (const p of data.fotos?.danos || []) if (p) refs.push(p);
 
-      for (const path of paths) {
-        try {
-          await bucket.file(path).delete({ ignoreNotFound: true });
-        } catch (err) {
-          logger.warn("limpiarFotosReportesPapeletas delete failed", { path, err: err?.message });
+      for (const ref of refs) {
+        const publicId = extractCloudinaryPublicId(ref);
+        if (publicId && cloudinaryReady) {
+          try {
+            await destroyCloudinaryPublicId(publicId, "image");
+          } catch (err) {
+            logger.warn("limpiarFotosReportesPapeletas cloudinary delete failed", {
+              publicId,
+              err: err?.message
+            });
+          }
+          continue;
+        }
+
+        if (isFirebaseStoragePath(ref)) {
+          const path = typeof ref === "object"
+            ? normalizeString(ref.path || ref.storagePath)
+            : normalizeString(ref);
+          if (!path) continue;
+          try {
+            await bucket.file(path).delete({ ignoreNotFound: true });
+          } catch (err) {
+            logger.warn("limpiarFotosReportesPapeletas delete failed", { path, err: err?.message });
+          }
         }
       }
 

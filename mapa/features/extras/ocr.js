@@ -15,7 +15,7 @@ export async function procesarImagenOCR(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  window.notificarRespuestaIA?.('👁️ Procesando placa... por favor espera.');
+  window.notificarRespuestaIA?.('Procesando placa... por favor espera.');
 
   const reader = new FileReader();
   reader.onload = function (e) {
@@ -35,7 +35,7 @@ export async function procesarImagenOCR(event) {
 
       window.api.analizarPlacaVisionAPI(compressedBase64)
         .then(textoDetectado => ejecutarLogicaOCR(textoDetectado))
-        .catch(() => window.notificarRespuestaIA?.('❌ Error de comunicación con la cámara.'));
+        .catch(() => window.notificarRespuestaIA?.('Error de comunicación con la cámara.'));
     };
   };
   reader.readAsDataURL(file);
@@ -44,7 +44,7 @@ export async function procesarImagenOCR(event) {
 
 export function ejecutarLogicaOCR(textoDetectado) {
   if (!textoDetectado || textoDetectado === 'NO_TEXT_FOUND' || textoDetectado.startsWith('ERROR')) {
-    return window.notificarRespuestaIA?.('❌ No logré leer la placa. Intenta de nuevo.');
+    return window.notificarRespuestaIA?.('No logré leer la placa. Intenta de nuevo.');
   }
 
   const tokensOCR = textoDetectado.toUpperCase().split(/\s+/).map(p => p.replace(/[^A-Z0-9]/gi, ''));
@@ -64,9 +64,9 @@ export function ejecutarLogicaOCR(textoDetectado) {
     window.ultimoMVA_MEXIA = carNode.dataset.mva;
     carNode.classList.add('car-focus');
     setTimeout(() => carNode.classList.remove('car-focus'), 5000);
-    window.notificarRespuestaIA?.(`✅ Identificado: ${carNode.dataset.mva}. ¿Qué orden tienes?`);
+    window.notificarRespuestaIA?.(`Identificado: ${carNode.dataset.mva}. ¿Qué orden tienes?`);
     window.expandirTerminal?.();
   } else {
-    window.notificarRespuestaIA?.('❌ Placa no registrada en el patio.');
+    window.notificarRespuestaIA?.('Placa no registrada en el patio.');
   }
 }

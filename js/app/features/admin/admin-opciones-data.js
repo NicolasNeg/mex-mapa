@@ -3,8 +3,6 @@
  * Persistencia vía window.api.guardarConfiguracionListas + MEX_CONFIG.listas.
  */
 import { hasAppPermission } from '/js/app/features/admin/admin-permissions.js';
-import { storage } from '/js/core/database.js';
-
 export const OPCIONES_SECTIONS = new Set([
   'estados',
   'categorias',
@@ -99,18 +97,19 @@ export function plazaOptionsForUbicaciones() {
   return ['ALL', ...plazas];
 }
 
-/** Sube imagen de modelo a Storage (solo archivo local). */
+/** Sube imagen de modelo a Cloudinary (solo archivo local). */
 export async function uploadModelImage(file) {
   if (!file) throw new Error('Selecciona una imagen.');
   const type = String(file.type || '');
   if (!type.startsWith('image/')) throw new Error('Solo se permiten imágenes desde tu equipo.');
-  if (!storage?.ref) throw new Error('Firebase Storage no está disponible.');
-  const extRaw = (String(file.name || '').split('.').pop() || 'png').toLowerCase();
-  const ext = extRaw.replace(/[^a-z0-9]/g, '') || 'png';
-  const path = `catalogo_modelos/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const ref = storage.ref(path);
-  const snap = await ref.put(file, { contentType: type || 'image/png' });
-  return snap.ref.getDownloadURL();
+  const { uploadMedia } = await import('/js/core/media-upload.js');
+  const result = await uploadMedia({
+    folder: 'catalogo_modelos',
+    file,
+    publicId: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    resourceType: 'image',
+  });
+  return result.url;
 }
 
 function _buildItem(section, fields = {}, fallbackOrder = 1) {

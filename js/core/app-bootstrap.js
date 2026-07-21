@@ -491,15 +491,35 @@
     };
   }
 
-  function normalizeConfig(config = {}) {
+  // Client-safe defaults only (cloud name appears in delivery URLs; never API secret).
+  const DEFAULT_MEDIA_CONFIG = Object.freeze({
+    provider: 'cloudinary',
+    cloudName: 'dcoma38r',
+    baseFolder: 'mex/prod'
+  });
+
+  function normalizeMediaConfig(media = {}, empresa = {}) {
+    const fromEmpresa = empresa?.media && typeof empresa.media === 'object' ? empresa.media : {};
+    const src = { ...DEFAULT_MEDIA_CONFIG, ...fromEmpresa, ...(media && typeof media === 'object' ? media : {}) };
     return {
-      empresa: {
-        ...normalizeEmpresa(config?.empresa || {})
-      },
+      provider: safeText(src.provider) || DEFAULT_MEDIA_CONFIG.provider,
+      cloudName: safeText(src.cloudName || src.cloud_name) || DEFAULT_MEDIA_CONFIG.cloudName,
+      baseFolder: safeText(src.baseFolder || src.base_folder) || DEFAULT_MEDIA_CONFIG.baseFolder
+    };
+  }
+
+  function normalizeConfig(config = {}) {
+    const empresa = {
+      ...normalizeEmpresa(config?.empresa || {})
+    };
+    return {
+      empresa,
       listas: {
         ...DEFAULT_LISTS,
         ...(config?.listas || {})
-      }
+      },
+      // Client-safe Cloudinary config (no API secret). Prefer empresa.media.
+      media: normalizeMediaConfig(config?.media, empresa)
     };
   }
 
@@ -514,7 +534,12 @@
       listas: {
         ...base.listas,
         ...extra.listas
-      }
+      },
+      media: normalizeMediaConfig(extra.media, {
+        ...base.empresa,
+        ...extra.empresa,
+        media: { ...(base.media || {}), ...(extra.media || {}) }
+      })
     };
   }
 
@@ -931,6 +956,20 @@
       }
 
       #mexLocationGateOverlay {
+        --mex-location-bg: var(--bg, #f8fafc);
+        --mex-location-surface: var(--surface, #ffffff);
+        --mex-location-text: var(--text, #0f172a);
+        --mex-location-muted: var(--text-muted, var(--muted, #64748b));
+        --mex-location-border: var(--border, #d5deec);
+        --mex-location-border-md: var(--border-md, var(--border, #cbd5e1));
+        --mex-location-accent: var(--accent, var(--primary, #2563eb));
+        --mex-location-accent-hover: var(--accent-hover, var(--primary-d, #1d4ed8));
+        --mex-location-accent-pale: var(--accent-pale, #eff6ff);
+        --mex-location-on-accent: var(--on-accent, #ffffff);
+        --mex-location-error: var(--color-error, var(--danger, #dc2626));
+        --mex-location-card-radius: var(--radius-xl, 12px);
+        --mex-location-control-radius: var(--radius-md, 8px);
+        --mex-location-shadow: var(--shadow-lg, 0 24px 64px rgba(15, 23, 42, 0.24));
         position: fixed;
         inset: 0;
         z-index: 999998;
@@ -938,7 +977,36 @@
         align-items: center;
         justify-content: center;
         padding: 24px;
-        background: rgba(15, 23, 42, 0.55);
+        overflow: auto;
+        background: rgba(2, 6, 23, 0.68);
+        background: color-mix(in srgb, var(--slate-950, #020617) 68%, transparent);
+        overscroll-behavior: contain;
+      }
+
+      #mexLocationGateOverlay,
+      #mexLocationGateOverlay * {
+        box-sizing: border-box;
+      }
+
+      #mexLocationGateOverlay .material-symbols-outlined {
+        width: 1em;
+        height: 1em;
+        overflow: hidden;
+        display: inline-grid;
+        flex: 0 0 auto;
+        place-items: center;
+        font-family: 'Material Symbols Outlined' !important;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1;
+        letter-spacing: 0;
+        text-transform: none;
+        white-space: nowrap;
+        direction: ltr;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        font-feature-settings: 'liga';
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
       }
 
       #mexLocationGateOverlay.active {
@@ -946,133 +1014,176 @@
       }
 
       .mex-location-gate-card {
-        width: min(420px, 100%);
+        width: min(400px, 100%);
         padding: 24px;
-        border-radius: 12px;
-        background: var(--surface, #ffffff);
-        border: 1px solid var(--border, #e2e8f0);
-        box-shadow: 0 16px 48px rgba(15, 23, 42, 0.18);
-        color: var(--text, #0f172a);
-        text-align: center;
+        border-radius: var(--mex-location-card-radius);
+        background: var(--mex-location-surface);
+        border: 1px solid var(--mex-location-border);
+        box-shadow: var(--mex-location-shadow);
+        color: var(--mex-location-text);
+        font-family: 'Inter', sans-serif;
+        text-align: left;
       }
 
+      .mex-location-gate-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .mex-location-gate-heading { min-width: 0; }
+
       .mex-location-gate-icon {
-        width: 56px;
-        height: 56px;
-        margin: 0 auto 16px;
-        border-radius: 12px;
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        border-radius: var(--mex-location-control-radius);
         display: grid;
         place-items: center;
-        background: rgba(59, 130, 246, 0.12);
-        color: #3b82f6;
+        background: var(--mex-location-accent-pale);
+        color: var(--mex-location-accent);
       }
 
       .mex-location-gate-card.is-denied .mex-location-gate-icon {
-        background: rgba(220, 38, 38, 0.1);
-        color: #dc2626;
+        background: color-mix(in srgb, var(--mex-location-error) 12%, transparent);
+        color: var(--mex-location-error);
       }
 
       .mex-location-gate-icon .material-symbols-outlined {
-        font-size: 28px;
+        font-size: 20px;
       }
 
       .mex-location-gate-kicker {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 12px;
-        border-radius: 9999px;
-        background: rgba(59, 130, 246, 0.1);
-        color: #2563eb;
+        color: var(--mex-location-muted);
         font-size: 11px;
-        font-weight: 600;
-        letter-spacing: .06em;
+        font-weight: 500;
+        letter-spacing: 0;
         text-transform: uppercase;
       }
 
       .mex-location-gate-card.is-denied .mex-location-gate-kicker {
-        background: rgba(220, 38, 38, 0.1);
-        color: #dc2626;
+        color: var(--mex-location-error);
       }
 
       .mex-location-gate-title {
-        margin: 16px 0 8px;
-        font-size: 22px;
-        font-weight: 700;
-        line-height: 1.2;
-        color: var(--text, #0f172a);
+        margin: 4px 0 0;
+        font-size: 20px;
+        font-weight: 600;
+        line-height: 28px;
+        color: var(--mex-location-text);
+        text-wrap: balance;
       }
 
       .mex-location-gate-copy {
-        margin: 0;
-        color: var(--text-muted, #64748b);
+        margin: 16px 0 0;
+        color: var(--mex-location-muted);
         font-size: 14px;
-        line-height: 1.5;
+        line-height: 20px;
         font-weight: 400;
+        text-wrap: pretty;
       }
 
       .mex-location-gate-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         margin-top: 16px;
         padding: 12px;
-        border-radius: 8px;
-        background: var(--bg, #f8fafc);
-        border: 1px solid var(--border, #e2e8f0);
-        color: var(--text, #0f172a);
+        border-radius: var(--mex-location-control-radius);
+        background: var(--mex-location-bg);
+        border: 1px solid var(--mex-location-border);
+        color: var(--mex-location-text);
         font-size: 12px;
-        font-weight: 600;
-        line-height: 1.45;
+        font-weight: 400;
+        line-height: 16px;
+      }
+
+      .mex-location-gate-status .material-symbols-outlined {
+        flex-shrink: 0;
+        color: var(--mex-location-muted);
+        font-size: 18px;
       }
 
       .mex-location-gate-card.is-denied .mex-location-gate-status {
-        background: rgba(254, 226, 226, 0.55);
-        border-color: #fecaca;
-        color: #991b1b;
+        background: color-mix(in srgb, var(--mex-location-error) 8%, var(--mex-location-surface));
+        border-color: color-mix(in srgb, var(--mex-location-error) 32%, var(--mex-location-border));
+        color: var(--mex-location-text);
+      }
+
+      .mex-location-gate-card.is-denied .mex-location-gate-status .material-symbols-outlined {
+        color: var(--mex-location-error);
+      }
+
+      .mex-location-gate-card.is-busy .mex-location-gate-status .material-symbols-outlined,
+      .mex-location-gate-btn.is-busy .material-symbols-outlined {
+        animation: mex-app-bootstrap-spin 900ms linear infinite;
       }
 
       .mex-location-gate-actions {
         display: flex;
         gap: 8px;
-        justify-content: center;
+        justify-content: flex-end;
         flex-wrap: wrap;
-        margin-top: 16px;
+        margin-top: 20px;
       }
 
       .mex-location-gate-btn {
-        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 40px;
         padding: 0 16px;
-        border-radius: 8px;
-        border: 1px solid var(--border, #e2e8f0);
-        background: var(--bg, #f8fafc);
-        color: var(--text, #0f172a);
-        font-size: 13px;
-        font-weight: 600;
+        border-radius: var(--mex-location-control-radius);
+        border: 1px solid var(--mex-location-border-md);
+        background: var(--mex-location-surface);
+        color: var(--mex-location-text);
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        font-weight: 500;
         cursor: pointer;
+        transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+      }
+
+      .mex-location-gate-btn .material-symbols-outlined {
+        font-size: 18px;
       }
 
       .mex-location-gate-btn.primary {
-        background: #3b82f6;
-        border-color: #3b82f6;
-        color: #fff;
+        background: var(--mex-location-accent);
+        border-color: var(--mex-location-accent);
+        color: var(--mex-location-on-accent);
       }
 
       .mex-location-gate-btn.primary:hover {
-        background: #2563eb;
-        border-color: #2563eb;
+        background: var(--mex-location-accent-hover);
+        border-color: var(--mex-location-accent-hover);
       }
 
+      .mex-location-gate-btn:active:not(:disabled) { transform: translateY(1px); }
+      .mex-location-gate-btn:focus-visible,
+      .mex-location-gate-card:focus-visible { outline: 2px solid var(--mex-location-accent); outline-offset: 2px; }
+
       .mex-location-gate-btn:disabled {
-        opacity: .55;
+        opacity: 0.56;
         cursor: default;
       }
 
-      body.dark-theme .mex-location-gate-card {
-        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
-      }
+      .mex-location-gate-btn[hidden] { display: none; }
 
-      body.dark-theme .mex-location-gate-card.is-denied .mex-location-gate-status {
-        background: rgba(239, 68, 68, 0.12);
-        border-color: rgba(239, 68, 68, 0.35);
-        color: #fca5a5;
+      /* base.css aplica color global a spans legacy en dark mode. */
+      body.dark-theme .mex-location-gate-icon .material-symbols-outlined,
+      body.dark-theme .mex-location-gate-btn .material-symbols-outlined,
+      body.dark-theme .mex-location-gate-btn span { color: inherit !important; }
+      body.dark-theme .mex-location-gate-status .material-symbols-outlined { color: var(--mex-location-muted) !important; }
+      body.dark-theme .mex-location-gate-card.is-denied .mex-location-gate-status .material-symbols-outlined { color: var(--mex-location-error) !important; }
+      body.dark-theme .mex-location-gate-btn.primary span { color: var(--mex-location-on-accent) !important; }
+
+      @media (max-width: 480px) {
+        #mexLocationGateOverlay { padding: 16px; }
+        .mex-location-gate-card { padding: 20px; }
+        .mex-location-gate-actions { flex-direction: column-reverse; }
+        .mex-location-gate-btn { width: 100%; }
       }
 
       @keyframes mex-app-bootstrap-spin {
@@ -1136,6 +1247,16 @@
     setTimeout(() => overlay.remove(), 240);
   }
 
+  function setLocationRetryButton(button, label, busy = false) {
+    if (!button) return;
+    const labelEl = button.querySelector('[data-location-retry-label]');
+    const iconEl = button.querySelector('.material-symbols-outlined');
+    if (labelEl) labelEl.textContent = label;
+    else button.textContent = label;
+    if (iconEl) iconEl.textContent = busy ? 'progress_activity' : 'my_location';
+    button.classList.toggle('is-busy', busy);
+  }
+
   function ensureLocationGateOverlay() {
     let overlay = document.getElementById('mexLocationGateOverlay');
     if (overlay) return overlay;
@@ -1143,18 +1264,58 @@
     overlay = document.createElement('div');
     overlay.id = 'mexLocationGateOverlay';
     overlay.innerHTML = `
-      <div class="mex-location-gate-card">
-        <div class="mex-location-gate-icon"><span class="material-symbols-outlined" id="mexLocationGateIcon">location_on</span></div>
-        <div class="mex-location-gate-kicker" id="mexLocationGateKicker">Ubicación obligatoria</div>
-        <h2 class="mex-location-gate-title">Activa tu ubicación</h2>
-        <p class="mex-location-gate-copy">Para operar en la plataforma necesitas permitir ubicación exacta. Se usa en auditorías y movimientos.</p>
-        <div class="mex-location-gate-status" id="mexLocationGateStatus">Esperando permiso del navegador...</div>
+      <div class="mex-location-gate-card" role="dialog" aria-modal="true" aria-labelledby="mexLocationGateTitle" aria-describedby="mexLocationGateCopy" tabindex="-1">
+        <header class="mex-location-gate-header">
+          <div class="mex-location-gate-icon"><span class="material-symbols-outlined" id="mexLocationGateIcon" aria-hidden="true">location_on</span></div>
+          <div class="mex-location-gate-heading">
+            <div class="mex-location-gate-kicker" id="mexLocationGateKicker">Acceso requerido</div>
+            <h2 class="mex-location-gate-title" id="mexLocationGateTitle">Permite tu ubicación</h2>
+          </div>
+        </header>
+        <p class="mex-location-gate-copy" id="mexLocationGateCopy">Necesitamos tu ubicación exacta para registrar auditorías y movimientos. No podrás continuar hasta permitirla.</p>
+        <div class="mex-location-gate-status" role="status" aria-live="polite">
+          <span class="material-symbols-outlined" id="mexLocationGateStatusIcon" aria-hidden="true">info</span>
+          <span id="mexLocationGateStatus">Esperando permiso del navegador...</span>
+        </div>
         <div class="mex-location-gate-actions">
-          <button type="button" class="mex-location-gate-btn primary" id="mexLocationGateRetry">Permitir ubicación</button>
-          <button type="button" class="mex-location-gate-btn" id="mexLocationGateLogout" style="display:none;">Cerrar sesión</button>
+          <button type="button" class="mex-location-gate-btn" id="mexLocationGateLogout" hidden><span class="material-symbols-outlined" aria-hidden="true">logout</span><span>Cerrar sesión</span></button>
+          <button type="button" class="mex-location-gate-btn primary" id="mexLocationGateRetry"><span class="material-symbols-outlined" aria-hidden="true">my_location</span><span data-location-retry-label>Permitir ubicación</span></button>
         </div>
       </div>
     `;
+
+    const card = overlay.querySelector('.mex-location-gate-card');
+    overlay.addEventListener('pointerdown', event => {
+      if (event.target === overlay) card?.focus({ preventScroll: true });
+    });
+    overlay.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        card?.focus({ preventScroll: true });
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(overlay.querySelectorAll('button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'))
+        .filter(el => !el.hidden && el.getAttribute('aria-hidden') !== 'true' && el.offsetParent !== null);
+      if (!focusable.length) {
+        event.preventDefault();
+        card?.focus({ preventScroll: true });
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!focusable.includes(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
     document.body.appendChild(overlay);
     return overlay;
   }
@@ -1162,37 +1323,64 @@
   function updateLocationGate(options = {}) {
     const overlay = ensureLocationGateOverlay();
     if (!overlay) return;
+    const wasActive = overlay.classList.contains('active');
+    if (!wasActive) state.locationGateReturnFocus = document.activeElement;
     overlay.classList.add('active');
     const card = overlay.querySelector('.mex-location-gate-card');
     const titleEl = overlay.querySelector('.mex-location-gate-title');
     const copyEl = overlay.querySelector('.mex-location-gate-copy');
     const statusEl = overlay.querySelector('#mexLocationGateStatus');
+    const statusIconEl = overlay.querySelector('#mexLocationGateStatusIcon');
     const iconEl = overlay.querySelector('#mexLocationGateIcon');
     const kickerEl = overlay.querySelector('#mexLocationGateKicker');
     const denied = options.variant === 'denied'
       || /bloqueado|denegad|denied/i.test(safeText(options.status) + ' ' + safeText(options.title));
+    const busy = options.busy === true
+      || /solicitando|validando|verificando|confirmando/i.test(safeText(options.status));
     if (card) card.classList.toggle('is-denied', denied);
+    if (card) {
+      card.classList.toggle('is-busy', busy);
+      card.setAttribute('aria-busy', busy ? 'true' : 'false');
+    }
     if (iconEl) iconEl.textContent = denied ? 'location_off' : 'location_on';
-    if (kickerEl) kickerEl.textContent = denied ? 'Permiso bloqueado' : 'Ubicación obligatoria';
-    if (titleEl) titleEl.textContent = safeText(options.title) || (denied ? 'Ubicación requerida' : 'Activa tu ubicación');
+    if (statusIconEl) statusIconEl.textContent = denied ? 'error' : (busy ? 'progress_activity' : 'info');
+    if (kickerEl) kickerEl.textContent = denied ? 'Permiso bloqueado' : 'Acceso requerido';
+    if (titleEl) titleEl.textContent = safeText(options.title) || (denied ? 'Ubicación requerida' : 'Permite tu ubicación');
     if (copyEl) {
       copyEl.textContent = safeText(options.copy)
         || (denied
           ? 'El permiso está bloqueado. Actívalo en el navegador o en ajustes del dispositivo y pulsa Reintentar.'
-          : 'Para operar en la plataforma necesitas permitir ubicación exacta. Se usa en auditorías y movimientos.');
+          : 'Necesitamos tu ubicación exacta para registrar auditorías y movimientos. No podrás continuar hasta permitirla.');
     }
     if (statusEl) statusEl.textContent = safeText(options.status) || 'Esperando permiso del navegador...';
     const retryBtn = overlay.querySelector('#mexLocationGateRetry');
     if (retryBtn && !retryBtn.disabled) {
-      retryBtn.textContent = denied ? 'Reintentar' : 'Permitir ubicación';
+      setLocationRetryButton(
+        retryBtn,
+        busy ? 'Verificando...' : (denied ? 'Reintentar' : 'Permitir ubicación'),
+        busy
+      );
     }
     const logoutBtn = overlay.querySelector('#mexLocationGateLogout');
-    if (logoutBtn) logoutBtn.style.display = options.allowLogout ? '' : 'none';
+    if (logoutBtn) logoutBtn.hidden = options.allowLogout !== true;
+
+    if (!wasActive || !overlay.contains(document.activeElement)) {
+      requestAnimationFrame(() => {
+        const focusTarget = retryBtn && !retryBtn.disabled ? retryBtn : card;
+        focusTarget?.focus({ preventScroll: true });
+      });
+    }
   }
 
   function hideLocationGate() {
     const overlay = document.getElementById('mexLocationGateOverlay');
-    if (overlay) overlay.classList.remove('active');
+    if (!overlay || !overlay.classList.contains('active')) return;
+    overlay.classList.remove('active');
+    const returnFocus = state.locationGateReturnFocus;
+    state.locationGateReturnFocus = null;
+    if (returnFocus?.isConnected && typeof returnFocus.focus === 'function') {
+      requestAnimationFrame(() => returnFocus.focus({ preventScroll: true }));
+    }
   }
 
   function applyPageBranding(config = root.MEX_CONFIG || {}) {
@@ -1533,8 +1721,8 @@
           }
           updateLocationGate({
             variant: 'prompt',
-            title: safeText(options.title) || 'Activa tu ubicación',
-            copy: safeText(options.copy) || 'Para operar en la plataforma necesitas permitir ubicación exacta. Se usa en auditorías y movimientos.',
+            title: safeText(options.title) || 'Permite tu ubicación',
+            copy: safeText(options.copy) || 'Necesitamos tu ubicación exacta para registrar auditorías y movimientos. No podrás continuar hasta permitirla.',
             status: 'Esperando permiso del navegador...',
             allowLogout: options.allowLogout === true
           });
@@ -1547,12 +1735,12 @@
           attemptRunning = true;
           if (retryBtn) {
             retryBtn.disabled = true;
-            retryBtn.textContent = 'Verificando...';
+            setLocationRetryButton(retryBtn, 'Verificando...', true);
           }
           updateLocationGate({
             variant: 'prompt',
-            title: safeText(options.title) || 'Activa tu ubicación',
-            copy: safeText(options.copy) || 'Para operar en la plataforma necesitas permitir ubicación exacta. Se usa en auditorías y movimientos.',
+            title: safeText(options.title) || 'Permite tu ubicación',
+            copy: safeText(options.copy) || 'Necesitamos tu ubicación exacta para registrar auditorías y movimientos. No podrás continuar hasta permitirla.',
             status: source === 'permission-change' ? 'Permiso actualizado. Validando ubicación exacta...' : 'Solicitando permiso del navegador...',
             allowLogout: options.allowLogout === true
           });
@@ -1582,10 +1770,10 @@
 
             updateLocationGate({
               variant: snapshot.status === 'denied' ? 'denied' : 'prompt',
-              title: safeText(options.title) || (snapshot.status === 'denied' ? 'Ubicación requerida' : 'Activa tu ubicación'),
+              title: safeText(options.title) || (snapshot.status === 'denied' ? 'Ubicación requerida' : 'Permite tu ubicación'),
               copy: safeText(options.copy) || (snapshot.status === 'denied'
                 ? 'El permiso está bloqueado. Actívalo en el navegador o en ajustes del dispositivo y pulsa Reintentar.'
-                : 'Para operar en la plataforma necesitas permitir ubicación exacta. Se usa en auditorías y movimientos.'),
+                : 'Necesitamos tu ubicación exacta para registrar auditorías y movimientos. No podrás continuar hasta permitirla.'),
               status: statusText,
               allowLogout: options.allowLogout === true
             });
@@ -1594,7 +1782,11 @@
               attemptRunning = false;
               if (retryBtn) {
                 retryBtn.disabled = false;
-                retryBtn.textContent = lastAttemptStatus === 'denied' ? 'Reintentar' : 'Permitir ubicación';
+                setLocationRetryButton(
+                  retryBtn,
+                  lastAttemptStatus === 'denied' ? 'Reintentar' : 'Permitir ubicación',
+                  false
+                );
               }
             }
           }

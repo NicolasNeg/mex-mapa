@@ -102,7 +102,7 @@
       '.mexbz-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px}',
       '.mexbz-hist{margin-top:8px}',
       '.mexbz-hist-item{display:flex;gap:10px;padding:9px 2px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155}',
-      '.mexbz-hist-item .material-icons{font-size:18px;color:#94a3b8;flex-shrink:0}',
+      '.mexbz-hist-item .material-symbols-outlined{font-size:18px;color:#94a3b8;flex-shrink:0}',
       '.mexbz-hist-item time{display:block;font-size:11px;color:#94a3b8;margin-top:1px}',
       '.mexbz-back{background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;font-size:13px;padding:6px 0;font-family:inherit;display:flex;align-items:center;gap:4px}'
     ].join('\n');
@@ -579,27 +579,30 @@
     var api = window.api || {};
     Promise.all([
       api.obtenerHistorialLogs ? api.obtenerHistorialLogs().catch(function () { return []; }) : [],
-      api.obtenerLogsServer ? api.obtenerLogsServer().catch(function () { return []; }) : []
+      api.obtenerLogsServer ? api.obtenerLogsServer().catch(function () { return []; }) : [],
+      import('/domain/historial-log.model.js')
     ]).then(function (res) {
-      var moves = res[0] || [], logs = res[1] || [], items = [];
+      var moves = res[0] || [], logs = res[1] || [], historyModel = res[2], items = [];
+      var stripEmoji = historyModel.stripEmoji;
+      var historialIconName = historyModel.historialIconName;
       moves.forEach(function (m) {
         if ((m.autor || '').toUpperCase().trim() !== name) return;
         var txt;
         if (m.tipo === 'DEL') txt = 'Eliminó la unidad ' + (m.mva || '');
         else if (m.tipo === 'SWAP') txt = 'Intercambió ' + (m.mva || '') + ' · ' + (m.detalles || '');
         else txt = 'Movió ' + (m.mva || '') + ' · ' + (m.detalles || '');
-        items.push({ ts: m.timestamp || 0, txt: txt, icon: m.tipo === 'DEL' ? 'delete' : 'swap_horiz' });
+        items.push({ ts: m.timestamp || 0, txt: stripEmoji(txt) || 'Movimiento', icon: m.tipo === 'DEL' ? 'delete_outline' : 'swap_horiz' });
       });
       logs.forEach(function (l) {
         if ((l.autor || '').toUpperCase().trim() !== name) return;
         var txt = l.estado ? ('Cambió estado ' + (l.mva || '') + ' → ' + l.estado) : (l.accion || (l.tipo + ' ' + (l.mva || '')));
-        items.push({ ts: l.timestamp || 0, txt: txt, icon: 'edit' });
+        items.push({ ts: l.timestamp || 0, txt: stripEmoji(txt) || 'Movimiento', icon: historialIconName(txt, l.tipo) });
       });
       items.sort(function (a, b) { return b.ts - a.ts; });
       items = items.slice(0, 20);
       if (!items.length) { host.innerHTML = '<div class="mexbz-empty">Sin movimientos registrados.</div>'; return; }
       host.innerHTML = items.map(function (it) {
-        return '<div class="mexbz-hist-item"><span class="material-icons">' + it.icon + '</span>' +
+        return '<div class="mexbz-hist-item"><span class="material-symbols-outlined" aria-hidden="true">' + it.icon + '</span>' +
           '<div>' + esc(it.txt) + '<time>' + fmtTs(it.ts) + '</time></div></div>';
       }).join('');
     });

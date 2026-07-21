@@ -1,4 +1,10 @@
 import { storage } from '/js/core/database.js';
+import {
+  uploadMedia,
+  resolveMediaUrl,
+  destroyMedia,
+  normalizeMediaRef,
+} from '/js/core/media-upload.js';
 
 const MAX_BYTES = 800_000;
 
@@ -39,70 +45,120 @@ export async function compressImageFile(file, maxBytes = MAX_BYTES) {
   return blob || file;
 }
 
+/** @returns {Promise<{ url: string, publicId: string, provider: string }>} */
+async function _uploadToCloudinary(folder, blob, publicId, resourceType = 'image') {
+  return uploadMedia({ folder, file: blob, publicId, resourceType });
+}
+
+/** Legacy Firebase path upload — only used for true Firebase fallbacks. */
 export async function uploadBytesAtPath(path, blob, contentType = 'image/jpeg') {
   const ref = _storageRef(path);
   await ref.put(blob, { contentType });
   return path;
 }
 
+/**
+ * Upload helpers return HTTPS Cloudinary URL (string) so existing
+ * fotoPath / fotos.* fields keep working. Metadata also available via
+ * the last upload when callers need { url, publicId, provider }.
+ */
 export async function uploadZonaFoto(papeletaId, zonaId, file) {
   const blob = await compressImageFile(file);
-  const path = `papeletas/${papeletaId}/zonas/${zonaId}.jpg`;
-  await uploadBytesAtPath(path, blob, 'image/jpeg');
-  return path;
+  const result = await _uploadToCloudinary(
+    `papeletas/${papeletaId}/zonas`,
+    blob,
+    `${zonaId}`,
+    'image'
+  );
+  return result.url;
 }
 
 export async function uploadZonaDetalle(papeletaId, zonaId, file) {
   const blob = await compressImageFile(file);
-  const path = `papeletas/${papeletaId}/zonas/${zonaId}_detalle.jpg`;
-  await uploadBytesAtPath(path, blob, 'image/jpeg');
-  return path;
+  const result = await _uploadToCloudinary(
+    `papeletas/${papeletaId}/zonas`,
+    blob,
+    `${zonaId}_detalle`,
+    'image'
+  );
+  return result.url;
 }
 
 export async function uploadDamageFoto(papeletaId, damageId, file) {
   const blob = await compressImageFile(file);
   const safe = String(damageId || 'd').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
-  const path = `papeletas/${papeletaId}/danos/${safe}_${Date.now()}.jpg`;
-  await uploadBytesAtPath(path, blob, 'image/jpeg');
-  return path;
+  const result = await _uploadToCloudinary(
+    `papeletas/${papeletaId}/danos`,
+    blob,
+    `${safe}_${Date.now()}`,
+    'image'
+  );
+  return result.url;
 }
 
 export async function uploadFirma(papeletaId, blob) {
-  const path = `papeletas/${papeletaId}/firma.png`;
-  await uploadBytesAtPath(path, blob, 'image/png');
-  return path;
+  const result = await _uploadToCloudinary(
+    `papeletas/${papeletaId}`,
+    blob,
+    'firma',
+    'image'
+  );
+  return result.url;
 }
 
 export async function uploadReporteFoto(reporteId, name, file) {
   const blob = await compressImageFile(file);
   const safe = String(name || 'foto').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const path = `papeletas_reportes/${reporteId}/${safe}.jpg`;
-  await uploadBytesAtPath(path, blob, 'image/jpeg');
-  return path;
+  const result = await _uploadToCloudinary(
+    `papeletas_reportes/${reporteId}`,
+    blob,
+    safe,
+    'image'
+  );
+  return result.url;
 }
 
+/**
+ * Copy / re-home a media ref.
+ * Cloudinary sources are re-uploaded into the destination folder (not Firebase copy).
+ * Legacy Firebase paths are fetched then uploaded to Cloudinary.
+ * @returns {Promise<string>} HTTPS URL
+ */
 export async function copyStoragePath(fromPath, toPath) {
-  const fromRef = _storageRef(fromPath);
-  const url = await fromRef.getDownloadURL();
+  const url = await resolveMediaUrl(fromPath);
+  if (!url) throw new Error('No se pudo resolver el origen de la copia de media.');
+
   const res = await fetch(url);
+  if (!res.ok) throw new Error(`No se pudo descargar media origen (${res.status}).`);
   const blob = await res.blob();
-  await uploadBytesAtPath(toPath, blob, blob.type || 'image/jpeg');
-  return toPath;
+
+  const dest = String(toPath || '').replace(/^\/+|\/+$/g, '');
+  const slash = dest.lastIndexOf('/');
+  const folder = slash >= 0 ? dest.slice(0, slash) : 'papeletas_ventas';
+  const leaf = (slash >= 0 ? dest.slice(slash + 1) : dest).replace(/\.[a-z0-9]+$/i, '') || `copy_${Date.now()}`;
+
+  const result = await _uploadToCloudinary(folder, blob, leaf, 'image');
+  return result.url;
 }
 
 export async function deleteStoragePath(path) {
+  const n = normalizeMediaRef(path);
+  if (!n) return;
+
+  if (n.provider === 'cloudinary' || n.publicId || (n.url && /cloudinary/i.test(n.url))) {
+    await destroyMedia(n);
+    return;
+  }
+
+  const firebasePath = n.path || (typeof path === 'string' && !/^https?:\/\//i.test(path) ? path : '');
+  if (!firebasePath) return;
   try {
-    await _storageRef(path).delete();
+    await _storageRef(firebasePath).delete();
   } catch (e) {
     if (e?.code !== 'storage/object-not-found') throw e;
   }
 }
 
 export async function getDownloadUrl(path) {
-  if (!path) return '';
-  try {
-    return await _storageRef(path).getDownloadURL();
-  } catch (_) {
-    return '';
-  }
+  return resolveMediaUrl(path);
 }

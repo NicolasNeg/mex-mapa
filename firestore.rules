@@ -47,6 +47,31 @@ service cloud.firestore {
         : get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
 
+    function perfilHabilitado(data) {
+      let status = data.get('status', '');
+      let activo = data.get('activo', true);
+      let autorizado = data.get('autorizado', true);
+      let accesoSistema = data.get('accesoSistema', true);
+      let authUid = data.get('authUid', '');
+      return activo is bool
+        && autorizado is bool
+        && accesoSistema is bool
+        && activo == true
+        && autorizado == true
+        && accesoSistema == true
+        && status is string
+        && authUid is string
+        && (authUid == '' || authUid == request.auth.uid)
+        && !['INACTIVO', 'RECHAZADO', 'BLOQUEADO', 'SUSPENDIDO'].hasAny([status.upper()]);
+    }
+
+    // Los perfiles legacy sin flags de acceso siguen habilitados. El bootstrap
+    // conserva su acceso aunque todavia no tenga un documento en /usuarios.
+    function tienePerfilActivo() {
+      return esProgramadorBootstrap()
+        || (tienePerfilActual() && perfilHabilitado(perfilActual()));
+    }
+
     function empresaConfig() {
       return exists(/databases/$(database)/documents/configuracion/empresa)
         ? get(/databases/$(database)/documents/configuracion/empresa).data
@@ -303,6 +328,7 @@ service cloud.firestore {
         && data.isAdmin is bool
         && data.isGlobal is bool
         && (data.status == null || data.status is string)
+        && (data.authUid == null || data.authUid is string)
         && (data.isChofer == null || data.isChofer is bool)
         && (data.licenciaVencimiento == null || data.licenciaVencimiento is string)
         && (data.licenciaArchivoUrl == null || data.licenciaArchivoUrl is string)
@@ -946,6 +972,7 @@ service cloud.firestore {
     // ─── CONFIGURACIÓN GLOBAL ────────────────────────────────
     // configuracion/empresa, configuracion/listas → lectura pública (branding en login)
     // configuracion/{plaza} → catálogos por plaza (Fase 4: ubicaciones)
+    // empresa.media = { provider, cloudName, baseFolder } — client-safe Cloudinary config (no secrets)
     match /configuracion/{document} {
       // "empresa", "listas" y "loginPresencia" se leen antes de autenticación
       allow read: if document == "empresa"
@@ -1038,8 +1065,8 @@ service cloud.firestore {
     // Checkin/checkout de personal en plaza.
     // Solo el propio usuario puede abrir su turno; él mismo o un admin lo cierran.
     match /turnos/{turnoId} {
-      allow read: if estaAutenticado();
-      allow create: if estaAutenticado()
+      allow read: if tienePerfilActivo();
+      allow create: if tienePerfilActivo()
         && (
           esProgramadorBootstrap()
           || request.resource.data.usuarioId == request.auth.uid
@@ -1048,7 +1075,7 @@ service cloud.firestore {
         && request.resource.data.plazaId is string
         && request.resource.data.usuarioNombre is string;
       // Cierre: fin/estado + meta geo/face/foto del checkout (prefijo cierre*).
-      allow update: if estaAutenticado()
+      allow update: if tienePerfilActivo()
         && (
           resource.data.usuarioId == request.auth.uid
           || puedeGestionarTurnos()
@@ -1066,22 +1093,22 @@ service cloud.firestore {
 
     // ─── HORARIOS SEMANALES ───────────────────────────────────────────────────
     // Asignación de horarios por usuario/semana/plaza.
-    // Lectura: cualquier usuario autenticado.
+    // Lectura: cualquier usuario con perfil activo.
     // Escritura: solo roles administrativos o programador.
     match /horarios/{horarioId} {
-      allow read: if estaAutenticado();
-      allow create, update: if estaAutenticado()
+      allow read: if tienePerfilActivo();
+      allow create, update: if tienePerfilActivo()
         && (puedeGestionarTurnos() || esProgramadorBootstrap());
       allow delete: if esProgramadorBootstrap();
     }
 
     // ─── ASISTENCIA ───────────────────────────────────────────────────────────
-    // Lectura: autenticados.
+    // Lectura: usuarios con perfil activo.
     // Admin: create/update libre.
     // Empleado: solo puede crear/actualizar SU registro en estado PENDIENTE (check-in).
     match /asistencia/{asistenciaId} {
-      allow read: if estaAutenticado();
-      allow create: if estaAutenticado() && (
+      allow read: if tienePerfilActivo();
+      allow create: if tienePerfilActivo() && (
         puedeGestionarTurnos()
         || esProgramadorBootstrap()
         || (
@@ -1089,7 +1116,7 @@ service cloud.firestore {
           && request.resource.data.estado == 'PENDIENTE'
         )
       );
-      allow update: if estaAutenticado() && (
+      allow update: if tienePerfilActivo() && (
         puedeGestionarTurnos()
         || esProgramadorBootstrap()
         || (
@@ -1103,44 +1130,44 @@ service cloud.firestore {
     }
 
     // ─── ERROR LOGS (error-logger.js) ────────────────────────────────────────
-    // Cualquier usuario autenticado puede crear entradas de log.
+    // Cualquier usuario con perfil activo puede crear entradas de log.
     // Solo el programador puede leer o borrar.
     match /error_logs/{logId} {
-      allow create: if estaAutenticado();
+      allow create: if tienePerfilActivo();
       allow read, delete: if esProgramadorBootstrap();
       allow update: if false;
     }
 
     // Plantillas predefinidas de horarios.
-    // Lectura: cualquier usuario autenticado.
+    // Lectura: cualquier usuario con perfil activo.
     // Escritura: solo admins con perfil.
     match /horarios_plantillas/{plantillaId} {
-      allow read: if estaAutenticado();
-      allow create, update, delete: if tienePerfilActual();
+      allow read: if tienePerfilActivo();
+      allow create, update, delete: if tienePerfilActivo();
     }
 
     // Notas generales por semana (visibles en la tabla de horarios).
-    // Lectura: cualquier usuario autenticado.
+    // Lectura: cualquier usuario con perfil activo.
     // Escritura: solo admins con perfil.
     // Incidencias / notas de asistencia por día+empleado (calendario + auditoría).
-    // Lectura: autenticado. Escritura: admins operativos o programador.
+    // Lectura: perfil activo. Escritura: admins operativos o programador.
     match /notas_asistencia/{docId} {
-      allow read: if estaAutenticado();
-      allow create, update, delete: if estaAutenticado()
+      allow read: if tienePerfilActivo();
+      allow create, update, delete: if tienePerfilActivo()
         && (puedeGestionarTurnos() || esProgramadorBootstrap());
     }
 
     match /notas_semana/{docId} {
-      allow read: if estaAutenticado();
-      allow create, update: if tienePerfilActual();
-      allow delete: if tienePerfilActual();
+      allow read: if tienePerfilActivo();
+      allow create, update: if tienePerfilActivo();
+      allow delete: if tienePerfilActivo();
     }
 
     // Roles operativos custom por plaza (filas del grid de turnos).
     // Independientes de roles RBAC — cada plaza define CAPACITACIÓN, AEROPUERTO, etc.
     match /turnos_roles_operativos/{plazaDoc} {
-      allow read: if estaAutenticado();
-      allow create, update, delete: if estaAutenticado()
+      allow read: if tienePerfilActivo();
+      allow create, update, delete: if tienePerfilActivo()
         && (puedeGestionarTurnos() || esProgramadorBootstrap());
     }
 

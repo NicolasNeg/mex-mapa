@@ -182,10 +182,10 @@
               <span class="material-symbols-outlined">align_vertical_bottom</span>
             </button>
             <button type="button" onclick="editorDistribuirGrupo('H')" data-tip="Distribuye la separación horizontal del grupo.">
-              <span>↔</span>
+              <span class="material-symbols-outlined" aria-hidden="true">horizontal_distribute</span>
             </button>
             <button type="button" onclick="editorDistribuirGrupo('V')" data-tip="Distribuye la separación vertical del grupo.">
-              <span>↕</span>
+              <span class="material-symbols-outlined" aria-hidden="true">vertical_distribute</span>
             </button>
           </div>
 
@@ -246,19 +246,19 @@
             <div class="mapa-field-group">
               <label class="mapa-field-label">Ancho</label>
               <div class="mapa-size-ctrl">
-                <button type="button" onclick="editorSpanChange('width',-10)">−</button>
+                <button type="button" onclick="editorSpanChange('width',-10)" aria-label="Reducir ancho"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
                 <input id="ep-width" type="number" min="40" step="10" class="mapa-input"
                   style="width:58px; text-align:center;" oninput="editorPropChange()">
-                <button type="button" onclick="editorSpanChange('width',10)">+</button>
+                <button type="button" onclick="editorSpanChange('width',10)" aria-label="Aumentar ancho"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
               </div>
             </div>
             <div class="mapa-field-group">
               <label class="mapa-field-label">Alto</label>
               <div class="mapa-size-ctrl">
-                <button type="button" onclick="editorSpanChange('height',-10)">−</button>
+                <button type="button" onclick="editorSpanChange('height',-10)" aria-label="Reducir alto"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
                 <input id="ep-height" type="number" min="30" step="10" class="mapa-input"
                   style="width:58px; text-align:center;" oninput="editorPropChange()">
-                <button type="button" onclick="editorSpanChange('height',10)">+</button>
+                <button type="button" onclick="editorSpanChange('height',10)" aria-label="Aumentar alto"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
               </div>
             </div>
           </div>

@@ -237,7 +237,7 @@
 
     // ─── EMAIL / AI / PDF ─────────────────────────────────
     async enviarReporteCuadreEmail(base64Image, autor, stats) {
-      await _registrarLog("EMAIL", `📧 Reporte de cuadre enviado por ${autor}`, autor);
+      await _registrarLog("EMAIL", `Reporte de cuadre enviado por ${autor}`, autor);
       return "EXITO";
     },
 
@@ -301,19 +301,19 @@
           }
         }, { merge: true }).catch(() => {});
       }
-      await _registrarLog("AUDITORIA", `📋 Auditoría enviada a Ventas por ${autor} (${units.length} unidades)`, autor, plazaUp);
+      await _registrarLog("AUDITORIA", `Auditoría enviada a Ventas por ${autor} (${units.length} unidades)`, autor, plazaUp);
       return { exito: true, plaza: plazaUp, missionId, auxiliarDocId };
     },
 
     async llamarGeminiAI(_instruccionUsuario, _contextoPatio, _ultimoMVA) { return null; },
 
     async generarPDFActividadDiaria(reservas, regresos, vencidos, autor, fechaFront) {
-      await _registrarLog("PDF", `📄 Reporte Actividad Diaria generado por ${autor}`, autor);
+      await _registrarLog("PDF", `Reporte Actividad Diaria generado por ${autor}`, autor);
       return "EXITO";
     },
 
     async generarExcelPrediccion(datosFamilias, fechaEscogida, autor) {
-      await _registrarLog("EXCEL", `📊 Excel Predicción generado por ${autor}`, autor);
+      await _registrarLog("EXCEL", `Excel Predicción generado por ${autor}`, autor);
       return "EXITO";
     },
 

@@ -274,15 +274,15 @@ export async function patchItem({
   const becameReady = !isItemReady(beforeItem) && isItemReady(afterItem);
 
   if (logType === 'checklist' && cleanPatch.checklist) {
-    const parts = CHECKLIST_KEYS.filter(k => cleanPatch.checklist[k] === true).map(k => `${k} ✓`);
-    const removed = CHECKLIST_KEYS.filter(k => cleanPatch.checklist[k] === false).map(k => `${k} ✗`);
+    const parts = CHECKLIST_KEYS.filter(k => cleanPatch.checklist[k] === true).map(k => `${k}: completado`);
+    const removed = CHECKLIST_KEYS.filter(k => cleanPatch.checklist[k] === false).map(k => `${k}: pendiente`);
     const detail = [...parts, ...removed].join(', ') || 'actualizado';
     await registrarLogCola(`CHECKLIST: ${mva} · ${detail}`, actor, p, { mva });
   } else if (logType === 'checklist_key') {
     const key = logMeta.key || '';
     const checked = logMeta.checked === true;
     await registrarLogCola(
-      `CHECKLIST: ${mva} · ${key} ${checked ? '✓' : '✗'}`,
+      `CHECKLIST: ${mva} · ${key}: ${checked ? 'completado' : 'pendiente'}`,
       actor,
       p,
       { mva }
@@ -344,7 +344,7 @@ export async function reorderItems({ plaza, orderedIds, actor = '' } = {}) {
     await Promise.all(writes);
   }
 
-  await registrarLogCola(`↕️ REORDEN COLA: ${ids.length} ítems`, actor, p);
+  await registrarLogCola(`REORDEN COLA: ${ids.length} ítems`, actor, p);
   return { ok: true };
 }
 

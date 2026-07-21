@@ -4,7 +4,7 @@
 //  gate facial/geo y foto en Storage.
 // ═══════════════════════════════════════════════════════════
 
-import { db, auth, storage, COL } from '/js/core/database.js';
+import { db, auth, COL } from '/js/core/database.js';
 import {
   iniciarTurno as iniciarTurnoData,
   cerrarTurno as cerrarTurnoData,
@@ -69,36 +69,40 @@ export async function guardarFaceDescriptor(user, embedding) {
   return true;
 }
 
-/** Sube selfie a Storage. Falla silenciosamente → null. */
+/** Sube selfie a Cloudinary. Falla silenciosamente → null. */
 async function uploadChecadaFoto(fotoDataURL, { uid, tipo }) {
   if (!fotoDataURL || !uid) return null;
   const blob = dataUrlToBlob(fotoDataURL);
   if (!blob) return null;
-  const sc = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
-  if (!sc?.ref) return null;
-  const path = `turnos_checadas/${uid}/${tipo}_${Date.now()}.jpg`;
   try {
-    const ref = sc.ref(path);
-    await ref.put(blob, { contentType: 'image/jpeg' });
-    return await ref.getDownloadURL();
+    const { uploadMedia } = await import('/js/core/media-upload.js');
+    const result = await uploadMedia({
+      folder: `turnos_checadas/${uid}`,
+      file: blob,
+      publicId: `${tipo}_${Date.now()}`,
+      resourceType: 'image',
+    });
+    return result.url;
   } catch (e) {
     console.warn('[turnos-mutations] foto upload:', e?.code || e?.message);
     return null;
   }
 }
 
-/** Sube la firma digital (PNG) a Storage. Falla silenciosamente → null. */
+/** Sube la firma digital (PNG) a Cloudinary. Falla silenciosamente → null. */
 async function uploadChecadaFirma(firmaDataURL, { uid, tipo }) {
   if (!firmaDataURL || !uid) return null;
   const blob = dataUrlToBlob(firmaDataURL);
   if (!blob) return null;
-  const sc = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
-  if (!sc?.ref) return null;
-  const path = `turnos_firmas/${uid}/${tipo}_${Date.now()}.png`;
   try {
-    const ref = sc.ref(path);
-    await ref.put(blob, { contentType: 'image/png' });
-    return await ref.getDownloadURL();
+    const { uploadMedia } = await import('/js/core/media-upload.js');
+    const result = await uploadMedia({
+      folder: `turnos_firmas/${uid}`,
+      file: blob,
+      publicId: `${tipo}_${Date.now()}`,
+      resourceType: 'image',
+    });
+    return result.url;
   } catch (e) {
     console.warn('[turnos-mutations] firma upload:', e?.code || e?.message);
     return null;

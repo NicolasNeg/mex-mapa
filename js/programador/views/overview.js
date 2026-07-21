@@ -113,7 +113,7 @@ function _html(health, activity, pending, navigate) {
   <!-- Fila 1: Salud del sistema -->
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px;">
     ${_healthCard('Firebase', firebaseOk ? 'Operacional' : 'Error', firebaseOk ? '#10b981' : '#ef4444', 'database',
-      `db:${health.hasDb?'✓':'✗'} auth:${health.hasAuth?'✓':'✗'} storage:${health.hasStorage?'✓':'✗'}`)}
+      `db:${health.hasDb?'ok':'error'} auth:${health.hasAuth?'ok':'error'} storage:${health.hasStorage?'ok':'error'}`)}
     ${_healthCard('Service Worker', health.swVersion, health.swControlled ? '#10b981' : '#f59e0b', 'settings_suggest',
       health.swControlled ? 'Controlando página' : 'Sin control activo')}
     ${_healthCard('window.api', `${health.apiCount} funciones`, '#6366f1', 'api',

@@ -234,7 +234,7 @@ auth.onAuthStateChanged(async (user) => {
     if (code === 'permission-denied') {
       _showError('No se pudo cargar tu perfil. Verifica conexión o contacta a administración.');
     } else {
-      _showError('❌ Error de conexión. Intenta de nuevo.');
+      _showError('Error de conexión. Intenta de nuevo.');
     }
     _resetManualLoginButton();
   }

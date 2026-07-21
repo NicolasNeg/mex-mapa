@@ -52,7 +52,7 @@
 
       await db.collection(COL.EXTERNOS).doc(docId).set(unitData);
       await _actualizarFeed(`EXT IN: ${mvaStr} (${unitData.modelo})`, actor, plazaUp);
-      await _registrarLog('IN', `🚗 EXTERNO INSERTADO: ${mvaStr}`, actor, plazaUp, {
+      await _registrarLog('IN', `EXTERNO INSERTADO: ${mvaStr}`, actor, plazaUp, {
         mva: mvaStr,
         cambio: 'Unidad externa insertada'
       });

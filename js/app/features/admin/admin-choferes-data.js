@@ -25,17 +25,34 @@ export function validateLicenciaFile(file) {
 }
 
 async function _uploadLicencia(user, file) {
-  const root = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
-  if (!root || typeof root.ref !== 'function') throw new Error('Storage no está disponible.');
+  const { uploadMedia, destroyMedia } = await import('/js/core/media-upload.js');
   const safeUser = _safeSegment(user.id || user.email || user.nombre);
-  const safeName = _safeSegment(file.name || 'licencia');
-  const path = `licencias_choferes/${safeUser}/licencia_${Date.now()}_${safeName}`;
-  const ref = root.ref(path);
+  const safeName = _safeSegment(file.name || 'licencia').replace(/\.[^.]+$/, '');
   const contentType = file.type
     || (String(file.name || '').toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
-  const snap = await ref.put(file, { contentType });
-  const url = await snap.ref.getDownloadURL();
-  return { path, url, contentType };
+  const resourceType = contentType.startsWith('image/') ? 'image' : 'raw';
+  const result = await uploadMedia({
+    folder: `licencias_choferes/${safeUser}`,
+    file,
+    publicId: `licencia_${Date.now()}_${safeName}`,
+    resourceType,
+  });
+  // Best-effort cleanup of previous Cloudinary licencia
+  if (user.licenciaArchivoPublicId || (user.licenciaArchivoUrl && /cloudinary/i.test(String(user.licenciaArchivoUrl)))) {
+    destroyMedia({
+      publicId: user.licenciaArchivoPublicId,
+      url: user.licenciaArchivoUrl,
+      provider: 'cloudinary',
+      resourceType: user.licenciaArchivoTipo?.includes('pdf') ? 'raw' : 'image',
+    }).catch(() => {});
+  }
+  return {
+    path: result.publicId || '',
+    publicId: result.publicId || '',
+    provider: result.provider || 'cloudinary',
+    url: result.url,
+    contentType,
+  };
 }
 
 export async function saveChoferRegistro(user, { licenciaVencimiento, file, actorEmail = '' }) {
@@ -63,10 +80,15 @@ export async function saveChoferRegistro(user, { licenciaVencimiento, file, acto
     const uploaded = await _uploadLicencia(user, file);
     updateData.licenciaArchivoUrl = uploaded.url;
     updateData.licenciaArchivoPath = uploaded.path;
+    updateData.licenciaArchivoPublicId = uploaded.publicId || '';
+    updateData.licenciaArchivoProvider = uploaded.provider || 'cloudinary';
     updateData.licenciaArchivoNombre = file.name || 'licencia';
     updateData.licenciaArchivoTipo = uploaded.contentType || file.type || '';
     updateData.licenciaSubidaAt = fv ? fv.serverTimestamp() : new Date().toISOString();
-    if (user.licenciaArchivoPath) {
+    const prevIsCloudinary = user.licenciaArchivoProvider === 'cloudinary'
+      || Boolean(user.licenciaArchivoPublicId)
+      || /cloudinary/i.test(String(user.licenciaArchivoUrl || ''));
+    if (!prevIsCloudinary && user.licenciaArchivoPath) {
       const root = storage || window._storage;
       try { root?.ref(user.licenciaArchivoPath)?.delete()?.catch(() => {}); } catch (_) { /* ignore */ }
     }

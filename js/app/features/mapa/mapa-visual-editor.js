@@ -115,18 +115,20 @@ function setMetaBackground(extras, viewId, bg) {
 }
 
 async function uploadBackgroundFile(plaza, viewId, file) {
-  const getStorage = window._mex?._getStorageClient;
-  if (typeof getStorage !== 'function') throw new Error('Storage no disponible en esta sesión.');
-  const storage = getStorage();
-  const safe = String(file.name || 'img').replace(/[^\w.\-]+/g, '_').slice(0, 80);
-  const path = `maps/backgrounds/${encodeURIComponent(viewId)}/${Date.now()}_${safe}`;
-  const ref = storage.ref(path);
-  await ref.put(file);
-  const url = await ref.getDownloadURL();
+  const { uploadMedia } = await import('/js/core/media-upload.js');
+  const safe = String(file.name || 'img').replace(/[^\w.\-]+/g, '_').slice(0, 80).replace(/\.[^.]+$/, '');
+  const result = await uploadMedia({
+    folder: `maps/backgrounds/${String(viewId || 'mapa').replace(/[^\w.-]+/g, '_')}`,
+    file,
+    publicId: `${Date.now()}_${safe || 'img'}`,
+    resourceType: 'image',
+  });
   return {
     type: 'image',
-    url,
-    storagePath: path,
+    url: result.url,
+    storagePath: result.publicId || '',
+    publicId: result.publicId || '',
+    provider: result.provider || 'cloudinary',
     opacity: 1,
     fit: 'cover',
     locked: false,
@@ -148,7 +150,7 @@ function toolGroupsForView(viewId) {
           { id: 'area_patio', label: 'Área patio', tipo: 'area', w: 220, h: 140, valor: 'PATIO' },
           { id: 'camino', label: 'Circulación', tipo: 'camino', w: 240, h: 28, valor: '' },
           { id: 'label', label: 'Texto / etiqueta', tipo: 'label', w: 140, h: 32, valor: 'Etiqueta', esLabel: true },
-          { id: 'marker', label: 'Marcador', tipo: 'marker', w: 28, h: 28, valor: '•' }
+          { id: 'marker', label: 'Marcador', tipo: 'marker', w: 72, h: 28, valor: 'MARCADOR' }
         ]
       },
       {
@@ -177,7 +179,7 @@ function toolGroupsForView(viewId) {
       {
         title: 'Extras',
         tools: [
-          { id: 'sombrilla', label: 'Sombrilla', tipo: 'marker', w: 36, h: 36, valor: '☂' },
+          { id: 'sombrilla', label: 'Sombrilla', tipo: 'marker', w: 84, h: 36, valor: 'SOMBRA' },
           { id: 'servicio', label: 'Servicio cercano', tipo: 'servicio', w: 100, h: 40, valor: 'SERV' }
         ]
       }
@@ -219,7 +221,7 @@ function toolGroupsForView(viewId) {
         { id: 'pool', label: 'Alberca (referencia)', tipo: 'pool', w: 180, h: 100, valor: 'POOL' },
         { id: 'est_area', label: 'Estacionamiento (área)', tipo: 'area', w: 240, h: 120, valor: 'EST' },
         { id: 'label', label: 'Texto', tipo: 'label', w: 120, h: 28, valor: 'Texto', esLabel: true },
-        { id: 'marker', label: 'Marcador', tipo: 'marker', w: 28, h: 28, valor: '•' }
+        { id: 'marker', label: 'Marcador', tipo: 'marker', w: 72, h: 28, valor: 'MARCADOR' }
       ]
     }
   ];
@@ -358,9 +360,9 @@ export async function openVisualMapEditor({ container, api, snapshot = {}, ctx =
           <main class="mapviz-main">
             <div class="mapviz-canvas-wrap" data-canvas-wrap>
               <div class="mapviz-zoombar" aria-label="Zoom">
-                <button type="button" data-zoom="-0.1" title="Alejar">−</button>
+                <button type="button" data-zoom="-0.1" title="Alejar" aria-label="Alejar"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
                 <span data-zoom-label>${Math.round(zoom * 100)}%</span>
-                <button type="button" data-zoom="0.1" title="Acercar">+</button>
+                <button type="button" data-zoom="0.1" title="Acercar" aria-label="Acercar"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
               </div>
               <div class="mapviz-canvas-scroll">
                 <div class="mapviz-canvas" data-canvas></div>

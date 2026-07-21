@@ -7,7 +7,7 @@
 //  Tab 2: Estados (COL.LOGS: IN / BAJA / EDIT / GESTION)
 // ═══════════════════════════════════════════════════════════
 
-import { normalizeHistorialLog } from '/domain/historial-log.model.js';
+import { normalizeHistorialLog, stripEmoji } from '/domain/historial-log.model.js';
 import { buildExportFilename } from '/js/core/export-signing.js';
 import {
   openExportChooser,
@@ -198,8 +198,7 @@ function _tipoIcon(tipo) {
 }
 
 function _cleanAuditText(value) {
-  return String(value || "")
-    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F]/gu, "")
+  return stripEmoji(value)
     .replace(/\s*\|\s*Notas eliminadas/gi, "")
     .replace(/Notas reemplazadas/gi, "Notas actualizadas")
     .replace(/\s{2,}/g, " ")

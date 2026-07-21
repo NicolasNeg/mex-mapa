@@ -163,7 +163,7 @@ function _paint() {
             ${(d.correosInternos || []).map((c, i) => `
               <span class="adm-empresa-tag">
                 ${esc(c)}
-                ${editing ? `<button type="button" data-action="remove-interno" data-idx="${i}" aria-label="Quitar">×</button>` : ''}
+                ${editing ? `<button type="button" data-action="remove-interno" data-idx="${i}" aria-label="Quitar"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;">delete_outline</span></button>` : ''}
               </span>`).join('') || '<span class="adm-muted">Sin correos internos</span>'}
           </div>
           ${editing ? `

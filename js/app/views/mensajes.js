@@ -6,6 +6,7 @@ import * as R from '/js/app/features/mensajes/mensajes-renderer.js';
 
 let _unsub = null, _me = null, _all = [], _convs = [], _meta = new Map();
 let _allUsers = [];
+let _identityDirectory = D.buildIdentityDirectory([]);
 let _activePeer = null, _archivedMode = false, _archived = {};
 let _pendingFile = null, _pendingAudio = null, _replyTo = null;
 let _recorder = null, _audioCtx = null, _analyser = null, _specRaf = null, _recTimer = null;
@@ -15,6 +16,31 @@ let _offGlobalSearch = null;
 let _pendingDeepLinkPeer = "";
 
 const EMOJI_PICKER_SRC = 'https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js';
+const PEER_PREFIX_RE = /^(UID|EMAIL|LEGACY):/;
+
+function _peerValue(peerKey) {
+  return String(peerKey || '').replace(PEER_PREFIX_RE, '');
+}
+
+function _lookupAlias(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ').toUpperCase()
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function _identityForUser(user) {
+  const email = D.normalizeEmail(user?.email || user?.id);
+  const uid = String(user?.authUid || user?.uid || '').trim();
+  const raw = String(user?.nombre || user?.nombreCompleto || user?.usuario || email || user?.id || uid).trim();
+  return D.getCanonicalMessageIdentity(raw, email, _identityDirectory, uid);
+}
+
+function _identityFromPeerKey(peerKey) {
+  const key = String(peerKey || '').trim();
+  const value = _peerValue(key);
+  if (key.startsWith('UID:')) return D.getCanonicalMessageIdentity(value, '', _identityDirectory, value);
+  if (key.startsWith('EMAIL:')) return D.getCanonicalMessageIdentity(value, value, _identityDirectory);
+  return D.getCanonicalMessageIdentity(value, '', _identityDirectory);
+}
 
 const _mexAlert = (titulo, texto, tipo = 'info') =>
   typeof window.mexAlert === 'function' ? window.mexAlert(titulo, texto, tipo) : Promise.resolve(true);
@@ -63,11 +89,16 @@ export async function mount(ctx) {
   _captureNotificationDeepLink();
   _unsub = D.startRealtimeListener(_me, msgs => { _all = msgs; _refresh(); });
   // Load full user directory in background for cross-plaza search
-  D.getAllUsers().then(users => {
+  D.getAllUsers().then(async users => {
     _allUsers = users;
-    _populateFilters();
-    _renderContacts();
-    _consumeNotificationDeepLink();
+    _identityDirectory = D.buildIdentityDirectory(users);
+    const previousArchived = _archived;
+    _archived = D.canonicalizeArchivedConversations(_archived, _identityDirectory);
+    if (JSON.stringify(previousArchived) !== JSON.stringify(_archived)) {
+      D.saveArchived(_me.email, _archived);
+    }
+    if (_activePeer) _activePeer = D.canonicalizePeerKey(_activePeer, _identityDirectory);
+    await _refresh();
   }).catch(() => {});
   const searchHandler = event => {
     const route = String(event?.detail?.route || '');
@@ -87,6 +118,7 @@ export function unmount() {
   if (_pendingFile?.previewUrl) URL.revokeObjectURL(_pendingFile.previewUrl);
   if (_pendingAudio?.localUrl) URL.revokeObjectURL(_pendingAudio.localUrl);
   _all = []; _convs = []; _meta = new Map(); _allUsers = [];
+  _identityDirectory = D.buildIdentityDirectory([]);
   _activePeer = null; _pendingFile = null; _pendingAudio = null; _replyTo = null;
   _pendingDeepLinkPeer = "";
 }
@@ -122,7 +154,7 @@ function _clearNotificationDeepLinkQuery() {
 
 function _conversationRouteParam(peerKey) {
   const conv = _convs.find(c => c.peerKey === peerKey);
-  return String(conv?.peerEmail || conv?.preferredHandle || peerKey.replace(/^(EMAIL|LEGACY):/, '') || '').trim();
+  return String(conv?.peerEmail || conv?.preferredHandle || _peerValue(peerKey) || '').trim();
 }
 
 function _syncConversationRoute(peerKey) {
@@ -138,18 +170,21 @@ function _syncConversationRoute(peerKey) {
 function _resolveDeepLinkPeerKey(rawPeer) {
   const raw = String(rawPeer || "").trim();
   if (!raw) return "";
-  const identity = D.getCanonicalMessageIdentity(raw);
+  const identity = D.getCanonicalMessageIdentity(raw, '', _identityDirectory);
   const rawUp = raw.toUpperCase();
   const rawEmail = D.normalizeEmail(raw);
 
   const conv = _convs.find(c => {
     const values = [
       c.peerKey,
+      c.peerUid,
       c.peerEmail,
       c.displayLabel,
       c.preferredHandle,
       c.last?.remitente,
       c.last?.destinatario,
+      c.last?.remitenteUid,
+      c.last?.destinatarioUid,
       c.last?.remitenteEmail,
       c.last?.destinatarioEmail
     ].map(v => String(v || "").trim());
@@ -169,9 +204,9 @@ function _resolveDeepLinkPeerKey(rawPeer) {
     });
     if (user) {
       const email = D.normalizeEmail(user.email || user.id);
-      if (email) return D.getCanonicalMessageIdentity(email).key;
       const name = String(user.nombre || user.nombreCompleto || user.usuario || raw).trim();
-      return D.getCanonicalMessageIdentity(name).key;
+      const uid = String(user.authUid || user.uid || '').trim();
+      return D.getCanonicalMessageIdentity(name, email, _identityDirectory, uid).key;
     }
   }
 
@@ -217,12 +252,16 @@ function _bindEvents(rootNode) {
 }
 
 async function _refresh() {
-  _convs = D.buildConversations(_all, _me);
+  if (_activePeer) _activePeer = D.canonicalizePeerKey(_activePeer, _identityDirectory);
+  _convs = D.buildConversations(_all, _me, _identityDirectory);
   const newMeta = await D.hydratePeerMeta(_convs);
   newMeta.forEach((v,k) => _meta.set(k,v));
   _populateFilters();
   _renderContacts();
-  if (_activePeer) _renderMessages();
+  if (_activePeer) {
+    _syncActiveChatIdentity();
+    _renderMessages();
+  }
   _consumeNotificationDeepLink();
 }
 
@@ -279,21 +318,24 @@ function _renderContacts() {
   // Directory contacts: users from _allUsers not already in conversations, matching active filter
   let directoryItems = [];
   if (hasFilters && !_archivedMode && _allUsers.length) {
-    const existingEmails = new Set(_convs.map(c => (c.peerEmail || '').toLowerCase()).filter(Boolean));
+    const existingKeys = new Set(_convs.map(c => c.peerKey).filter(Boolean));
+    const directorySeen = new Set();
     const myEmail = (_me?.email || '').toLowerCase();
-    directoryItems = _allUsers.filter(u => {
-      const email = String(u.id || u.email || '').toLowerCase();
-      if (!email || email === myEmail) return false;
-      if (existingEmails.has(email)) return false;
+    directoryItems = _allUsers.map(user => ({ user, identity: _identityForUser(user) })).filter(({ user: u, identity }) => {
+      const email = String(identity.email || '').toLowerCase();
+      if ((!email && !identity.key) || email === myEmail || identity.key === _me?.key) return false;
+      if (existingKeys.has(identity.key)) return false;
+      if (directorySeen.has(identity.key)) return false;
       const uPlaza = String(u.plazaAsignada || u.plaza || '').toUpperCase();
       const uRol   = String(u.rol || '').toUpperCase();
-      const uNombre = String(u.nombre || u.nombreCompleto || u.usuario || '').toLowerCase();
+      const uNombre = String(identity.label || '').toLowerCase();
       if (plaza && uPlaza !== plaza) return false;
       if (rol && uRol !== rol) return false;
       if (term) {
         const searchable = [uNombre, email, uPlaza, uRol].join(' ');
         if (!searchable.includes(term)) return false;
       }
+      directorySeen.add(identity.key);
       return true;
     });
   }
@@ -305,26 +347,23 @@ function _renderContacts() {
     const isArch = D.isConversationArchived(_archived, c.peerKey, D.msgTs(c.last));
     return R.renderContactItem(c, m, c.peerKey === _activePeer, isArch);
   });
-  const dirHtml = directoryItems.map(u => R.renderDirectoryContact(u, false));
+  const dirHtml = directoryItems.map(({ user, identity }) => R.renderDirectoryContact(user, identity.key === _activePeer, identity));
   list.innerHTML = [...convHtml, ...dirHtml].join('');
 }
 
 function _openChat(peerKey) {
+  peerKey = D.canonicalizePeerKey(peerKey, _identityDirectory);
   _activePeer = peerKey;
   _replyTo = null; _cancelFile(); _cancelAudio();
   let conv = _convs.find(c => c.peerKey === peerKey);
   // Directory contact (no previous conversation) — create a fakeConv so the sidebar stays consistent
   if (!conv) {
-    const identity = D.getCanonicalMessageIdentity(peerKey.replace(/^(EMAIL|LEGACY):/,''));
-    // Try to get display name from _allUsers
-    const dirUser = _allUsers.find(u => {
-      const email = String(u.id || u.email || '').toLowerCase();
-      return peerKey === `EMAIL:${email}`;
-    });
-    const label = dirUser
-      ? String(dirUser.nombre || dirUser.nombreCompleto || dirUser.usuario || identity.label).trim().toUpperCase() || identity.label
-      : identity.label;
-    conv = { peerKey: identity.key, peerEmail: identity.email, displayLabel: label, preferredHandle: identity.raw, last: null, total: 0, unread: 0 };
+    const dirUser = _allUsers.find(user => _identityForUser(user).key === peerKey);
+    const identity = dirUser ? _identityForUser(dirUser) : _identityFromPeerKey(peerKey);
+    const label = identity.label || identity.email?.toUpperCase() || identity.raw || 'USUARIO';
+    const preferredHandle = identity.email ? identity.email.toUpperCase() : (identity.raw || identity.uid);
+    conv = { peerKey: identity.key, peerUid: identity.uid, peerEmail: identity.email, displayLabel: label, preferredHandle, last: null, total: 0, unread: 0 };
+    _activePeer = identity.key;
     _convs.unshift(conv);
   }
   const header = document.getElementById('amChatHeader');
@@ -340,26 +379,36 @@ function _openChat(peerKey) {
   // Mobile: slide in
   const chat = document.getElementById('amChat');
   if (window.innerWidth <= 768 && chat) chat.classList.add('open');
-  // Update header
-  const name = conv?.displayLabel || peerKey.replace(/^(EMAIL|LEGACY):/,'');
-  document.getElementById('amChatName').textContent = name;
-  document.getElementById('amChatAvatar').textContent = R.initials(name);
-  const m = _meta.get(conv?.peerEmail);
-  document.getElementById('amChatStatus').textContent = m ? `${m.rol||''} · ${m.plaza||''}` : 'Canal interno';
-  // Mark read
-  const idsToMark = [];
-  _all.forEach(msg => {
-    if (!msg.esMio && !msg.leido) {
-      const pk = D.getPeerKey(msg, _me);
-      if (pk === peerKey) { msg.leido = true; idsToMark.push(msg.id); }
-    }
-  });
-  if (idsToMark.length) D.marcarMensajesLeidosArray(idsToMark).catch(e => console.error(e));
+  _syncActiveChatIdentity();
   _renderMessages();
   _renderContacts();
   const inp = document.getElementById('amInput');
   if (inp) { inp.value = ''; inp.style.height = 'auto'; inp.focus(); }
-  _syncConversationRoute(peerKey);
+  _syncConversationRoute(_activePeer);
+}
+
+function _syncActiveChatIdentity() {
+  if (!_activePeer) return;
+  const conv = _convs.find(c => c.peerKey === _activePeer);
+  const name = conv?.displayLabel || _peerValue(_activePeer);
+  const nameEl = document.getElementById('amChatName');
+  const avatarEl = document.getElementById('amChatAvatar');
+  const statusEl = document.getElementById('amChatStatus');
+  if (nameEl) nameEl.textContent = name;
+  if (avatarEl) avatarEl.textContent = R.initials(name);
+  const meta = _meta.get(conv?.peerEmail);
+  if (statusEl) statusEl.textContent = meta ? `${meta.rol||''} · ${meta.plaza||''}` : 'Canal interno';
+
+  const idsToMark = [];
+  _all.forEach(msg => {
+    const mine = D.isMessageMine(msg, _me, _identityDirectory);
+    msg.esMio = mine;
+    if (!mine && !msg.leido) {
+      const pk = D.getPeerKey(msg, _me, _identityDirectory);
+      if (pk === _activePeer) { msg.leido = true; idsToMark.push(msg.id); }
+    }
+  });
+  if (idsToMark.length) D.marcarMensajesLeidosArray(idsToMark).catch(e => console.error(e));
 }
 
 function _closeChat() {
@@ -382,9 +431,12 @@ function _closeChat() {
 function _renderMessages() {
   const container = document.getElementById('amMessages');
   if (!container || !_activePeer) return;
-  const history = _all.filter(m => D.getPeerKey(m, _me) === _activePeer).reverse();
+  const history = _all
+    .filter(m => D.getPeerKey(m, _me, _identityDirectory) === _activePeer)
+    .map(m => ({ ...m, esMio: D.isMessageMine(m, _me, _identityDirectory) }))
+    .reverse();
   if (!history.length) {
-    const name = _activePeer.replace(/^(EMAIL|LEGACY):/,'');
+    const name = _convs.find(c => c.peerKey === _activePeer)?.displayLabel || _peerValue(_activePeer);
     container.innerHTML = `<div class="am-chat-start"><span class="material-icons">chat_bubble_outline</span>Inicio de la conversación con ${R.esc(name)}<br><br>Escribe un mensaje.</div>`;
     return;
   }
@@ -536,9 +588,22 @@ function _hideInfo() { document.getElementById('amUserInfoModal')?.classList.rem
 async function _openNewChat() {
   const name = await _mexPrompt('Nuevo chat', 'Escribe el nombre o correo del usuario:', 'Nombre o correo', 'text', '');
   if (!name?.trim()) return;
-  const identity = D.getCanonicalMessageIdentity(name.trim());
+  const identity = D.getCanonicalMessageIdentity(name.trim(), '', _identityDirectory);
+  const requestedAlias = _lookupAlias(name);
+  const matchingKeys = new Set(_allUsers.filter(user => [
+    user.id,
+    user.email,
+    user.nombre,
+    user.nombreCompleto,
+    user.usuario
+  ].some(value => _lookupAlias(value) === requestedAlias)).map(user => _identityForUser(user).key));
+  if (matchingKeys.size > 1) {
+    await _mexAlert('Contacto ambiguo', 'Hay más de un usuario con ese nombre. Busca el contacto por correo.', 'warning');
+    return;
+  }
   _activePeer = identity.key;
-  const fakeConv = { peerKey: identity.key, peerEmail: identity.email, displayLabel: identity.label, preferredHandle: identity.raw, last: null, total: 0, unread: 0 };
+  const preferredHandle = identity.email ? identity.email.toUpperCase() : (identity.raw || identity.uid);
+  const fakeConv = { peerKey: identity.key, peerUid: identity.uid, peerEmail: identity.email, displayLabel: identity.label, preferredHandle, last: null, total: 0, unread: 0 };
   if (!_convs.find(c => c.peerKey === identity.key)) _convs.unshift(fakeConv);
   _openChat(identity.key);
 }
@@ -551,7 +616,21 @@ async function _send() {
   if (!_activePeer) return;
   // Resolve peer handle
   const conv = _convs.find(c => c.peerKey === _activePeer);
-  const dest = conv?.preferredHandle || _activePeer.replace(/^(EMAIL|LEGACY):/,'');
+  const peerIdentity = conv
+    ? { uid: conv.peerUid || '', email: conv.peerEmail || '', label: conv.displayLabel || '', raw: conv.preferredHandle || '' }
+    : _identityFromPeerKey(_activePeer);
+  const dest = peerIdentity.email
+    ? peerIdentity.email.toUpperCase()
+    : (conv?.preferredHandle || peerIdentity.raw || _peerValue(_activePeer));
+  const senderHandle = _me.email ? _me.email.toUpperCase() : _me.display;
+  const messageIdentity = {
+    remitenteUid: _me.uid || '',
+    remitenteEmail: _me.email || '',
+    remitenteNombre: _me.display,
+    destinatarioUid: peerIdentity.uid || '',
+    destinatarioEmail: peerIdentity.email || '',
+    destinatarioNombre: peerIdentity.label || conv?.displayLabel || dest
+  };
   if (input) { input.value = ''; input.style.height = 'auto'; }
   const capturedReply = _replyTo ? { ..._replyTo } : null;
   // Unarchive if needed
@@ -571,11 +650,22 @@ async function _send() {
   // Optimistic local message
   const now = new Date();
   const tempDate = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const local = { id: Date.now(), fecha: tempDate, timestamp: Date.now(), remitente: _me.display, destinatario: dest, mensaje: txt, leido: false, esMio: true, replyTo: capturedReply || undefined };
+  const local = {
+    id: Date.now(),
+    fecha: tempDate,
+    timestamp: Date.now(),
+    remitente: senderHandle,
+    destinatario: dest,
+    mensaje: txt,
+    leido: false,
+    esMio: true,
+    replyTo: capturedReply || undefined,
+    ...messageIdentity
+  };
   if (archivoUrl) { local.archivoUrl = archivoUrl; local.archivoNombre = archivoNombre; }
   _all.unshift(local);
   _refresh();
-  D.enviarMensajePrivado(_me.display, dest, txt, archivoUrl, archivoNombre, capturedReply).catch(e => console.error(e));
+  D.enviarMensajePrivado(senderHandle, dest, txt, archivoUrl, archivoNombre, capturedReply, messageIdentity).catch(e => console.error(e));
 }
 
 // ── File staging ──────────────────────────────────────────

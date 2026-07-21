@@ -13,9 +13,27 @@ function _escapeRe(value) {
 /** Quita emojis de un texto (bitacora/log deben usar iconos, no emojis). */
 export function stripEmoji(value) {
   return String(value || '')
-    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F]/gu, '')
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0E\uFE0F\u200D\u20E3\u{E0020}-\u{E007F}]/gu, '')
+    .replace(/[✓✗✔✘✕✖☑☒]/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+/** Material Symbol sugerido para representar un evento operativo. */
+export function historialIconName(value, tipo = '') {
+  const text = stripEmoji(`${tipo} ${value}`).toUpperCase();
+  if (/CHECKLIST|REVISI[OÓ]N|AUDITOR|VALIDACI[OÓ]N/.test(text)) return 'fact_check';
+  if (/COLA|PREPARACI[OÓ]N|REORDEN/.test(text)) return 'format_list_bulleted';
+  if (/NOTA|COMENTARIO|OBSERVACI[OÓ]N/.test(text)) return 'edit_note';
+  if (/KILOMETRAJE|\bKM\b/.test(text)) return 'speed';
+  if (/GASOLINA|COMBUSTIBLE|CARGA DE GAS/.test(text)) return 'local_gas_station';
+  if (/ADJUNTO|ARCHIVO|DOCUMENTO/.test(text)) return 'attach_file';
+  if (/INCIDENCIA|URGENTE|ERROR|ALERTA/.test(text)) return 'report_problem';
+  if (/BAJA|ELIMIN|LIMBO/.test(text)) return 'delete_outline';
+  if (/ALTA|INSERT|AGREG/.test(text)) return 'add_circle';
+  if (/MOV|TRASLAD|UBICACI[OÓ]N|ORIGEN|DESTINO|CAJ[OÓ]N/.test(text)) return 'swap_horiz';
+  if (/ESTADO|ACTUALIZ|CAMBIO/.test(text)) return 'sync_alt';
+  return 'history';
 }
 
 function _clean(value) {

@@ -12,6 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg: #111329;
@@ -1675,8 +1676,8 @@
     </div>
 
     <div class="zoom-stack" aria-label="Controles de zoom">
-      <button type="button" onclick="zoomMap(1.12)" aria-label="Acercar">+</button>
-      <button type="button" onclick="zoomMap(.89)" aria-label="Alejar">-</button>
+      <button type="button" onclick="zoomMap(1.12)" aria-label="Acercar"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
+      <button type="button" onclick="zoomMap(.89)" aria-label="Alejar"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
     </div>
     <div class="toast" id="toast"></div>
   </div>

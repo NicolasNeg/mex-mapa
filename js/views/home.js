@@ -345,7 +345,7 @@ export function renderShellTopbarHTML(options = {}) {
   const plazaHtml = typeof options.plazaHtml === 'string'
     ? options.plazaHtml
     : `<select id="${escapeHtml(plazaSelectId)}" class="hidden md:block bg-surface-container-low border border-outline-variant rounded-full py-1.5 px-3 text-sm text-on-surface font-semibold focus:ring-1 focus:ring-secondary/30 outline-none cursor-pointer" ${(plazas.length <= 1 && !currentPlaza) ? 'disabled' : ''}>
-        ${((plazas.length ? plazas : [currentPlaza || 'GLOBAL'])).filter(Boolean).map(plaza => `<option value="${escapeHtml(plaza)}" ${upper(plaza) === currentPlaza ? 'selected' : ''}>📍 ${escapeHtml(plaza)}</option>`).join('')}
+        ${((plazas.length ? plazas : [currentPlaza || 'GLOBAL'])).filter(Boolean).map(plaza => `<option value="${escapeHtml(plaza)}" ${upper(plaza) === currentPlaza ? 'selected' : ''}>${escapeHtml(plaza)}</option>`).join('')}
       </select>`;
 
   const vehicleHtml = typeof options.vehicleHtml === 'string'
@@ -1281,8 +1281,8 @@ function renderHome(profile, config, metrics) {
                 <h3 class="text-h3 text-on-primary-fixed mb-2">Resumen de Operaciones Globales</h3>
                 <p class="text-body-base text-on-surface-variant mb-4">Bienvenido a tu nueva Área Operativa. Todo el sistema logístico se centraliza aquí para agilizar las operaciones logísticas y evitar cuellos de botella mediante acceso directo.</p>
                 <div class="flex gap-4">
-                  <span class="text-xs font-bold text-slate-500 bg-white/50 px-3 py-1 rounded-full border border-slate-200 shadow-sm">📍 ${escapeHtml(currentPlaza || 'Global')}</span>
-                  <span class="text-xs font-bold text-slate-500 bg-white/50 px-3 py-1 rounded-full border border-slate-200 shadow-sm">👤 ${escapeHtml(roleLabel(profile))}</span>
+                  <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-500 bg-white/50 px-3 py-1 rounded-full border border-slate-200 shadow-sm"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;">location_on</span>${escapeHtml(currentPlaza || 'Global')}</span>
+                  <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-500 bg-white/50 px-3 py-1 rounded-full border border-slate-200 shadow-sm"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;">badge</span>${escapeHtml(roleLabel(profile))}</span>
                 </div>
               </div>
               <div class="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-secondary/10 to-transparent"></div>

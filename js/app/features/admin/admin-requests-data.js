@@ -10,7 +10,7 @@ function _collectionsOrder(preferred = '') {
   ));
 }
 
-/** Lectura puntual para aprobar (password en doc, colección correcta). */
+/** Lectura puntual de la solicitud en la colección correcta. */
 export async function fetchAccessRequestDocDeep(docId, collectionHint = '') {
   const normalizedId = String(docId || '').trim().toLowerCase();
   if (!normalizedId) return null;
@@ -215,8 +215,7 @@ export async function approveAccessRequest({
     puesto: _norm(puesto || data.puesto),
     telefono: _norm(telefono || data.telefono),
     role: _normUp(role || data.rolSolicitado || data.requestedRole || 'AUXILIAR'),
-    plaza: _normUp(plaza || data.plazaSolicitada || data.requestedPlaza || ''),
-    password: data.password || ''
+    plaza: _normUp(plaza || data.plazaSolicitada || data.requestedPlaza || '')
   });
 }
 

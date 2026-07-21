@@ -886,34 +886,47 @@ function _normalizeIncidentRecord(docId, data = {}) {
   };
 }
 
+async function _getMexMedia() {
+  if (window.mexMedia?.uploadMedia) return window.mexMedia;
+  try {
+    return await import("/js/core/media-upload.js");
+  } catch (err) {
+    console.error("[mex-api] media-upload load failed", err);
+    throw new Error("No se pudo cargar el módulo de medios (Cloudinary).");
+  }
+}
+
 async function _uploadIncidentAttachments(filesLike, docId, author) {
   const files = Array.from(filesLike || []).filter(Boolean);
   if (!files.length) return [];
-  const storage = _getStorageClient();
-  if (!storage) throw new Error("Firebase Storage no está disponible para subir adjuntos.");
 
+  const media = await _getMexMedia();
   const uploadedAt = _now();
   const uploadedBy = _sanitizeText(author) || "Sistema";
   const uploads = [];
 
   for (const file of files) {
     const safeName = _sanitizeStorageSegment(file.name || `archivo-${_ts()}`);
-    const path = `${NOTE_ATTACHMENT_FOLDER}/${docId}/${Date.now()}-${safeName}`;
-    const ref = storage.ref(path);
     const contentType = _resolveUploadContentType(file);
-    const snapshot = await ref.put(file, {
-      contentType,
-      customMetadata: { uploadedBy }
+    const resourceType = contentType.startsWith("image/")
+      ? "image"
+      : (contentType.startsWith("video/") || contentType.startsWith("audio/") ? "video" : "raw");
+    const result = await media.uploadMedia({
+      folder: `${NOTE_ATTACHMENT_FOLDER}/${docId}`,
+      file,
+      publicId: `${Date.now()}-${safeName.replace(/\.[^.]+$/, "")}`,
+      resourceType
     });
-    const url = await snapshot.ref.getDownloadURL();
     uploads.push({
-      path,
+      path: result.publicId || "",
+      publicId: result.publicId || "",
+      provider: result.provider || "cloudinary",
       fileName: file.name || safeName,
-      mimeType: file.type || "",
-      size: Number(file.size || 0) || 0,
+      mimeType: file.type || contentType || "",
+      size: Number(file.size || result.bytes || 0) || 0,
       uploadedAt,
       uploadedBy,
-      url
+      url: result.url
     });
   }
 
@@ -944,31 +957,33 @@ async function _uploadAdminEvidenceFiles(filesLike, docId, author) {
   );
   if (!files.length) return [];
 
-  const storage = _getStorageClient();
-  if (!storage) throw new Error("Firebase Storage no está disponible para subir evidencias del Cuadre Admins.");
-
+  const media = await _getMexMedia();
   const uploadedAt = _now();
   const uploadedBy = _sanitizeText(author) || "Sistema";
   const uploads = [];
 
   for (const file of files) {
     const safeName = _sanitizeStorageSegment(file.name || `evidencia-${_ts()}`);
-    const path = `${EVIDENCE_FOLDER}/${docId}/${Date.now()}-${safeName}`;
-    const ref = storage.ref(path);
     const contentType = _resolveUploadContentType(file);
-    const snapshot = await ref.put(file, {
-      contentType,
-      customMetadata: { uploadedBy }
+    const resourceType = contentType.startsWith("image/")
+      ? "image"
+      : (contentType.startsWith("video/") || contentType.startsWith("audio/") ? "video" : "raw");
+    const result = await media.uploadMedia({
+      folder: `${EVIDENCE_FOLDER}/${docId}`,
+      file,
+      publicId: `${Date.now()}-${safeName.replace(/\.[^.]+$/, "")}`,
+      resourceType
     });
-    const url = await snapshot.ref.getDownloadURL();
     uploads.push({
-      path,
+      path: result.publicId || "",
+      publicId: result.publicId || "",
+      provider: result.provider || "cloudinary",
       fileName: file.name || safeName,
       mimeType: contentType,
-      size: Number(file.size || 0) || 0,
+      size: Number(file.size || result.bytes || 0) || 0,
       uploadedAt,
       uploadedBy,
-      url
+      url: result.url
     });
   }
 
@@ -2433,18 +2448,37 @@ const API_FUNCTIONS = {
   async enviarMensajePrivado(remitente, destinatario, texto, archivoUrl = null, archivoNombre = null, replyTo = null, meta = null) {
     const ts = _ts();
     const id = `msg_${ts}_${Math.floor(Math.random() * 1000)}`;
-    const payload = { timestamp: ts, fecha: _now(), remitente: remitente.trim().toUpperCase(), destinatario: destinatario.trim().toUpperCase(), mensaje: texto || "", leido: "NO" };
+    const identityMeta = meta && typeof meta === 'object' ? meta : {};
+    const rEmail = String(identityMeta.remitenteEmail || '').trim().toLowerCase();
+    const dEmail = String(identityMeta.destinatarioEmail || '').trim().toLowerCase();
+    const rUid = String(identityMeta.remitenteUid || '').trim();
+    const dUid = String(identityMeta.destinatarioUid || '').trim();
+    const rName = String(identityMeta.remitenteNombre || '').trim();
+    const dName = String(identityMeta.destinatarioNombre || '').trim();
+    const participantUids = [...new Set([rUid, dUid].filter(Boolean))].sort();
+    const participantEmails = [...new Set([rEmail, dEmail].filter(Boolean))].sort();
+    const payload = {
+      timestamp: ts,
+      fecha: _now(),
+      remitente: (rEmail || String(remitente || '')).trim().toUpperCase(),
+      destinatario: (dEmail || String(destinatario || '')).trim().toUpperCase(),
+      mensaje: texto || '',
+      leido: 'NO'
+    };
     if (archivoUrl)  { payload.archivoUrl = archivoUrl; payload.archivoNombre = archivoNombre; }
     if (replyTo)     { payload.replyTo = { id: replyTo.id, remitente: replyTo.remitente, mensaje: replyTo.mensaje }; }
-    if (meta && typeof meta === 'object') {
-      const rEmail = String(meta.remitenteEmail || '').trim().toLowerCase();
-      const dEmail = String(meta.destinatarioEmail || '').trim().toLowerCase();
-      const rName = String(meta.remitenteNombre || '').trim();
-      const dName = String(meta.destinatarioNombre || '').trim();
-      if (rEmail) payload.remitenteEmail = rEmail;
-      if (dEmail) payload.destinatarioEmail = dEmail;
-      if (rName) payload.remitenteNombre = rName;
-      if (dName) payload.destinatarioNombre = dName;
+    if (rEmail) payload.remitenteEmail = rEmail;
+    if (dEmail) payload.destinatarioEmail = dEmail;
+    if (rUid) payload.remitenteUid = rUid;
+    if (dUid) payload.destinatarioUid = dUid;
+    if (rName) payload.remitenteNombre = rName;
+    if (dName) payload.destinatarioNombre = dName;
+    if (rEmail && dEmail) payload.participantEmails = participantEmails;
+    if (rUid && dUid) {
+      payload.participantUids = participantUids;
+      payload.conversationId = `UID:${participantUids.join(':')}`;
+    } else if (rEmail && dEmail) {
+      payload.conversationId = `EMAIL:${participantEmails.join(':')}`;
     }
     await db.collection(COL.MENSAJES).doc(id).set(payload);
     return "EXITO";
@@ -3108,9 +3142,14 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       ubicaciones = _mergeLocationCatalogs(ubicaciones, _buildDefaultPlazaLocations(plazaUp));
     }
 
+    const media = (empresaData && typeof empresaData.media === 'object')
+      ? empresaData.media
+      : (window.MEX_CONFIG?.media || {});
+
     return {
       empresa: empresaData,
-      listas: { ...globalListas, ubicaciones }
+      listas: { ...globalListas, ubicaciones },
+      media
     };
   },
 

@@ -1,7 +1,8 @@
 // scripts/migrate-drop-empresaid.js — migración single-tenant (sin gcloud).
-// Uso:
-//   GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json node scripts/migrate-drop-empresaid.js --dry
-//   GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json node scripts/migrate-drop-empresaid.js
+// Uso (PowerShell):
+//   $env:GOOGLE_APPLICATION_CREDENTIALS='C:\ruta\fuera-del-webroot\service-account.json'
+//   node scripts/migrate-drop-empresaid.js --dry
+//   node scripts/migrate-drop-empresaid.js
 //
 // CORRE EL BACKUP PRIMERO (scripts/backup-firestore.js) y verifica con --dry.
 //
@@ -15,9 +16,14 @@ const path = require('path');
 const fs = require('fs');
 const admin = require(path.join(__dirname, '../functions/node_modules/firebase-admin'));
 
-const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, '../serviceAccountKey.json');
+const configuredKeyPath = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
+if (!configuredKeyPath) {
+  console.error('Define GOOGLE_APPLICATION_CREDENTIALS con una ruta fuera de la raiz publica.');
+  process.exit(1);
+}
+const keyPath = path.resolve(configuredKeyPath);
 if (!fs.existsSync(keyPath)) {
-  console.error('✗ Falta la service-account key en:', keyPath);
+  console.error('No existe la service-account key configurada.');
   process.exit(1);
 }
 admin.initializeApp({ credential: admin.credential.cert(require(keyPath)) });

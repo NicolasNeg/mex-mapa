@@ -239,7 +239,7 @@
       if (extras && typeof extras === 'object' && Object.keys(extras).length) {
         await db.collection('mapa_config').doc(_mapaConfigDocId(p)).set({ mapEditorExtras: extras }, { merge: true });
       }
-      await _registrarLog('SISTEMA', `🗺️ Estructura del mapa (${p}) actualizada`, 'Sistema', p);
+      await _registrarLog('SISTEMA', `Estructura del mapa (${p}) actualizada`, 'Sistema', p);
       return 'OK';
     },
 
@@ -272,7 +272,7 @@
         });
         await batch.commit();
       }
-      await _registrarLog('SISTEMA', `🗺️ Estructura duplicada de ${pO} → ${pD} (${elementos.length} celdas)`, 'Sistema', pD);
+      await _registrarLog('SISTEMA', `Estructura duplicada de ${pO} → ${pD} (${elementos.length} celdas)`, 'Sistema', pD);
       return { ok: true, total: elementos.length };
     },
 
@@ -303,7 +303,7 @@
         chunk.forEach((el, j) => batch.set(ref.doc(`cel_${el.orden ?? (i + j)}`), el));
         await batch.commit();
       }
-      await _registrarLog('SISTEMA', `📐 Plantilla "${nombre}" guardada (${elementos.length} celdas)`, 'Sistema', '');
+      await _registrarLog('SISTEMA', `Plantilla "${nombre}" guardada (${elementos.length} celdas)`, 'Sistema', '');
       return { ok: true, id, total: elementos.length };
     },
 

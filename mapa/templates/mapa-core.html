@@ -142,15 +142,15 @@
       <select id="alertaHistTipo" onchange="_renderHistorialAlertas()"
         style="padding:8px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:13px; font-weight:700; outline:none; background:white; cursor:pointer; font-family:'Inter';">
         <option value="">Todos los tipos</option>
-        <option value="URGENTE">🔴 URGENTE</option>
-        <option value="WARNING">🟡 ADVERTENCIA</option>
-        <option value="INFO">🔵 INFORMATIVO</option>
+        <option value="URGENTE">URGENTE</option>
+        <option value="WARNING">ADVERTENCIA</option>
+        <option value="INFO">INFORMATIVO</option>
       </select>
       <select id="alertaHistModo" onchange="_renderHistorialAlertas()"
         style="padding:8px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:13px; font-weight:700; outline:none; background:white; cursor:pointer; font-family:'Inter';">
         <option value="">Todos los modos</option>
-        <option value="INTERRUPTIVA">⚡ Interruptiva</option>
-        <option value="PASIVA">🔔 Pasiva</option>
+        <option value="INTERRUPTIVA">Interruptiva</option>
+        <option value="PASIVA">Pasiva</option>
       </select>
       <button onclick="_limpiarFiltrosHistAlertas()"
         style="padding:8px 14px; border-radius:10px; border:none; background:#f1f5f9; color:#475569; font-weight:800; font-size:12px; cursor:pointer; letter-spacing:0.4px;">LIMPIAR</button>
@@ -212,9 +212,9 @@
             <label>Nivel de Urgencia</label>
             <select id="alertaNuevaTipo" onchange="_updateAlertaTipoStyle(); _actualizarPreviewAlerta();"
               style="border:2px solid #ef4444; background:#fef2f2; color:#ef4444; font-weight:800;">
-              <option value="URGENTE">🔴 URGENTE</option>
-              <option value="WARNING">🟡 ADVERTENCIA</option>
-              <option value="INFO">🔵 INFORMATIVO</option>
+              <option value="URGENTE">URGENTE</option>
+              <option value="WARNING">ADVERTENCIA</option>
+              <option value="INFO">INFORMATIVO</option>
             </select>
           </div>
 
@@ -278,15 +278,15 @@
             <div style="display:flex; gap:5px;">
               <button id="destBtnGlobal" onclick="_setDestMode('GLOBAL')"
                 style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid var(--mex-blue); background:var(--mex-blue); color:white; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
-                🌐 GLOBAL
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-3px;">public</span> GLOBAL
               </button>
               <button id="destBtnSel" onclick="_setDestMode('SEL')"
                 style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid #e2e8f0; background:white; color:#64748b; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
-                ☑ VARIOS
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-3px;">checklist</span> VARIOS
               </button>
               <button id="destBtnSolo" onclick="_setDestMode('SOLO')"
                 style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid #e2e8f0; background:white; color:#64748b; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
-                👤 SOLO A
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-3px;">person</span> SOLO A
               </button>
             </div>
             <!-- SELECCIONADOS panel -->
@@ -423,11 +423,11 @@
               </div>
               <select id="alertaPlantillasSelect" onchange="cargarPlantillaSeleccionada()"
                 style="font-size:11px; font-weight:700; padding:7px 10px; border-radius:10px; border:1px solid var(--border); outline:none; background:#f8fafc; color:#475569; cursor:pointer;">
-                <option value="">📂 Cargar plantilla...</option>
+                <option value="">Cargar plantilla...</option>
               </select>
               <button onclick="guardarComoPlantilla()"
                 style="font-size:11px; padding:7px 12px; border-radius:10px; border:1px solid var(--mex-accent); background:#e0f2fe; color:var(--mex-accent); cursor:pointer; font-weight:800; transition:0.2s;"
-                onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">💾 Guardar
+                onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-3px;">save</span> Guardar
                 como plantilla</button>
             </div>
           </div>
@@ -545,8 +545,7 @@
                     <span id="alertaPreviewBadge"
                       style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:50px; background:#fee2e2; color:#ef4444; letter-spacing:0.8px;">URGENTE</span>
                     <span id="alertaPreviewModoBadge"
-                      style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:50px; background:#eff6ff; color:#1a73e8; letter-spacing:0.8px;">⚡
-                      INTERRUPTIVA</span>
+                      style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:50px; background:#eff6ff; color:#1a73e8; letter-spacing:0.8px;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-3px;">bolt</span> INTERRUPTIVA</span>
                     <span id="alertaPreviewDestinatarios" class="alerta-preview-recipient">
                       <span class="material-icons" style="font-size:14px;">public</span>
                       GLOBAL
@@ -1077,6 +1076,15 @@
     </div>
 
     <div id="info-panel" class="info-sidebar">
+      <div id="info-compact-bar">
+        <span id="info-compact-summary">—</span>
+        <button id="info-expand-btn" type="button" onclick="toggleInfoExpand()" aria-label="Expandir detalle">
+          <span class="material-symbols-outlined" aria-hidden="true">expand_less</span>
+        </button>
+        <button id="info-compact-close" type="button" onclick="cerrarPanel()" aria-label="Cerrar inspector" title="Cerrar inspector">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+      </div>
       <div id="detalle-unidad"></div>
       <div id="swap-container"></div>
       <!-- F7: Sección de utilidades rápidas -->
@@ -1091,12 +1099,13 @@
         <!-- Botones de acción rápida -->
         <div id="panel-acciones-rapidas" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
       </div>
-      <div id="infoPanelBtnGrid" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px; margin-top:25px;">
-        <button id="btnMandarLimbo" onclick="resetUnitToLimbo()"
-          style="padding:18px; border-radius:14px; border:none; background:#fee2e2; color:#ef4444; font-weight:900; cursor:pointer; font-size:14px;">MANDAR
-          AL LIMBO 🗑️</button>
-        <button onclick="cerrarPanel()"
-          style="padding:18px; border-radius:14px; border:none; background:#f1f5f9; color:var(--primary); font-weight:900; cursor:pointer; font-size:14px;">CERRAR</button>
+      <div id="infoPanelBtnGrid">
+        <button id="btnMandarLimbo" type="button" onclick="resetUnitToLimbo()" class="usel-btn usel-btn-limbo">
+          <span class="material-symbols-outlined" aria-hidden="true">delete_outline</span><span>Mover a limbo</span>
+        </button>
+        <button type="button" onclick="cerrarPanel()" class="usel-btn usel-btn-acciones" aria-label="Cerrar inspector" title="Cerrar inspector">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
       </div>
     </div>
 
@@ -1505,7 +1514,7 @@
           <div class="inner-card admin-form-card">
             <div class="grid-2">
               <div class="field">
-                <label>Gasolina ⛽</label>
+                <label><span class="material-symbols-outlined" aria-hidden="true">local_gas_station</span> Gasolina</label>
                 <select id="a_mod_gas">
                   <option value="N/A">Seleccionar...</option>
                   <option value="F">F (Lleno Total)</option>
@@ -1540,36 +1549,36 @@
               </div>
             </div>
             <div class="field" style="margin-top:10px">
-              <label>Ubicación Física 📍</label>
+              <label><span class="material-symbols-outlined" aria-hidden="true">location_on</span> Ubicación física</label>
               <select id="a_mod_ubi">
                 <option value="">Seleccionar...</option>
-                <option value="PATIO">🏠 PATIO</option>
-                <option value="TALLER">🔧 TALLER</option>
-                <option value="AGENCIA">🏢 AGENCIA</option>
-                <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
-                <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
-                <option value="OTRA PLAZA">📌 OTRA PLAZA</option>
+                <option value="PATIO">PATIO</option>
+                <option value="TALLER">TALLER</option>
+                <option value="AGENCIA">AGENCIA</option>
+                <option value="TALLER EXTERNO">TALLER EXTERNO</option>
+                <option value="HYP COBIAN">HYP COBIAN</option>
+                <option value="OTRA PLAZA">OTRA PLAZA</option>
                 <optgroup label="PERSONA RESPONSABLE">
-                  <option value="JORGE">👤 JORGE</option>
-                  <option value="GERARDO">👤 GERARDO</option>
-                  <option value="OSVALDO">👤 OSVALDO</option>
-                  <option value="BALANDRAN">👤 BALANDRAN</option>
-                  <option value="ULISES">👤 ULISES</option>
-                  <option value="JOSUE">👤 JOSUE</option>
-                  <option value="ISRAEL">👤 ISRAEL</option>
-                  <option value="ISAAC">👤 ISAAC</option>
-                  <option value="ANGEL">👤 ANGEL</option>
-                  <option value="LEO">👤 LEO</option>
-                  <option value="BRAULIO">👤 BRAULIO</option>
-                  <option value="LONGORIA">👤 LONGORIA</option>
-                  <option value="MARTHA">👤 MARTHA</option>
-                  <option value="FERNANDA">👤 FERNANDA</option>
-                  <option value="ZALLO">👤 ZALLO</option>
-                  <option value="UBALDO">👤 UBALDO</option>
-                  <option value="JOSE LUIS">👤 JOSE LUIS</option>
-                  <option value="PASCUAL">👤 PASCUAL</option>
-                  <option value="EDUARDO">👤 EDUARDO</option>
-                  <option value="EDGAR">👤 EDGAR</option>
+                  <option value="JORGE">JORGE</option>
+                  <option value="GERARDO">GERARDO</option>
+                  <option value="OSVALDO">OSVALDO</option>
+                  <option value="BALANDRAN">BALANDRAN</option>
+                  <option value="ULISES">ULISES</option>
+                  <option value="JOSUE">JOSUE</option>
+                  <option value="ISRAEL">ISRAEL</option>
+                  <option value="ISAAC">ISAAC</option>
+                  <option value="ANGEL">ANGEL</option>
+                  <option value="LEO">LEO</option>
+                  <option value="BRAULIO">BRAULIO</option>
+                  <option value="LONGORIA">LONGORIA</option>
+                  <option value="MARTHA">MARTHA</option>
+                  <option value="FERNANDA">FERNANDA</option>
+                  <option value="ZALLO">ZALLO</option>
+                  <option value="UBALDO">UBALDO</option>
+                  <option value="JOSE LUIS">JOSE LUIS</option>
+                  <option value="PASCUAL">PASCUAL</option>
+                  <option value="EDUARDO">EDUARDO</option>
+                  <option value="EDGAR">EDGAR</option>
                 </optgroup>
               </select>
             </div>
@@ -1578,7 +1587,7 @@
           <div class="admin-section-title">Evidencia y Seguimiento</div>
           <div class="inner-card admin-form-card">
             <div class="field admin-upload-box">
-              <label>📂 Cargar nuevos archivos al expediente</label>
+              <label><span class="material-symbols-outlined" aria-hidden="true">upload_file</span> Cargar nuevos archivos al expediente</label>
               <input type="file" id="a_mod_file" multiple
                 onchange="actualizarEstadoArchivosAdmin('a_mod_file', 'a_mod_fileStatus')"
                 style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
@@ -1612,10 +1621,10 @@
           </div>
 
           <div id="a_mod_btn_container" class="admin-actions" style="display:flex; gap:10px; margin-top:20px;">
-            <button class="btn-save-global" onclick="guardarEdicionAdmin('MODIFICAR')" style="margin-top:0;">💾 GUARDAR
+            <button class="btn-save-global" onclick="guardarEdicionAdmin('MODIFICAR')" style="margin-top:0;"><span class="material-symbols-outlined" aria-hidden="true">save</span> GUARDAR
               CAMBIOS</button>
             <button class="btn-save-global" onclick="guardarEdicionAdmin('ELIMINAR')"
-              style="margin-top:0; background:#fff1f2; color:#ef4444; box-shadow:none;">🗑️ RETIRAR DE CUADRE</button>
+              style="margin-top:0; background:#fff1f2; color:#ef4444; box-shadow:none;"><span class="material-symbols-outlined" aria-hidden="true">delete_outline</span> RETIRAR DE CUADRE</button>
           </div>
         </div>
       </div>
@@ -2159,7 +2168,7 @@
       <div id="modal-lector-reservas" class="modal-overlay" style="z-index: 76000;">
         <div class="console-card" style="max-width: 640px; text-align: left; padding: 28px 28px 24px; position:relative;">
           <button onclick="document.getElementById('modal-lector-reservas').classList.remove('active')"
-            style="position:absolute; right:15px; top:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:900;">✕</button>
+            aria-label="Cerrar" style="position:absolute; right:15px; top:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:900;"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
 
           <h2 style="color: var(--primary, #0f172a); font-weight: 600; margin: 0 0 6px 0; font-size: 20px;">Reporte de actividad diaria</h2>
           <p style="color: #6b7280; font-size: 13px; margin: 0 0 20px; font-weight: 400;">Sube la captura del sistema. Se generará el PDF automáticamente.</p>
@@ -2220,7 +2229,7 @@
               </p>
             </div>
             <button onclick="document.getElementById('modal-prediccion').classList.remove('active')"
-              style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;">✕</button>
+              aria-label="Cerrar" style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
           </div>
 
           <div id="prediccion-paso-1" style="padding: 25px; display: block;">
@@ -2291,7 +2300,7 @@
             <span class="material-icons" style="font-size: 18px; color: #38bdf8;">smart_toy</span> IA
           </div>
           <button onclick="document.getElementById('ai-response-panel').style.display='none'"
-            style="background: transparent; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 16px;">✕</button>
+            aria-label="Cerrar" style="background: transparent; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 16px;"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
         </div>
         <div class="ai-panel-body" id="ai-response-content">
         </div>
@@ -2418,10 +2427,10 @@
                     <span class="material-symbols-outlined">align_vertical_bottom</span>
                   </button>
                   <button type="button" onclick="editorDistribuirGrupo('H')" data-tip="Distribuye la separación horizontal del grupo.">
-                    <span>↔</span>
+                    <span class="material-symbols-outlined" aria-hidden="true">horizontal_distribute</span>
                   </button>
                   <button type="button" onclick="editorDistribuirGrupo('V')" data-tip="Distribuye la separación vertical del grupo.">
-                    <span>↕</span>
+                    <span class="material-symbols-outlined" aria-hidden="true">vertical_distribute</span>
                   </button>
                 </div>
 
@@ -2482,19 +2491,19 @@
                   <div class="mapa-field-group">
                     <label class="mapa-field-label">Ancho</label>
                     <div class="mapa-size-ctrl">
-                      <button type="button" onclick="editorSpanChange('width',-10)">−</button>
+                      <button type="button" onclick="editorSpanChange('width',-10)" aria-label="Reducir ancho"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
                       <input id="ep-width" type="number" min="40" step="10" class="mapa-input"
                         style="width:58px; text-align:center;" oninput="editorPropChange()">
-                      <button type="button" onclick="editorSpanChange('width',10)">+</button>
+                      <button type="button" onclick="editorSpanChange('width',10)" aria-label="Aumentar ancho"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
                     </div>
                   </div>
                   <div class="mapa-field-group">
                     <label class="mapa-field-label">Alto</label>
                     <div class="mapa-size-ctrl">
-                      <button type="button" onclick="editorSpanChange('height',-10)">−</button>
+                      <button type="button" onclick="editorSpanChange('height',-10)" aria-label="Reducir alto"><span class="material-symbols-outlined" aria-hidden="true">remove</span></button>
                       <input id="ep-height" type="number" min="30" step="10" class="mapa-input"
                         style="width:58px; text-align:center;" oninput="editorPropChange()">
-                      <button type="button" onclick="editorSpanChange('height',10)">+</button>
+                      <button type="button" onclick="editorSpanChange('height',10)" aria-label="Aumentar alto"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>
                     </div>
                   </div>
                 </div>

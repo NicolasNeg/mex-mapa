@@ -8,6 +8,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="/js/core/firebase-config.js"></script>
 <script src="/js/core/firebase-init.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { min-height: 100%; background: #0b1929; font-family: Inter, system-ui, sans-serif; color: #e2e8f0; }
@@ -146,7 +147,7 @@
 <!-- Password gate -->
 <div id="pwGate">
   <div class="pw-box">
-    <div class="pw-icon">🔒</div>
+    <span class="material-symbols-outlined pw-icon" aria-hidden="true">lock</span>
     <div class="pw-title">Contrato protegido</div>
     <div class="pw-desc">Este contrato requiere una contraseña para ser visualizado.<br>Ingresa la contraseña que te proporcionó el equipo de MapGestion.</div>
     <input type="password" id="pwInput" class="pw-input" placeholder="••••••••" autocomplete="off"/>
@@ -157,7 +158,7 @@
 
 <div id="stateScreen" style="display:none;">
   <div class="state-box">
-    <div id="stateIcon" class="state-icon">⏳</div>
+    <span id="stateIcon" class="material-symbols-outlined state-icon" aria-hidden="true">hourglass_empty</span>
     <div id="stateTitle" class="state-title">Cargando contrato…</div>
     <div id="stateDesc"  class="state-desc">Por favor espera un momento.</div>
   </div>
@@ -181,7 +182,7 @@
     <div class="sign-section" id="signSection">
       <!-- Signed banner shown if already signed -->
       <div id="signedBanner" class="signed-banner" style="display:none;">
-        <div class="icon">✅</div>
+        <span class="material-symbols-outlined icon" aria-hidden="true">check_circle</span>
         <div class="text">
           <strong>Contrato firmado.</strong><br>
           <span id="signedInfo"></span>
@@ -211,7 +212,7 @@
         </div>
 
         <button class="btn-sign" id="btnSign" type="button" disabled>
-          <span>✍</span> Firmar contrato
+          <span class="material-symbols-outlined" aria-hidden="true">draw</span> Firmar contrato
         </button>
         <div class="status-msg" id="statusMsg"></div>
       </div>
@@ -226,11 +227,11 @@
   // ── Helpers ─────────────────────────────────────────────
   function qs(sel) { return document.querySelector(sel); }
 
-  function showState(icon, title, desc) {
+  function showState(iconName, title, desc) {
     qs('#stateScreen').style.display = 'flex';
     qs('#pwGate').style.display      = 'none';
     qs('#app').style.display         = 'none';
-    qs('#stateIcon').textContent  = icon;
+    qs('#stateIcon').textContent  = iconName;
     qs('#stateTitle').textContent = title;
     qs('#stateDesc').textContent  = desc;
   }
@@ -391,7 +392,7 @@ ${c.notas ? `<p><em><strong>Condiciones especiales:</strong> ${c.notas}</em></p>
   const token   = (params.get('token') || '').trim();
 
   if (!token) {
-    showState('🔒', 'Enlace inválido', 'No se encontró el token del contrato en la URL.');
+    showState('lock', 'Enlace inválido', 'No se encontró el token del contrato en la URL.');
     return;
   }
 
@@ -399,19 +400,19 @@ ${c.notas ? `<p><em><strong>Condiciones especiales:</strong> ${c.notas}</em></p>
   function waitForDb(cb, attempts) {
     if (window._db) { cb(); return; }
     if ((attempts || 0) > 40) {
-      showState('⚠️', 'Error de conexión', 'No se pudo conectar con la base de datos.');
+      showState('warning', 'Error de conexión', 'No se pudo conectar con la base de datos.');
       return;
     }
     setTimeout(() => waitForDb(cb, (attempts || 0) + 1), 100);
   }
 
-  showState('⏳', 'Cargando contrato…', 'Por favor espera un momento.');
+  showState('hourglass_empty', 'Cargando contrato…', 'Por favor espera un momento.');
 
   waitForDb(async function () {
     try {
       const snap = await window._db.collection('contratos').doc(token).get();
       if (!snap.exists) {
-        showState('🔍', 'Contrato no encontrado', 'El enlace puede haber expirado o ser incorrecto.');
+        showState('search_off', 'Contrato no encontrado', 'El enlace puede haber expirado o ser incorrecto.');
         return;
       }
 
@@ -450,7 +451,7 @@ ${c.notas ? `<p><em><strong>Condiciones especiales:</strong> ${c.notas}</em></p>
       _showContrato(contrato);
     } catch (err) {
       console.error('[contrato-publico]', err);
-      showState('⚠️', 'Error al cargar', 'Ocurrió un error al obtener el contrato. Verifica tu conexión e intenta de nuevo.');
+      showState('warning', 'Error al cargar', 'Ocurrió un error al obtener el contrato. Verifica tu conexión e intenta de nuevo.');
     }
   });
 
@@ -473,7 +474,7 @@ ${c.notas ? `<p><em><strong>Condiciones especiales:</strong> ${c.notas}</em></p>
       const statusEl = qs('#topbarStatus');
       if (statusEl) {
         if (signed) {
-          statusEl.innerHTML = '<span style="color:#34d399;font-weight:700;font-size:12px;">✅ Firmado</span>';
+          statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;color:#34d399;font-weight:700;font-size:12px;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px;">check_circle</span>Firmado</span>';
         } else if (contrato.estado === 'enviado' || contrato.estado === 'visto') {
           statusEl.innerHTML = '<span style="color:#fbbf24;font-size:11px;">Pendiente de firma</span>';
         }
@@ -595,7 +596,7 @@ ${c.notas ? `<p><em><strong>Condiciones especiales:</strong> ${c.notas}</em></p>
             firmaData,
           });
 
-          if (statusEl) { statusEl.className = 'status-msg ok'; statusEl.textContent = '✅ Contrato firmado exitosamente. Recibirás una copia por correo.'; }
+          if (statusEl) { statusEl.className = 'status-msg ok'; statusEl.textContent = 'Contrato firmado exitosamente. Recibirás una copia por correo.'; }
 
           // Refresh iframe with signature visible
           const updSnap = await window._db.collection('contratos').doc(token).get();
@@ -608,13 +609,13 @@ ${c.notas ? `<p><em><strong>Condiciones especiales:</strong> ${c.notas}</em></p>
           qs('#btnSign').style.display      = 'none';
           qs('#signedInfo').textContent = `Firmado por ${contrato.representante || ''} — ${new Date().toLocaleString('es-MX')}.`;
 
-          if (statusEl) qs('#topbarStatus').innerHTML = '<span style="color:#34d399;font-weight:700;font-size:12px;">✅ Firmado</span>';
+          if (statusEl) qs('#topbarStatus').innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;color:#34d399;font-weight:700;font-size:12px;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px;">check_circle</span>Firmado</span>';
 
         } catch (err) {
           console.error('[contrato-publico]', err);
           if (statusEl) { statusEl.className = 'status-msg error'; statusEl.textContent = 'Error al guardar la firma. Intenta de nuevo.'; }
           btnSign.disabled = false;
-          btnSign.innerHTML = '<span>✍</span> Firmar contrato';
+          btnSign.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">draw</span> Firmar contrato';
         }
       });
   }

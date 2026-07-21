@@ -16483,8 +16483,20 @@ async function enviarMensajeChat() {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     try {
       showToast("Subiendo archivo...", "info");
-      const snap = await firebase.storage().ref(`mensajes_chat/${ts2}-${safeName}`).put(file);
-      archivoUrl = await snap.ref.getDownloadURL();
+      const media = window.mexMedia?.uploadMedia
+        ? window.mexMedia
+        : await import('/js/core/media-upload.js');
+      const type = String(file.type || '');
+      const resourceType = type.startsWith('image/')
+        ? 'image'
+        : (type.startsWith('video/') || type.startsWith('audio/') ? 'video' : 'raw');
+      const uploaded = await media.uploadMedia({
+        folder: 'mensajes_chat',
+        file,
+        publicId: `${ts2}-${safeName.replace(/\.[^.]+$/, '')}`,
+        resourceType
+      });
+      archivoUrl = uploaded.url;
       archivoNombre = file.name;
     } catch (e) {
       console.error("Error upload chat file:", e);
@@ -16494,12 +16506,19 @@ async function enviarMensajeChat() {
   } else if (pendingAudioBlob) {
     const ts2 = Date.now();
     const extension = pendingAudioBlob.extension || _chatAudioExtensionFromMime(pendingAudioBlob.mimeType);
-    const contentType = pendingAudioBlob.mimeType || `audio/${extension}`;
     const fname = `audio_${ts2}.${extension}`;
     try {
       showToast("Subiendo audio...", "info");
-      const snap = await firebase.storage().ref(`mensajes_chat/${ts2}-${fname}`).put(pendingAudioBlob.blob, { contentType });
-      archivoUrl = await snap.ref.getDownloadURL();
+      const media = window.mexMedia?.uploadMedia
+        ? window.mexMedia
+        : await import('/js/core/media-upload.js');
+      const uploaded = await media.uploadMedia({
+        folder: 'mensajes_chat',
+        file: pendingAudioBlob.blob,
+        publicId: `${ts2}-${fname.replace(/\.[^.]+$/, '')}`,
+        resourceType: 'video'
+      });
+      archivoUrl = uploaded.url;
       archivoNombre = fname;
     } catch (e) {
       console.error("Error upload audio:", e);

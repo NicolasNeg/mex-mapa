@@ -1,9 +1,15 @@
 # ─── Credenciales y configuración sensible ──────────────────
 config.js
 serviceAccountKey.json
+request.json
 backups/
 .env
 .env.*
+functions/.env
+functions/.env.*
+functions/.secret*
+*.pem
+*.secret
 .codex
 firebase-debug.log
 .firebase/

@@ -31,6 +31,8 @@
       --st-venta-txt: #ffffff;
       --st-resg-bg: #f5e6d3;
       --st-resg-txt: #5c4033;
+      --st-no-arrendable-bg: #34fbff;
+      --st-no-arrendable-txt: #0e7490;
       /* Tono Café Claro para Resguardo */
       --mex-red: #ef4444;
 
@@ -54,6 +56,7 @@
       --accent-hover:  #2563eb;
       --accent-light:  #93c5fd;
       --accent-pale:   rgba(59, 130, 246, 0.12);
+      --on-accent:     #ffffff;
 
       /* Neutrales Slate */
       --slate-950: #020617;

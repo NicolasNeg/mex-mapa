@@ -419,7 +419,7 @@ function _bindReleaseReadiness() {
   const setStatus = (id, ok) => {
     const el = root.querySelector(`#${id}`);
     if (!el) return;
-    el.textContent = ok ? '✓' : '✗';
+    el.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;">${ok ? 'check_circle' : 'cancel'}</span>`;
     el.style.color = ok ? '#047857' : '#b91c1c';
     el.style.fontWeight = '800';
   };
@@ -524,7 +524,7 @@ function _releaseReadinessHtml(info, flags) {
         ${_row('Storage', info.firebase.hasStorage ? 'ok' : 'no')}
         ${_row('SW registrado', info.sw.swState)}
         ${_row('SW controla página', info.sw.swControlled ? 'sí' : 'no')}
-        ${_row('Script /config.js externo', info.config?.externalConfigJs ? '⚠ cargado' : 'no (ok)')}
+        ${_row('Script /config.js externo', info.config?.externalConfigJs ? 'cargado (externo)' : 'no (ok)')}
         ${_row('Origen FIREBASE_CONFIG', '/js/core/firebase-config.js')}
         ${_row('FIREBASE_CONFIG', info.config?.firebaseConfigOk ? `ok · ${esc(info.config.firebaseProjectId || '')}` : 'NO')}
       </div>

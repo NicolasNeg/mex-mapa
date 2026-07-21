@@ -182,15 +182,37 @@
         .map(m => ({ ...m, esMio: m.remitente === me, leido: m.leido === "SI" }));
     },
 
-    async enviarMensajePrivado(remitente, destinatario, texto, archivoUrl = null, archivoNombre = null, replyTo = null) {
+    async enviarMensajePrivado(remitente, destinatario, texto, archivoUrl = null, archivoNombre = null, replyTo = null, meta = null) {
       const ts = _ts();
       const id = `msg_${ts}_${Math.floor(Math.random() * 1000)}`;
+      const identityMeta = meta && typeof meta === "object" ? meta : {};
+      const remitenteEmail = String(identityMeta.remitenteEmail || "").trim().toLowerCase();
+      const destinatarioEmail = String(identityMeta.destinatarioEmail || "").trim().toLowerCase();
+      const remitenteUid = String(identityMeta.remitenteUid || "").trim();
+      const destinatarioUid = String(identityMeta.destinatarioUid || "").trim();
+      const remitenteNombre = String(identityMeta.remitenteNombre || "").trim();
+      const destinatarioNombre = String(identityMeta.destinatarioNombre || "").trim();
+      const participantUids = [...new Set([remitenteUid, destinatarioUid].filter(Boolean))].sort();
+      const participantEmails = [...new Set([remitenteEmail, destinatarioEmail].filter(Boolean))].sort();
       const payload = {
         timestamp: ts, fecha: _now(),
-        remitente: remitente.trim().toUpperCase(),
-        destinatario: destinatario.trim().toUpperCase(),
+        remitente: (remitenteEmail || String(remitente || "")).trim().toUpperCase(),
+        destinatario: (destinatarioEmail || String(destinatario || "")).trim().toUpperCase(),
         mensaje: texto || "", leido: "NO",
       };
+      if (remitenteEmail) payload.remitenteEmail = remitenteEmail;
+      if (destinatarioEmail) payload.destinatarioEmail = destinatarioEmail;
+      if (remitenteUid) payload.remitenteUid = remitenteUid;
+      if (destinatarioUid) payload.destinatarioUid = destinatarioUid;
+      if (remitenteNombre) payload.remitenteNombre = remitenteNombre;
+      if (destinatarioNombre) payload.destinatarioNombre = destinatarioNombre;
+      if (remitenteEmail && destinatarioEmail) payload.participantEmails = participantEmails;
+      if (remitenteUid && destinatarioUid) {
+        payload.participantUids = participantUids;
+        payload.conversationId = `UID:${participantUids.join(":")}`;
+      } else if (remitenteEmail && destinatarioEmail) {
+        payload.conversationId = `EMAIL:${participantEmails.join(":")}`;
+      }
       if (archivoUrl)  { payload.archivoUrl = archivoUrl; payload.archivoNombre = archivoNombre; }
       if (replyTo)     { payload.replyTo = { id: replyTo.id, remitente: replyTo.remitente, mensaje: replyTo.mensaje }; }
       await db.collection(COL.MENSAJES).doc(id).set(payload);

@@ -133,7 +133,7 @@ function _html() {
       background:${_filterSev===s&&s ? `rgba(${_hexToRgb(SEV_COLOR[s])},0.12)` : 'rgba(255,255,255,0.04)'};
       color:${s ? SEV_COLOR[s] : 'rgba(255,255,255,0.45)'};
     ">${s ? s.toUpperCase() : 'Todos'}</button>`).join('')}
-    ${_filterCat || _filterSev || _filterText ? `<button id="errClearFilters" type="button" style="padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.35);">✕ Limpiar</button>` : ''}
+    ${_filterCat || _filterSev || _filterText ? `<button id="errClearFilters" type="button" style="display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;font-family:Inter,sans-serif;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.35);"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;">close</span>Limpiar</button>` : ''}
   </div>
 
   <!-- Tabla de errores -->
@@ -192,7 +192,7 @@ function _row(e) {
     <td style="padding:8px 12px;color:rgba(255,255,255,0.35);white-space:nowrap;font-size:11px;">${_esc(e.userName || e.userId || '—')}</td>
     <td style="padding:8px 12px;color:rgba(255,255,255,0.3);white-space:nowrap;font-size:11px;">${_esc(date)}</td>
     <td style="padding:8px 12px;">
-      ${!e.resolved ? `<button data-err-resolve="${e._id}" type="button" style="padding:3px 8px;border-radius:5px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.07);color:#34d399;font-size:10px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">Resolver</button>` : `<span style="font-size:10px;color:#34d399;font-weight:700;">✓ Resuelto</span>`}
+      ${!e.resolved ? `<button data-err-resolve="${e._id}" type="button" style="padding:3px 8px;border-radius:5px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.07);color:#34d399;font-size:10px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">Resolver</button>` : `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#34d399;font-weight:700;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px;">check_circle</span>Resuelto</span>`}
     </td>
   </tr>`;
 }

@@ -60,7 +60,7 @@ boot().catch(err => {
   if (spinner) {
     spinner.innerHTML = `
       <div style="color:#f87171;font-family:Inter,sans-serif;text-align:center;padding:32px;">
-        <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:32px;display:block;margin-bottom:12px;">warning</span>
         <div style="font-size:14px;margin-bottom:16px;">Error al cargar el panel</div>
         <a href="/login" style="color:#818cf8;text-decoration:none;font-size:13px;">Volver al login</a>
       </div>

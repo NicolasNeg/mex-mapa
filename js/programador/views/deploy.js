@@ -140,7 +140,7 @@ async function _runSmoke() {
     const path = APP_ROUTES[i];
     const ok = await _probe(path);
     const el = _container?.querySelector(`#smoke-route-${i}`);
-    if (el) { el.textContent = ok ? '✓' : '✗'; el.style.color = ok ? '#10b981' : '#ef4444'; }
+    if (el) { el.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;">${ok ? 'check_circle' : 'cancel'}</span>`; el.style.color = ok ? '#10b981' : '#ef4444'; }
     lines.push(`${ok?'OK  ':'FAIL'} ${path}`);
     if (ok) routeOk++;
   }
@@ -152,7 +152,7 @@ async function _runSmoke() {
     const path = APP_ASSETS[i];
     const ok = await _probe(path);
     const el = _container?.querySelector(`#smoke-asset-${i}`);
-    if (el) { el.textContent = ok ? '✓' : '✗'; el.style.color = ok ? '#10b981' : '#ef4444'; }
+    if (el) { el.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;">${ok ? 'check_circle' : 'cancel'}</span>`; el.style.color = ok ? '#10b981' : '#ef4444'; }
     lines.push(`${ok?'OK  ':'FAIL'} ${path}`);
     if (ok) assetOk++;
   }
@@ -185,7 +185,7 @@ async function _copyRelease() {
   try {
     await navigator.clipboard.writeText(report);
     const statusEl = _container?.querySelector('#depCacheStatus');
-    if (statusEl) { statusEl.textContent = '✓ Reporte copiado al portapapeles.'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000); }
+    if (statusEl) { statusEl.textContent = 'Reporte copiado al portapapeles.'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000); }
   } catch (_) {}
 }
 
@@ -195,7 +195,7 @@ async function _clearCache() {
   try {
     const keys = await caches.keys();
     await Promise.all(keys.map(k => caches.delete(k)));
-    if (statusEl) statusEl.textContent = `✓ ${keys.length} cache${keys.length!==1?'s':''} eliminado${keys.length!==1?'s':''}. Recarga para re-cachear.`;
+    if (statusEl) statusEl.textContent = `${keys.length} cache${keys.length!==1?'s':''} eliminado${keys.length!==1?'s':''}. Recarga para re-cachear.`;
   } catch (err) {
     if (statusEl) statusEl.textContent = 'Error: ' + err.message;
   }

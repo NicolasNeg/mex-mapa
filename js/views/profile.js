@@ -1162,16 +1162,26 @@ window.profile_guardarAvatar = async function () {
     if (!docId) throw new Error('No se pudo resolver el documento del usuario');
 
     const previousPath = _safeText(_profile?.avatarPath);
+    const previousPublicId = _safeText(_profile?.avatarPublicId);
     const previousUrl = _getProfileAvatarUrl(_profile);
-    const avatarPath = `profile_avatars/${docId}/avatar_${Date.now()}.jpg`;
-    const ref = storage.ref(avatarPath);
-
-    await ref.put(blob, { contentType: 'image/jpeg' });
-    const avatarUrl = await ref.getDownloadURL();
+    const previousProvider = _safeText(_profile?.avatarProvider);
+    const { uploadMedia, destroyMedia } = await import('/js/core/media-upload.js');
+    const uploaded = await uploadMedia({
+      folder: `profile_avatars/${docId}`,
+      file: blob,
+      publicId: `avatar_${Date.now()}`,
+      resourceType: 'image'
+    });
+    const avatarUrl = uploaded.url;
+    const avatarPath = uploaded.publicId || '';
+    const avatarPublicId = uploaded.publicId || '';
+    const avatarProvider = uploaded.provider || 'cloudinary';
 
     const payload = {
       avatarUrl,
       avatarPath,
+      avatarPublicId,
+      avatarProvider,
       photoURL: avatarUrl,
       fotoURL: avatarUrl,
       profilePhotoUrl: avatarUrl
@@ -1179,12 +1189,13 @@ window.profile_guardarAvatar = async function () {
 
     await db.collection('usuarios').doc(docId).set(payload, { merge: true });
 
-    if (previousPath && previousPath !== avatarPath) {
+    if (previousProvider === 'cloudinary' || previousPublicId || (previousUrl && /cloudinary/i.test(previousUrl))) {
+      destroyMedia({ publicId: previousPublicId, url: previousUrl, provider: 'cloudinary' }).catch(() => { });
+    } else if (previousPath && previousPath !== avatarPath) {
       storage.ref(previousPath).delete().catch(() => { });
     } else if (!previousPath && previousUrl && previousUrl !== avatarUrl) {
-      storage.refFromURL(previousUrl).delete().catch(() => { });
+      try { storage.refFromURL(previousUrl).delete().catch(() => { }); } catch (_) { /* ignore */ }
     }
-
     if (auth.currentUser?.updateProfile) {
       auth.currentUser.updateProfile({ photoURL: avatarUrl }).catch(() => { });
     }
@@ -1193,7 +1204,7 @@ window.profile_guardarAvatar = async function () {
     window.CURRENT_USER_PROFILE = _profile;
     _renderProfile();
     window.profile_cancelarCrop();
-    _showToast('Foto actualizada ✓', 'success');
+    _showToast('Foto actualizada', 'success');
   } catch (error) {
     console.error('[profile] avatar save:', error);
     _showToast('No se pudo guardar la foto.', 'error');

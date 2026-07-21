@@ -56,6 +56,7 @@
     },
 
     async modificarUsuario(nombreOriginal, nuevoNombre, nuevoPin, isAdmin, telefono, isGlobalAdmin) {
+      // Firma legacy: los cambios de contrasena deben realizarse mediante Firebase Auth.
       const origUpper = nombreOriginal.trim().toUpperCase();
       const nuevoUpper = nuevoNombre.trim().toUpperCase();
       const snap = await db.collection(COL.USERS).where("usuario", "==", origUpper).limit(1).get();
@@ -64,7 +65,7 @@
       const esGlobal = isGlobalAdmin === true || isGlobalAdmin === "true";
       await snap.docs[0].ref.update({
         usuario: nuevoUpper,
-        password: nuevoPin.toString(),
+        password: firebase.firestore.FieldValue.delete(),
         isAdmin: esAdmin,
         telefono: (telefono || "").trim()
       });
@@ -72,10 +73,14 @@
       if (esAdmin) {
         if (adminSnap.empty) {
           await db.collection(COL.ADMINS).doc(nuevoUpper).set({
-            usuario: nuevoUpper, password: nuevoPin.toString(), isGlobal: esGlobal,
+            usuario: nuevoUpper, isGlobal: esGlobal,
           });
         } else {
-          await adminSnap.docs[0].ref.update({ usuario: nuevoUpper, password: nuevoPin.toString(), isGlobal: esGlobal });
+          await adminSnap.docs[0].ref.update({
+            usuario: nuevoUpper,
+            password: firebase.firestore.FieldValue.delete(),
+            isGlobal: esGlobal
+          });
         }
       } else {
         if (!adminSnap.empty) await adminSnap.docs[0].ref.delete();

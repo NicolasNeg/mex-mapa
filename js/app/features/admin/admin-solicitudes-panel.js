@@ -293,7 +293,7 @@ async function _approve() {
   if (!ok) return;
   try {
     toast('Procesando…', 'info');
-    await approveAccessRequest({
+    const result = await approveAccessRequest({
       email: row.email || row.id,
       collectionHint: row.collectionName,
       nombre: row.nombre,
@@ -302,7 +302,12 @@ async function _approve() {
       role: row.rolSolicitado || 'AUXILIAR',
       plaza: row.plazaSolicitada
     });
-    toast('Solicitud aprobada.', 'success');
+    const setupMessage = result?.passwordSetupRequired
+      ? (result.passwordSetupEmailSent
+          ? 'Solicitud aprobada. Enviamos el enlace para configurar la contrasena.'
+          : 'Solicitud aprobada. El usuario debe usar Recuperar contrasena en Login.')
+      : 'Solicitud aprobada.';
+    toast(setupMessage, 'success');
     _selectedId = '';
   } catch (err) {
     console.error('[admin-solicitudes] approve:', err);

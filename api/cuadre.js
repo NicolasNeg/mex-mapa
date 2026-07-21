@@ -685,12 +685,23 @@
 
     // ─── CUADRE ADMINS ────────────────────────────────────
     async subirEvidenciaAdmin(file, rutaStorage) {
-      const { _getStorageClient } = window._mex;
-      const storage = _getStorageClient();
-      if (!storage) throw new Error('Storage no disponible');
-      const ref = storage.ref(rutaStorage);
-      await ref.put(file);
-      return await ref.getDownloadURL();
+      const media = window.mexMedia?.uploadMedia
+        ? window.mexMedia
+        : await import('/js/core/media-upload.js');
+      const folderFromPath = String(rutaStorage || 'evidencias_cuadre_admins')
+        .replace(/\/[^/]+$/, '') || 'evidencias_cuadre_admins';
+      const leaf = String(rutaStorage || '').split('/').pop()?.replace(/\.[^.]+$/, '') || `ev_${Date.now()}`;
+      const type = String(file?.type || '');
+      const resourceType = type.startsWith('image/')
+        ? 'image'
+        : (type.startsWith('video/') || type.startsWith('audio/') ? 'video' : 'raw');
+      const result = await media.uploadMedia({
+        folder: folderFromPath,
+        file,
+        publicId: leaf,
+        resourceType
+      });
+      return result.url;
     },
 
     async obtenerCuadreAdminsData(plaza) {

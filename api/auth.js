@@ -16,9 +16,12 @@
       const usersSnap = await db.collection(COL.USERS).get();
       return usersSnap.docs.map(d => {
         const data = d.data();
+        const safeData = { ...data };
+        delete safeData.password;
+        delete safeData.faceDescriptor;
         const roleData = _normalizeUserRoleData(data);
         const displayName = (data.nombre || data.usuario || data.email || '').toUpperCase();
-        return { ...data, ...roleData, usuario: displayName };
+        return { ...safeData, ...roleData, usuario: displayName };
       }).sort((a, b) => a.usuario.localeCompare(b.usuario));
     },
 

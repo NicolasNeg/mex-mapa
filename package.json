@@ -9,14 +9,21 @@
     "deploy:full": "node scripts/bump-sw.js && firebase deploy --project production",
     "deploy:staging": "node scripts/bump-sw.js && firebase deploy --only hosting --project staging",
     "deploy:staging:full": "node scripts/bump-sw.js && firebase deploy --project staging",
-    "deploy:functions": "firebase deploy --only functions --project production",
-    "deploy:rules": "firebase deploy --only firestore:rules,storage --project production"
+    "deploy:functions": "npm run security:preflight && firebase deploy --only functions --project production",
+    "deploy:rules": "npm run test:security:rules && firebase deploy --only firestore:rules,storage --project production",
+    "security:audit:credentials": "node scripts/purge-plaintext-passwords.js",
+    "security:preflight": "node scripts/security-preflight.js",
+    "test:security:hosting": "firebase emulators:exec --only hosting \"node scripts/test-hosting-surface.js\"",
+    "test:security:rules": "firebase emulators:exec --only firestore \"node scripts/test-security-baseline-rules.js\"",
+    "test:security": "npm run security:preflight && npm run test:security:rules",
+    "test:messages:identity": "node --test domain/mensajes-identity.model.test.mjs"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
+    "cloudinary": "^2.10.0",
     "tailwindcss": "^4.2.4"
   },
   "devDependencies": {

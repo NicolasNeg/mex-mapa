@@ -54,10 +54,12 @@ const FIREBASE_CONFIG = {
   root.addEventListener('notificationclick', event => {
     event.notification.close();
     const targetUrl = (() => {
+      const fallback = new URL('/mapa?notif=inbox', root.location.origin);
       try {
-        return new URL(event.notification?.data?.url || '/mapa?notif=inbox', root.location.origin).toString();
+        const candidate = new URL(event.notification?.data?.url || fallback, root.location.origin);
+        return candidate.origin === root.location.origin ? candidate.toString() : fallback.toString();
       } catch (_) {
-        return new URL('/mapa?notif=inbox', root.location.origin).toString();
+        return fallback.toString();
       }
     })();
 

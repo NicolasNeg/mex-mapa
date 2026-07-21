@@ -39,6 +39,15 @@
   --accent-hover:  #2563eb;
   --accent-light:  #93c5fd;
   --accent-pale:   rgba(59, 130, 246, 0.12);
+  --on-accent:     #ffffff;
+  --st-listo-bg: #dcfce7;   --st-listo-txt: #166534;
+  --st-sucio-bg: #fef9c3;   --st-sucio-txt: #854d0e;
+  --st-mant-bg: #fee2e2;    --st-mant-txt: #991b1b;
+  --st-traslado-bg: #f3e8ff; --st-traslado-txt: #6b21a8;
+  --st-venta-bg: #1e293b;   --st-venta-txt: #ffffff;
+  --st-resg-bg: #f5e6d3;    --st-resg-txt: #5c4033;
+  --st-no-arrendable-bg: #34fbff;
+  --st-no-arrendable-txt: #0e7490;
   --slate-950: #020617;  --slate-900: #0f172a;  --slate-800: #1e293b;
   --slate-700: #334155;  --slate-600: #475569;  --slate-500: #64748b;
   --slate-400: #94a3b8;  --slate-300: #cbd5e1;  --slate-200: #e2e8f0;

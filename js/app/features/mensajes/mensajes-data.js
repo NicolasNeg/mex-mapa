@@ -12,76 +12,35 @@ import { db, COL,
   editarMensajeChatDb,
   eliminarMensajeChatDb
 } from '/js/core/database.js';
-
-
-// ── Canonical identity helpers ────────────────────────────
-
-export function normalizeEmail(v) {
-  const x = String(v || '').trim().toLowerCase();
-  return x && x.includes('@') ? x : '';
-}
+import {
+  normalizeEmail,
+  getCanonicalMessageIdentity,
+  getDisplayIdentity,
+  buildMyIdentity,
+  getMessageSideIdentity,
+  isMessageMine,
+  getPeerKey,
+  getPeerSide,
+  buildIdentityDirectory,
+  canonicalizePeerKey,
+  canonicalizeArchivedConversations
+} from '/domain/mensajes-identity.model.js';
 
 function _up(v) { return String(v || '').trim().toUpperCase(); }
 
-export function getCanonicalMessageIdentity(raw, explicitEmail = '') {
-  const email = normalizeEmail(explicitEmail) || normalizeEmail(raw);
-  if (email) return { key: `EMAIL:${email}`, email, label: email.toUpperCase(), raw: _up(raw) };
-  const norm = _up(raw);
-  return { key: `LEGACY:${norm}`, email: '', label: norm || 'USUARIO', raw: norm };
-}
-
-export function getDisplayIdentity(side) {
-  if (!side) return '—';
-  if (side.email) return side.email.toUpperCase();
-  return side.label || side.raw || '—';
-}
-
-export function buildMyIdentity(profile) {
-  const aliases = new Set(
-    [profile?.nombre, profile?.usuario, profile?.nombreCompleto, profile?.email]
-      .map(_up)
-      .filter(Boolean)
-  );
-  const email = normalizeEmail(profile?.email);
-  const emailUpper = email ? email.toUpperCase() : '';
-  if (emailUpper) aliases.add(emailUpper);
-  const display = _up(profile?.nombre || profile?.nombreCompleto || profile?.usuario || emailUpper || 'USUARIO');
-  return { email, display, aliases, queryIdentities: [...aliases] };
-}
-
-export function getMessageSideIdentity(msg) {
-  const remitente = getCanonicalMessageIdentity(msg?.remitente, msg?.remitenteEmail || msg?.remitente_email);
-  const destinatario = getCanonicalMessageIdentity(msg?.destinatario, msg?.destinatarioEmail || msg?.destinatario_email);
-  return { remitente, destinatario };
-}
-
-export function isMessageMine(msg, me) {
-  if (!me) return false;
-  const { remitente, destinatario } = getMessageSideIdentity(msg);
-  const remitIsMine = _isMineSide(remitente, me);
-  const destIsMine = _isMineSide(destinatario, me);
-  let mine = remitIsMine && !destIsMine;
-  if (!remitIsMine && !destIsMine) mine = msg?.esMio === true;
-  if (remitIsMine && destIsMine) mine = msg?.esMio === true;
-  return mine;
-}
-
-function _isMineSide(side, me) {
-  if (side.email && me.email && side.email === me.email) return true;
-  return me.aliases.has(side.raw);
-}
-
-export function getPeerKey(msg, me) {
-  const { remitente, destinatario } = getMessageSideIdentity(msg);
-  const mine = isMessageMine(msg, me);
-  return (mine ? destinatario : remitente).key;
-}
-
-export function getPeerSide(msg, me) {
-  const { remitente, destinatario } = getMessageSideIdentity(msg);
-  const mine = isMessageMine(msg, me);
-  return mine ? destinatario : remitente;
-}
+export {
+  normalizeEmail,
+  getCanonicalMessageIdentity,
+  getDisplayIdentity,
+  buildMyIdentity,
+  getMessageSideIdentity,
+  isMessageMine,
+  getPeerKey,
+  getPeerSide,
+  buildIdentityDirectory,
+  canonicalizePeerKey,
+  canonicalizeArchivedConversations
+};
 
 // ── Timestamp helpers ─────────────────────────────────────
 
@@ -187,21 +146,20 @@ export function startRealtimeListener(me, callback) {
 
 // ── Conversation builder ──────────────────────────────────
 
-export function buildConversations(allMessages, me) {
+export function buildConversations(allMessages, me, directory = null) {
   const byPeer = new Map();
   allMessages.forEach(msg => {
-    const peer = getPeerSide(msg, me);
+    const peer = getPeerSide(msg, me, directory);
     const key = peer.key;
     if (!key) return;
-    const mine = isMessageMine(msg, me);
-    const displayLabel = _up(
-      (peer.raw && !peer.raw.includes('@')) ? peer.raw : (peer.email || peer.raw)
-    ) || peer.label;
-    const preferredHandle = peer.raw || (peer.email ? peer.email.toUpperCase() : '');
+    const mine = isMessageMine(msg, me, directory);
+    const displayLabel = _up(peer.label || peer.raw || peer.email || peer.uid) || 'USUARIO';
+    const preferredHandle = peer.email ? peer.email.toUpperCase() : (peer.raw || peer.uid || '');
     const prev = byPeer.get(key);
     if (!prev) {
       byPeer.set(key, {
         peerKey: key,
+        peerUid: peer.uid || '',
         peerEmail: peer.email || '',
         displayLabel,
         preferredHandle,
@@ -217,6 +175,7 @@ export function buildConversations(allMessages, me) {
       prev.last = { ...msg, esMio: mine };
       prev.displayLabel = displayLabel || prev.displayLabel;
       prev.preferredHandle = preferredHandle || prev.preferredHandle;
+      prev.peerUid = peer.uid || prev.peerUid;
       prev.peerEmail = peer.email || prev.peerEmail;
     }
   });
@@ -288,24 +247,46 @@ export {
   eliminarMensajeChatDb
 };
 
-// ── File upload to Storage ────────────────────────────────
+// ── File upload to Cloudinary ─────────────────────────────
 
 export async function uploadChatFile(file) {
   const ts = Date.now();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const ref = firebase.storage().ref(`mensajes_chat/${ts}-${safeName}`);
-  const snap = await ref.put(file);
-  const url = await snap.ref.getDownloadURL();
-  return { url, name: file.name };
+  const safeName = String(file.name || 'archivo').replace(/[^a-zA-Z0-9._-]/g, '_');
+  const { uploadMedia } = await import('/js/core/media-upload.js');
+  const type = String(file.type || '');
+  const resourceType = type.startsWith('image/')
+    ? 'image'
+    : (type.startsWith('video/') || type.startsWith('audio/') ? 'video' : 'raw');
+  const result = await uploadMedia({
+    folder: 'mensajes_chat',
+    file,
+    publicId: `${ts}-${safeName.replace(/\.[^.]+$/, '')}`,
+    resourceType,
+  });
+  return {
+    url: result.url,
+    name: file.name,
+    publicId: result.publicId,
+    provider: result.provider || 'cloudinary',
+  };
 }
 
 export async function uploadChatAudio(blob, mimeType, extension) {
   const ts = Date.now();
-  const fname = `audio_${ts}.${extension}`;
-  const ref = firebase.storage().ref(`mensajes_chat/${ts}-${fname}`);
-  const snap = await ref.put(blob, { contentType: mimeType });
-  const url = await snap.ref.getDownloadURL();
-  return { url, name: fname };
+  const fname = `audio_${ts}.${extension || 'webm'}`;
+  const { uploadMedia } = await import('/js/core/media-upload.js');
+  const result = await uploadMedia({
+    folder: 'mensajes_chat',
+    file: blob,
+    publicId: `${ts}-${fname.replace(/\.[^.]+$/, '')}`,
+    resourceType: 'video',
+  });
+  return {
+    url: result.url,
+    name: fname,
+    publicId: result.publicId,
+    provider: result.provider || 'cloudinary',
+  };
 }
 
 // ── Get all users for new-conversation picker ─────────────

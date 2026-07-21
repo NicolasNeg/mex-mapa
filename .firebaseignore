@@ -3,6 +3,9 @@
 #       Un config.js en raíz legado puede existir localmente y está en .gitignore.
 .env
 .env.*
+request.json
+.worktrees/
+.worktrees/**
 .codex
 firebase-debug.log
 .firebase/

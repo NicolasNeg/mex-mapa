@@ -404,7 +404,7 @@ function _html() {
         </button>
         <button id="profile-btn-quitar-foto"
           style="display:none;position:absolute;top:-8px;right:-8px;width:26px;height:26px;border-radius:999px;background:#ef4444;color:#fff;border:none;cursor:pointer;align-items:center;justify-content:center;font-size:16px;line-height:1;"
-          title="Quitar foto">×</button>
+          title="Quitar foto"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px;">delete_outline</span></button>
       </div>
 
       <!-- Name / Email / Badges -->
@@ -1128,7 +1128,7 @@ function _mountCropPortal() {
           <h3 class="profile-crop-title">Ajustar foto de perfil</h3>
           <p class="profile-crop-sub">Arrastra la imagen y usa el zoom para centrar tu avatar.</p>
         </div>
-        <button type="button" class="profile-crop-close" id="profile-crop-close-btn" aria-label="Cerrar">×</button>
+        <button type="button" class="profile-crop-close" id="profile-crop-close-btn" aria-label="Cerrar"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
       </div>
       <div class="profile-crop-stage-wrap">
         <div id="profile-crop-stage" class="profile-crop-stage">
@@ -1305,24 +1305,39 @@ async function _saveAvatar() {
     const firestoreDocId = await _resolveFirestoreDocId();
     if (!firestoreDocId) throw new Error('No se pudo localizar el documento del usuario');
 
-    // ── 3. Upload to Storage ──────────────────────────────
-    const sc = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
-    if (!sc?.ref) throw new Error('Storage no disponible');
+    // ── 3. Upload to Cloudinary ───────────────────────────
+    const { uploadMedia, destroyMedia } = await import('/js/core/media-upload.js');
     const prevPath = _safeText(_profile?.avatarPath);
+    const prevPublicId = _safeText(_profile?.avatarPublicId);
     const prevUrl = _getAvatarUrl(_profile);
-    const avatarPath = `profile_avatars/${storageBucket}/avatar_${Date.now()}.jpg`;
-    let avatarUrl;
+    const prevProvider = _safeText(_profile?.avatarProvider);
+    let uploaded;
     try {
-      const ref = sc.ref(avatarPath);
-      await ref.put(blob, { contentType: 'image/jpeg' });
-      avatarUrl = await ref.getDownloadURL();
+      uploaded = await uploadMedia({
+        folder: `profile_avatars/${storageBucket}`,
+        file: blob,
+        publicId: `avatar_${Date.now()}`,
+        resourceType: 'image',
+      });
     } catch (storageErr) {
-      console.error('[app/profile] storage upload failed:', storageErr.code, storageErr.message, { storageBucket, avatarPath, uid, authEmail });
+      console.error('[app/profile] media upload failed:', storageErr?.code || storageErr?.message, { storageBucket, uid, authEmail });
       throw storageErr;
     }
+    const avatarUrl = uploaded.url;
+    const avatarPath = uploaded.publicId || '';
+    const avatarPublicId = uploaded.publicId || '';
+    const avatarProvider = uploaded.provider || 'cloudinary';
 
     // ── 4. Write to Firestore ─────────────────────────────
-    const payload = { avatarUrl, avatarPath, photoURL: avatarUrl, fotoURL: avatarUrl, profilePhotoUrl: avatarUrl };
+    const payload = {
+      avatarUrl,
+      avatarPath,
+      avatarPublicId,
+      avatarProvider,
+      photoURL: avatarUrl,
+      fotoURL: avatarUrl,
+      profilePhotoUrl: avatarUrl,
+    };
     try {
       await db.collection('usuarios').doc(firestoreDocId).update(payload);
     } catch (fsErr) {
@@ -1331,14 +1346,20 @@ async function _saveAvatar() {
     }
 
     // ── 5. Cleanup & update local state ──────────────────
-    if (prevPath && prevPath !== avatarPath) sc.ref(prevPath).delete().catch(() => {});
-    else if (!prevPath && prevUrl && prevUrl !== avatarUrl) sc.refFromURL(prevUrl).delete().catch(() => {});
+    const sc = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
+    if (prevProvider === 'cloudinary' || prevPublicId || (prevUrl && /cloudinary/i.test(prevUrl))) {
+      destroyMedia({ publicId: prevPublicId, url: prevUrl, provider: 'cloudinary' }).catch(() => {});
+    } else if (prevPath && prevPath !== avatarPath) {
+      sc?.ref?.(prevPath)?.delete?.()?.catch?.(() => {});
+    } else if (!prevPath && prevUrl && prevUrl !== avatarUrl && /firebasestorage/i.test(prevUrl)) {
+      try { sc?.refFromURL?.(prevUrl)?.delete?.()?.catch?.(() => {}); } catch (_) { /* ignore */ }
+    }
     if (currentUser?.updateProfile) currentUser.updateProfile({ photoURL: avatarUrl }).catch(() => {});
     _profile = { ..._profile, ...payload };
     window.CURRENT_USER_PROFILE = _profile;
     if (_mounted) _renderProfile();
     _cancelCrop();
-    _toast('Foto actualizada ✓', 'success');
+    _toast('Foto actualizada', 'success');
   } catch (err) {
     console.error('[app/profile] save avatar:', err?.code, err?.message);
     _toast('No se pudo guardar la foto.', 'error');
