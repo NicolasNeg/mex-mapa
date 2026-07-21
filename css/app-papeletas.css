@@ -736,8 +736,22 @@ body.dark-theme .pap-quick-status button.active {
   border: 1px solid var(--pap-border);
   border-radius: 4px;
   font: 400 14px Inter, sans-serif;
-  background: var(--bg, #fff);
+  background: var(--surface, #fff);
   color: inherit;
+}
+.pap-field input:disabled,
+.pap-field select:disabled,
+.pap-field textarea:disabled {
+  background: var(--bg, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  cursor: default;
+  opacity: 0.95;
+}
+.pap-entrada-block .pap-field input:not(:disabled),
+.pap-entrada-block .pap-field textarea:not(:disabled) {
+  background: var(--surface, #fff);
+  border-color: var(--accent, #3b82f6);
+  cursor: text;
 }
 
 .pap-fields-2 {
@@ -1608,6 +1622,7 @@ body.dark-theme .pap-zona-chip.is-active {
   margin-left: auto;
   font-style: italic;
 }
+.pap-diagram__bg,
 .pap-diagram__svg,
 .pap-diagram__canvas,
 .pap-diagram__marks {
@@ -1615,8 +1630,12 @@ body.dark-theme .pap-zona-chip.is-active {
   inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
+.pap-diagram__bg { z-index: 1; background: #ffffff; }
 .pap-diagram__canvas { cursor: crosshair; z-index: 2; }
+.pap-diagram--ro .pap-diagram__canvas { cursor: default; pointer-events: none; }
 .pap-diagram__marks { z-index: 2; pointer-events: none; object-fit: contain; }
 .pap-diagram__empty {
   position: absolute;
@@ -2311,6 +2330,7 @@ body.pap-camflow-open { overflow: hidden; }
 }
 .pap-diagram__bg { z-index: 1; background: #ffffff; }
 .pap-diagram__canvas { z-index: 2; cursor: crosshair; }
+.pap-diagram--ro .pap-diagram__canvas { cursor: default; pointer-events: none; }
 .pap-diagram__marks { z-index: 2; pointer-events: none; }
 .pap-diagram__marks-list {
   list-style: none;

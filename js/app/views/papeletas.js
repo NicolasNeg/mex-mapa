@@ -65,7 +65,7 @@ import {
   countReportesAbiertosUnidad,
 } from '/js/app/features/papeletas/papeletas-reportes-data.js';
 import { buscarUnidad } from '/js/app/features/unidades/unidades-data.js';
-import { mountDiagram, strokesToDataUrl, DIAGRAM_IMAGE_URL } from '/js/app/features/papeletas/papeletas-diagram.js';
+import { mountDiagram } from '/js/app/features/papeletas/papeletas-diagram.js';
 import { openGuidedCamera } from '/js/app/features/papeletas/papeletas-camera.js';
 
 let _container = null;
@@ -95,6 +95,8 @@ let _sigStrokePoints = 0;
 let _pendingSalida = { km: null, gas: null };
 let _fotoCache = new Map();
 let _diagramApi = null;
+/** Readonly preview mounts (salida / regreso) — separate from editable daños step. */
+let _readonlyDiagramApis = [];
 let _localStrokes = null;
 let _cameraApi = null;
 let _saveState = 'idle'; // idle | saving | saved | conflict
@@ -270,6 +272,13 @@ function _destroyDiagram() {
   _diagramApi = null;
 }
 
+function _destroyReadonlyDiagrams() {
+  for (const api of _readonlyDiagramApis) {
+    try { api?.destroy?.(); } catch (_) { /* ignore */ }
+  }
+  _readonlyDiagramApis = [];
+}
+
 function _mountDiagramIfNeeded(p, editable) {
   _destroyDiagram();
   const host = _container?.querySelector('[data-diagram-host]');
@@ -288,6 +297,30 @@ function _mountDiagramIfNeeded(p, editable) {
       if (_detail) _detail.diagramaStrokes = next;
     },
     onTap: editable ? (payload) => { void _addDamageFromTap(payload); } : undefined,
+  });
+}
+
+/**
+ * Mount the same car-drawable diagram used in daños step, read-only,
+ * so salida/regreso previews show silhouette + marks aligned (not floating on white).
+ */
+function _mountReadonlyDiagrams(p) {
+  _destroyReadonlyDiagrams();
+  const hosts = _container?.querySelectorAll('[data-diagram-ro-host]') || [];
+  const strokes = Array.isArray(p?.diagramaStrokes) ? p.diagramaStrokes : [];
+  const danos = Array.isArray(p?.danosMarcados) ? p.danosMarcados : [];
+  hosts.forEach((host) => {
+    const compact = host.hasAttribute('data-diagram-compact');
+    const api = mountDiagram(host, {
+      strokes,
+      danosMarcados: danos,
+      editable: false,
+      view: 'top',
+      title: 'Diagrama · salida',
+      showLegend: !compact,
+      showMarksList: !compact,
+    });
+    if (api) _readonlyDiagramApis.push(api);
   });
 }
 
@@ -495,24 +528,13 @@ function _openDamageSheet({ x, y, view }) {
   });
 }
 
-function _diagramReadonlyHtml(p) {
-  const strokes = Array.isArray(p?.diagramaStrokes) ? p.diagramaStrokes : [];
-  const danos = Array.isArray(p?.danosMarcados) ? p.danosMarcados : [];
-  const url = (strokes.length || danos.length)
-    ? strokesToDataUrl(strokes, { withBg: false, danosMarcados: danos })
-    : '';
-  return `
-    <div class="pap-diagram pap-diagram--ro">
-      <div class="pap-diagram__toolbar">
-        <span class="pap-diagram__title">Diagrama · salida</span>
-        ${(strokes.length || danos.length) ? '' : '<span class="pap-muted">Sin marcas</span>'}
-      </div>
-      <div class="pap-diagram__stage">
-        <img class="pap-diagram__bg" src="${DIAGRAM_IMAGE_URL}" alt="Silueta del vehículo" draggable="false"/>
-        ${url ? `<img class="pap-diagram__marks" src="${_esc(url)}" alt="Marcas"/>` : ''}
-      </div>
-    </div>
-  `;
+/**
+ * Host for live readonly mountDiagram (car-drawable + canvas marks).
+ * Avoids the old dual-<img> path where strokesToDataUrl painted an opaque white
+ * overlay that hid the silhouette.
+ */
+function _diagramReadonlyHtml(_p, { compact = false } = {}) {
+  return `<div data-diagram-ro-host ${compact ? 'data-diagram-compact' : ''} aria-label="Diagrama de salida"></div>`;
 }
 
 function _checkGlyph(val) {
@@ -623,10 +645,25 @@ function _canVentas() {
 
 function _user() {
   const p = getState()?.profile || {};
+  const authUser = window._auth?.currentUser || getState()?.user || null;
+  const nombre = String(
+    p.nombreCompleto
+    || p.nombre
+    || p.displayName
+    || authUser?.displayName
+    || p.email
+    || authUser?.email
+    || ''
+  ).trim();
   return {
-    uid: window._auth?.currentUser?.uid || p.uid || '',
-    nombre: p.nombreCompleto || p.nombre || p.displayName || '',
+    uid: authUser?.uid || p.uid || '',
+    nombre,
   };
+}
+
+/** Display name for auto-fill (Quién recibe / entrega). */
+function _displayName() {
+  return _user().nombre || '';
 }
 
 function _normPath() {
@@ -802,6 +839,7 @@ export function unmount() {
   _closeGuidedCamera();
   _cleanup();
   _destroyDiagram();
+  _destroyReadonlyDiagrams();
   _localStrokes = null;
   _container = null;
   _navigate = null;
@@ -893,9 +931,16 @@ function _render() {
   _hydrateFotos();
   if (_mode === 'detail' && _detail && (_wizardStep === 'danos' || _wizardStep === 'salida' || _wizardStep === 'entrada')) {
     const editableDiag = _wizardStep === 'danos' && puedeEditar(_detail.status);
-    if (_wizardStep === 'danos') _mountDiagramIfNeeded(_detail, editableDiag);
+    if (_wizardStep === 'danos') {
+      _destroyReadonlyDiagrams();
+      _mountDiagramIfNeeded(_detail, editableDiag);
+    } else {
+      _destroyDiagram();
+      _mountReadonlyDiagrams(_detail);
+    }
   } else {
     _destroyDiagram();
+    _destroyReadonlyDiagrams();
   }
   void canV;
 }
@@ -1323,7 +1368,7 @@ function _salidaSummaryHtml(p, { compact = false } = {}) {
         ` : _danosSalidaHtml(p)}
         ${firma ? '<p class="pap-hint">Firma de entrega capturada.</p><div class="pap-firma-host" data-firma-preview></div>' : '<p class="pap-hint">Sin firma en archivo.</p>'}
       ` : `
-        <div class="pap-hoja__diagram pap-hoja__diagram--app pap-hoja__diagram--mini">${_diagramReadonlyHtml(p)}</div>
+        <div class="pap-hoja__diagram pap-hoja__diagram--app pap-hoja__diagram--mini">${_diagramReadonlyHtml(p, { compact: true })}</div>
         <p class="pap-hint">Detalle completo en la pestaña Salida.</p>
       `}
     </section>
@@ -1368,8 +1413,12 @@ function _panelEntrada(p) {
       <section class="pap-entrada-block">
         <div class="pap-fields-2">
           <div class="pap-field">
-            <label>Quién recibe</label>
-            <input id="papQuienRecibe" value="${_esc(e.quienRecibe || _user().nombre)}" ${locked ? 'disabled' : ''} autocomplete="name"/>
+            <label for="papQuienRecibe">Quién recibe</label>
+            <input id="papQuienRecibe" type="text" name="quienRecibe"
+              value="${_esc(locked ? (e.quienRecibe || '') : (e.quienRecibe || _displayName()))}"
+              placeholder="Tu nombre"
+              autocomplete="name"
+              ${locked ? 'disabled' : ''}/>
           </div>
           <div class="pap-field">
             <label>KM entrada</label>
@@ -1632,6 +1681,8 @@ function _danosSalidaHtml(p) {
 }
 
 function _panelReporte(p) {
+  // TODO(future): vectorize car-drawable selectable zones + auto-mark from Ventas
+  // report / sync preexisting vs new damages. For now keep Reportar lists fully manual.
   return `
     <div class="pap-panel">
       <h2>Reportar daño / faltante</h2>
@@ -2775,21 +2826,27 @@ function _ensureEntradaCompareDraft(p) {
 async function _saveEntrada() {
   if (!_detail) return;
   _ensureEntradaCompareDraft(_detail);
+  // Capture form BEFORE busy re-render (otherwise inputs are wiped).
+  const quienRecibe = String(
+    _container.querySelector('#papQuienRecibe')?.value || _displayName() || ''
+  ).trim();
+  const km = Number(_container.querySelector('#papKmIn')?.value || 0) || null;
+  const gas = _container.querySelector('#papGasIn')?.value || null;
+  const notas = _container.querySelector('#papNotasIn')?.value || '';
+  const danosMarcados = buildEntradaDamageComparison(
+    _detail.danosMarcados || [],
+    _entradaCompareDraft
+  );
   _busy = true; _render();
   try {
     // Never touch salida.danosMarcados — comparison lives under entrada only
     await registrarEntrada(_detail.id, {
-      quienRecibe: _container.querySelector('#papQuienRecibe')?.value || _user().nombre,
-      km: Number(_container.querySelector('#papKmIn')?.value || 0) || null,
-      gas: _container.querySelector('#papGasIn')?.value || null,
-      notas: _container.querySelector('#papNotasIn')?.value || '',
+      quienRecibe,
+      km,
+      gas,
+      notas,
       user: _user(),
-      entradaExtra: {
-        danosMarcados: buildEntradaDamageComparison(
-          _detail.danosMarcados || [],
-          _entradaCompareDraft
-        ),
-      },
+      entradaExtra: { danosMarcados },
     });
     _entradaCompareDraft = [];
     await _mexAlert('Entrada', 'Entrada registrada. La unidad queda libre para una nueva papeleta.');

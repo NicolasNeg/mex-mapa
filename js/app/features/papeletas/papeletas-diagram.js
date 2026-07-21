@@ -78,11 +78,14 @@ export function mountDiagram(host, opts = {}) {
   let drawing = false;
   let current = null;
   const activeView = String(opts.view || 'top');
+  const title = String(opts.title || (editable ? 'Marcar daños' : 'Diagrama · salida'));
+  const showLegend = opts.showLegend !== false;
+  const showMarksList = opts.showMarksList !== false;
 
   host.innerHTML = `
-    <div class="pap-diagram" data-diagram-root>
+    <div class="pap-diagram ${editable ? '' : 'pap-diagram--ro'}" data-diagram-root>
       <div class="pap-diagram__toolbar">
-        <span class="pap-diagram__title">Marcar daños</span>
+        <span class="pap-diagram__title">${_escAttr(title)}</span>
         <div class="pap-diagram__actions">
           ${editable ? `
             <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny ${tool === 'mark' ? 'is-tool-on' : ''}" data-diagram-tool="mark" title="Marcar daño">
@@ -97,7 +100,7 @@ export function mountDiagram(host, opts = {}) {
             <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny" data-diagram-act="clear" title="Limpiar trazos">
               <span class="material-symbols-outlined">ink_eraser</span>
             </button>
-          ` : ''}
+          ` : ((strokes.length || danos.length) ? '' : '<span class="pap-muted">Sin marcas</span>')}
         </div>
       </div>
       <div class="pap-diagram__stage">
@@ -105,14 +108,16 @@ export function mountDiagram(host, opts = {}) {
           data-diagram-src="${DIAGRAM_IMAGE_URL}" data-diagram-fallback="${DIAGRAM_IMAGE_SOURCE}"/>
         <canvas class="pap-diagram__canvas" width="${VIEWBOX.w}" height="${VIEWBOX.h}"></canvas>
       </div>
-      <div class="pap-diagram__legend" role="toolbar" aria-label="Leyenda de daños">
+      ${showLegend ? `
+      <div class="pap-diagram__legend ${editable ? '' : 'pap-diagram__legend--ro'}" role="toolbar" aria-label="Leyenda de daños">
         ${DIAGRAM_LEGEND.map((l) => `
           <button type="button" class="pap-diagram__stamp" data-diagram-tool="${_escAttr(l.tool)}" ${editable ? '' : 'disabled'} title="${_escAttr(l.label)}">
             <b>${_escAttr(l.mark)}</b><span>${_escAttr(l.label)}</span>
           </button>
         `).join('')}
         ${editable ? '<span class="pap-diagram__tip">Toca el auto para marcar un daño, o usa el lápiz para trazo libre</span>' : ''}
-      </div>
+      </div>` : ''}
+      ${showMarksList ? `
       <ul class="pap-diagram__marks-list" data-diagram-marks-list ${danos.length ? '' : 'hidden'}>
         ${danos.map((d) => `
           <li data-damage-id="${_escAttr(d.id)}">
@@ -120,7 +125,7 @@ export function mountDiagram(host, opts = {}) {
             ${_escAttr(d.damageType || '')} · ${_escAttr(d.severity || '')}
           </li>
         `).join('')}
-      </ul>
+      </ul>` : ''}
     </div>
   `;
 
@@ -457,6 +462,7 @@ function _drawOverlay(octx, strokes, danos, width, height) {
 
 /**
  * Composite diagram for PDF / read-only preview.
+ * When withBg=false, canvas stays transparent so marks can overlay a live <img> bg.
  * @param {object[]} strokes
  * @param {{ withBg?: boolean, danosMarcados?: object[] }} opts
  */
@@ -467,14 +473,26 @@ export function strokesToDataUrl(strokes = [], opts = {}) {
   out.width = VIEWBOX.w * 2;
   out.height = VIEWBOX.h * 2;
   const octx = out.getContext('2d');
-  octx.fillStyle = '#ffffff';
-  octx.fillRect(0, 0, out.width, out.height);
+  if (withBg) {
+    octx.fillStyle = '#ffffff';
+    octx.fillRect(0, 0, out.width, out.height);
+  } else {
+    // Transparent overlay — do NOT fill white (that hid the car silhouette under marks).
+    octx.clearRect(0, 0, out.width, out.height);
+  }
 
   if (withBg) {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     try {
       img.src = DIAGRAM_IMAGE_URL;
+      if (img.complete && img.naturalWidth) {
+        octx.drawImage(img, 0, 0, out.width, out.height);
+        _drawOverlay(octx, strokes, danos, out.width, out.height);
+        return out.toDataURL('image/png');
+      }
+      // Try fallback source if primary not yet cached
+      img.src = DIAGRAM_IMAGE_SOURCE;
       if (img.complete && img.naturalWidth) {
         octx.drawImage(img, 0, 0, out.width, out.height);
         _drawOverlay(octx, strokes, danos, out.width, out.height);
