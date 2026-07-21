@@ -675,27 +675,31 @@ function _unitDetailSectionHtml(row, draft, unitSummary, gasSalida, isClosed) {
         <span>Unidad</span>
         <input value="${esc(unitSummary)}" readonly>
       </label>
-      <label>
-        <span>SALIDA · KM</span>
-        <input value="${esc(String(kmSalida))}" readonly>
-      </label>
-      <label>
-        <span>SALIDA · GAS</span>
-        <input value="${esc(gasSalida)}" readonly>
-      </label>
+      <div class="tras-form-pair tras-odo-pair" data-odo-group="salida">
+        <label>
+          <span>SALIDA · KM</span>
+          <input value="${esc(String(kmSalida))}" readonly>
+        </label>
+        <label>
+          <span>SALIDA · GAS</span>
+          <input value="${esc(gasSalida)}" readonly>
+        </label>
+      </div>
       ${showEntrada ? `
-        <label>
-          <span>ENTRADA · KM</span>
-          ${entradaEditable
-            ? `<input type="number" min="${esc(String(kmSalida || 0))}" id="tras-close-km" value="${esc(String(kmEntrada))}" required>`
-            : `<input value="${esc(String(kmEntrada || '—'))}" readonly>`}
-        </label>
-        <label>
-          <span>ENTRADA · GAS</span>
-          ${entradaEditable
-            ? `<select id="tras-close-gas">${_gasSelectOptions(gasEntrada)}</select>`
-            : `<input value="${esc(String(gasEntrada || '—'))}" readonly>`}
-        </label>
+        <div class="tras-form-pair tras-odo-pair" data-odo-group="entrada">
+          <label>
+            <span>ENTRADA · KM</span>
+            ${entradaEditable
+              ? `<input type="number" min="${esc(String(kmSalida || 0))}" id="tras-close-km" value="${esc(String(kmEntrada))}" required>`
+              : `<input value="${esc(String(kmEntrada || '—'))}" readonly>`}
+          </label>
+          <label>
+            <span>ENTRADA · GAS</span>
+            ${entradaEditable
+              ? `<select id="tras-close-gas">${_gasSelectOptions(gasEntrada)}</select>`
+              : `<input value="${esc(String(gasEntrada || '—'))}" readonly>`}
+          </label>
+        </div>
       ` : ''}
     </div>
   `;
@@ -1351,14 +1355,16 @@ function _unitPickerSectionHtml(draft, unit, gasSalida) {
       </div>
     ` : ''}
     <div class="tras-form-grid tras-form-grid--unit">
-      <label>
-        <span>Kilometros de salida</span>
-        <input type="number" min="0" id="tras-form-km" name="kmSalida" value="${esc(String(draft.kmSalida ?? unit?.km ?? ''))}" placeholder="Kilometros de salida">
-      </label>
-      <label>
-        <span>Combustible de salida</span>
-        <input id="tras-form-gas-salida" value="${esc(gasSalida)}" readonly>
-      </label>
+      <div class="tras-form-pair tras-odo-pair" data-odo-group="salida">
+        <label>
+          <span>Kilometros de salida</span>
+          <input type="number" min="0" id="tras-form-km" name="kmSalida" value="${esc(String(draft.kmSalida ?? unit?.km ?? ''))}" placeholder="Kilometros de salida">
+        </label>
+        <label>
+          <span>Combustible de salida</span>
+          <input id="tras-form-gas-salida" value="${esc(gasSalida)}" readonly>
+        </label>
+      </div>
     </div>
   `;
 }

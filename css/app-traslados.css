@@ -735,7 +735,21 @@ body.dark-theme .tras-table tbody tr.selected td {
 }
 
 .tras-form-grid--unit {
-  grid-template-columns: minmax(200px, 2fr) minmax(140px, 1fr) minmax(140px, 1fr);
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+/* Salida / Entrada: KM | GAS en filas iguales y legibles */
+.tras-form-grid--unit > .tras-odo-pair {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.tras-form-grid--unit > .tras-odo-pair + .tras-odo-pair {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 .tras-unit-filters {
@@ -1147,7 +1161,7 @@ body.dark-theme .tras-picker-option:focus {
   }
 
   .tras-form-grid--unit {
-    grid-template-columns: repeat(2, minmax(170px, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .tras-unit-filters,
@@ -1198,9 +1212,12 @@ body.dark-theme .tras-picker-option:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .tras-form-grid--meta,
-  .tras-form-grid--unit {
+  .tras-form-grid--meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tras-form-grid--unit {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1217,10 +1234,19 @@ body.dark-theme .tras-picker-option:focus {
   .tras-filter-grid,
   .tras-form-pair,
   .tras-form-grid--meta,
-  .tras-form-grid--unit,
   .tras-unit-filters,
   .tras-unit-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* KM | GAS siguen en 2 columnas iguales en móvil */
+  .tras-form-grid--unit {
+    grid-template-columns: 1fr;
+  }
+
+  .tras-form-grid--unit > .tras-odo-pair,
+  .tras-form-grid--unit > .tras-odo-pair.tras-form-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .tras-page-title h1,
