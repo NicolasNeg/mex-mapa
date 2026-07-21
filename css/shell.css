@@ -1142,13 +1142,13 @@ body.dark-theme .mex-plaza-picker-item.active {
 
 .mex-header-bell-badge {
   position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 9px;
-  height: 9px;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
   background: #ef4444;
   border-radius: 50%;
-  border: 2px solid white;
+  border: 1.5px solid var(--surface, white);
 }
 
 .mex-header-divider {
