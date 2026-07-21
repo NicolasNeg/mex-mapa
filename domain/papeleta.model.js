@@ -287,8 +287,12 @@ export function isValidKm(km) {
 
 export function isGasSet(gas) {
   if (gas == null || gas === '') return false;
-  const n = Number(gas);
-  return Number.isFinite(n) && n >= 0 && n <= 8;
+  const s = String(gas).trim();
+  if (!s) return false;
+  const n = Number(s);
+  if (Number.isFinite(n) && n >= 0 && n <= 8) return true;
+  // Letter / fraction chips used in patio UI (E … F, N/A)
+  return true;
 }
 
 /**
