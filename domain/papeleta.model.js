@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 //  domain/papeleta.model.js — pure business logic (no Firebase)
+//  Cache-bust: 2026-07-20-llantas-v2
 // ═══════════════════════════════════════════════════════════
 
 /** @typedef {'borrador'|'lista'|'entregada'|'en_retorno'|'cerrada_historial'} PapeletaStatus */

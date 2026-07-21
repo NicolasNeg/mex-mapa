@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v688';
+const CACHE_NAME = 'mapa-v689';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -172,6 +172,8 @@ const OPTIONAL_ASSETS = [
   '/domain/mapa.model.js',
   '/domain/permissions.model.js',
   '/domain/traslado.model.js',
+  '/domain/papeleta.model.js',
+  '/domain/movimiento.model.js',
   '/js/app/features/mapa/mapa-dnd.js',
   '/js/app/features/mapa/mapa-mutations.js',
   '/js/app/features/mapa/mapa-incidencias-summary.js',
@@ -407,6 +409,17 @@ self.addEventListener('fetch', event => {
             : _documentFallbackResponse(event.request, url);
         })
         .catch(() => _documentFallbackResponse(event.request, url))
+    );
+    return;
+  }
+
+  // Domain models must stay in sync with feature imports — network-first
+  // (stale-while-revalidate caused missing named exports after deploy).
+  if (sameOrigin && url.pathname.startsWith('/domain/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(r => _cacheAndReturn(event.request, r))
+        .catch(() => caches.match(event.request).then(c => c || _offlineResponse(event.request)))
     );
     return;
   }

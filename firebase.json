@@ -138,6 +138,10 @@
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
       {
+        "source": "/domain/**",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
         "source": "/css/**",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
