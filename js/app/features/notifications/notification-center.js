@@ -7,7 +7,8 @@ import {
   initNotificationCenter,
   openNotificationCenter,
   teardownNotificationCenter,
-  getCurrentDeviceSnapshot
+  getCurrentDeviceSnapshot,
+  subscribeInboxUnread
 } from '/js/core/notifications.js';
 import { getState } from '/js/app/app-state.js';
 
@@ -103,4 +104,4 @@ export function teardownAppNotificationShell() {
   teardownNotificationCenter();
 }
 
-export { getCurrentDeviceSnapshot };
+export { getCurrentDeviceSnapshot, subscribeInboxUnread };

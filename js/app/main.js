@@ -22,7 +22,6 @@ import '/js/app/features/unidades/unidades-lookup.js';
 import { initState, getState, setCurrentPlaza, subscribe, resolveAvailablePlazas, setState } from '/js/app/app-state.js';
 import { createRouter }             from '/js/app/router.js';
 import { toAppRoute, isMigratedRoute } from '/js/app/route-resolver.js';
-import { getNotificationsSummary } from '/js/app/features/notifications/notifications-summary.js';
 import { warmAppAssets, warmAppData, getAppCacheStatus } from '/js/app/app-cache.js';
 
 let _unsubSessionProfile = null;
@@ -323,11 +322,7 @@ async function boot() {
   appRoot.style.display = '';
 
   const shell = new ShellLayout();
-  let notifSummary = { total: 0, mensajes: 0, incidencias: 0, alertas: 0, solicitudes: 0 };
-  let notifTimer = null;
-  let notifInFlight = null;
-  let notifLastKey = '';
-  let notifLastAt = 0;
+  let unsubInboxUnread = null;
   let router = null;
 
   const shellToast = (message, type = 'info') => {
@@ -364,8 +359,8 @@ async function boot() {
     const close = document.createElement('button');
     close.type = 'button';
     close.setAttribute('aria-label', 'Cerrar');
-    close.textContent = '×';
-    close.style.cssText = 'border:0;background:transparent;color:#64748b;font-size:18px;line-height:1;cursor:pointer;padding:0 2px;';
+    close.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;">close</span>';
+    close.style.cssText = 'border:0;background:transparent;color:#64748b;line-height:1;cursor:pointer;padding:0 2px;display:flex;align-items:center;justify-content:center;';
     close.addEventListener('click', () => { try { el.remove(); } catch (_) {} });
     el.appendChild(msg);
     el.appendChild(close);
@@ -373,36 +368,22 @@ async function boot() {
     setTimeout(() => { try { el.remove(); } catch (_) {} }, 4200);
   };
 
-  const refreshNotifSummary = async ({ force = false } = {}) => {
-    const state = getState();
-    const profile = state.profile || {};
-    const key = [
-      state.currentPlaza || '',
-      state.role || '',
-      profile.email || profile.nombreCompleto || profile.nombre || ''
-    ].join('|');
-    const now = Date.now();
-    if (!force && notifInFlight) return notifInFlight;
-    if (!force && key === notifLastKey && now - notifLastAt < 45000) return;
-    notifInFlight = (async () => {
-      notifSummary = await getNotificationsSummary({
-        profile,
-        role: state.role || '',
-        plaza: state.currentPlaza || ''
-      }).catch(() => ({ total: 0, mensajes: 0, incidencias: 0, alertas: 0, solicitudes: 0 }));
-      let inboxUnread = 0;
-      try {
-        inboxUnread = Number(_notifCenterModule?.getCurrentDeviceSnapshot?.()?.unread || 0);
-      } catch (_) {
-        inboxUnread = 0;
-      }
-      notifLastKey = key;
-      notifLastAt = Date.now();
-      shell.setBellBadge(Number(notifSummary.total || 0) > 0 || inboxUnread > 0);
-    })().finally(() => {
-      notifInFlight = null;
-    });
-    return notifInFlight;
+  /** Campana = mismo unread que el Centro vivo (inbox). No mezclar checarNotificaciones. */
+  const syncBellFromInbox = (payload = {}) => {
+    const unread = Number(payload?.unread ?? _notifCenterModule?.getCurrentDeviceSnapshot?.()?.unread ?? 0);
+    shell.setBellBadge(unread > 0);
+  };
+
+  const bindInboxBellBadge = (mod) => {
+    if (typeof unsubInboxUnread === 'function') {
+      try { unsubInboxUnread(); } catch (_) {}
+      unsubInboxUnread = null;
+    }
+    if (typeof mod?.subscribeInboxUnread === 'function') {
+      unsubInboxUnread = mod.subscribeInboxUnread(syncBellFromInbox);
+      return;
+    }
+    syncBellFromInbox(mod?.getCurrentDeviceSnapshot?.() || {});
   };
   shell.mount({
     container:    appRoot,
@@ -418,8 +399,10 @@ async function boot() {
     onBellClick:  ()      => {
       _loadNotificationCenter()
         .then(mod => Promise.resolve(mod.setupAppNotificationCenter?.({ router, toast: shellToast })).then(() => mod))
-        .then(mod => mod.openAppNotificationCenter?.())
-        .then(() => refreshNotifSummary({ force: true }))
+        .then(mod => {
+          bindInboxBellBadge(mod);
+          mod.openAppNotificationCenter?.();
+        })
         .catch(err => {
           console.warn('[app/main] Centro de notificaciones:', err);
           shellToast('No se pudo abrir el centro de notificaciones.', 'error');
@@ -555,21 +538,17 @@ async function boot() {
   _scheduleAppWarmup('boot');
   window.__mexWarmAppData = (options = {}) => warmAppData(getState(), { reason: 'manual', force: true, ...options });
   window.__mexAppCacheStatus = () => getAppCacheStatus(getState());
-  void refreshNotifSummary({ force: true });
-  // Antes del preload del mapa (~2.5s) para bloquear toast/rutas del shell.
+  // Campana: solo unread del inbox del Centro vivo (misma fuente que "Todo al día").
+  shell.setBellBadge(false);
   _runWhenIdle(() => {
     _loadNotificationCenter()
-      .then(mod => mod.setupAppNotificationCenter?.({ router, toast: shellToast }))
-      .then(() => refreshNotifSummary({ force: true }))
+      .then(mod => Promise.resolve(mod.setupAppNotificationCenter?.({ router, toast: shellToast })).then(() => mod))
+      .then(mod => bindInboxBellBadge(mod))
       .catch(err => console.warn('[app/main] Notificaciones diferidas:', err));
   }, 400);
-  notifTimer = window.setInterval(() => {
-    refreshNotifSummary({ force: true });
-  }, 90000);
 
   subscribe(state => {
     shell.setPlaza(state.currentPlaza, state.availablePlazas, state.canSwitchPlaza);
-    refreshNotifSummary();
     _scheduleAppWarmup('state');
   });
 
@@ -579,7 +558,10 @@ async function boot() {
     setCurrentPlaza(nextPlaza, { source: event?.detail?.source || 'legacy-sync' });
   });
   window.addEventListener('beforeunload', () => {
-    if (notifTimer) clearInterval(notifTimer);
+    if (typeof unsubInboxUnread === 'function') {
+      try { unsubInboxUnread(); } catch (_) {}
+      unsubInboxUnread = null;
+    }
     if (_unsubSessionProfile) {
       try { _unsubSessionProfile(); } catch (_) {}
       _unsubSessionProfile = null;
@@ -621,7 +603,7 @@ boot().catch(err => {
   if (spinner) {
     spinner.innerHTML = `
       <div style="text-align:center;padding:32px;color:rgba(255,255,255,0.7);font-family:sans-serif;">
-        <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:32px;display:block;margin-bottom:12px;">warning</span>
         <div style="font-size:14px;margin-bottom:16px;">Error al cargar la app</div>
         <a href="/app/dashboard" style="color:#2ecc71;text-decoration:none;font-size:13px;">Volver al inicio</a>
       </div>

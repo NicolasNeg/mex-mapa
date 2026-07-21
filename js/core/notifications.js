@@ -34,11 +34,34 @@ const _state = {
   /** Primera carga del inbox: no spamear toasts históricos. */
   inboxBootstrapped: false,
   /** Evita bucle change → persist → render → change al sincronizar checkboxes del centro */
-  prefChangeGuard: false
+  prefChangeGuard: false,
+  /** Listeners del conteo unread del inbox (campana shell = mismo criterio que el panel). */
+  unreadListeners: []
 };
 
 /** Evita inits concurrentes o recursivos (p. ej. profile + mapa en el mismo tick). */
 let _initNotificationCenterPromise = null;
+
+/** Misma regla que la lista del centro: leído solo si read=true o status READ. */
+function _isInboxItemUnread(item = {}) {
+  if (!item || typeof item !== 'object') return false;
+  if (item.read === true) return false;
+  const status = _safeText(item.status).toUpperCase();
+  if (status === 'READ') return false;
+  return true;
+}
+
+function _emitInboxUnread() {
+  const unread = Number(_state.unread || 0);
+  const inboxCount = Array.isArray(_state.inbox) ? _state.inbox.length : 0;
+  const payload = { unread, inboxCount, hasUnread: unread > 0 };
+  (_state.unreadListeners || []).forEach(fn => {
+    try { fn(payload); } catch (_) {}
+  });
+  try {
+    window.dispatchEvent(new CustomEvent('mex:inbox-unread', { detail: payload }));
+  } catch (_) {}
+}
 
 function _safeText(value) {
   return String(value || '').trim();
@@ -884,7 +907,7 @@ function _renderNotifList() {
       const id       = item.notificationId || item.id;
       const ts       = Number(item.timestamp || item.createdAt || 0);
       const timeStr  = _notifRelativeTime(ts);
-      const isUnread = !item.read && item.status !== 'READ';
+      const isUnread = _isInboxItemUnread(item);
       const type     = _safeText(item?.type);
       const rawBody  = _safeText(item?.body || item?.payload?.mensaje || '');
       const meta     = _notifAvatarColor(type, rawBody);
@@ -1265,7 +1288,8 @@ export async function syncCurrentDeviceContext(extraPayload = {}, options = {}) 
 }
 
 function _updateUnreadFromInbox() {
-  _state.unread = _state.inbox.filter(item => item.read !== true && item.status !== 'READ').length;
+  _state.unread = (_state.inbox || []).filter(_isInboxItemUnread).length;
+  _emitInboxUnread();
 }
 
 export function configureNotifications(options = {}) {
@@ -1709,6 +1733,28 @@ export function teardownNotificationCenter() {
   _state.inboxBootstrapped = false;
   _state.lockToastAndRoutes = false;
   _state.currentDevice = null;
+  _emitInboxUnread();
+}
+
+/**
+ * Suscribe al conteo unread del inbox (misma fuente que el Centro vivo).
+ * @param {(payload: { unread: number, inboxCount: number, hasUnread: boolean }) => void} listener
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeInboxUnread(listener) {
+  if (typeof listener !== 'function') return () => {};
+  _state.unreadListeners = Array.isArray(_state.unreadListeners) ? _state.unreadListeners : [];
+  _state.unreadListeners.push(listener);
+  try {
+    listener({
+      unread: Number(_state.unread || 0),
+      inboxCount: Array.isArray(_state.inbox) ? _state.inbox.length : 0,
+      hasUnread: Number(_state.unread || 0) > 0
+    });
+  } catch (_) {}
+  return () => {
+    _state.unreadListeners = (_state.unreadListeners || []).filter(fn => fn !== listener);
+  };
 }
 
 export function getCurrentDeviceSnapshot() {
