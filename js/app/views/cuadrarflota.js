@@ -51,7 +51,6 @@ export async function mount({ container, navigate }) {
     search: '',
     currentIndex: 0,
     showExtra: false,
-    showCoach: !_coachSeen(),
     extra: { mva: '', modelo: '', placas: '', km: '', gasolina: 'N/A' },
     step: 'review'
   };
@@ -253,14 +252,6 @@ function _buildAuditUnits(units = [], localByMva = new Map()) {
   });
 }
 
-function _coachSeen() {
-  try { return localStorage.getItem('mex.cuadre.coach.v1') === '1'; } catch (_) { return false; }
-}
-
-function _markCoachSeen() {
-  try { localStorage.setItem('mex.cuadre.coach.v1', '1'); } catch (_) {}
-}
-
 function _paint() {
   if (!_ctr || !_s) return;
   if (_s.loading) {
@@ -277,101 +268,35 @@ function _paint() {
   }
 
   const summary = _summary();
+  const isSign = _s.step === 'sign';
 
   _ctr.innerHTML = `
-    <section class="cf" aria-busy="${_s.busy ? 'true' : 'false'}">
+    <section class="cf ${isSign ? 'is-fullscreen-sign' : ''}" aria-busy="${_s.busy ? 'true' : 'false'}">
       <div class="cf-shell">
+        ${isSign ? '' : `
         <header class="cf-head">
           <div class="cf-head-copy">
             <p class="cf-eyebrow">Mision a patio</p>
             <h1>Cuadre de flota</h1>
             <p class="cf-head-meta">${esc(_s.plaza || 'SIN PLAZA')} · ${esc(_s.mission?.missionId || 'MISION ACTIVA')}</p>
           </div>
-          <div class="cf-head-rail">
-            <div class="cf-ring" style="--cf-pct:${summary.percent}">
-              <strong>${summary.percent}<small>%</small></strong>
-              <span>revisado</span>
-            </div>
-            <button type="button" class="cf-icon-btn" data-action="reload" title="Recargar" aria-label="Recargar">
-              <span class="material-symbols-outlined">sync</span>
-            </button>
-          </div>
+          <button type="button" class="cf-icon-btn" data-action="reload" title="Recargar" aria-label="Recargar">
+            <span class="material-symbols-outlined">sync</span>
+          </button>
         </header>
+        `}
 
-        ${_stepsHtml(summary)}
-
-        ${_s.step === 'sign' ? _signStepHtml(summary) : _reviewStepHtml(summary)}
+        ${isSign ? _signStepHtml(summary) : _reviewStepHtml(summary)}
       </div>
 
       ${_s.showExtra ? _extraModalHtml() : ''}
-      ${_s.showCoach ? _coachHtml() : ''}
     </section>
   `;
-  if (_s.step === 'sign') _setupSignatureCanvas();
-}
-
-function _coachHtml() {
-  return `
-    <div class="cf-modal-backdrop cf-coach" data-action="dismiss-coach">
-      <section class="cf-modal cf-coach-card" role="dialog" aria-modal="true" data-cf-modal-card>
-        <header>
-          <h2>Capacitación rápida</h2>
-          <button type="button" class="cf-icon-btn" data-action="dismiss-coach" aria-label="Cerrar">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </header>
-        <ol class="cf-coach-steps">
-          <li><strong>Revisa cada unidad</strong> en patio. Corrige gasolina y kilometraje si hace falta.</li>
-          <li><strong>Presente</strong> si la ves; <strong>Faltante</strong> si no está (puede estar en otra ubicación).</li>
-          <li>Cuando no queden pendientes, <strong>firma y envía</strong> a Ventas.</li>
-        </ol>
-        <button type="button" class="cf-btn primary wide" data-action="dismiss-coach">
-          Entendido, empezar
-        </button>
-      </section>
-    </div>
-  `;
-}
-
-function _stepsHtml(summary) {
-  const reviewDone = summary.total > 0 && summary.pendientes === 0;
-  const steps = [
-    { id: 'review', icon: 'checklist', label: 'Revisar unidades', hint: `${summary.revisadas}/${summary.total}` },
-    { id: 'sign', icon: 'draw', label: 'Firmar', hint: reviewDone ? _actorName() : 'Completa todas' }
-  ];
-  return `
-    <ol class="cf-steps" aria-label="Flujo del cuadre">
-      ${steps.map((step, i) => {
-        const isCurrent = _s.step === step.id;
-        const isDone = (step.id === 'review' && (reviewDone || _s.step === 'sign')) || false;
-        const clickable = step.id === 'review' || (step.id === 'sign' && reviewDone);
-        return `
-          <li class="cf-step ${isCurrent ? 'is-current' : ''} ${isDone && !isCurrent ? 'is-done' : ''} ${!clickable && !isCurrent ? 'is-locked' : ''}">
-            ${clickable ? `<button type="button" data-action="go-step" data-step="${step.id}">` : '<div>'}
-              <span class="cf-step-dot"><span class="material-symbols-outlined">${isDone && !isCurrent ? 'check' : step.icon}</span></span>
-              <span class="cf-step-txt">
-                <strong>${i + 1}. ${step.label}</strong>
-                ${step.hint ? `<small>${esc(step.hint)}</small>` : ''}
-              </span>
-            ${clickable ? '</button>' : '</div>'}
-            ${i < steps.length - 1 ? '<span class="cf-step-arrow material-symbols-outlined">arrow_forward</span>' : ''}
-          </li>
-        `;
-      }).join('')}
-    </ol>
-  `;
+  if (isSign) _setupSignatureCanvas();
 }
 
 function _reviewStepHtml(summary) {
   return `
-    <section class="cf-progress" aria-label="Avance de auditoria">
-      <div class="cf-progress-top">
-        <strong>${summary.revisadas}<span> / ${summary.total}</span></strong>
-        <span>${summary.pendientes ? `${summary.pendientes} pendientes` : 'Listo para firmar'}</span>
-      </div>
-      <div class="cf-bar" role="progressbar" aria-valuenow="${summary.percent}" aria-valuemin="0" aria-valuemax="100"><span style="width:${summary.percent}%"></span></div>
-    </section>
-
     <div class="cf-toolbar">
       <label class="cf-search">
         <span class="material-symbols-outlined">search</span>
@@ -510,9 +435,7 @@ function _cardHtml(unit, visibleCount) {
       <div class="cf-card-shell">
         <article class="cf-card-main ${_statusClass(unit.status)}" data-card-mva="${esc(unit.mva)}">
           <div class="cf-card-status">${_statusLabel(unit.status)}</div>
-          ${imgUrl
-            ? `<div class="cf-card-img"><img src="${esc(imgUrl)}" alt="${esc(unit.modelo)}" loading="lazy" draggable="false" onerror="this.parentElement.remove()"></div>`
-            : `<div class="cf-card-img cf-card-img--empty"><span class="material-symbols-outlined">directions_car</span></div>`}
+          <div class="cf-card-img"><img src="${esc(imgUrl || '/img/default_car.png')}" alt="${esc(unit.modelo)}" loading="lazy" draggable="false" onerror="this.src='/img/default_car.png'"></div>
           <h2>${esc(unit.mva)}</h2>
           <p>${esc(unit.modelo)} · ${esc(unit.placas)}</p>
           <div class="cf-card-meta">
@@ -691,7 +614,7 @@ async function _onClick(event) {
   // Clic en el cuerpo del modal (sin botón) no debe cerrar por el backdrop.
   const action = actionEl.dataset.action;
   if (
-    (action === 'dismiss-coach' || action === 'close-extra')
+    action === 'close-extra'
     && actionEl.classList.contains('cf-modal-backdrop')
     && event.target.closest('[data-cf-modal-card]')
   ) {
@@ -702,12 +625,6 @@ async function _onClick(event) {
 
   if (action === 'reload') { await _load(); return; }
   if (action === 'go-map') { _navigate?.('/app/mapa'); return; }
-  if (action === 'dismiss-coach') {
-    _s.showCoach = false;
-    _markCoachSeen();
-    _paint();
-    return;
-  }
   if (action === 'go-step') {
     const step = actionEl.dataset.step;
     if (step === 'sign') {
