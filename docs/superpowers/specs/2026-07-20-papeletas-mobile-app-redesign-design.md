@@ -1,26 +1,41 @@
 # Diseño: Papeletas — rediseño mobile-app (captura rápida)
 
 > **Fecha:** 2026-07-20  
-> **Estado:** Approved — pending user review gate before implementation plan  
-> **Enfoque aprobado:** Cirugía UI (UI surgery) — reusar dominio / data / storage / PDF / reportes / rutas  
-> **Complementa:** [`2026-07-20-papeletas-digitales-design.md`](./2026-07-20-papeletas-digitales-design.md) (diseño beta ya shipped). Este documento **no lo reemplaza ni lo borra**; redefine la UX de captura y afloja reglas de fotos/entrega sobre el mismo expediente.
+> **Estado:** Approved — pending user final approval gate before implementation plan  
+> **Enfoque aprobado:** **Cirugía UI con extensiones aditivas y compatibles del modelo**  
+> **Complementa:** [`2026-07-20-papeletas-digitales-design.md`](./2026-07-20-papeletas-digitales-design.md) (diseño beta ya shipped). Este documento **no lo reemplaza ni lo borra**; redefine la UX de captura y cierra reglas de dominio/datos sobre el mismo expediente.
+
+---
+
+## Framing (obligatorio)
+
+| Capa | Responsabilidad |
+|------|-----------------|
+| **UI / vista** | Captura rápida, confirmaciones, sheets, pre-checks de UX, render |
+| **Domain (`domain/papeleta.model.js`)** | `puedeEntregar`, `isChecklistComplete`, gates, comparación de daños, immutability checks, helpers de zonas |
+| **Data (`js/app/features/papeletas/*-data.js`)** | Transacciones, locks, merge autorizado, `finalizeDelivery`, autosave con `revision`, Storage paths |
+| **Rules (Firestore)** | Preferir rechazo de mutaciones ilegales post-`entregada` cuando sea viable |
+
+**La UI sola NO inventa reglas de negocio.** Cualquier gate de entrega, unicidad, inmutabilidad, comparación de daños o finalize vive en domain/data (y rules cuando aplique). La vista solo invoca y muestra resultados.
+
+Extensiones del modelo en este rediseño son **aditivas y compatibles**: no se renombran statuses Firestore, no se borran los 12 ids de `ZONAS_V1`, no se migra one-shot `diagramaStrokes` → tipados.
 
 ---
 
 ## 1. Context & goals
 
-Papeletas digitales ya existen en la SPA (`/app/papeletas`): unicidad por unidad, checklist, diagrama, fotos, firma, PDF, regreso y bandeja Ventas. La UI actual sigue la estética “hoja de inspección” (papel industrial) y un wizard corto que exige **12 fotos** para entregar — demasiado lento en patio.
+Papeletas digitales ya existen en la SPA (`/app/papeletas`): unicidad por unidad, checklist, diagrama, fotos, firma, PDF, regreso y bandeja Ventas. La UI actual sigue la estética “hoja de inspección” y un wizard que exige **12 fotos** para entregar — demasiado lento en patio.
 
-**Meta de producto:** inspección de salida usable en **1–2 minutos** (sin contar el tiempo de tomar fotos), en celular, con look de app limpia MapGestion — no de formulario papel.
+**Meta de producto:** inspección de salida usable en **1–2 minutos** de captura operativa (select→cámara, excluyendo tiempo de tomar fotos), en celular, con look de app limpia MapGestion.
 
 **Metas concretas:**
 
 1. Flujo de salida en **6 pasos** con barra inferior Atrás / Continuar.
-2. Fotos **core (~6) obligatorias**; resto de zonas opcionales.
+2. Fotos **core (6) obligatorias** vía `ZONAS_CORE` (§6); resto opcionales.
 3. Daños tipados en diagrama (tap → tipo → severidad); freehand secundario.
-4. Entregar con **6 fotos core + checklist completo** (fotos de daño opcionales para entregar).
+4. Entregar solo cuando `puedeEntregar` (domain) es true; finalize atómico e idempotente.
 5. Conservar Firestore español, Storage, perms, PDF formal, reportes Ventas y rutas actuales.
-6. Autosave con debounce; auditoría en correcciones de maestro; fix merge de `salida` al entregar.
+6. Autosave con debounce + `revision`; auditoría en correcciones; merge seguro de `salida` al entregar.
 
 ---
 
@@ -28,25 +43,26 @@ Papeletas digitales ya existen en la SPA (`/app/papeletas`): unicidad por unidad
 
 | No hacer | Por qué |
 |----------|---------|
-| Renombrar statuses Firestore a inglés (`draft`, `in_progress`, …) | Rompe docs existentes y reglas; UI ya puede mapear conceptos |
-| Segundo flujo paralelo (“modo app” vs “modo hoja”) | Una sola experiencia; menos mantenimiento |
-| Reescritura completa de `papeletas.js` / features / Cloud Functions | Cirugía UI: reusar capas estables |
-| Migración one-shot de `diagramaStrokes` → marcas tipadas | Frágil; dual-read es suficiente |
-| Añadir enum `dañado` al checklist | Daños viven en diagrama / reportes |
-| WhatsApp / correo automático, CRM/contrato real, plantillas por tipo de carro | Follow-ups (§15) |
-| Offline-first completo (cola offline robusta) | Solo draft local + mensaje si no hay red (§10) |
+| Renombrar statuses Firestore a inglés | Rompe docs y reglas; UI mapea labels |
+| Segundo flujo paralelo (“modo app” vs “modo hoja”) | Una sola experiencia |
+| Reescritura completa de `papeletas.js` / CF | Cirugía UI + extensiones aditivas |
+| Migración one-shot `diagramaStrokes` → tipados | Dual-read basta |
+| Enum `dañado` en checklist | Daños viven en diagrama / reportes |
+| WhatsApp / correo, CRM real, plantillas por carro | Follow-ups (§16) |
+| Offline-first completo (cola robusta) | MVP: draft local + mensaje; sin finalize offline (§11) |
+| Soft-expire silencioso de borradores | Abandono explícito + alertas (§12) |
 
 ---
 
 ## 3. Routes (unchanged URLs)
 
-| URL | Rol en el rediseño |
-|-----|--------------------|
+| URL | Rol |
+|-----|-----|
 | `/app/papeletas` | Dashboard / listado |
 | `/app/papeletas/nueva` | Paso 1 — seleccionar unidad |
-| `/app/papeletas/p/:uid` | Pasos 2–6 (salida) o tabs Regreso/Salida/Reportar (post-entrega) |
+| `/app/papeletas/p/:uid` | Pasos 2–6 (salida) o tabs Regreso/Salida/Reportar |
 | `/app/papeletas/ventas` | Bandeja Ventas |
-| Legacy `/app/papeletas/:uid` | Sigue reescribiendo a `/app/papeletas/p/:uid` |
+| Legacy `/app/papeletas/:uid` | Reescribe a `/app/papeletas/p/:uid` |
 
 Feature gate `papeletas` y perms `view_papeletas` / `manage_papeletas_ventas` **sin cambio**.
 
@@ -56,243 +72,222 @@ Feature gate `papeletas` y perms `view_papeletas` / `manage_papeletas_ventas` **
 
 ### 4.1 Chrome mobile fijo
 
-- **Header:** atrás · nombre del paso · `N de 6` · chip `Guardando…` / `Guardado`.
-- **Footer fijo:** **Atrás** | **Continuar** (altura táctil ≥ 48px, respeta `safe-area-inset-bottom`).
+- **Header:** atrás · nombre del paso · `N de 6` · chip `Guardando…` / `Guardado` / conflicto.
+- **Footer fijo:** **Atrás** | **Continuar** (≥ 48px, `safe-area-inset-bottom`).
 - Una acción primaria por pantalla.
-- Bottom sheets / fullscreen para cámara y daños; en flujo normal usar `mexDialog` / sheets — no `alert()` / `confirm()` nativos.
-- Sin texturas de papel, sin tipografía industrial condensada en captura.
+- Bottom sheets / fullscreen para cámara y daños; `mexDialog` / sheets — no `alert()` / `confirm()` nativos.
+- Sin texturas de papel ni tipografía industrial en captura.
 
 ### 4.2 Paso 1 — Seleccionar unidad (`/nueva`)
 
-- Buscar por MVA / placas / modelo / VIN (`index_unidades` u origen ya usado).
-- **Escanear QR:** si ya hay escáner en la app, engancharlo; si no, CTA placeholder “Próximamente” (no bloquea el flujo).
-- Resultado = tarjeta: foto (si hay), MVA, modelo, placas, color, estado, ubicación.
-- CTA primario: **Seleccionar esta unidad**.
-- Si ya existe papeleta `activoPorUnidad == true` → abrir esa; **no** crear segunda.
-- El documento borrador se crea **solo al confirmar** selección (no al teclear búsqueda).
+- Buscar por MVA / placas / modelo / VIN.
+- **Escanear QR:** enganchar si existe; si no, CTA “Próximamente”.
+- Tarjeta resultado + CTA **Seleccionar esta unidad**.
+- Pre-check UX: si ya hay activa → abrir esa; **no** crear segunda.
+- Create definitivo = transacción + lock (§7). Documento se crea **solo al confirmar** selección.
 
 ### 4.3 Paso 2 — Confirmar datos
 
-- Ficha **read-only** por defecto: unidad + contrato/cliente si existen + último KM/gas/inspección + resumen de daños preexistentes (si hay historial visible).
-- CTA primario: **Datos correctos** → Continuar.
-- Secundario: **Corregir** — campos limitados (p. ej. color, placas visibles, notas de identidad) + **motivo obligatorio** + **audit log** (quién, qué cambió, cuándo, motivo).
-- Distinguir corrección “solo en esta papeleta” vs “sugerir cambio a ficha de unidad” — **nunca** overwrite silencioso del maestro de flota.
+- Ficha read-only: unidad + contrato/cliente si existen + último KM/gas + daños preexistentes visibles.
+- Primario: **Datos correctos**.
+- Secundario: **Corregir** — campos limitados + motivo obligatorio + audit.
+- Distinguir corrección “solo en esta papeleta” vs “sugerir cambio a ficha” — **nunca** overwrite silencioso del maestro.
+- **Atrás desde paso 2** → sheet de abandono (§12).
 
 ### 4.4 Paso 3 — KM y gas
 
-- KM: input numérico grande; mostrar KM anterior + delta; alertas si KM menor que anterior o salto anómalo → justificación si aplica.
-- Gas: **grid táctil 3×3** (E … F / niveles del sistema), no `<select>` diminuto.
-- Opcional: foto de tablero (`fotoTableroPath`) — no cuenta como zona core.
-- CTA: **Continuar** (persiste en `salida.km` / `salida.gas` o campos equivalentes ya usados).
+- KM numérico grande; KM anterior + delta; anomalía → justificación si aplica (hard block si requerida y vacía — §9).
+- Gas: grid táctil 3×3.
+- **Foto de tablero = zona core** `tablero_kilometraje` (no opcional).
+- **Regla KM ↔ tablero:** si el usuario edita KM **después** de haber capturado la foto de tablero → **aviso soft** + recomendar retomar foto. No hard-block por defecto (solo warn + confirm al continuar).
+- Persistencia: `salida.km` / `salida.gas` + `zonas.tablero_kilometraje.fotoPath`.
 
 ### 4.5 Paso 4 — Checklist
 
-- Interacción **por excepción**: botón superior **Confirmar todo presente** (marca `ok` en ítems vacíos).
-- Filas → bottom sheet: `Presente (ok)` / `Faltante` / `N/A` (+ nota/foto opcional de evidencia).
-- **Llantas:** 4 posiciones (`marcasLlantas`) + *Marcar todas* solo tras confirmar un valor.
-- **Tapetes:** contadores − / + (`tapetes.usoRudo`, `tapetes.alfombra`).
-- Valores checklist siguen siendo **`ok` | `faltante` | `na`** (sin `dañado`).
-- CTA: **Continuar**.
+- Por excepción: **Confirmar todo presente** (marca `ok` en vacíos).
+- Filas → sheet: `Presente (ok)` / `Faltante` / `N/A` (+ nota/foto evidencia opcional).
+- **Llantas:** 4 posiciones + *Marcar todas* solo tras confirmar un valor.
+- **Tapetes:** contadores − / + (`usoRudo`, `alfombra`); ambos deben estar definidos (número ≥ 0) para checklist completo.
+- Valores: **`ok` | `faltante` | `na`** (sin `dañado`).
+- **Faltante permite entregar** (soft warning en resumen — §9).
 
 ### 4.6 Paso 5 — Marcar daños
 
-- Silueta limpia (SVG/PNG transparente): vistas superior / laterales / frente / trasera.
-- La hoja papel **no** es el fondo interactivo (solo referencia para PDF / extracción de silueta).
-- Flujo principal: tap → tipo → severidad → foto opcional + nota → marca numerada `#N`.
-- Freehand (`diagramaStrokes`) secundario (undo/clear).
-- Lista inferior de daños; tap resalta marca; editar/borrar **pre-firma**.
-- Dual-read de strokes legacy (§5).
+- Silueta limpia; vistas superior / laterales / frente / trasera.
+- Flujo: tap → tipo → severidad → foto (política soft §14) + nota → marca con `displayNumber`.
+- Freehand (`diagramaStrokes`) secundario.
+- Lista inferior; editar/borrar **pre-firma / pre-`entregada`**.
+- Dual-read + write rule (§5.3).
+- Numeración §5.2; coords §5.4.
 
-### 4.7 Paso 6 — Fotos → resumen → firma
+### 4.7 Paso 6 — Fotos → resumen → firma → finalize
 
-1. **Cámara guiada** para las **6 zonas core** (orden fijo §6); progreso `n/6`.
-2. Zonas restantes de `ZONAS_V1`: accesibles como “Fotos opcionales”, no bloquean.
-3. Fotos asociadas a `danosMarcados[].photoIds`: **opcionales para entregar** (pueden pedirse con énfasis visual, no gate).
-4. **Resumen:** checklist faltantes, daños, fotos core, alertas.
-5. **Firma:** canvas ancho, sin scroll que “pinte” un solo punto; label con `clienteNombre` o “Cliente”.
-6. Al firmar con éxito: status `entregada`, salida inmutable, PDF generado una vez, pantalla de éxito + descarga/impresión.
-
-**Entregar sin `clienteNombre`:** permitido con confirmación fuerte (igual que diseño shipped).
+1. Cámara guiada para las **6 `ZONAS_CORE`** (orden §6); progreso `n/6`.
+2. Resto de `ZONAS_V1` + opcionales: “Fotos opcionales”, no bloquean.
+3. Fotos de daño: política soft §14 (no hard gate salvo config futura).
+4. **Resumen:** hard blocks vs soft warnings (§9); confirmación por warning.
+5. **Firma** con metadata §13.
+6. Éxito solo vía **`finalizeDelivery()`** (§8) — nunca status/`pdf` repartidos entre vista/firma/pdf modules.
 
 ---
 
-## 5. Diagram & damages data model + PDF rasterization
+## 5. Diagram & damages
 
-### 5.1 UX de captura
+### 5.1 UX
 
-- Controles grandes; diagrama casi a ancho completo; zoom/vista ampliada sin perder marcas.
-- Tipos de daño: `scratch` | `deep` | `dent` | `glass` | `missing` | `hit` | `other`  
-  (UI ES: rayón, rayón profundo, abolladura, cristal, faltante, golpe, otro).
+- Controles grandes; zoom por vista sin perder marcas.
+- Tipos: `scratch` | `deep` | `dent` | `glass` | `missing` | `hit` | `other`.
 - Severidad: `small` | `medium` | `large`.
 
-### 5.2 Shape `danosMarcados[]` (nuevo, canónico para marcas tipadas)
+### 5.2 Shape `danosMarcados[]` + numeración
 
 ```json
 {
-  "id": "d1",
+  "id": "d_uuid_stable",
+  "displayNumber": 3,
   "view": "left_side",
   "x": 0.42,
   "y": 0.61,
   "damageType": "scratch",
   "severity": "medium",
-  "isPreexisting": false,
   "note": "",
   "photoIds": [],
-  "number": 1
+  "source": "salida"
 }
 ```
 
-| Campo | Regla |
-|-------|--------|
-| `x`, `y` | Siempre normalizados **0–1** respecto al viewBox de esa `view` (nunca píxeles de pantalla) |
-| `view` | Identificador de silueta: `top` \| `left_side` \| `right_side` \| `front` \| `rear` |
-| `number` | Entero 1…N estable en la sesión de salida; se recalcula al borrar pre-firma |
-| `isPreexisting` | En regreso, marcas de salida se muestran como preexistentes (`true`) |
-| `photoIds` | Paths Storage opcionales; no bloquean `puedeEntregar` |
+| Campo | Regla (cerrada) |
+|-------|-----------------|
+| `id` | Permanente (uuid/id estable). Nunca reasignar. |
+| `displayNumber` | Entero asignado al **crear** la marca en la sesión de salida. **Nunca se reutiliza** en esa sesión. **NO renumerar** al borrar. |
+| `photoIds` | Ligados por **`damageId` / `id`**, nunca por número visual. |
+| PDF | Puede calcular índice visual 1…N al export **sin mutar** ids ni `displayNumber` almacenados. |
+| `isPreexisting` en `salida.danosMarcados[]` | **No mutar** en regreso (§10). |
 
-### 5.3 Dual-read con legacy
+Campo legacy `number` (si existiera en drafts previos del spec): migrar lectura a `displayNumber`; escritura nueva solo `displayNumber`.
 
-- Seguir leyendo y pintando `diagramaStrokes` (array de trazos/sellos actuales).
-- Escritura nueva de daños tipados → `danosMarcados`.
-- Freehand nuevo (si el usuario lo usa) puede seguir append a `diagramaStrokes`.
-- **No borrar** strokes al abrir docs viejos.
-- UI y PDF: capas = silueta + strokes legacy + marcas tipadas numeradas.
+### 5.3 Dual-read / dual-write (regla explícita)
 
-### 5.4 PDF
+| Operación | Comportamiento |
+|-----------|----------------|
+| **Read** | Silueta + `diagramaStrokes` legacy + `danosMarcados` tipados |
+| **Write daños formales nuevos** | **Solo** `danosMarcados` |
+| **Write freehand opcional** | Solo `diagramaStrokes` |
+| Docs viejos | No borrar strokes al abrir |
 
-- Al entregar (o regenerar PDF): **rasterizar** silueta limpia + marcas tipadas + números + leyenda (+ strokes legacy si existen) → imagen embebida.
-- Conservar siempre el JSON (`danosMarcados` / `diagramaStrokes`) en Firestore — la imagen es export, no fuente de verdad.
-- PDF permanece **documento formal tipo hoja** (no el look app de captura): datos, checklist, fotos, firma, pie “Exportado por …” y nombre `USUARIO_FECHA_EMPRESA.pdf` (política de firma del repo).
+UI y PDF: capas = silueta + strokes legacy + marcas tipadas.
+
+### 5.4 Coordenadas por vista
+
+- `x`, `y` normalizados **0–1** respecto a los **bounds de esa `view`**, no del SVG compuesto completo.
+- Clamp a `[0, 1]` al capturar y al persistir.
+- Matriz de prueba obligatoria: mobile portrait, mobile landscape, desktop, PDF export, zoom in/out, DPR alto/bajo — la marca debe caer en el mismo punto relativo de la silueta.
+
+### 5.5 PDF
+
+- Al finalizar entrega (o regenerar): rasterizar silueta + tipados + números visuales de export + leyenda (+ strokes legacy) → imagen embebida.
+- JSON en Firestore es fuente de verdad; imagen es export.
+- PDF = documento formal; pie “Exportado por …” + filename `USUARIO_FECHA_EMPRESA.pdf`.
 
 ---
 
 ## 6. Photo core zones (`ZONAS_CORE`)
 
-`ZONAS_V1` (12) se mantiene intacta en el modelo. Se añade:
+### 6.1 `ZONAS_V1` actual (inspección en repo)
+
+Ids existentes (12, **no eliminar**):
+
+`trasera_cajuela`, `lateral_der`, `cristal_der`, `llanta_del_der`, `llanta_tras_der`, `lateral_izq`, `cristal_izq`, `llanta_del_izq`, `llanta_tras_izq`, `frente_defensa`, `parabrisas`, `cofre`.
+
+Hoy **no** existen `tablero_kilometraje` ni `interior` en `ZONAS_V1`. Se **añaden** como ids aditivos (orden 13–14 o helper paralelo) sin quitar los 12.
+
+### 6.2 Constante canónica (orden fijo de walkaround)
 
 ```js
 export const ZONAS_CORE = Object.freeze([
-  'frente_defensa',
-  'trasera_cajuela',
-  'lateral_der',
-  'lateral_izq',
-  'parabrisas',
-  'cofre',
+  'frente_defensa',        // mapea label producto "frente"
+  'trasera_cajuela',       // "trasera"
+  'lateral_izq',           // "lateral_izquierdo"
+  'lateral_der',           // "lateral_derecho"
+  'tablero_kilometraje',   // NEW — CORE (antes opcional / fotoTableroPath)
+  'interior',              // NEW — CORE
 ]);
 ```
 
-### Mapping (obligatorias → ids existentes)
+### 6.3 Mapping producto → id real
 
-| # | id `ZONAS_V1` | Label | Rol en walkaround |
-|--:|---------------|-------|-------------------|
-| 1 | `frente_defensa` | Frente / defensa | Frente |
-| 2 | `trasera_cajuela` | Trasera / cajuela | Trasera |
-| 3 | `lateral_der` | Lateral derecho | Costado derecho |
-| 4 | `lateral_izq` | Lateral izquierdo | Costado izquierdo |
-| 5 | `parabrisas` | Parabrisas | Cristal / proxy cabina |
-| 6 | `cofre` | Cofre | Capó / cuerpo superior |
+| # | Label producto | id canónico | Origen |
+|--:|----------------|-------------|--------|
+| 1 | frente | `frente_defensa` | `ZONAS_V1` existente |
+| 2 | trasera | `trasera_cajuela` | `ZONAS_V1` existente |
+| 3 | lateral_izquierdo | `lateral_izq` | `ZONAS_V1` existente |
+| 4 | lateral_derecho | `lateral_der` | `ZONAS_V1` existente |
+| 5 | tablero_kilometraje | `tablero_kilometraje` | **NEW** aditivo; respalda claim de KM |
+| 6 | interior | `interior` | **NEW** aditivo |
 
-### Opcionales (no bloquean entregar)
+Aliases de lectura opcionales (`frente`, `trasera`, …) pueden mapear a estos ids; **escritura y gates usan solo ids canónicos**.
 
-`cristal_der`, `cristal_izq`, `llanta_del_der`, `llanta_tras_der`, `llanta_del_izq`, `llanta_tras_izq`, más fotos de daño (`danosMarcados[].photoIds`) y `fotoTableroPath`.
+### 6.4 Qué deja de ser core
 
-### Helpers de dominio
+`parabrisas`, `cofre` y el resto de `ZONAS_V1` **no** están en `ZONAS_CORE` → opcionales (no bloquean entregar).  
+`fotoTableroPath` legacy, si existe en docs viejos, se lee como fallback de `zonas.tablero_kilometraje.fotoPath` (dual-read de path); escritura nueva va al id de zona.
 
-- `coreZonasHaveFoto(zonas)` — las 6 de `ZONAS_CORE` tienen `fotoPath`.
-- `allZonasHaveFoto` puede quedarse para “inspección completa” / progreso opcional; **deja de ser gate de entrega**.
+### 6.5 Helpers
 
----
+- `coreZonasHaveFoto(zonas)` — las 6 de `ZONAS_CORE` tienen `fotoPath` no vacío.
+- `allZonasHaveFoto` — progreso “inspección completa” opcional; **no** es gate de entrega.
 
-## 7. Regreso / Ventas / Dashboard
-
-### 7.1 Regreso (concepto de tabs **sin cambio**)
-
-Pestañas: **Regreso** | **Salida** (solo lectura) | **Reportar**.
-
-Al abrir una papeleta `entregada` / `en_retorno`:
-
-- Entrar en pestaña **Regreso** (nunca wizard de salida vacío).
-- Cargar snapshot de salida: KM/gas, checklist, diagrama (strokes + `danosMarcados`), fotos, firma.
-- Pedir solo: KM entrada, gas entrada, checklist por excepción, cambios nuevos.
-- Acciones rápidas: **Sin cambios** · **Daño nuevo** · **Faltante nuevo** · **Daño anterior reparado**.
-- Al registrar entrada: `activoPorUnidad: false`, `status: en_retorno` (igual que shipped). `cerrada_historial` cuando el caso Ventas se cierra o no hay pendientes — no saltar directo a historial si hay reporte abierto.
-- Daño ya documentado en salida → no crear caso Ventas nuevo (`descartado` / toast).
-- Daño/faltante nuevo → reporte a Ventas con evidencias (placas + VIN + fotos) como hoy.
-
-### 7.2 Ventas
-
-- Misma lengua visual app (no papel).
-- Lista: unidad, contrato/cliente, tipo, daño/faltante, evidencias, fecha, responsable, estado.
-- Acciones por permiso: Ver / Promover / Cerrar (Reabrir solo si el dominio ya lo permite).
-- **No** edita la inspección firmada.
-
-### 7.3 Dashboard (listado)
-
-- Desktop: tabla (como ahora).
-- Mobile: filas compactas / cards (no tabla horizontal imposible).
-- Filtros: En curso · Entregadas · En regreso · Finalizadas · Con reporte · Canceladas.
-- CTA **Nueva** siempre visible.
-- Chips de estado claros: borrador ≠ lista ≠ entregada ≠ cancelada.
-
----
-
-## 8. Domain changes (minimal)
-
-Archivo: `domain/papeleta.model.js` (+ tests `scripts/test-papeleta-model.js`).
-
-### 8.1 Statuses Firestore (español — sin rename)
-
-```
-borrador | lista | entregada | en_retorno | cerrada_historial | cancelada
-```
-
-| Firestore | Concepto brief (UI) | Label UI (ES) |
-|-----------|---------------------|---------------|
-| `borrador` | draft / in_progress | Borrador · En curso* |
-| `lista` | ready_for_signature | Lista para firmar |
-| `entregada` | delivered | Entregada |
-| `en_retorno` | return_in_progress | En regreso |
-| `cerrada_historial` | completed | Finalizada |
-| `cancelada` | cancelled | Cancelada |
-
-\*UI puede distinguir “Borrador” (casi vacío) vs “En curso” (progreso parcial) **sin** crear un status Firestore extra — ambos persisten como `borrador`.
-
-**`cancelada`:** libera unidad (`activoPorUnidad: false`); no editable; no cuenta como activa. Quién puede cancelar: mismos roles que editan salida + bypass admin/programador (detalle en plan; no ampliar permisos nuevos en este spec).
-
-### 8.2 `ZONAS_CORE`
-
-Ver §6. Exportar constante + `coreZonasHaveFoto`.
-
-### 8.3 `computeStatusAfterSave` / `puedeEntregar`
+### 6.6 KM edit after tablero (soft)
 
 ```text
-puedeEntregar(status, zonas, checklist) =
-  status === 'lista'
-  && coreZonasHaveFoto(zonas)
-  && checklistCompleto(checklist)
-
-computeStatusAfterSave({ status, zonas, checklist }) =
-  if status ∈ {entregada, en_retorno, cerrada_historial, cancelada} → status
-  else if coreZonasHaveFoto && checklistCompleto → lista
-  else → borrador
+if zonas.tablero_kilometraje.fotoPath exists
+   AND user changes salida.km after that photo's capturedAt
+→ UI soft warning: "El KM cambió; se recomienda retomar foto de tablero"
+→ Continuar permitido con confirm (no hard block)
 ```
 
-Daños tipados / fotos de daño **no** entran en estos gates.
+---
 
-### 8.4 `danosMarcados`
+## 7. Uniqueness — transactional
 
-Array en doc raíz (o bajo `salida` si el plan prefiere un solo merge — preferencia: **raíz** junto a `diagramaStrokes` para dual-read simétrico). Shape §5.2.
+**UI pre-check** (`getPapeletaActivaByUnidad`): solo UX (abrir existente / mensaje).
 
-### 8.5 Checklist
+**Create definitivo (cerrado):** atómico con:
 
-Sin cambio de enum: `ok` | `faltante` | `na` | `''`.  
-`CHECKLIST_KEYS` / llantas / tapetes se mantienen.
+1. **Lock doc determinístico** `papeletas_activas/{unidadId}` (colección índice; un doc por unidad).
+2. **Firestore transaction** que:
+   - Lee el lock.
+   - Si lock existe y apunta a papeleta activa → abort (`ACTIVE_EXISTS`) + return existing id.
+   - Si no: crea doc papeleta (`activoPorUnidad: true`, `status: borrador`, `revision: 1`) **y** escribe lock `{ papeletaId, unidadId, createdAt, createdBy }`.
+3. Si la creación del papeleta falla tras claim parcial → liberar lock en el mismo path de error (transaction rollback preferido; si split, compensating delete del lock).
 
-### 8.6 Fix `entregarPapeleta` salida merge
+**Liberar lock + `activoPorUnidad: false` en:**
 
-Hoy `entregarPapeleta` hace `salida: { … }` y **pisa** el mapa completo (pierde KM/gas/llantas/tapetes u otros campos ya guardados en `salida`).
+| Evento | Acción |
+|--------|--------|
+| Cancelar papeleta | Confirm + audit + release |
+| Complete return (`registrarEntrada` → `en_retorno`) | Release |
+| Failed create | Release / no dejar lock huérfano |
+| Abandoned draft cancelado (§12) | Release |
 
-**Regla:** merge superficial con el `salida` actual:
+No hay expire silencioso del lock. Alertas operativas si el borrador bloquea la unidad demasiado tiempo (§12).
+
+Índice compuesto existente `unidadId + activoPorUnidad` se mantiene como query de apoyo; la **autoridad** de unicidad es el lock + transaction.
+
+---
+
+## 8. `finalizeDelivery()` — atomic + idempotent
+
+**Una sola función** en data layer (orquestada con validaciones de domain). **NO** repartir entre vista / firma / pdf modules.
+
+Nombre canónico: `finalizeDelivery(papeletaId, payload)`. Reemplaza el flujo fragmentado actual de `entregarPapeleta` + PDF ad-hoc en la vista.
+
+### Pasos (orden fijo, misma transacción lógica / run atómico)
+
+1. **Re-read** doc actual (fresh).
+2. **Validate** `puedeEntregar(doc)` (domain). Si false → throw con reasons.
+3. **Idempotencia:** si `status === 'entregada'` (o `entregaFinalizedAt` ya set) → return `{ ok: true, alreadyFinalized: true, papeleta }` — **no** re-subir firma, **no** segundo PDF, **no** audit duplicado de entrega.
+4. **Merge solo campos autorizados** en `salida` (nunca blind replace del mapa `salida`):
 
 ```js
 salida: {
@@ -300,151 +295,394 @@ salida: {
   quienEntrega,
   km: km ?? current.salida?.km ?? null,
   gas: gas ?? current.salida?.gas ?? null,
-  firmadoAt,
-  firmaPath,
-  entregadoPorUid,
+  firma: { /* §13 */ },
+  // campos de entrega autorizados únicamente
 }
+```
+
+5. Persistir firma + metadata (§13).
+6. `status → entregada`; set `entregadaAt`, `entregadaPor` (uid/nombre).
+7. **Lock salida** — flags/domain: mutaciones a KM/gas/checklist/daños/fotos/firma de salida rechazadas (§8.1).
+8. Request/create PDF **una vez** (`pdfUrl` / job marker). Si PDF ya existe y `alreadyFinalized`, no regenerar automáticamente.
+
+### 8.1 Inmutabilidad más allá de la UI
+
+Tras `entregada`:
+
+| Capa | Regla |
+|------|-------|
+| Domain | Helpers `assertSalidaMutable(status)` / `puedeEditar` = false para campos de salida |
+| Data | `actualizarPapeleta` / patches rechazan mutaciones a `salida.km|gas|checklist|danosMarcados|zonas|firma` (y equivalentes raíz) cuando status ∈ `{entregada, en_retorno, cerrada_historial}` |
+| Firestore rules | Preferir deny de esos fields post-entrega cuando viable |
+
+**Correcciones posteriores:** adenda / corrección auditada / flujo de regreso — **nunca** overwrite silencioso de la salida firmada.
+
+---
+
+## 9. `isChecklistComplete` / `puedeEntregar` — exacto
+
+### 9.1 Hard blocks (no entregar)
+
+| Condición | Block |
+|-----------|-------|
+| KM inválido (vacío, no numérico, o reglas de validación fallidas) | Sí |
+| Gas unset | Sí |
+| Ítems checklist requeridos sin responder (`''`) | Sí |
+| Llantas sin responder (alguna de 4 vacía) | Sí |
+| Tapetes: `usoRudo` o `alfombra` `null`/`undefined` | Sí |
+| Falta alguna foto core (`ZONAS_CORE`) | Sí |
+| Firma inválida (vacía, single-point, sin metadata mínima) | Sí |
+| Writes pendientes/fallidos (autosave error sin recover) | Sí |
+| Anomalía de KM requiere justificación y está vacía | Sí |
+| Status no elegible (`puedeEditar` false o no `lista`/`borrador→lista` path) | Sí — `finalizeDelivery` exige pasar `puedeEntregar` |
+
+`faltante` en checklist **no** es hard block.
+
+### 9.2 Soft warnings (confirm para continuar)
+
+| Condición | Warning |
+|-----------|---------|
+| Sin `clienteNombre` (ni nombre en firma de tercero) | Confirmación fuerte |
+| Hay ítems `faltante` | Confirm |
+| Daños sin foto (según §14) | Confirm + motivo si política lo pide |
+| Fotos opcionales pendientes | Informativo / confirm ligero |
+| Master data corregido solo en papeleta | Confirm / banner |
+| Daños `large` (u otros umbrales) sin reporte Ventas | Confirm |
+
+### 9.3 Pseudocódigo (domain)
+
+```js
+function isChecklistComplete(papeleta) {
+  const cl = papeleta.checklist || {};
+  const keysOk = CHECKLIST_KEYS.every((k) =>
+    ['ok', 'faltante', 'na'].includes(String(cl[k] || ''))
+  );
+  const llantas = normalizeMarcasLlantas(papeleta);
+  const llantasOk = LLANTA_KEYS.every((k) => String(llantas[k] || '').trim().length > 0);
+  const tapetes = normalizeTapetes(papeleta);
+  const tapetesOk = tapetes.usoRudo != null && tapetes.alfombra != null;
+  return keysOk && llantasOk && tapetesOk;
+}
+
+function puedeEntregar(papeleta, { firma, pendingWrites, kmJustification } = {}) {
+  // Terminal / no-salida statuses never deliver
+  if (['entregada', 'en_retorno', 'cerrada_historial', 'cancelada'].includes(papeleta.status)) {
+    return { ok: false, hard: ['status'] };
+  }
+
+  const hard = [];
+  if (!isValidKm(papeleta.salida?.km)) hard.push('km');
+  if (!isGasSet(papeleta.salida?.gas)) hard.push('gas');
+  if (!isChecklistComplete(papeleta)) hard.push('checklist');
+  if (!coreZonasHaveFoto(papeleta.zonas)) hard.push('core_photos');
+  if (!isValidFirma(firma || papeleta.salida?.firma)) hard.push('firma');
+  if (pendingWrites) hard.push('pending_writes');
+  if (requiresKmJustification(papeleta) && !String(kmJustification || papeleta.salida?.kmJustificacion || '').trim()) {
+    hard.push('km_justification');
+  }
+  if (hard.length) return { ok: false, hard, soft: [] };
+
+  // Gates cumplidos ⇒ elegible (status puede ser borrador o lista; finalize setea entregada)
+  const soft = [];
+  if (!String(papeleta.clienteNombre || '').trim() && !firma?.signerName) soft.push('cliente');
+  if (hasFaltantes(papeleta.checklist)) soft.push('faltantes');
+  if (damagesMissingPhoto(papeleta.danosMarcados)) soft.push('damage_photos');
+  if (optionalPhotosPending(papeleta.zonas)) soft.push('optional_photos');
+  if (papeleta.correccionesSoloPapeleta) soft.push('master_corrected_local');
+  if (largeDamagesWithoutVentasReport(papeleta)) soft.push('large_damage_report');
+
+  return { ok: true, hard: [], soft };
+}
+
+// computeStatusAfterSave (actualizado):
+// if status ∈ {entregada, en_retorno, cerrada_historial, cancelada} → keep
+// else if coreZonasHaveFoto && isChecklistComplete && km/gas válidos → 'lista'
+// else → 'borrador'
+// Nota: puedeEntregar valida gates directamente; status 'lista' es proyección de esos gates.
+```
+
+UI: muestra `hard` como bloqueo; `soft` como sheet de confirmación antes de llamar `finalizeDelivery`. Tras confirm de soft, `finalizeDelivery` re-valida hard en servidor/cliente data (soft ya aceptado en payload `confirmedWarnings[]`).
+
+---
+
+## 10. Regreso — comparación de daños (sin mutar salida)
+
+**NO** mutar `salida.danosMarcados[].isPreexisting` (ni fields de salida).
+
+Comparación en **render** y/o persistida bajo `entrada`:
+
+```js
+{
+  source: 'salida' | 'entrada',
+  comparisonStatus: 'preexisting' | 'new' | 'repaired' | 'unchanged',
+  sourceDamageId: 'd_uuid_from_salida' // cuando referencia daño de salida
+}
+```
+
+Tabs sin cambio: **Regreso** | **Salida** (readonly) | **Reportar**.
+
+- Al abrir `entregada` / `en_retorno` → pestaña Regreso.
+- Snapshot de salida solo lectura.
+- Acciones: **Sin cambios** · **Daño nuevo** · **Faltante nuevo** · **Daño anterior reparado**.
+- Entrada: `activoPorUnidad: false`, `status: en_retorno`; release lock (§7).
+- Daño ya en salida → no nuevo caso Ventas.
+- Daño/faltante nuevo → reporte Ventas con evidencias.
+
+---
+
+## 11. Autosave / offline / conflicts
+
+### MVP base
+
+- Debounce ~400–800 ms.
+- Draft local (`sessionStorage` / memoria) como red de seguridad.
+- Mensaje si no hay red; **retry**.
+- **No finalize offline.**
+
+### Conflictos (obligatorio en este rediseño)
+
+Cada doc lleva `updatedAt` + `revision` (enteros monotónicos).
+
+- Autosave envía `knownRevision`.
+- Data layer: update condicionada / transaction: si `remote.revision !== knownRevision` → **no** silent overwrite.
+- Resolución: reload / safe merge / conflict UI.
+- **Nunca** silent overwrite concurrente de: daños, fotos, firma, status, delivery, reportes.
+- Preferir **field-specific updates** (paths concretos) sobre reemplazar arrays enteros (`danosMarcados`, `diagramaStrokes`, `zonas`) bajo riesgo de concurrencia.
+
+Unmount: cerrar cámara, unsubscribe listeners, flush debounce, cancel timers.
+
+---
+
+## 12. Draft abandon (paso 2 atrás)
+
+Bottom sheet con exactamente:
+
+1. **Continuar después** — sale; deja borrador + lock (unidad sigue bloqueada).
+2. **Cancelar papeleta** — requiere confirm + audit + release unidad/lock.
+3. **Seguir editando** — cierra sheet.
+
+**Borradores abandonados:**
+
+- Mostrar edad del borrador.
+- Recover (reabrir).
+- Cancel por rol autorizado (+ bypass admin/programador).
+- Alertar si bloquea la unidad demasiado tiempo (threshold operativo configurable; default sugerido 24h — alerta, no delete).
+- **No expire silencioso.**
+
+---
+
+## 13. Firma metadata
+
+```js
+firma: {
+  imagePath: '',
+  signerName: '',
+  signerRole: '',       // Cliente | Conductor | Representante | Otro
+  signedAt: null,
+  capturedBy: '',       // uid operador
+  consentTextVersion: '' // versión del texto de consentimiento mostrado
+}
+```
+
+- Si no hay cliente en ficha: capturar **nombre + relación** (`signerRole`).
+- Confirmación fuerte si nombre vacío (alineado a soft warning §9.2).
+- Canvas: scroll lock durante trazo; rechazar single-point / trazo vacío; normalizar imagen para PDF.
+- Paths Storage existentes; no inventar bucket nuevo.
+
+---
+
+## 14. Damage photo policy (soft)
+
+```js
+export const DAMAGE_PHOTO_POLICY = Object.freeze({
+  scratch: 'recommended',
+  deep: 'strongly_recommended',
+  dent: 'strongly_recommended',
+  glass: 'strongly_recommended',
+  missing: 'strongly_recommended',
+  hit: 'strongly_recommended',
+  other: 'recommended',
+});
+```
+
+- Continuar sin foto: **confirm + motivo** cuando policy ≠ omitida; motivo auditado.
+- **No** hard-block de entrega en MVP.
+- Config-ready: misma tabla podrá pasar a hard en el futuro sin cambiar shape de daños.
+
+---
+
+## 15. Metrics (operativas)
+
+Usar audit/telemetry existente (`bitacora_gestion` / `ops_events` / observability actual) — **sin** plataforma nueva.
+
+| Métrica | Definición |
+|---------|------------|
+| Tiempo captura operativa | Desde confirmar unidad (fin paso 1) hasta abrir cámara del primer core — **excluye** tiempo de disparar/revisar fotos. Target mediana **≤ 2 min**. |
+| Tiempo total con fotos | select unidad → `finalizeDelivery` success (incluye fotos). |
+| Eventos (nombres) | `papeleta_unit_selected`, `papeleta_step_completed`, `papeleta_core_photo_captured`, `papeleta_damage_added`, `papeleta_finalize_success`, `papeleta_finalize_already`, `papeleta_cancel`, `papeleta_conflict_revision`, `papeleta_km_tablero_retake_warned` |
+
+---
+
+## 16. Regreso / Ventas / Dashboard (UX)
+
+### Ventas
+
+- Misma lengua visual app.
+- No edita inspección firmada.
+- Acciones por permiso: Ver / Promover / Cerrar.
+
+### Dashboard
+
+- Desktop tabla; mobile filas/cards.
+- Filtros: En curso · Entregadas · En regreso · Finalizadas · Con reporte · Canceladas.
+- CTA **Nueva**; chips de estado claros.
+
+---
+
+## 17. Domain changes (aditivos)
+
+Archivo: `domain/papeleta.model.js` (+ `scripts/test-papeleta-model.js`).
+
+| Cambio | Tipo |
+|--------|------|
+| `ZONAS_CORE` + `coreZonasHaveFoto` | Nuevo |
+| Ids `tablero_kilometraje`, `interior` en template zonas | Aditivo a `ZONAS_V1` o lista extendida |
+| `isChecklistComplete` (llantas+tapetes+keys) | Nuevo / endurecer `checklistCompleto` |
+| `puedeEntregar` → `{ ok, hard, soft }` | Extender |
+| `computeStatusAfterSave` usa core+checklist+km/gas | Actualizar |
+| Helpers `danosMarcados` / `displayNumber` | Nuevo |
+| `assertSalidaMutable` / immutability | Nuevo |
+| `DAMAGE_PHOTO_POLICY` | Nuevo |
+| Status `cancelada` | Aditivo (UI + release lock) |
+| Statuses ES sin rename | Intactos |
+
+Statuses Firestore:
+
+```
+borrador | lista | entregada | en_retorno | cerrada_historial | cancelada
 ```
 
 ---
 
-## 9. Visual tokens (scoped)
+## 18. Visual tokens (scoped `.pap`)
 
-Scope CSS: `.pap` (migrar tokens de “papel industrial” → “app limpia”). No contaminar shell global.
+| Token | Valor |
+|-------|-------|
+| Fondo | `#F6F8FC` |
+| Superficie | `#FFFFFF` |
+| Primario | `#3b82f6` / hover `#2563eb` |
+| OK / Alerta | tokens sistema |
+| Radios | `12px` / `16px` |
+| Tipografía | Inter 400/500/600/700 |
+| Iconos | Material Symbols |
 
-| Token | Valor | Uso |
-|-------|-------|-----|
-| Fondo app | `#F6F8FC` | Canvas de captura / listados |
-| Superficie | `#FFFFFF` | Cards / sheets |
-| Primario | `#3b82f6` (MapGestion `--accent`) | CTA Continuar, links, focus |
-| Primario hover | `#2563eb` | Hover/pressed |
-| OK | verde sistema existente (`--color-success` / equivalente) | Checklist presente, guardado |
-| Alerta | rojo / naranja sistema | Faltantes, daños, KM anómalo |
-| Texto | `var(--text)` | Cuerpo |
-| Bordes | `var(--border)` | Separadores suaves |
-| Radios | `12px` / `16px` | Cards, sheets, botones |
-| Sombra | mínima (1 capa suave) | Cards elevadas |
-| Tipografía | Inter 400/500/600/700 | Sin condensada industrial en captura |
-| Iconos | Material Symbols | Sin emoji funcionales |
-
-**PDF:** sigue look formal papel (crema/negro tipográfico aceptable en plantilla de impresión). Captura UI y PDF son lenguajes visuales distintos a propósito.
-
-Dark theme: respetar `body.dark-theme` con variables existentes donde aplique; no inventar paleta púrpura.
+PDF sigue look formal papel. Dark theme vía variables existentes.
 
 ---
 
-## 10. Autosave / offline / unmount cleanup
-
-| Tema | Comportamiento |
-|------|----------------|
-| Autosave | Debounce por paso (~400–800 ms) al cambiar checklist, KM/gas, marcas, notas |
-| Chip | `Guardando…` → `Guardado` / `Error al guardar` con reintento |
-| Draft local | `sessionStorage` / memoria del paso actual como red de seguridad; sync a Firestore cuando hay red |
-| Offline | Sin cola offline completa: avisar “Se requiere conexión para guardar”; no marcar `lista`/`entregada` sin confirmación servidor |
-| Cámara | Cerrar stream al salir del paso / unmount |
-| Listeners | Unsubscribe `onSnapshot` y timers de debounce en `unmount()` |
-| Diagrama | Flush strokes/`danosMarcados` pendientes antes de navegar Atrás/Continuar |
-
----
-
-## 11. Compatibility & migration (dual-read)
+## 19. Compatibility & migration
 
 | Dato | Lectura | Escritura nueva |
 |------|---------|-----------------|
-| `status` español | Igual | + `cancelada` |
-| `diagramaStrokes` | Pintar siempre si existe | Freehand secundario |
-| `danosMarcados` | Pintar si existe | Camino principal de daños |
-| `zonas.*.fotoPath` | 12 ids | Core obligatorio; resto opcional |
-| Checklist / llantas / tapetes | Normalizers actuales | Sin breaking |
-| Docs pre-rediseño (12 fotos) | Siguen válidos; `lista`/`entregada` no se reescribe | Nuevos docs usan gate de 6 core |
-| PDF viejo vs nuevo | Regenerar usa raster dual-read | — |
+| Status ES | Igual | + `cancelada` |
+| Strokes | Pintar si existe | Solo freehand |
+| `danosMarcados` | Pintar si existe | Daños formales |
+| Zonas 12 + 2 nuevas | Dual-read paths | Core = 6 de §6 |
+| `fotoTableroPath` legacy | Fallback → tablero zona | Escribir zona id |
+| Docs pre-rediseño (12 fotos) | Válidos | Nuevos usan gate core |
+| `revision` / lock docs | Absent = tratar revision 0 | Set en create/update |
 
-No hay job de migración masiva. Índices Firestore existentes bastan; `cancelada` entra en filtros client-side / queries por `status` ya usados.
+Sin job de migración masiva.
 
 ---
 
-## 12. Testing requirements
-
-Mapear el brief del usuario a dominio/UI:
+## 20. Testing requirements
 
 | # | Caso | Expectativa |
 |---|------|-------------|
-| 1 | Unicidad | No dos `activoPorUnidad` para la misma unidad; cancelar/entrada libera |
-| 2 | Gate entrega | `puedeEntregar` true solo con 6 core + checklist + status `lista` |
-| 3 | Daño sin foto | Puede entregar (foto de daño opcional) |
-| 4 | Checklist | Solo `ok`/`faltante`/`na`; sin `dañado` |
-| 5 | Dual-read diagrama | Doc con solo strokes legacy se ve en UI + PDF; doc nuevo con `danosMarcados` también |
-| 6 | Coords | Marcas persisten 0–1 tras resize/rotación de layout |
-| 7 | Merge entrega | Tras `entregarPapeleta`, KM/gas/llantas/tapetes previos en `salida` no se pierden |
-| 8 | Inmutabilidad | Post-`entregada`: no editar zonas/checklist/daños de salida |
-| 9 | Regreso tabs | Abre en Regreso; Salida readonly; Reportar no duplica daño de salida |
-| 10 | Cancelada | `activoPorUnidad: false`; no aparece como activa; chip Cancelada |
-| 11 | Audit corrección | Corregir datos en paso 2 deja rastro (campo/colección audit) |
-| 12 | Unmount | Sin leaks de cámara/listeners tras navegar fuera |
-| 13 | PDF firma | Incluye firma + “Exportado por …” + filename política repo |
-| 14 | Tests dominio | Actualizar `scripts/test-papeleta-model.js`: `ZONAS_CORE`, `puedeEntregar` con 6, status `cancelada`, helpers marcas |
+| 1 | Unicidad TX | Dos creates concurrentes → uno gana; lock + `ACTIVE_EXISTS` |
+| 2 | Release lock | Cancel / entrada / failed create liberan unidad |
+| 3 | `puedeEntregar` hard/soft | Matriz §9; faltante → soft, no hard |
+| 4 | Daño sin foto | Entrega con confirm+motivo según policy |
+| 5 | `finalizeDelivery` idempotent | 2ª llamada `alreadyFinalized`; un PDF |
+| 6 | Merge salida | KM/gas/llantas/tapetes no se pierden |
+| 7 | Inmutabilidad | Post-entregada reject domain+data (+ rules si viable) |
+| 8 | Numeración | Delete daño no renumerar; photos por `damageId` |
+| 9 | Coords | Matriz portrait/landscape/desktop/PDF/zoom/DPR |
+| 10 | Regreso compare | `salida.danosMarcados` intacto; compare en entrada/render |
+| 11 | Conflict revision | Remote change → no silent overwrite daños/firma/status |
+| 12 | Abandon sheet | 3 acciones; cancel = confirm+audit+release |
+| 13 | Firma metadata | Shape §13; reject single-point |
+| 14 | Tablero core | Sin foto tablero → hard block; KM edit → soft retake warn |
+| 15 | Dual-write | Formal → solo `danosMarcados`; freehand → strokes |
+| 16 | Tests dominio | Actualizar `scripts/test-papeleta-model.js` |
 
-Smoke manual mínimo: crear → 6 fotos → checklist → daño tipado → firmar → PDF → regreso sin cambios → regreso con daño nuevo → Ventas.
-
----
-
-## 13. Acceptance criteria
-
-1. Captura de salida es un wizard de **6 pasos** con footer Atrás/Continuar en mobile.
-2. Look de captura = app limpia (`#F6F8FC` / blanco / azul MapGestion); **sin** textura papel en UI de captura.
-3. Se puede pasar a `lista` y **entregar** con exactamente las 6 fotos core + checklist completo, aunque falten las otras 6 zonas y aunque haya daños sin foto.
-4. Statuses en Firestore siguen en español; UI muestra labels de concepto; existe `cancelada`.
-5. Diagrama principal = marcas tipadas; freehand secundario; dual-read de `diagramaStrokes`.
-6. PDF sigue siendo documento formal con silueta marcada rasterizada, fotos, firma y política de export.
-7. Regreso conserva tabs Regreso / Salida / Reportar y libera unidad al registrar entrada.
-8. Autosave con chip de estado; cleanup en unmount; merge de `salida` al entregar corregido.
-9. Correcciones de datos de unidad en papeleta dejan audit trail.
-10. Rutas, Storage paths, feature gate y perms existentes siguen funcionando sin migración breaking.
+Smoke: crear → 6 core → checklist → daño tipado → firmar → finalize → PDF → regreso → Ventas.
 
 ---
 
-## 14. Implementation priority order
+## 21. Acceptance criteria
 
-1. **Dominio:** `ZONAS_CORE`, `coreZonasHaveFoto`, `cancelada`, gates `puedeEntregar` / `computeStatusAfterSave`, shape/helpers `danosMarcados`; tests.
-2. **Data fix:** merge correcto en `entregarPapeleta`; write paths para `danosMarcados` + `cancelada`; audit de correcciones.
-3. **Wizard shell:** chrome 6 pasos + footer + router step state (sin rediseñar todo el CSS aún).
-4. **Pasos 1–4:** unidad → confirmar datos → KM/gas → checklist (reordenar UI existente).
-5. **Paso 5:** silueta limpia + bottom sheet tipado + dual-read + lista de daños.
-6. **Paso 6:** cámara guiada solo core → resumen → firma → PDF raster dual-read.
-7. **CSS tokens `.pap`:** migrar de papel industrial → app limpia (captura + listado + ventas).
-8. **Regreso / Ventas / Dashboard:** polish visual + acciones rápidas de regreso; filtros cancelada.
-9. **Autosave / unmount / offline messaging.**
-10. **Smoke manual + ajuste tests.**
+1. Wizard 6 pasos + footer mobile; look app limpia.
+2. Entregar exige `ZONAS_CORE` (6, con tablero+interior) + checklist completo domain; faltante solo warning.
+3. Create atómico con lock; release en cancel/entrada/fail.
+4. `finalizeDelivery` único, merge autorizado, idempotente.
+5. Inmutabilidad salida post-entrega en domain+data (rules preferidas).
+6. Daños: `id` permanente, `displayNumber` sin reuse/renumber; fotos por id.
+7. Coords 0–1 por vista + clamp; matriz dispositivos.
+8. Regreso no muta `isPreexisting` de salida; comparisonStatus en entrada/render.
+9. Autosave con `revision`; conflictos sin silent overwrite crítico.
+10. Abandon sheet §12; sin expire silencioso.
+11. Firma metadata §13; damage photo policy soft §14.
+12. Métricas §15 sobre telemetría existente.
+13. Dual-read/write §5.3.
+14. Rutas, Storage, feature gate, perms sin breaking.
 
 ---
 
-## 15. Out of scope / follow-ups
+## 22. Implementation priority order
 
-- WhatsApp / correo con el mismo PDF.
-- Escáner QR real si aún no existe en la app (placeholder en v1 de este rediseño).
-- Plantillas de silueta por tipo (SUV / van / moto).
-- Comparador visual lado a lado salida vs entrada con slider.
-- Offline-first con cola de fotos y sync conflict UI.
-- Contrato/CRM real (más que `clienteNombre`).
-- Partir `papeletas.js` en módulos por paso (recomendado durante §14.3–6, no bloqueante del diseño).
-- Promoción TTL/reportes Cloud Function — ya especificada en diseño shipped; no reabrir aquí salvo bugs.
+1. Domain: `ZONAS_CORE` (+2 ids), checklist/entregar exactos, damages helpers, immutability, policy, tests.
+2. Data: lock+TX create; `finalizeDelivery`; revision autosave; reject post-entrega; cancel+release.
+3. Wizard shell 6 pasos.
+4. Pasos 1–4 (incl. tablero core + KM retake warn).
+5. Paso 5 diagrama tipado + dual-write.
+6. Paso 6 cámara core → resumen hard/soft → firma → finalize → PDF.
+7. CSS `.pap`.
+8. Regreso comparison + Ventas/Dashboard polish.
+9. Abandon sheet + metrics events.
+10. Smoke + tests.
+
+---
+
+## 23. Out of scope / follow-ups
+
+- WhatsApp / correo PDF.
+- QR real si no existe.
+- Plantillas silueta por tipo de vehículo.
+- Slider comparador visual salida vs entrada.
+- Offline-first con cola de fotos.
+- Hard-block configurable por `DAMAGE_PHOTO_POLICY`.
+- CRM/contrato real.
+- Split modular de `papeletas.js` (recomendado, no bloqueante del diseño).
 
 ---
 
 ## Self-review checklist
 
 - [x] Sin placeholders TBD.
-- [x] No contradice dual-read ni statuses en español.
-- [x] Gate de entrega = 6 core + checklist (no 12; fotos de daño opcionales).
-- [x] Checklist sin enum `dañado`.
-- [x] PDF formal vs UI app separados.
-- [x] Rutas sin cambio.
-- [x] Alcance acotado a un plan de implementación (cirugía UI + dominio mínimo).
-- [x] Documento prior shipped referenciado, no borrado.
+- [x] Framing: cirugía UI + extensiones aditivas; reglas en domain/data, no solo vista.
+- [x] `ZONAS_CORE` = 6 con **tablero_kilometraje** e **interior** core; mapping a ids reales; sin contradicción con “tablero opcional”.
+- [x] Unicidad transaccional + release paths cerrados.
+- [x] `finalizeDelivery` atómico, merge autorizado, idempotente.
+- [x] Inmutabilidad post-entrega más allá de UI.
+- [x] Hard vs soft de `puedeEntregar` / `isChecklistComplete` explícitos + pseudocódigo.
+- [x] Numeración daños / coords / regreso compare / autosave revision / abandon / firma / damage policy / metrics / dual-write — cerrados.
+- [x] Checklist sin enum `dañado`; statuses ES; PDF formal vs UI app.
+- [x] Spec shipped referenciado, no borrado.
 
 ---
 
 ## Resumen ejecutivo
 
-Rediseño de **captura** de Papeletas a app mobile limpia en 6 pasos, reusando el backend ya shipped. Firestore sigue en español (+ `cancelada`); el diagrama gana `danosMarcados` con dual-read de strokes; entregar exige 6 fotos core + checklist. El PDF permanece documento formal; la UI de patio deja de parecer papel.
-`)
+Rediseño de captura Papeletas a app mobile en 6 pasos, con **cirugía UI y extensiones aditivas del modelo**. Las 6 fotos core incluyen **tablero** (respaldo de KM) e **interior**. Entrega, unicidad, inmutabilidad y finalize viven en domain/data (transacciones, lock, `finalizeDelivery` idempotente). Faltantes y fotos de daño son warnings, no hard blocks. El PDF sigue siendo el documento formal; la UI de patio deja de parecer papel.
