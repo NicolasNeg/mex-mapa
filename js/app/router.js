@@ -311,6 +311,7 @@ function _routeForPath(path) {
   if (_isAdminAppPath(key)) return ROUTE_TABLE['/app/admin'];
   if (key.startsWith('/app/mensajes/')) return ROUTE_TABLE['/app/mensajes'];
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return ROUTE_TABLE['/app/traslados'];
+  if (key.startsWith('/app/notas/') || key.startsWith('/app/incidencias/')) return ROUTE_TABLE['/app/notas'];
   if (key.startsWith('/app/cuadre/u/')) return ROUTE_TABLE['/app/cuadre/u'];
   if (key.startsWith('/app/editmap/')) return ROUTE_TABLE['/app/editmap'];
   if (key.startsWith('/app/papeletas/')) return ROUTE_TABLE['/app/papeletas'];
@@ -323,6 +324,7 @@ function _styleKeyForPath(path) {
   if (_isAdminAppPath(key)) return '/app/admin';
   if (key.startsWith('/app/mensajes/')) return '/app/mensajes';
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return '/app/traslados';
+  if (key.startsWith('/app/notas/') || key.startsWith('/app/incidencias/')) return '/app/notas';
   if (key.startsWith('/app/cuadre/u/')) return '/app/cuadre/u';
   if (key.startsWith('/app/editmap/')) return '/app/editmap';
   if (key.startsWith('/app/papeletas/')) return '/app/papeletas';

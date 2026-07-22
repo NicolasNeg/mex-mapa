@@ -3105,3 +3105,148 @@
   .inc-module .metrics { grid-template-columns: repeat(3, 1fr); }
   .inc-module .mod-title { font-size: 20px; }
 }
+
+/* ── Tabla + rutas (regla de oro listados SPA) ───────────────── */
+.inc-module--table .rail,
+.inc-module--table .metrics,
+.inc-module--table .inc-editor-top,
+.inc-module--table #incDetailPanel,
+.inc-module--table #incCreateBackdrop:not(.is-open) {
+  display: none !important;
+}
+.inc-module--table .workspace {
+  grid-template-columns: 1fr !important;
+}
+.inc-module--table .inc-canvas {
+  min-width: 0;
+}
+.inc-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.inc-search {
+  flex: 1 1 240px;
+  min-width: 180px;
+}
+.inc-search input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+.inc-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: auto;
+  background: var(--bg-panel);
+}
+.inc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.inc-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  background: var(--bg-sub);
+  border-bottom: 1px solid var(--border);
+}
+.inc-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.inc-row-clickable { cursor: pointer; }
+.inc-row-clickable:hover,
+.inc-row-clickable.is-active { background: #eff6ff; }
+.inc-table .td-title { font-weight: 700; color: var(--fg); }
+.inc-table .td-sub { margin-top: 2px; font-size: 11px; color: var(--fg-muted); }
+.inc-table .td-id,
+.inc-table .td-mono,
+.inc-table .td-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.inc-editor-top { display: none; padding: 0 0 16px; }
+.inc-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+}
+.inc-breadcrumb button {
+  border: 0;
+  background: transparent;
+  color: #3b82f6;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+}
+.inc-editor-top h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.inc-module--create .mod-head,
+.inc-module--create .metrics,
+.inc-module--create .workspace,
+.inc-module--create .inc-editor-top {
+  display: none !important;
+}
+.inc-module--create #incCreateBackdrop.is-open {
+  position: relative !important;
+  inset: auto !important;
+  display: block !important;
+  background: transparent !important;
+  padding: 0 !important;
+  z-index: 1 !important;
+}
+.inc-module--create .ci-sheet {
+  width: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  height: auto !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  border: 1px solid var(--border);
+}
+
+.inc-module--detail .mod-head,
+.inc-module--detail .metrics,
+.inc-module--detail .rail,
+.inc-module--detail .inc-canvas,
+.inc-module--detail #incCreateBackdrop {
+  display: none !important;
+}
+.inc-module--detail .inc-editor-top { display: block !important; }
+.inc-module--detail .workspace {
+  grid-template-columns: 1fr !important;
+}
+.inc-module--detail #incDetailPanel {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 60vh;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+}

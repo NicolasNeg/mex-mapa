@@ -17,6 +17,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - CSV: signature **only in the filename** (no meta row required).
 - Download filename for all types: `NOMBRE_USUARIO_FECHA_NOMBREEMPRESA.ext` (user uppercase, spaces→`_`; date `YYYY_MM_DD`; company sanitized uppercase). Example: `ANGEL_ARMENTA_2026_09_16_OPTIMARENTACAR.pdf`.
 
+**SPA listados (tabla + rutas)** — operational lists in `/app/*` use dense table + routes `/`, `/nuevo`, `/v/:id`; detail/create are full-page in-module (not permanent side panel / modal as primary). See `agente.md` and Traslados/Unidades.
+
 ---
 
 ## Deploy commands

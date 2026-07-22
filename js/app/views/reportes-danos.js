@@ -40,6 +40,28 @@ let _createTipo = 'dano';
 
 const LIST = '/app/reportes-danos';
 const NUEVO = '/app/reportes-danos/nuevo';
+const VIEW_PREFIX = '/app/reportes-danos/v/';
+
+function _viewRoute(id) {
+  return `${VIEW_PREFIX}${encodeURIComponent(String(id || ''))}`;
+}
+
+function _parsePath() {
+  const raw = String(window.location.pathname || '');
+  const parts = raw.replace(/\/+$/, '').split('/').filter(Boolean);
+  // app / reportes-danos / ...
+  const idx = parts.indexOf('reportes-danos');
+  const seg = idx >= 0 ? parts[idx + 1] || '' : '';
+  const seg2 = idx >= 0 ? parts[idx + 2] || '' : '';
+  const qs = new URLSearchParams(window.location.search || '');
+  const idQ = String(qs.get('id') || '').trim();
+  if (seg === 'nuevo') return { mode: 'create', id: '' };
+  if (seg === 'v' && seg2) return { mode: 'detail', id: decodeURIComponent(seg2) };
+  // Legacy: /app/reportes-danos/:id → treat as detail (caller may redirect to /v/:id)
+  if (seg && seg !== 'nuevo' && seg !== 'v') return { mode: 'detail', id: decodeURIComponent(seg), legacy: true };
+  if (idQ) return { mode: 'detail', id: idQ, legacy: true };
+  return { mode: 'list', id: '' };
+}
 
 const STATUS_LABEL = {
   abierto: 'Abierto',
@@ -89,20 +111,6 @@ function _canClose() {
 
 function _plaza() {
   return String(getCurrentPlaza() || getState()?.currentPlaza || '').toUpperCase().trim();
-}
-
-function _parsePath() {
-  const raw = String(window.location.pathname || '');
-  const parts = raw.replace(/\/+$/, '').split('/').filter(Boolean);
-  // app / reportes-danos / ...
-  const idx = parts.indexOf('reportes-danos');
-  const seg = idx >= 0 ? parts[idx + 1] || '' : '';
-  const qs = new URLSearchParams(window.location.search || '');
-  const idQ = String(qs.get('id') || '').trim();
-  if (seg === 'nuevo') return { mode: 'create', id: '' };
-  if (seg && seg !== 'nuevo') return { mode: 'detail', id: seg };
-  if (idQ) return { mode: 'detail', id: idQ };
-  return { mode: 'list', id: '' };
 }
 
 function _destroyDiagram() {
@@ -161,6 +169,11 @@ export async function mount({ container, navigate }) {
   _createTipo = 'dano';
 
   // Lista global: cambiar plaza activa no debe re-filtrar ni recargar el inbox.
+
+  if (parsed.legacy && parsed.id) {
+    _navigate?.(_viewRoute(parsed.id), { replace: true });
+    return;
+  }
 
   if (_mode === 'create' && !_canCreate()) {
     await _mexAlert('Permiso', 'No tienes permiso para crear reportes de daños.');
@@ -252,65 +265,103 @@ function _render() {
   _bindList();
 }
 
+function _fmtDate(value) {
+  if (value == null || value === '') return '';
+  let ms = value;
+  if (typeof value === 'object' && typeof value.toMillis === 'function') ms = value.toMillis();
+  else if (typeof value === 'object' && 'seconds' in value) ms = value.seconds * 1000;
+  else if (typeof value === 'number' && value < 1e12) ms = value * 1000;
+  else ms = new Date(value).getTime();
+  if (!Number.isFinite(ms)) return '';
+  try {
+    return new Date(ms).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
+  } catch (_) {
+    return '';
+  }
+}
+
+function _authorOf(r = {}) {
+  return r.creadoPorNombre || r.creadoPor || r.autorNombre || r.autor || r.createdByName || '—';
+}
+
 function _renderList() {
   const rows = _filtered();
   return `
     <section class="rd">
-      <header class="rd-head">
-        <div>
-          <h1 class="rd-title">Reportes de daños</h1>
-          <p class="rd-sub">Casos de daño y faltantes · todas las plazas</p>
+      <header class="rd-page-header">
+        <div class="rd-page-title">
+          <h1>Reportes de daños</h1>
+          <p>Casos de daño y faltantes · todas las plazas</p>
         </div>
-        ${_canCreate() ? `
-          <button type="button" class="rd-btn rd-btn--primary" data-act="nuevo">
-            <span class="material-symbols-outlined">add</span> Nuevo reporte
-          </button>
-        ` : ''}
+        <div class="rd-actions">
+          ${_canCreate() ? `
+            <button type="button" class="rd-btn rd-btn--primary" data-act="nuevo">
+              <span class="material-symbols-outlined">add</span> Nuevo reporte
+            </button>
+          ` : ''}
+        </div>
       </header>
 
       <div class="rd-controls">
-        <label class="rd-search">
-          <span class="material-symbols-outlined">search</span>
-          <input id="rdQuery" value="${_esc(_query)}" placeholder="MVA, tipo, descripción" autocomplete="off"/>
-        </label>
-        <select id="rdStatus">
-          <option value="" ${_filterStatus === '' ? 'selected' : ''}>Todos los estados</option>
-          ${['abierto', 'promovido', 'cerrado', 'descartado'].map((s) => `
-            <option value="${s}" ${_filterStatus === s ? 'selected' : ''}>${STATUS_LABEL[s] || s}</option>
-          `).join('')}
-        </select>
-        <select id="rdTipo">
-          <option value="" ${_filterTipo === '' ? 'selected' : ''}>Todos los tipos</option>
-          <option value="dano" ${_filterTipo === 'dano' ? 'selected' : ''}>Daño</option>
-          <option value="faltante" ${_filterTipo === 'faltante' ? 'selected' : ''}>Faltante</option>
-        </select>
+        <div class="rd-controls-row">
+          <label class="rd-search">
+            <span class="material-symbols-outlined">search</span>
+            <input id="rdQuery" value="${_esc(_query)}" placeholder="MVA, tipo, descripción" autocomplete="off"/>
+          </label>
+          <div class="rd-quick-status" role="tablist" aria-label="Estatus">
+            ${[
+              ['abierto', 'Abiertos'],
+              ['promovido', 'Promovidos'],
+              ['cerrado', 'Cerrados'],
+              ['', 'Todos'],
+            ].map(([v, label]) => `
+              <button type="button" class="${_filterStatus === v ? 'active' : ''}" data-act="quick-status" data-value="${_esc(v)}">${label}</button>
+            `).join('')}
+          </div>
+          <select id="rdTipo" class="rd-select">
+            <option value="" ${_filterTipo === '' ? 'selected' : ''}>Todos los tipos</option>
+            <option value="dano" ${_filterTipo === 'dano' ? 'selected' : ''}>Daño</option>
+            <option value="faltante" ${_filterTipo === 'faltante' ? 'selected' : ''}>Faltante</option>
+          </select>
+        </div>
       </div>
 
+      <p class="rd-meta">${rows.length} de ${_rows.length} registros</p>
+
       ${!rows.length ? `<div class="rd-empty">No hay reportes con estos filtros.</div>` : `
-        <div class="rd-list">
-          ${rows.map((r) => `
-            <article class="rd-card" data-act="open" data-id="${_esc(r.id)}">
-              <div class="rd-card__top">
-                <strong class="rd-mono">${_esc(r.mva || r.unidadId || '—')}</strong>
-                <span class="rd-chip rd-chip--${_esc(r.status)}">${_esc(STATUS_LABEL[r.status] || r.status)}</span>
-              </div>
-              <div class="rd-card__mid">
-                <span class="rd-chip rd-chip--soft">${_esc(r.tipo === 'faltante' ? 'Faltante' : 'Daño')}</span>
-                ${r.plazaId || r.plaza ? `<span class="rd-muted">${_esc(r.plazaId || r.plaza)}</span>` : ''}
-                ${r.papeletaId ? `<span class="rd-muted">Papeleta ${_esc(r.papeletaId)}</span>` : `<span class="rd-muted">Sin papeleta</span>`}
-              </div>
-              ${r.descripcion ? `<p class="rd-card__desc">${_esc(r.descripcion)}</p>` : ''}
-              <div class="rd-card__bot">
-                <button type="button" class="rd-btn rd-btn--ghost" data-act="open" data-id="${_esc(r.id)}">Ver</button>
-                ${r.status === 'abierto' && _canVentas() ? `
-                  <button type="button" class="rd-btn rd-btn--primary" data-act="promover" data-id="${_esc(r.id)}">Promover</button>
-                ` : ''}
-                ${r.status !== 'cerrado' && _canClose() ? `
-                  <button type="button" class="rd-btn rd-btn--ghost" data-act="cerrar" data-id="${_esc(r.id)}">Cerrar</button>
-                ` : ''}
-              </div>
-            </article>
-          `).join('')}
+        <div class="rd-table-wrap">
+          <table class="rd-table">
+            <thead>
+              <tr>
+                <th>MVA</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th>Plaza</th>
+                <th>Autor</th>
+                <th>Fecha</th>
+                <th>Marcas</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((r) => {
+                const marks = Array.isArray(r.danosMarcados) ? r.danosMarcados.length : 0;
+                return `
+                  <tr class="rd-row-clickable" data-act="open" data-id="${_esc(r.id)}" role="button" tabindex="0">
+                    <td>
+                      <span class="rd-td-main rd-mono">${_esc(r.mva || r.unidadId || '—')}</span>
+                      ${r.papeletaId ? `<span class="rd-td-sub">Papeleta ${_esc(r.papeletaId)}</span>` : `<span class="rd-td-sub">Sin papeleta</span>`}
+                    </td>
+                    <td>${_esc(r.tipo === 'faltante' ? 'Faltante' : 'Daño')}</td>
+                    <td><span class="rd-chip rd-chip--${_esc(r.status)}">${_esc(STATUS_LABEL[r.status] || r.status)}</span></td>
+                    <td>${_esc(r.plazaId || r.plaza || '—')}</td>
+                    <td>${_esc(_authorOf(r))}</td>
+                    <td class="rd-td-date">${_esc(_fmtDate(r.createdAt || r.creadoEn || r.timestamp) || '—')}</td>
+                    <td class="rd-td-mono">${marks || '—'}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
         </div>
       `}
     </section>
@@ -334,32 +385,29 @@ function _bindList() {
     _query = String(e.target.value || '');
     _render();
   });
-  root.querySelector('#rdStatus')?.addEventListener('change', (e) => {
-    _filterStatus = String(e.target.value || '');
-    _render();
+  root.querySelectorAll('[data-act="quick-status"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      _filterStatus = String(btn.dataset.value || '');
+      _render();
+    });
   });
   root.querySelector('#rdTipo')?.addEventListener('change', (e) => {
     _filterTipo = String(e.target.value || '');
     _render();
   });
-  root.querySelectorAll('[data-act="open"]').forEach((btn) => {
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const id = btn.dataset.id;
-      _navigate?.(`${LIST}/${id}`);
-      _loadDetail(id);
-    });
-  });
-  root.querySelectorAll('[data-act="promover"]').forEach((btn) => {
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      _promover(btn.dataset.id);
-    });
-  });
-  root.querySelectorAll('[data-act="cerrar"]').forEach((btn) => {
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      _cerrar(btn.dataset.id);
+  const openRow = (el) => {
+    const id = el?.dataset?.id;
+    if (!id) return;
+    _navigate?.(_viewRoute(id));
+    _loadDetail(id);
+  };
+  root.querySelectorAll('tr[data-act="open"]').forEach((tr) => {
+    tr.addEventListener('click', () => openRow(tr));
+    tr.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        openRow(tr);
+      }
     });
   });
 }
@@ -596,7 +644,7 @@ async function _submitCreate() {
       _startList();
     } else {
       await _mexAlert('Reporte', 'Reporte creado. Ventas puede promoverlo.');
-      _navigate?.(`${LIST}/${res.id}`);
+      _navigate?.(_viewRoute(res.id));
       await _loadDetail(res.id);
     }
   } catch (e) {

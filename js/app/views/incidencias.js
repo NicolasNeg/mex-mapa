@@ -8,6 +8,10 @@
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
 import { subscribeIncidencias, createIncidencia, resolveIncidencia, deleteIncidencia, updateIncidenciaField, toggleSeguidor } from '/js/app/features/incidencias/incidencias-data.js';
 
+const LIST_ROUTE = '/app/notas';
+const NEW_ROUTE = '/app/notas/nuevo';
+const VIEW_PREFIX = '/app/notas/v/';
+
 function _canCreateNota() {
   return window.mexPerms?.canDo?.('create_incidencia') !== false;
 }
@@ -22,6 +26,7 @@ function _canViewNotas() {
 }
 
 let _container = null;
+let _navigate = null;
 let _state = null;
 let _unsubIncidencias = null;
 let _unsubPlaza = null;
@@ -80,6 +85,7 @@ function _makeState(plaza) {
     linksNuevaNota: [],
     descripcionHtmlNuevaNota: '',
     myAuthor,
+    detailMode: 'list', // list | new | detail
     // Live state para create dialog
     createDraft: {
       titulo: '',
@@ -92,14 +98,57 @@ function _makeState(plaza) {
   };
 }
 
+function _viewRoute(id) {
+  return `${VIEW_PREFIX}${encodeURIComponent(String(id || ''))}`;
+}
+
+function _parseNotasPath() {
+  const raw = String(window.location.pathname || '');
+  const parts = raw.replace(/\/+$/, '').split('/').filter(Boolean);
+  const idx = Math.max(parts.indexOf('notas'), parts.indexOf('incidencias'));
+  const seg = idx >= 0 ? parts[idx + 1] || '' : '';
+  const seg2 = idx >= 0 ? parts[idx + 2] || '' : '';
+  if (seg === 'nuevo') return { mode: 'new', id: '' };
+  if (seg === 'v' && seg2) return { mode: 'detail', id: decodeURIComponent(seg2) };
+  return { mode: 'list', id: '' };
+}
+
+function _applyRouteMode() {
+  if (!_state) return;
+  const parsed = _parseNotasPath();
+  _state.detailMode = parsed.mode;
+  _state.detailOpenId = parsed.mode === 'detail' ? parsed.id : '';
+}
+
+function _go(path, opts = {}) {
+  if (typeof _navigate === 'function') {
+    _navigate(path, opts);
+    return;
+  }
+  if (opts.replace) window.history.replaceState({}, '', path);
+  else window.history.pushState({}, '', path);
+  _applyRouteMode();
+  if (_container) {
+    _container.innerHTML = _renderLayout();
+    _bindUi();
+    _render();
+  }
+}
+
 // ────────────────────────────────────────────────────────────
 // MOUNT / UNMOUNT
 // ────────────────────────────────────────────────────────────
 export async function mount(ctx) {
   _cleanup();
   _container = ctx.container;
+  _navigate = ctx.navigate || null;
   _ensureCss();
   _state = _makeState(String(getCurrentPlaza() || ctx?.state?.currentPlaza || '').toUpperCase().trim());
+  _applyRouteMode();
+  if (_state.detailMode === 'new' && !_canCreateNota()) {
+    _go(LIST_ROUTE, { replace: true });
+    return;
+  }
   _container.innerHTML = _renderLayout();
   _bindUi();
   _applyDraftMeta();
@@ -160,6 +209,7 @@ function _cleanup() {
   _unsubPlaza = null;
   _offGlobalSearch = null;
   _container = null;
+  _navigate = null;
   _state = null;
 }
 
@@ -286,15 +336,32 @@ function _bindUi() {
   });
 
   // Botones "Nueva nota"
-  q('incBtnNew')?.addEventListener('click', () => _toggleCreateDialog(true));
-  q('incBtnNewRail')?.addEventListener('click', () => _toggleCreateDialog(true));
+  q('incBtnNew')?.addEventListener('click', () => _go(NEW_ROUTE));
+  q('incBtnNewRail')?.addEventListener('click', () => _go(NEW_ROUTE));
 
-  // Create dialog · cerrar
-  q('incCreateClose')?.addEventListener('click', () => _toggleCreateDialog(false));
-  q('incCreateCancel')?.addEventListener('click', () => _toggleCreateDialog(false));
+  // Create · cerrar / volver a lista
+  q('incCreateClose')?.addEventListener('click', () => _go(LIST_ROUTE));
+  q('incCreateCancel')?.addEventListener('click', () => _go(LIST_ROUTE));
   q('incCreateBackdrop')?.addEventListener('click', event => {
-    if (event.target === event.currentTarget) _toggleCreateDialog(false);
+    if (event.target === event.currentTarget && _state?.detailMode !== 'new') _go(LIST_ROUTE);
   });
+  q('incBackList')?.addEventListener('click', () => _go(LIST_ROUTE));
+  q('incDetailClose')?.addEventListener('click', () => _go(LIST_ROUTE));
+
+  q('incListSearch')?.addEventListener('input', (e) => {
+    _state.query = String(e.target.value || '').trim().toLowerCase();
+    _applyFilters();
+    _render();
+  });
+
+  if (_state?.detailMode === 'new') {
+    _applyDraftMeta();
+    const sub = q('incCreateSub');
+    if (sub) sub.textContent = `Se publicará en la bitácora · ${_state?.plaza || 'GLOBAL'}`;
+    _renderCreatePreview();
+    _updateCreateSubmitState();
+    setTimeout(() => q('nuevaNotaTitulo')?.focus(), 50);
+  }
 
   // Search trigger — dispara mex:global-search abierto
   q('incSearchTrigger')?.addEventListener('click', () => {
@@ -370,11 +437,10 @@ function _onGlobalKey(e) {
   if (!document.body.contains(_container)) return;
   if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey && !e.altKey) {
     e.preventDefault();
-    _toggleCreateDialog(true);
+    _go(NEW_ROUTE);
   } else if (e.key === 'Escape') {
-    const bd = q('incCreateBackdrop');
-    if (bd?.classList.contains('is-open')) {
-      _toggleCreateDialog(false);
+    if (_state.detailMode === 'new' || _state.detailMode === 'detail') {
+      _go(LIST_ROUTE);
     }
   }
 }
@@ -658,12 +724,19 @@ function _render() {
 
 function _renderNow() {
   if (!_state) return;
+  if (_state.detailMode === 'new') {
+    _applyDraftMeta();
+    _renderCreatePreview();
+    _updateCreateSubmitState();
+    return;
+  }
+  if (_state.detailMode === 'detail') {
+    _renderDetailPanel();
+    return;
+  }
   _renderHeader();
-  _renderMetrics();
-  _renderFilterRail();
   _renderToolbar();
   _renderView(_state.items);
-  _renderDetailPanel();
 }
 
 function _renderHeader() {
@@ -894,20 +967,24 @@ function _renderView(items) {
   }
 
   _state.viewMode = 'list';
-  cont.innerHTML = _renderList(items);
+  cont.innerHTML = _renderTable(items);
 
   _attachRowHandlers();
 }
 
 function _attachRowHandlers() {
-  // Click en filas / tarjetas
+  // Click en filas → ruta de detalle
   qsa('[data-open-id]').forEach(el => {
     el.addEventListener('click', event => {
-      // Evita interceptar clicks en botones internos
       if (event.target.closest('[data-stop]')) return;
       const id = el.dataset.openId;
-      const item = _state.allItems.find(it => (it.legacyNotaId || it.id) === id);
-      if (item) _openDetail(item);
+      if (id) _go(_viewRoute(id));
+    });
+    el.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      const id = el.dataset.openId;
+      if (id) _go(_viewRoute(id));
     });
   });
 
@@ -1065,16 +1142,16 @@ function _renderTable(items) {
     const tipo = String(item?.tipo || 'OTRO').toUpperCase().trim() || 'OTRO';
 
     return `
-      <tr class="${isActive ? 'is-active' : ''}" data-open-id="${esc(id)}">
+      <tr class="inc-row-clickable ${isActive ? 'is-active' : ''}" data-open-id="${esc(id)}" role="button" tabindex="0">
         <td class="td-id">${esc(codigo)}</td>
         <td>
           <div class="td-title">${esc(item.titulo || 'Sin título')}</div>
           <div class="td-sub">${esc(tipo)}</div>
         </td>
+        <td class="td-mono">${esc(item.mva || '—')}</td>
         <td><span class="td-prio"><span class="prio-dot is-${esc(prLower)}"></span>${esc(_priorityLabel(pr))}</span></td>
         <td><span class="status-pill is-${esc(stKey)}"><span class="status-pill-dot"></span>${esc(stLabel)}</span></td>
-        <td class="td-mono">${esc((item.asignadoA?.nombre) || _displayName(item.autor || item.creadoPor || '') || '—')}</td>
-        <td class="td-mono">${esc(item.mva || '—')}</td>
+        <td class="td-mono">${esc(_displayName(item.autor || item.creadoPor || '') || '—')}</td>
         <td class="td-time">${esc(_relativeDate(item.actualizadoEn || item.creadoEn || item.fecha))}</td>
       </tr>
     `;
@@ -1085,13 +1162,13 @@ function _renderTable(items) {
       <table class="inc-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Incidencia</th>
+            <th>Folio</th>
+            <th>Título</th>
+            <th>MVA</th>
             <th>Prioridad</th>
             <th>Estado</th>
-            <th>Asignada</th>
-            <th>Activo</th>
-            <th>Actualizada</th>
+            <th>Autor</th>
+            <th>Fecha</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -1155,16 +1232,13 @@ function _renderBoard(items) {
 // ────────────────────────────────────────────────────────────
 function _openDetail(item) {
   if (!item || !_state) return;
-  _state.detailOpenId = item.legacyNotaId || item.id || '';
-  _renderDetailPanel();
-  _renderView(_state.items); // refrescar marca activa
+  const id = item.legacyNotaId || item.id || '';
+  if (!id) return;
+  _go(_viewRoute(id));
 }
 
 function _closeDetail() {
-  if (!_state) return;
-  _state.detailOpenId = '';
-  _renderDetailPanel();
-  _renderView(_state.items);
+  _go(LIST_ROUTE);
 }
 
 function _renderDetailPanel() {
@@ -1175,8 +1249,16 @@ function _renderDetailPanel() {
     panel.className = 'detail detail-empty';
     panel.innerHTML = `
       <div class="de-mark"><span class="material-icons">inbox</span></div>
-      <div class="de-title">Selecciona una incidencia</div>
-      <div class="de-sub">Aquí verás el detalle completo, la línea de tiempo y las acciones.</div>
+      <div class="de-title">Selecciona una nota</div>
+      <div class="de-sub">Abre una fila de la tabla para ver el detalle.</div>
+    `;
+    return;
+  }
+  if (_state.loading && !_state.allItems.length) {
+    panel.className = 'detail detail-empty';
+    panel.innerHTML = `
+      <div class="de-mark"><span class="material-icons spin">sync</span></div>
+      <div class="de-title">Cargando…</div>
     `;
     return;
   }
@@ -1185,9 +1267,11 @@ function _renderDetailPanel() {
     panel.className = 'detail detail-empty';
     panel.innerHTML = `
       <div class="de-mark"><span class="material-icons">inbox</span></div>
-      <div class="de-title">Incidencia no disponible</div>
+      <div class="de-title">Nota no disponible</div>
       <div class="de-sub">Es posible que haya sido eliminada o ya no esté visible.</div>
+      <button type="button" class="btn-ghost" id="incBackListEmpty">Volver a la tabla</button>
     `;
+    q('incBackListEmpty')?.addEventListener('click', () => _go(LIST_ROUTE));
     return;
   }
 
@@ -1501,19 +1585,14 @@ function _renderDetailPanel() {
 // CREATE / RESOLVE / DELETE
 // ────────────────────────────────────────────────────────────
 function _toggleCreateDialog(show) {
-  if (show && !_canCreateNota()) {
-    return _showNotice('No tienes permiso para crear notas.', 'error');
-  }
-  const bd = q('incCreateBackdrop');
-  bd?.classList.toggle('is-open', !!show);
   if (show) {
-    _applyDraftMeta();
-    const sub = q('incCreateSub');
-    if (sub) sub.textContent = `Se publicará en la bitácora · ${_state?.plaza || 'GLOBAL'}`;
-    _onDraftChange();
-    _renderCreatePreview();
-    setTimeout(() => q('nuevaNotaTitulo')?.focus(), 50);
+    if (!_canCreateNota()) {
+      return _showNotice('No tienes permiso para crear notas.', 'error');
+    }
+    _go(NEW_ROUTE);
+    return;
   }
+  _go(LIST_ROUTE);
 }
 
 async function _onCreateIncidencia() {
@@ -1575,7 +1654,7 @@ async function _onCreateIncidencia() {
     _showToast('Nota publicada', titulo.slice(0, 60), 'ok');
     const createAnother = !!q('incCreateAgain')?.checked;
     _resetComposer();
-    if (!createAnother) _toggleCreateDialog(false);
+    if (!createAnother) _go(LIST_ROUTE);
     else setTimeout(() => q('nuevaNotaTitulo')?.focus(), 50);
   } catch (error) {
     _showToast('No se pudo publicar', error?.message || 'Intenta de nuevo.', 'error');
@@ -2175,24 +2254,37 @@ function _renderTipoChecks() {
 }
 
 function _renderLayout() {
+  const mode = _state?.detailMode || 'list';
+  const modeClass = mode === 'new' ? 'inc-module--create' : mode === 'detail' ? 'inc-module--detail' : 'inc-module--table';
   return `
-    <div class="inc-module" data-theme="${document.body.classList.contains('dark-theme') ? 'dark' : 'light'}" data-density="regular">
+    <div class="inc-module ${modeClass}" data-theme="${document.body.classList.contains('dark-theme') ? 'dark' : 'light'}" data-density="regular">
       <header class="mod-head">
         <div class="mod-head-left">
-          <h1 class="mod-title">Incidencias</h1>
+          <h1 class="mod-title">Notas</h1>
           <p class="mod-sub" id="incModSub">Bitácora operativa</p>
         </div>
         <div class="mod-actions">
-          ${_canCreateNota() ? `<button class="btn-ghost" id="incBtnNew" title="Nueva nota (N)">
+          ${_canCreateNota() ? `<button class="btn-primary" id="incBtnNew" title="Nueva nota (N)">
             <span class="material-icons">add</span> Nueva nota
           </button>` : ''}
         </div>
       </header>
 
-      <div class="metrics" id="incMetrics"></div>
+      <div class="inc-editor-top">
+        <div>
+          <nav class="inc-breadcrumb" aria-label="Ruta">
+            <button type="button" id="incBackList">Notas</button>
+            <span>/</span>
+            <strong>${mode === 'new' ? 'Nueva' : 'Detalle'}</strong>
+          </nav>
+          <h1>${mode === 'new' ? 'Nueva nota' : 'Detalle de la nota'}</h1>
+        </div>
+      </div>
+
+      <div class="metrics" id="incMetrics" hidden></div>
 
       <div class="workspace">
-        <aside class="rail">
+        <aside class="rail" hidden>
           ${_canCreateNota() ? `<button class="rail-new" id="incBtnNewRail" title="Nueva nota (N)">
             <span class="material-icons" style="font-size:14px;">add</span>
             Nueva nota
@@ -2223,7 +2315,12 @@ function _renderLayout() {
         </aside>
 
         <main class="inc-canvas">
-          <div class="inc-toolbar" id="incToolbar"></div>
+          <div class="inc-controls">
+            <label class="inc-search">
+              <input id="incListSearch" type="search" placeholder="Buscar folio, título, MVA o autor" value="${esc(_state?.query || '')}">
+            </label>
+            <div class="inc-toolbar" id="incToolbar"></div>
+          </div>
           <div class="inc-view-container" id="incViewContainer"></div>
         </main>
 
@@ -2231,7 +2328,7 @@ function _renderLayout() {
       </div>
 
       <!-- Dialog Nueva nota (split form + live preview) -->
-      <div class="ci-backdrop" id="incCreateBackdrop">
+      <div class="ci-backdrop${mode === 'new' ? ' is-open' : ''}" id="incCreateBackdrop">
         <div class="ci-sheet" role="dialog" aria-modal="true" aria-labelledby="incCreateTitle">
           <header class="ci-head">
             <div class="ci-head-left">

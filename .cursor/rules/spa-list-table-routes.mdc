@@ -1,0 +1,19 @@
+---
+description: Listados SPA usan tabla densa + rutas list/nuevo/detalle
+globs: js/app/views/**/*.js, css/app-*.css, js/app/router.js
+alwaysApply: false
+---
+
+# Listados SPA (tabla + rutas)
+
+Política completa: [`agente.md`](../../agente.md) en la raíz del proyecto.
+
+Al crear o rediseñar un listado operativo en `/app/*`:
+
+1. **Tabla** como superficie principal (no cards/kanban/lista custom permanente).
+2. **Rutas:** `/app/{modulo}`, `/app/{modulo}/nuevo`, `/app/{modulo}/v/:id`.
+3. **Detalle/alta** en la misma vista SPA con Volver — no panel lateral permanente ni modal como flujo principal.
+4. Toolbar: búsqueda + estado rápido + filtros + contador.
+5. Fila clickeable → detalle; CTA → `/nuevo`.
+
+Referencias: `js/app/views/traslados.js`, `js/app/views/unidades.js`.

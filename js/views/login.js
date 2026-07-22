@@ -11,6 +11,9 @@
 // ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 
 import { auth, db, COL, functions } from '/js/core/database.js';
+import { passkeyLoginDisponible, tieneLoginPasskeyEnEsteDispositivo, loginConPasskey } from '/js/core/webauthn-login.js';
+
+const _LAST_EMAIL_KEY = 'mex_login_last_email';
 
 // reCAPTCHA v2 checkbox ("No soy un robot"). Site key p├║blica ÔÇö no secretos aqu├¡.
 // No usar MEX_APPCHECK_SITE_KEY aqu├¡: App Check es v3 y debe ser otra clave.
@@ -300,6 +303,7 @@ auth.onAuthStateChanged(async (user) => {
         });
       }
       // Sesi├│n v├ílida ÔåÆ App Shell como destino principal post-login (Fase 6)
+      try { localStorage.setItem(_LAST_EMAIL_KEY, user.email || ''); } catch (_) {}
       console.log('[login] post-login redirect:', POST_LOGIN_ROUTE);
       window.location.href = POST_LOGIN_ROUTE;
     } else {
@@ -368,6 +372,45 @@ window.loginManual = async function () {
     } else {
       _showError(err?.message || 'Verificaci├│n de seguridad fallida.');
     }
+  }
+};
+
+// ÔöÇÔöÇ Login con passkey (Face ID / Touch ID / Windows Hello) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// Solo visible si ESTE dispositivo ya enrol├│ una passkey de login para el
+// ├║ltimo correo usado (localStorage) ÔÇö en cualquier otro dispositivo/usuario
+// el login normal sigue igual, sin cambios visibles.
+async function _initPasskeyButton() {
+  const btn = document.getElementById('btnLoginPasskey');
+  if (!btn) return;
+  let lastEmail = '';
+  try { lastEmail = localStorage.getItem(_LAST_EMAIL_KEY) || ''; } catch (_) {}
+  if (!lastEmail || !tieneLoginPasskeyEnEsteDispositivo(lastEmail)) return;
+  if (!(await passkeyLoginDisponible())) return;
+  const emailEl = document.getElementById('auth_email');
+  if (emailEl && !emailEl.value) emailEl.value = lastEmail;
+  btn.style.display = 'flex';
+}
+
+window.loginConPasskey = async function () {
+  let lastEmail = '';
+  try { lastEmail = localStorage.getItem(_LAST_EMAIL_KEY) || ''; } catch (_) {}
+  const email = document.getElementById('auth_email')?.value.trim() || lastEmail;
+  if (!email) { _showError('Escribe tu correo primero.'); return; }
+
+  const btn = document.getElementById('btnLoginPasskey');
+  btn.disabled = true;
+  _hideError();
+  try {
+    const remember = document.getElementById('auth_remember')?.checked ?? true;
+    await firebase.auth().setPersistence(remember
+      ? firebase.auth.Auth.Persistence.LOCAL
+      : firebase.auth.Auth.Persistence.SESSION);
+    await loginConPasskey(email);
+    // onAuthStateChanged redirige autom├íticamente
+  } catch (err) {
+    btn.disabled = false;
+    console.warn('[login] passkey login error:', err?.message || err);
+    _showError('No se pudo verificar tu identidad con este dispositivo. Usa tu contrase├▒a.');
   }
 };
 
@@ -539,6 +582,7 @@ function _initBranding() {
 
 document.addEventListener('DOMContentLoaded', () => {
   _initBranding();
+  _initPasskeyButton();
 
   // Montar checkbox v2 lo antes posible (no bloquear el resto de la UI).
   ensureRecaptchaWidget().catch((e) => {

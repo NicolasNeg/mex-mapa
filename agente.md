@@ -53,3 +53,22 @@ Reglas de sanitización:
 2. ¿PDF/Excel incluyen empresa + usuario (y fecha) dentro del archivo?
 3. ¿Hay pie o metadata “Exportado por …” en PDF/Excel cuando aplica?
 4. ¿CSV solo firma por nombre de archivo (salvo meta ya existente)?
+
+---
+
+## Regla de oro — Listados SPA (tabla + rutas)
+
+**Todo listado operativo nuevo o rediseñado** en el App Shell (`/app/*`) sigue el patrón Traslados / Unidades:
+
+1. **Tabla densa** como superficie principal (no cards, kanban ni lista custom permanente).
+2. **Rutas** por modo:
+   - Lista: `/app/{modulo}`
+   - Nuevo: `/app/{modulo}/nuevo`
+   - Detalle: `/app/{modulo}/v/:id`
+3. **Detalles dentro** del módulo (misma vista SPA + breadcrumb “Volver”). No usar panel lateral permanente ni modal como flujo principal de detalle o alta.
+4. Toolbar encima de la tabla: búsqueda + chips/tabs de estado + filtros (colapsables si hace falta) + contador.
+5. Click en fila → navegar a detalle; CTA primario → `/nuevo`.
+
+Referencia: Traslados (`js/app/views/traslados.js`), Unidades (`js/app/views/unidades.js`). Spec: `docs/superpowers/specs/2026-07-22-spa-list-table-routes-design.md`.
+
+**Excepciones:** legacy HTML standalone; expedientes pesados en otra ruta (ej. `/app/cuadre/u/{mva}`) si el dominio ya lo exige.

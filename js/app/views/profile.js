@@ -14,6 +14,7 @@ import {
   syncCurrentDeviceContext
 } from '/js/core/notifications.js';
 import { getState } from '/js/app/app-state.js';
+import { passkeyLoginDisponible, tieneLoginPasskeyEnEsteDispositivo, enrolarLoginPasskey } from '/js/core/webauthn-login.js';
 
 // ── Constants ─────────────────────────────────────────────
 const PREFS_KEY = 'mex_profile_preferences_v2';
@@ -548,6 +549,10 @@ function _html() {
                 <button id="profile-reset-password-btn" style="color:#0f172a;font-size:12px;font-weight:700;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;">Renovar Contraseña</button>
                 <button id="profile-close-sessions-btn" style="color:#dc2626;font-size:12px;font-weight:700;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;">Cerrar Sesiones Anómalas</button>
               </div>
+              <div id="profile-passkey-row" style="margin-top:10px;display:none;">
+                <button id="profile-passkey-btn" style="color:#0f172a;font-size:12px;font-weight:700;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;">Activar Face ID / Touch ID para iniciar sesión</button>
+                <p id="profile-passkey-status" style="margin:4px 0 0;font-size:11px;color:#94a3b8;"></p>
+              </div>
             </div>
           </div>
           <div style="grid-column:1/-1;border-top:1px solid #e2e8f0;padding-top:16px;">
@@ -962,6 +967,8 @@ function _bindChrome() {
     _toast('Abrimos el centro del sistema para revisar actividad y dispositivos.', 'warning');
   });
 
+  _initPasskeyRow();
+
   document.getElementById('profile-avatar-input')?.addEventListener('change', function () {
     const file = this.files?.[0];
     if (!file) return;
@@ -1078,6 +1085,38 @@ async function _bootNotifications() {
     await syncCurrentDeviceContext({}, { force: true });
   }
   if (_mounted) _renderNotifState();
+}
+
+// ── Passkey de login (Face ID / Touch ID / Windows Hello) ──
+// Solo visible si el dispositivo soporta biometría nativa; el resto de
+// usuarios/dispositivos no ve ningún cambio en su perfil.
+async function _initPasskeyRow() {
+  const row = document.getElementById('profile-passkey-row');
+  if (!row) return;
+  if (!(await passkeyLoginDisponible())) return;
+
+  row.style.display = 'block';
+  const btn = document.getElementById('profile-passkey-btn');
+  const statusEl = document.getElementById('profile-passkey-status');
+  const email = _authInstance()?.currentUser?.email;
+  const yaActivo = Boolean(email) && tieneLoginPasskeyEnEsteDispositivo(email);
+  if (statusEl) statusEl.textContent = yaActivo ? 'Activo en este dispositivo.' : 'Aún no configurado en este dispositivo.';
+  if (yaActivo && btn) btn.textContent = 'Reactivar Face ID / Touch ID en este dispositivo';
+
+  btn?.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      await enrolarLoginPasskey(navigator.platform || 'Este dispositivo');
+      if (statusEl) statusEl.textContent = 'Activo en este dispositivo.';
+      btn.textContent = 'Reactivar Face ID / Touch ID en este dispositivo';
+      _toast('Ya puedes iniciar sesión con Face ID/Touch ID en este dispositivo.', 'success');
+    } catch (err) {
+      console.error('[app/profile] enrolar passkey login:', err);
+      _toast('No se pudo activar. Intenta de nuevo.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 // ── Avatar remove ─────────────────────────────────────────

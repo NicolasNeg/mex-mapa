@@ -281,6 +281,10 @@ export function routeTitle(route = '') {
     if (normalized.endsWith('/nuevo') || normalized === '/app/reportes-danos/nuevo') return 'Nuevo reporte de daños';
     return 'Detalle de reporte';
   }
+  if (normalized.startsWith('/app/notas/') || normalized.startsWith('/app/incidencias/')) {
+    if (normalized.endsWith('/nuevo') || normalized.endsWith('/notas/nuevo') || normalized.endsWith('/incidencias/nuevo')) return 'Nueva nota';
+    return 'Detalle de nota';
+  }
   if (normalized.startsWith('/app/papeletas/p/')) return ROUTE_TITLES['/app/papeletas/p'] || 'Papeletas · Detalle';
   // /app/admin/:section(/:id)? → label de ADMIN_NAV_GROUPS (Usuarios, Choferes, …)
   const adminTitle = adminRouteTitle(normalized);
