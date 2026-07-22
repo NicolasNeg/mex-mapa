@@ -27,11 +27,24 @@ function _norm(v) { return String(v || '').toUpperCase().trim(); }
 export function buscar(query, limit = 8) {
   const q = _norm(query);
   if (!q || !_cache.length) return [];
-  return _cache.filter(u =>
-    _norm(u.mva).startsWith(q) || _norm(u.mva).includes(q) ||
-    _norm(u.placas).startsWith(q) || _norm(u.placas).includes(q) ||
-    _norm(u.vin).startsWith(q) || _norm(u.vin).includes(q)
-  ).slice(0, limit);
+  const scored = [];
+  for (const u of _cache) {
+    const mva = _norm(u.mva);
+    const placas = _norm(u.placas);
+    const vin = _norm(u.vin);
+    const modelo = _norm(u.modelo);
+    const color = _norm(u.color);
+    let score = 0;
+    if (mva === q || placas === q) score = 100;
+    else if (mva.startsWith(q) || placas.startsWith(q)) score = 90;
+    else if (mva.includes(q) || placas.includes(q)) score = 70;
+    else if (modelo.includes(q)) score = 55;
+    else if (vin.includes(q)) score = 40;
+    else if (color.includes(q)) score = 20;
+    if (score) scored.push({ u, score });
+  }
+  scored.sort((a, b) => b.score - a.score || _norm(a.u.mva).localeCompare(_norm(b.u.mva)));
+  return scored.slice(0, limit).map((x) => x.u);
 }
 
 export function getByMva(mva) {

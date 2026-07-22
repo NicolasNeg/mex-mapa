@@ -1000,15 +1000,33 @@ async function _fotoUrl(path) {
 }
 
 function _filteredItems() {
-  const q = _query.trim().toLowerCase();
+  const q = _query.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const ACTIVE_STATUSES = new Set(['borrador', 'lista', 'entregada']);
   return _items.filter((it) => {
-    if (_filter === 'activas' && !it.activoPorUnidad) return false;
-    if (_filter === 'entregadas' && it.status !== 'entregada') return false;
-    if (_filter === 'historial' && it.status !== 'cerrada_historial' && it.status !== 'en_retorno') return false;
-    if (_filter === 'canceladas' && it.status !== 'cancelada') return false;
+    const status = String(it.status || '');
+    const isActive = it.activoPorUnidad === true || ACTIVE_STATUSES.has(status);
+
+    // Sin query: filtros de bandeja
+    if (!q) {
+      if (_filter === 'activas' && !isActive) return false;
+      if (_filter === 'entregadas' && status !== 'entregada') return false;
+      if (_filter === 'historial' && status !== 'cerrada_historial' && status !== 'en_retorno') return false;
+      if (_filter === 'canceladas' && status !== 'cancelada') return false;
+      if (_filter === 'ventas' && !it.casoVentasId && !_reportes.some((r) => r.papeletaId === it.id && r.status === 'abierto')) return false;
+      return true;
+    }
+
+    // Con query: buscar en todo lo cargado (excepto si el chip pide un status concreto)
+    if (_filter === 'entregadas' && status !== 'entregada') return false;
+    if (_filter === 'historial' && status !== 'cerrada_historial' && status !== 'en_retorno') return false;
+    if (_filter === 'canceladas' && status !== 'cancelada') return false;
     if (_filter === 'ventas' && !it.casoVentasId && !_reportes.some((r) => r.papeletaId === it.id && r.status === 'abierto')) return false;
-    if (!q) return true;
-    const hay = [it.mva, it.placas, it.modelo, it.vin, it.clienteNombre].join(' ').toLowerCase();
+
+    const hay = [it.mva, it.placas, it.modelo, it.vin, it.clienteNombre, it.contrato, it.plazaId, it.ultimaPlazaId, it.plazaOrigenId]
+      .join(' ')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
     return hay.includes(q);
   });
 }
@@ -2022,20 +2040,29 @@ async function _runUnitAutocomplete(raw) {
   _paintUnitHits();
   try {
     const plaza = String(getCurrentPlaza() || '').toUpperCase();
+    const q = String(raw || '').trim();
     let hits = [];
     const mex = window.mexUnidades;
-    if (mex?.isReady?.() && String(raw || '').trim()) {
-      hits = mex.buscar(raw, 12) || [];
-      // Boost plaza actual without hiding others
-      if (plaza && hits.length) {
+
+    // Prefer API index (incluye modelo); mezclar con mexUnidades si está caliente
+    hits = await buscarUnidad(q, { limit: 12, plazaId: plaza });
+    if (mex?.isReady?.() && q) {
+      const local = mex.buscar(q, 12) || [];
+      const seen = new Set(hits.map((u) => String(u.id || u.unidadId || u.mva || '')));
+      for (const u of local) {
+        const key = String(u.id || u.unidadId || u.mva || '');
+        if (key && seen.has(key)) continue;
+        if (key) seen.add(key);
+        hits.push(u);
+      }
+      if (plaza) {
         hits = hits.slice().sort((a, b) => {
           const ap = String(a.plazaId || a.plaza || '').toUpperCase() === plaza ? 0 : 1;
           const bp = String(b.plazaId || b.plaza || '').toUpperCase() === plaza ? 0 : 1;
           return ap - bp;
         });
       }
-    } else {
-      hits = await buscarUnidad(_unitQ, { limit: 12, plazaId: plaza });
+      hits = hits.slice(0, 12);
     }
     if (seq !== _unitSearchSeq) return;
     _unitHits = hits;
@@ -2130,9 +2157,23 @@ function _bind() {
     _navigate?.(NEW_ROUTE);
   });
   root.querySelector('#papSearch')?.addEventListener('input', (e) => {
-    _query = e.target.value;
+    _query = e.target.value || '';
     _paintList();
   });
+  root.querySelector('#papSearch')?.addEventListener('search', (e) => {
+    _query = e.target.value || '';
+    _paintList();
+  });
+  // Delegación: sobrevive si el input se recrea o el teclado móvil envía eventos raros
+  if (!root.dataset.papSearchDelegated) {
+    root.dataset.papSearchDelegated = '1';
+    root.addEventListener('input', (e) => {
+      const t = e.target;
+      if (!t || t.id !== 'papSearch') return;
+      _query = t.value || '';
+      _paintList();
+    });
+  }
   root.querySelectorAll('[data-act="filter"]').forEach((btn) => {
     btn.addEventListener('click', () => { _filter = btn.dataset.f; _paintList(); });
   });

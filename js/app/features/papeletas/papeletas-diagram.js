@@ -77,6 +77,8 @@ export function mountDiagram(host, opts = {}) {
   let tool = typeof opts.onTap === 'function' ? 'mark' : 'pen';
   let drawing = false;
   let current = null;
+  let gesture = null; // { mode, clientX, clientY, startPos }
+  const DRAW_SLOP = 10; // px before deciding draw vs scroll
   const activeView = String(opts.view || 'top');
   const title = String(opts.title || (editable ? 'Marcar daños' : 'Diagrama · salida'));
   const showLegend = opts.showLegend !== false;
@@ -115,7 +117,7 @@ export function mountDiagram(host, opts = {}) {
             <b>${_escAttr(l.mark)}</b><span>${_escAttr(l.label)}</span>
           </button>
         `).join('')}
-        ${editable ? '<span class="pap-diagram__tip">Toca el auto para marcar un daño, o usa el lápiz para trazo libre</span>' : ''}
+        ${editable ? '<span class="pap-diagram__tip">Desplaza con el dedo. Toca para marcar. Activa el lápiz solo para rayar.</span>' : ''}
       </div>` : ''}
       ${showMarksList ? `
       <ul class="pap-diagram__marks-list" data-diagram-marks-list ${danos.length ? '' : 'hidden'}>
@@ -134,6 +136,14 @@ export function mountDiagram(host, opts = {}) {
   const root = host.querySelector('[data-diagram-root]');
   const bg = host.querySelector('.pap-diagram__bg');
 
+  function syncTouchAction() {
+    // mark/scroll: permitir pan vertical; pen activo: captura trazo
+    const pan = !editable || tool === 'mark' || tool === 'pan';
+    canvas.style.touchAction = pan ? 'pan-y' : 'none';
+    root?.classList.toggle('is-draw-mode', editable && tool === 'pen');
+  }
+  syncTouchAction();
+
   function resize() {
     const stage = host.querySelector('.pap-diagram__stage');
     if (!stage) return;
@@ -142,8 +152,8 @@ export function mountDiagram(host, opts = {}) {
     const natW = bg?.naturalWidth || VIEWBOX.w;
     const natH = bg?.naturalHeight || VIEWBOX.h;
     const ratio = natH / natW || (VIEWBOX.h / VIEWBOX.w);
-    const cssW = Math.max(260, Math.floor(rect.width));
-    const cssH = Math.max(280, Math.floor(cssW * ratio));
+    const cssW = Math.max(220, Math.floor(rect.width));
+    const cssH = Math.max(200, Math.floor(cssW * ratio));
     canvas.style.width = `${cssW}px`;
     canvas.style.height = `${cssH}px`;
     canvas.width = Math.floor(cssW * dpr);
@@ -183,6 +193,7 @@ export function mountDiagram(host, opts = {}) {
   function pos(e) {
     const r = canvas.getBoundingClientRect();
     const src = e.touches ? e.touches[0] : e;
+    if (!src) return { x: 0, y: 0 };
     const w = r.width || 1;
     const h = r.height || 1;
     return {
@@ -191,15 +202,21 @@ export function mountDiagram(host, opts = {}) {
     };
   }
 
+  function clientXY(e) {
+    const src = e.touches ? e.touches[0] : e;
+    return src ? { x: src.clientX, y: src.clientY } : { x: 0, y: 0 };
+  }
+
   function emit() {
     if (typeof opts.onChange === 'function') opts.onChange(getStrokes());
   }
 
   function setTool(next) {
-    tool = next || 'pen';
+    tool = next || 'mark';
     root.querySelectorAll('[data-diagram-tool]').forEach((btn) => {
       btn.classList.toggle('is-tool-on', btn.getAttribute('data-diagram-tool') === tool);
     });
+    syncTouchAction();
   }
 
   function placeStamp(p) {
@@ -218,36 +235,94 @@ export function mountDiagram(host, opts = {}) {
     emit();
   }
 
-  function start(e) {
-    if (!editable) return;
-    e.preventDefault();
-    const p = pos(e);
-    if (tool === 'mark' && typeof opts.onTap === 'function') {
-      opts.onTap({ x: p.x, y: p.y, view: activeView });
-      return;
-    }
-    if (tool !== 'pen' && TOOL_GLYPH[tool]) {
-      placeStamp(p);
-      return;
-    }
+  function beginStroke(p) {
     drawing = true;
     current = { type: 'stroke', color: '#dc2626', width: 2.4, points: [p] };
     strokes.push(current);
     paint();
   }
 
-  function move(e) {
-    if (!drawing || !current) return;
-    e.preventDefault();
-    current.points.push(pos(e));
-    paint();
+  function start(e) {
+    if (!editable) return;
+    const xy = clientXY(e);
+    const p = pos(e);
+    gesture = {
+      mode: 'undecided',
+      clientX: xy.x,
+      clientY: xy.y,
+      startPos: p,
+      tool,
+    };
+    // No preventDefault aún — deja que el scroll gane si es pan vertical
+    if (tool !== 'pen' && TOOL_GLYPH[tool] && tool !== 'mark') {
+      // stamp tools: wait for end as tap
+      return;
+    }
+    if (tool === 'pen' && !e.touches) {
+      // mouse: draw immediately
+      e.preventDefault?.();
+      gesture.mode = 'draw';
+      beginStroke(p);
+    }
   }
 
-  function end() {
-    if (!drawing) return;
-    drawing = false;
-    current = null;
-    emit();
+  function move(e) {
+    if (!editable || !gesture) return;
+    const xy = clientXY(e);
+    const dx = xy.x - gesture.clientX;
+    const dy = xy.y - gesture.clientY;
+    const dist = Math.hypot(dx, dy);
+
+    if (gesture.mode === 'undecided') {
+      if (dist < DRAW_SLOP) return;
+      // Pan vertical → scroll (no dibujar)
+      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+        gesture.mode = 'scroll';
+        return;
+      }
+      if (gesture.tool === 'pen') {
+        gesture.mode = 'draw';
+        e.preventDefault();
+        beginStroke(gesture.startPos);
+        current.points.push(pos(e));
+        paint();
+        return;
+      }
+      // mark / stamp: movement cancels tap
+      gesture.mode = 'scroll';
+      return;
+    }
+
+    if (gesture.mode === 'draw' && drawing && current) {
+      e.preventDefault();
+      current.points.push(pos(e));
+      paint();
+    }
+  }
+
+  function end(e) {
+    if (!editable) return;
+    const g = gesture;
+    gesture = null;
+    if (!g) return;
+
+    if (g.mode === 'undecided' || g.mode === 'tap') {
+      const p = g.startPos;
+      if (g.tool === 'mark' && typeof opts.onTap === 'function') {
+        opts.onTap({ x: p.x, y: p.y, view: activeView });
+        return;
+      }
+      if (g.tool !== 'pen' && TOOL_GLYPH[g.tool]) {
+        placeStamp(p);
+        return;
+      }
+    }
+
+    if (drawing) {
+      drawing = false;
+      current = null;
+      emit();
+    }
   }
 
   function onClick(e) {
@@ -275,9 +350,10 @@ export function mountDiagram(host, opts = {}) {
     canvas.addEventListener('mousedown', start);
     canvas.addEventListener('mousemove', move);
     window.addEventListener('mouseup', end);
-    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchstart', start, { passive: true });
     canvas.addEventListener('touchmove', move, { passive: false });
     canvas.addEventListener('touchend', end);
+    canvas.addEventListener('touchcancel', end);
     root?.addEventListener('click', onClick);
   }
 
@@ -341,6 +417,7 @@ export function mountDiagram(host, opts = {}) {
       canvas.removeEventListener('touchstart', start);
       canvas.removeEventListener('touchmove', move);
       canvas.removeEventListener('touchend', end);
+      canvas.removeEventListener('touchcancel', end);
       root?.removeEventListener('click', onClick);
     }
     if (ro && stage) ro.disconnect();

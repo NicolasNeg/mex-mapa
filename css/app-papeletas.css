@@ -1616,6 +1616,13 @@ body.dark-theme .pap-zona-chip.is-active {
   aspect-ratio: 416 / 632; /* car-drawable.png */
   background: #ffffff;
   color: #475569;
+  touch-action: pan-y;
+}
+.pap-diagram__canvas {
+  touch-action: pan-y;
+}
+.pap-diagram.is-draw-mode .pap-diagram__stage,
+.pap-diagram.is-draw-mode .pap-diagram__canvas {
   touch-action: none;
 }
 .pap-diagram__tip {
@@ -2312,7 +2319,7 @@ body.pap-camflow-open { overflow: hidden; }
   width: 100%;
   aspect-ratio: 416 / 632; /* car-drawable.png 1664×2530 */
   background: #ffffff;
-  touch-action: none;
+  touch-action: pan-y;
   overflow: hidden;
 }
 .pap-diagram__bg,
@@ -2725,23 +2732,40 @@ body.dark-theme .pap-table tbody tr:hover { background: #1f1f1f; }
 }
 
 /* ── Captura continua (hoja + lápiz) ── */
+#mexShellContent:has(.pap--editor) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.pap.pap--editor {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
 .pap-editor-shell--sheet {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
   max-width: 720px;
+  width: 100%;
   margin: 0 auto;
+  overflow: hidden;
 }
 .pap-capture-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
+  position: relative;
   z-index: 20;
-  background: var(--surface, #fff);
-  border-bottom: 1px solid var(--border, #e2e8f0);
+  background: var(--pap-surface, #fff);
+  border-bottom: 1px solid var(--pap-border, #e2e8f0);
 }
 .pap-capture-header__mid {
   flex: 1;
@@ -2757,31 +2781,35 @@ body.dark-theme .pap-table tbody tr:hover { background: #1f1f1f; }
 .pap-capture-header__mid span {
   font-size: 12px;
   color: var(--pap-muted, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pap-sec-chips {
   display: flex;
   gap: 6px;
   overflow-x: auto;
   padding: 8px 12px;
-  position: sticky;
-  top: 52px;
+  flex-shrink: 0;
+  position: relative;
   z-index: 19;
-  background: var(--surface, #fff);
-  border-bottom: 1px solid var(--border, #e2e8f0);
+  background: var(--pap-surface, #fff);
+  border-bottom: 1px solid var(--pap-border, #e2e8f0);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 .pap-sec-chips::-webkit-scrollbar { display: none; }
 .pap-sec-chip {
   flex: 0 0 auto;
-  border: 1px solid var(--border, #e2e8f0);
-  background: var(--bg, #f8fafc);
-  color: var(--text, #0f172a);
+  border: 1px solid var(--pap-border, #e2e8f0);
+  background: var(--pap-bg, #f8fafc);
+  color: var(--pap-ink, #0f172a);
   border-radius: 9999px;
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 8px 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  min-height: 36px;
 }
 .pap-sec-chip.is-active {
   background: #3b82f6;
@@ -2792,33 +2820,80 @@ body.dark-theme .pap-table tbody tr:hover { background: #1f1f1f; }
   box-shadow: inset 0 0 0 1px #f59e0b;
 }
 .pap-capture-scroll {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding: 12px 12px 96px;
+  overflow-x: hidden;
+  padding: 12px 12px 24px;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 .pap-capture-sec {
-  scroll-margin-top: 120px;
+  scroll-margin-top: 16px;
   margin-bottom: 20px;
 }
 .pap-capture-sec > .pap-panel {
   margin: 0;
 }
 .pap-capture-footer {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
+  position: relative;
   z-index: 20;
   display: flex;
   gap: 8px;
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
-  background: color-mix(in srgb, var(--surface, #fff) 92%, transparent);
-  backdrop-filter: blur(8px);
-  border-top: 1px solid var(--border, #e2e8f0);
+  background: var(--pap-surface, #fff);
+  border-top: 1px solid var(--pap-border, #e2e8f0);
 }
-.pap-capture-footer .pap-btn { flex: 1; }
+.pap-capture-footer .pap-btn { flex: 1; min-height: 48px; }
 .pap-capture-footer .pap-btn--primary { flex: 1.4; }
+
+/* Inbox mobile: cards respiran; buscador usable */
+@media (max-width: 860px) {
+  .pap-page-header {
+    padding: 12px 16px 10px;
+  }
+  .pap-page-title h1 { font-size: 18px; }
+  .pap-page-title p { display: none; }
+  .pap-search {
+    min-height: 44px;
+    border-radius: 12px;
+    padding: 0 12px;
+  }
+  .pap-search input {
+    min-height: 44px;
+    font-size: 16px; /* evita zoom iOS */
+  }
+  .pap-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 24px;
+  }
+  .pap-card {
+    min-height: 72px;
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .pap-hoja__diagram--app {
+    max-height: none;
+  }
+  .pap-diagram__stage {
+    max-height: min(52vh, 420px);
+    overflow: hidden;
+  }
+  .pap-diagram__tip {
+    display: block;
+    width: 100%;
+    font-size: 12px;
+    margin-top: 6px;
+  }
+}
+
 body.dark-theme .pap-capture-header,
-body.dark-theme .pap-sec-chips {
+body.dark-theme .pap-sec-chips,
+body.dark-theme .pap-capture-footer {
   background: var(--surface);
 }
 body.dark-theme .pap-sec-chip {
