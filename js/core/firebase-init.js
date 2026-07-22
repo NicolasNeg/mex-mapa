@@ -125,8 +125,11 @@
 
   function _initAppCheck() {
     if (window.__mexAppCheck) return window.__mexAppCheck;
+    if (window.MEX_APPCHECK_DISABLED === true) {
+      return null;
+    }
     // Login usa reCAPTCHA v2 checkbox como gate UX — no mezclar con App Check v3.
-    if (window.MEX_APPCHECK_DISABLED === true || _isLoginPage()) {
+    if (_isLoginPage()) {
       console.info('[firebase-init] App Check omitido en login (gate = reCAPTCHA v2 checkbox).');
       return null;
     }
