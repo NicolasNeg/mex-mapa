@@ -1514,11 +1514,17 @@
     if (!key) {
       state.cache.clear();
       clearBootstrapWarm();
-      return;
+    } else {
+      state.cache.delete(key);
+      state.cache.delete('GLOBAL');
+      if (key === 'GLOBAL') clearBootstrapWarm();
     }
-    state.cache.delete(key);
-    state.cache.delete('GLOBAL');
-    if (key === 'GLOBAL') clearBootstrapWarm();
+    // Selects de mapa/cuadre dependen de MEX_CONFIG; invalidar su cache en memoria.
+    try {
+      if (typeof root.__mexInvalidateSelectsCache === 'function') {
+        root.__mexInvalidateSelectsCache();
+      }
+    } catch (_) { /* no-op si mapa aún no cargó */ }
   };
 
   root.__mexLoadCurrentUserRecord = async function (user = root._auth?.currentUser || root.auth?.currentUser || null, options = {}) {

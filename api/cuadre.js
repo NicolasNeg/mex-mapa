@@ -113,6 +113,13 @@
       : { tipo: 'DISCREPANCIA', delta };
   }
 
+  function _parseKmInput(raw) {
+    if (raw == null || raw === '') return null;
+    const kmStr = String(raw).replace(/[,\s]/g, '');
+    const kmNum = /^\d+$/.test(kmStr) ? parseInt(kmStr, 10) : NaN;
+    return Number.isFinite(kmNum) && kmNum >= 0 ? kmNum : null;
+  }
+
   function _kmUmbral() {
     const n = parseInt(window.MEX_CONFIG && window.MEX_CONFIG.listas && window.MEX_CONFIG.listas.kmUmbralDiscrepancia, 10);
     return Number.isFinite(n) && n >= 0 ? n : 5;
@@ -259,10 +266,9 @@
     // fuente: INSERT | CUADRE | RETIRO | TRASLADO_SALIDA | TRASLADO_LLEGADA | CORRECCION
     async registrarKm({ mva, km, fuente, usuario, plaza, motivo = '', nota = '', trasladoId = '' }) {
       const mvaStr = String(mva || '').toUpperCase().trim();
-      const kmStr = String(km).replace(/[,\s]/g, '');
-      const kmNum = /^\d+$/.test(kmStr) ? parseInt(kmStr, 10) : NaN;
+      const kmNum = _parseKmInput(km);
       if (!mvaStr) return 'Falta MVA';
-      if (!Number.isFinite(kmNum) || kmNum < 0) return 'Kilometraje inválido';
+      if (kmNum == null) return 'Kilometraje inválido';
       const plazaUp = _normalizePlazaId(plaza);
       const fuenteUp = String(fuente || '').toUpperCase().trim();
 
@@ -305,7 +311,9 @@
         await idxSnap.docs[0].ref.set({ km: kmNum, kmFecha: ahora, kmFuenteUltima: fuenteUltima }, { merge: true });
       }
       // update (no set): si la unidad no está en el cuadre NO crear doc fantasma.
-      db.collection(COL.CUADRE).doc(_mvaToDocId(mvaStr)).update({ km: kmNum }).catch(function () {});
+      try {
+        await db.collection(COL.CUADRE).doc(_mvaToDocId(mvaStr)).update({ km: kmNum });
+      } catch (_) { /* unidad puede no estar en cuadre (p.ej. solo índice) */ }
 
       if (c.tipo === 'DISCREPANCIA') {
         await db.collection('km_discrepancias').add({
@@ -382,6 +390,7 @@
         return `La unidad ${mvaStr} figura activa en ${sucursalIdx}. Retírala de ahí antes de insertarla aquí.`;
       }
 
+      const kmInsert = _parseKmInput(objeto.km);
       const unitData = {
         categoria:    indexData.categoria || objeto.categ || "S/C",
         modelo:       indexData.modelo || objeto.modelo || "S/M",
@@ -405,6 +414,9 @@
         lastTouchedAt: ahora,
         lastTouchedBy: objeto.responsableSesion || "Sistema"
       };
+      // Persistir km en el doc de cuadre en el mismo write (no depender solo de
+      // registrarKm posterior: si falla el historial, el km igual queda en unidad).
+      if (kmInsert != null) unitData.km = kmInsert;
 
       // Transacción: evita carrera get-then-set si dos clientes insertan el mismo MVA.
       const cuadreRef = db.collection(COL.CUADRE).doc(docId);
@@ -431,13 +443,15 @@
       await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp);
       await _registrarLog("IN", `INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
         mva: mvaStr,
-        cambio: 'Unidad insertada'
+        cambio: kmInsert != null ? `Unidad insertada · km ${kmInsert}` : 'Unidad insertada'
       });
       // Completitud del índice global: si la unidad no tiene doc en index_unidades,
       // lo creamos para que sea buscable (con su ubicación actual ya puesta).
       if (indexSnap.empty) {
         const patioInit = _normPatio(objeto.estado || 'SUCIO') || 'SUCIO';
         const flotaInit = _derivarFlotaDesdePatio(patioInit, null) || 'ARRENDABLE';
+        // km lo escribe registrarKm (historial + índice) para que kmAnterior
+        // quede null en la primera captura.
         await db.collection(COL.INDEX).add({
           mva: mvaStr,
           sucursal: plazaUp || '',
@@ -456,15 +470,20 @@
           estadoPatio: objeto.estado || 'SUCIO'
         });
       }
-      // Captura de km al insertar (obligatoria en el form; tolerante aquí para
-      // callers legacy sin km, p.ej. el comando de voz).
-      if (objeto.km != null && String(objeto.km) !== '') {
+      // Historial append-only + sync índice/cuadre. Tolerante si falta km
+      // (callers legacy p.ej. comando de voz).
+      if (kmInsert != null) {
         try {
-          await this.registrarKm({
-            mva: mvaStr, km: objeto.km, fuente: 'INSERT',
+          const kmRes = await this.registrarKm({
+            mva: mvaStr, km: kmInsert, fuente: 'INSERT',
             usuario: objeto.responsableSesion, plaza: plazaUp
           });
-        } catch (_) { /* best-effort: la unidad ya quedó insertada */ }
+          if (kmRes !== 'EXITO' && kmRes !== 'DISCREPANCIA') {
+            console.warn('[insertarUnidad] registrarKm:', kmRes);
+          }
+        } catch (err) {
+          console.warn('[insertarUnidad] registrarKm falló; km ya está en cuadre:', err?.message || err);
+        }
       }
       return `EXITO|${indexData.modelo || objeto.modelo}|${indexData.placas || objeto.placas}`;
     },

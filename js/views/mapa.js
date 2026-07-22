@@ -268,33 +268,60 @@ function _syncMapaBusinessMode() {
 
 // _darken → /mapa/features/core/utils.js (Fase 4)
 
-async function inicializarConfiguracion() {
-  try {
-    const plaza = _miPlaza();
-    const config = typeof window.__mexEnsureConfigLoaded === 'function'
-      ? await window.__mexEnsureConfigLoaded(plaza)
-      : await api.obtenerConfiguracion(plaza);
+let _configAppliedPlaza = null;
+let _configInitInFlight = null;
 
-    if (config && config.listas) {
-      // Auto-seed estados si Firestore no los tiene
-      if (!config.listas.estados || config.listas.estados.length === 0) {
-        config.listas.estados = ESTADOS_DEFAULT;
-        api.guardarConfiguracionListas(config.listas, 'Sistema', _miPlaza()).catch(e => console.warn("No se pudo guardar estados por defecto:", e));
-      }
-      window.MEX_CONFIG = config;
-      _ensureSecurityConfig();
-      console.log("✅ Configuración Global Cargada:", window.MEX_CONFIG);
-      aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
-      _aplicarColoresEstados();
-      _syncMapaBusinessMode();
-      if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
-      if (typeof _renderPlazaSwitcher === 'function') _renderPlazaSwitcher();
-      _syncEmpresaCorreosInternosState();
-      _updateGlobalPlazaEmail();
-    }
-  } catch (error) {
-    console.error("❌ Error descargando la configuración:", error);
+async function inicializarConfiguracion(opts = {}) {
+  const force = !!(opts && opts.force);
+  const plaza = String(_miPlaza() || '').toUpperCase();
+
+  // Cache en memoria: no re-fetch / no re-log si la plaza ya aplicó config.
+  if (!force && _configAppliedPlaza === plaza && window.MEX_CONFIG?.listas) {
+    if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
+    return window.MEX_CONFIG;
   }
+  if (!force && _configInitInFlight) return _configInitInFlight;
+
+  const run = (async () => {
+    try {
+      const config = typeof window.__mexEnsureConfigLoaded === 'function'
+        ? await window.__mexEnsureConfigLoaded(plaza)
+        : await api.obtenerConfiguracion(plaza);
+
+      if (config && config.listas) {
+        // Auto-seed estados si Firestore no los tiene
+        if (!config.listas.estados || config.listas.estados.length === 0) {
+          config.listas.estados = ESTADOS_DEFAULT;
+          api.guardarConfiguracionListas(config.listas, 'Sistema', _miPlaza()).catch(e => console.warn("No se pudo guardar estados por defecto:", e));
+        }
+        window.MEX_CONFIG = config;
+        _ensureSecurityConfig();
+        const firstLoad = _configAppliedPlaza == null;
+        _configAppliedPlaza = plaza;
+        if (force || firstLoad) {
+          console.log("✅ Configuración Global Cargada:", window.MEX_CONFIG);
+        }
+        aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
+        _aplicarColoresEstados();
+        _syncMapaBusinessMode();
+        if (typeof llenarSelectsDinamicos === 'function') {
+          llenarSelectsDinamicos(force || firstLoad);
+        }
+        if (typeof _renderPlazaSwitcher === 'function') _renderPlazaSwitcher();
+        _syncEmpresaCorreosInternosState();
+        _updateGlobalPlazaEmail();
+      }
+      return window.MEX_CONFIG;
+    } catch (error) {
+      console.error("❌ Error descargando la configuración:", error);
+      return null;
+    } finally {
+      _configInitInFlight = null;
+    }
+  })();
+
+  _configInitInFlight = run;
+  return run;
 }
 
 // 3. Le decimos a la app que descargue esto en cuanto cargue la página
@@ -3957,7 +3984,10 @@ function cambiarPlazaMapa(plaza) {
   }).catch(() => {});
   _subPlaza = null; // forzar reinicio aunque la plaza sea la misma string
   _renderPlazaSwitcher();
-  inicializarConfiguracion();
+  // Plaza distinta → invalidar selects (ubicaciones filtradas) y reaplicar config.
+  _configAppliedPlaza = null;
+  _invalidateSelectsDinamicosCache();
+  inicializarConfiguracion({ force: true });
   cargarMaestra().catch(() => {});
   startAutoRefresh();
   iniciarRadarNotificaciones();
@@ -6500,7 +6530,7 @@ function abrirModalFlota(initialTab) {
 function _openFleetModalInPlace(initialTab = 'NORMAL') {
   document.getElementById('fleet-modal').classList.add('active');
   toggleAdminSidebar(false);
-  // Repoblar selects cada vez que se abre — garantiza que estén al día
+  // Selects: no-op si cache caliente (misma plaza/config); rebuild solo si hace falta.
   if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
   cargarFlota();
 
@@ -12725,12 +12755,16 @@ function actualizarTablaLocal(mva, tipoAccion, datosNuevos = null) {
     DB_FLOTA = DB_FLOTA.filter(u => u.mva !== mva);
   }
   else if (tipoAccion === 'INSERTAR' && datosNuevos) {
+    const kmLocal = (typeof datosNuevos.km === 'number' && Number.isFinite(datosNuevos.km))
+      ? datosNuevos.km
+      : parseKm(datosNuevos.km);
     const nuevaUnidad = {
       mva: datosNuevos.mva, categoria: datosNuevos.categ, modelo: datosNuevos.modelo,
       placas: datosNuevos.placas, gasolina: datosNuevos.gasolina, estado: datosNuevos.estado,
       ubicacion: datosNuevos.ubicacion, notas: datosNuevos.notas,
       notaAutor: datosNuevos.notaAutor || '',
       notaFecha: datosNuevos.notaFecha || '',
+      ...(kmLocal != null ? { km: kmLocal } : {}),
       etiqueta: `${datosNuevos.categ} ${datosNuevos.modelo} ${datosNuevos.placas} ${datosNuevos.mva} ${datosNuevos.estado} ${datosNuevos.ubicacion}`.toUpperCase()
     };
     DB_FLOTA.unshift(nuevaUnidad); // Pone la nueva unidad hasta arriba
@@ -12744,6 +12778,12 @@ function actualizarTablaLocal(mva, tipoAccion, datosNuevos = null) {
       DB_FLOTA[index].notas = datosNuevos.notas;
       if (datosNuevos.notaAutor != null) DB_FLOTA[index].notaAutor = datosNuevos.notaAutor;
       if (datosNuevos.notaFecha != null) DB_FLOTA[index].notaFecha = datosNuevos.notaFecha;
+      if (datosNuevos.km != null && String(datosNuevos.km) !== '') {
+        const kmLocal = (typeof datosNuevos.km === 'number' && Number.isFinite(datosNuevos.km))
+          ? datosNuevos.km
+          : parseKm(datosNuevos.km);
+        if (kmLocal != null) DB_FLOTA[index].km = kmLocal;
+      }
       DB_FLOTA[index].etiqueta = `${DB_FLOTA[index].categoria} ${DB_FLOTA[index].modelo} ${DB_FLOTA[index].placas} ${mva} ${datosNuevos.estado} ${datosNuevos.ubicacion}`.toUpperCase();
     }
   }
@@ -13112,7 +13152,8 @@ function validarBotonGuardar() {
 
   if (MODO_FLOTA === "INSERTAR") {
     // 🚨 CORRECCIÓN: Ya no obligamos a que Gasolina sea diferente de "N/A"
-    if (mva !== "" && est !== "" && ubi !== "") {
+    const kmIns = parseKm(document.getElementById('f_km')?.value);
+    if (mva !== "" && est !== "" && ubi !== "" && kmIns != null) {
       habilitar = true;
     }
   }
@@ -13164,6 +13205,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const fNot = document.getElementById('f_not');
   if (fNot) fNot.addEventListener('input', validarBotonGuardar); // Se activa al teclear
+
+  const fKmVal = document.getElementById('f_km');
+  if (fKmVal) fKmVal.addEventListener('input', validarBotonGuardar);
 
   const fDelNote = document.getElementById('f_del_note');
   if (fDelNote) fDelNote.addEventListener('change', validarBotonGuardar);
@@ -22115,7 +22159,11 @@ async function _reloadConfigAfterAdminPersist() {
     if (typeof window.__mexInvalidateConfigCache === 'function') {
       window.__mexInvalidateConfigCache();
     }
-    await inicializarConfiguracion();
+    _configAppliedPlaza = null;
+    if (typeof _invalidateSelectsDinamicosCache === 'function') {
+      _invalidateSelectsDinamicosCache();
+    }
+    await inicializarConfiguracion({ force: true });
     _syncEmpresaCorreosInternosState();
     _updateGlobalPlazaEmail();
     _refreshSecurityRoleCatalog();
@@ -24085,7 +24133,41 @@ function verInfoRechazo(docId) {
 
 // ─── Inyecta MEX_CONFIG en todos los <select> de la app ──────────────────────
 const _ESTADO_SELECT_IDS = ['f_est', 'a_ins_est', 'a_mod_est', 'batch-estado-select'];
+const _SELECTS_CACHE_SS_KEY = 'mex.selects.fp.v1';
 let _estadoSelectListenersBound = false;
+let _selectsCacheKey = null;
+
+function _selectsConfigFingerprint() {
+  const listas = window.MEX_CONFIG?.listas || {};
+  const plaza = String((_miPlaza && _miPlaza()) || window.__mexCurrentPlazaId || '').toUpperCase();
+  return JSON.stringify({
+    plaza,
+    estados: listas.estados || [],
+    ubicaciones: listas.ubicaciones || [],
+    gasolinas: listas.gasolinas || [],
+    categorias: listas.categorias || [],
+    modelos: (listas.modelos || []).map(m => (typeof m === 'string' ? m : m?.nombre) || '')
+  });
+}
+
+function _selectsDomWarm() {
+  // Si los selects clave ya tienen opciones reales, el cache de DOM está caliente.
+  const probes = ['f_est', 'f_ubi', 'f_gas', 'filter-est'];
+  let seen = 0;
+  for (const id of probes) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    seen += 1;
+    if (el.options.length <= 1) return false;
+  }
+  return seen > 0;
+}
+
+function _invalidateSelectsDinamicosCache() {
+  _selectsCacheKey = null;
+  try { sessionStorage.removeItem(_SELECTS_CACHE_SS_KEY); } catch (_) {}
+}
+window.__mexInvalidateSelectsCache = _invalidateSelectsDinamicosCache;
 
 function _estadoColorMap() {
   const estados = window.MEX_CONFIG?.listas?.estados || [];
@@ -24151,8 +24233,25 @@ function _pintarTodosSelectsEstado() {
   _ESTADO_SELECT_IDS.forEach(id => _pintarSelectEstado(document.getElementById(id)));
 }
 
-function llenarSelectsDinamicos() {
+function llenarSelectsDinamicos(force = false) {
   if (!window.MEX_CONFIG || !window.MEX_CONFIG.listas) return;
+  const fp = _selectsConfigFingerprint();
+  let ssFp = null;
+  try { ssFp = sessionStorage.getItem(_SELECTS_CACHE_SS_KEY); } catch (_) {}
+
+  // Cache caliente: misma plaza/config + selects ya poblados → no rebuild ni log.
+  if (!force && _selectsCacheKey === fp && _selectsDomWarm()) {
+    _bindEstadoSelectListeners();
+    _pintarTodosSelectsEstado();
+    return;
+  }
+  if (!force && !_selectsCacheKey && ssFp === fp && _selectsDomWarm()) {
+    _selectsCacheKey = fp;
+    _bindEstadoSelectListeners();
+    _pintarTodosSelectsEstado();
+    return;
+  }
+
   const { ubicaciones = [], estados = [], categorias = [], gasolinas = [] } = window.MEX_CONFIG.listas;
 
   function _setOptions(selectId, options) {
@@ -24356,7 +24455,12 @@ function llenarSelectsDinamicos() {
   _bindEstadoSelectListeners();
   _pintarTodosSelectsEstado();
 
-  console.log('✅ Selects actualizados desde MEX_CONFIG');
+  _selectsCacheKey = fp;
+  try { sessionStorage.setItem(_SELECTS_CACHE_SS_KEY, fp); } catch (_) {}
+  // Log solo con flag de debug — abrir cuadre/inspector ya no spamea la consola.
+  if (window.__MEX_DEBUG_SELECTS) {
+    console.log('✅ Selects actualizados desde MEX_CONFIG');
+  }
 }
 
 function configurarPermisosUI() {
