@@ -2153,6 +2153,14 @@ function _isDedicatedCuadreIframeMode() {
   return _qs('fleet') === '1';
 }
 
+/** Página dedicada cuadre.html (standalone o iframe /app/cuadre) — no mapa embebido. */
+function _isCuadreFleetPage() {
+  return !!(
+    document.getElementById('cuadreApp')
+    || /^\/cuadre(?:\.html)?$/i.test(String(window.location.pathname || ''))
+  );
+}
+
 function _isDedicatedMessagesIframeMode() {
   return _qs('messages') === '1';
 }
@@ -6836,8 +6844,15 @@ function renderFlota(data) {
     const tdNotas = `<td class="td-notas"><span class="td-notas-text" title="${notaTitle}">${escapeHtml(notaDisplay)}</span></td>`;
 
     const isMobileOrAdmin = (typeof userRole !== 'undefined' && userRole === 'admin');
-    const isMobileVisual = window.innerWidth <= 950;
-    const formBotones = (isMobileOrAdmin && isMobileVisual && VISTA_ACTUAL_FLOTA === 'NORMAL')
+    // En /cuadre nunca botones fila (click en fila → gestor). Umbral 768 real, no 950:
+    // el iframe del App Shell suele ser <950px en PC y activaba layout “móvil” falso.
+    const isMobileVisual = window.matchMedia('(max-width: 768px)').matches;
+    const formBotones = (
+      !_isCuadreFleetPage()
+      && isMobileOrAdmin
+      && isMobileVisual
+      && VISTA_ACTUAL_FLOTA === 'NORMAL'
+    )
       ? '<div style="display:flex; gap:10px; margin-top:10px; width:100%; border-top:1px dashed #e2e8f0; padding-top:10px;" class="card-quick-actions">' +
       '<button onclick="event.stopPropagation(); seleccionarFilaFlota(' + i + ', this.closest(\'tr\')); setTimeout(()=>window.scrollTo(0, document.body.scrollHeight), 50);" style="background:#f1f5f9; color:var(--mex-blue); border:none; padding:8px 15px; border-radius:8px; display:flex; align-items:center; gap:5px; font-weight:800; cursor:pointer; flex:1; justify-content:center;">' +
       '<span class="material-icons" style="font-size:16px;">edit</span> EDITAR' +

@@ -787,6 +787,49 @@
       #fleet-modal .card-quick-actions { display: none !important; }
     }
 
+    /* Cuadre dedicado: tabla formal en PC, tablet y móvil (no tarjetas alertas.css). */
+    #cuadreApp #fleet-modal .card-quick-actions { display: none !important; }
+    #cuadreApp #fleet-modal .col-table table,
+    #cuadreApp #fleet-modal .table-container table {
+      display: table !important;
+      width: max-content !important;
+      min-width: 100% !important;
+      border-collapse: collapse !important;
+    }
+    #cuadreApp #fleet-modal .col-table thead,
+    #cuadreApp #fleet-modal .table-container thead { display: table-header-group !important; }
+    #cuadreApp #fleet-modal .col-table tbody,
+    #cuadreApp #fleet-modal .table-container tbody { display: table-row-group !important; }
+    #cuadreApp #fleet-modal .col-table tr,
+    #cuadreApp #fleet-modal .table-container tr {
+      display: table-row !important;
+      background: transparent !important;
+      border: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      grid-template-columns: unset !important;
+      grid-template-rows: unset !important;
+      gap: 0 !important;
+      transform: none !important;
+    }
+    #cuadreApp #fleet-modal .col-table th,
+    #cuadreApp #fleet-modal .col-table td,
+    #cuadreApp #fleet-modal .table-container th,
+    #cuadreApp #fleet-modal .table-container td {
+      display: table-cell !important;
+      white-space: nowrap !important;
+      vertical-align: middle !important;
+      width: auto !important;
+    }
+    #cuadreApp #fleet-modal .col-table td::before,
+    #cuadreApp #fleet-modal .table-container td::before {
+      display: none !important;
+      content: none !important;
+    }
+    #cuadreApp #fleet-modal .td-mva > div:first-child { display: inline !important; }
+
   </style>
 </head>
 <body>
