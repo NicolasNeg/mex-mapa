@@ -75,5 +75,5 @@ Referencia: Traslados (`js/app/views/traslados.js`), Unidades (`js/app/views/uni
 
 - Legacy HTML standalone.
 - Expedientes pesados en otra ruta (ej. `/app/cuadre/u/{mva}`) si el dominio ya lo exige.
-- **Módulos de captura en patio (Papeletas y similares):** no usan tabla densa como superficie primaria. Imitan hoja + lápiz: **una sola vista de llenado** + sheets/overlays, autocomplete y diagrama táctil. Spec: `docs/superpowers/specs/2026-07-22-papeletas-app-hoja-lapiz-design.md`.
+- **Módulos de captura en patio (Papeletas y similares):** no usan tabla densa como superficie primaria. Imitan hoja + lápiz / pantallas de captura. Spec v3 híbrido: `docs/superpowers/specs/2026-07-22-papeletas-v3-hibrido-design.md` (plan: `docs/superpowers/plans/2026-07-22-papeletas-v3-hibrido.md`).
 - **Papeletas = alcance empresa-global (no por plaza):** se puede crear en una plaza y completar/entregar en otra. Inbox y búsqueda no particionan por `plazaId`; la plaza es sello de auditoría. Salida editable solo antes de `entregada`; cliente/contrato asignables después.
