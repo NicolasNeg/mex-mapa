@@ -1290,6 +1290,8 @@ function _renderDetailPanel() {
   const descripcion = _renderRichText(item.descripcion || 'Sin descripción.', item.descripcionHtml);
   const resolved = status === 'RESUELTA' || status === 'CERRADA';
   const chipLabel = String(item.chipLabel || '').trim() || (isAdjunto ? 'ADJUNTO' : '');
+  const asignadoA = item.asignadoA && (item.asignadoA.nombre || item.asignadoA.email)
+    ? item.asignadoA : null;
 
   // Seguidores (real desde Firestore)
   const author = String(item.autor || item.creadoPor || 'Sistema').trim();
