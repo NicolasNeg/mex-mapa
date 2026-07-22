@@ -86,6 +86,7 @@ const api = window.api;
 const mexConfirm = (...a) => (window.mexConfirm || (() => Promise.resolve(true)))(...a);
 const mexDialog  = (...a) => (window.mexDialog  || (() => Promise.resolve(null)))(...a);
 const mexPrompt  = (...a) => (window.mexPrompt  || (() => Promise.resolve(null)))(...a);
+const mexAlert   = (...a) => (window.mexAlert   || ((titulo, texto) => { showToast(texto || titulo, 'error'); return Promise.resolve(true); }))(...a);
 
 const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
@@ -409,6 +410,37 @@ function confirmarCierreSesion() {
 
 let _retiroPendiente = null;
 
+/** Lee km guardado (número) desde raw; no inventa 0 si falta. */
+function _parseKmGuardado(raw) {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0) return raw;
+  if (raw != null && String(raw).trim() !== '') return parseKm(String(raw));
+  return null;
+}
+
+/** Km actual persistido de la unidad (índice / maestra / objeto). null si no hay. */
+function _resolveKmGuardadoUnidad(unitOrMva) {
+  const mva = String(
+    (typeof unitOrMva === 'string' ? unitOrMva : (unitOrMva?.mva || ''))
+  ).toUpperCase().trim();
+  const candidates = [];
+  if (unitOrMva && typeof unitOrMva === 'object') candidates.push(unitOrMva.km);
+  try {
+    if (mva && typeof window.__mexLookupIndexUnit === 'function') {
+      const idx = window.__mexLookupIndexUnit(mva);
+      if (idx) candidates.push(idx.km);
+    }
+  } catch (_) {}
+  if (mva && typeof DB_MAESTRA !== 'undefined' && Array.isArray(DB_MAESTRA)) {
+    const maestra = DB_MAESTRA.find(x => String(x?.mva || '').toUpperCase() === mva);
+    if (maestra) candidates.push(maestra.km);
+  }
+  for (const raw of candidates) {
+    const n = _parseKmGuardado(raw);
+    if (n != null) return n;
+  }
+  return null;
+}
+
 // Mini-diálogo propio para capturar km + motivo al retirar. No usa
 // mostrarCustomModal porque necesita dos inputs.
 function _pedirKmRetiro(mva, kmPrev) {
@@ -423,6 +455,7 @@ function _pedirKmRetiro(mva, kmPrev) {
         <p style="margin:0 0 16px;font-size:12px;color:#64748b;">Captura el km del tablero para cerrar su registro.${kmPrev != null ? ` Último: <b>${kmPrev.toLocaleString('es-MX')}</b>` : ''}</p>
         <label style="font-size:11px;font-weight:800;color:#334155;">KILOMETRAJE</label>
         <input id="retKm" type="text" inputmode="numeric" autocomplete="off" placeholder="Ej: 45210"
+          value="${kmPrev != null ? String(kmPrev) : ''}"
           style="width:100%;padding:10px 12px;margin:4px 0 12px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-weight:700;">
         <label style="font-size:11px;font-weight:800;color:#334155;">MOTIVO DE SALIDA</label>
         <select id="retMotivo" style="width:100%;padding:10px 12px;margin:4px 0 20px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-weight:700;">
@@ -437,11 +470,22 @@ function _pedirKmRetiro(mva, kmPrev) {
     document.body.appendChild(overlay);
     const kmInput = overlay.querySelector('#retKm');
     kmInput.focus();
+    if (kmPrev != null) kmInput.select();
     overlay.querySelector('#retCancel').onclick = () => { overlay.remove(); resolve(null); };
     overlay.querySelector('#retOk').onclick = () => {
       const km = parseKm(kmInput.value);
-      if (km == null) { showToast('Kilometraje inválido', 'error'); return; }
-      if (kmPrev != null && km < kmPrev) { showToast(`El km no puede ser menor al último registrado (${kmPrev})`, 'error'); return; }
+      if (km == null) {
+        mexAlert('Kilometraje inválido', 'Captura un kilometraje válido del tablero.', 'error');
+        return;
+      }
+      if (kmPrev != null && km < kmPrev) {
+        mexAlert(
+          'Kilometraje inválido',
+          `El km no puede ser menor al último registrado (${kmPrev.toLocaleString('es-MX')}).`,
+          'error'
+        );
+        return;
+      }
       const motivo = overlay.querySelector('#retMotivo').value;
       overlay.remove();
       resolve({ km, motivo });
@@ -461,8 +505,9 @@ function confirmarBorradoFlotaUI() {
     );
     return;
   }
-  const u = (typeof DB_FLOTA !== 'undefined' && DB_FLOTA.find(x => x.mva === SELECT_REF_FLOTA.mva)) || {};
-  _pedirKmRetiro(SELECT_REF_FLOTA.mva, (typeof u.km === 'number') ? u.km : null).then(datos => {
+  const u = (typeof DB_FLOTA !== 'undefined' && DB_FLOTA.find(x => x.mva === SELECT_REF_FLOTA.mva)) || SELECT_REF_FLOTA || {};
+  const kmGuardado = _resolveKmGuardadoUnidad(u) ?? _resolveKmGuardadoUnidad(SELECT_REF_FLOTA);
+  _pedirKmRetiro(SELECT_REF_FLOTA.mva, kmGuardado).then(datos => {
     if (!datos) return; // canceló
     _retiroPendiente = datos;
     ejecutarBorradoReal();
@@ -6928,6 +6973,17 @@ function aplicarAutofill(u) {
   document.getElementById('f_mod').value = u.modelo || '';
   document.getElementById('f_pla').value = u.placas || '';
 
+  const fKm = document.getElementById('f_km');
+  if (fKm) {
+    const kmGuardado = _resolveKmGuardadoUnidad(u);
+    fKm.value = kmGuardado != null ? String(kmGuardado) : '';
+    fKm.dataset.kmOriginal = kmGuardado != null ? String(kmGuardado) : '';
+    fKm.disabled = false;
+    fKm.title = kmGuardado != null
+      ? `Km guardado: ${kmGuardado.toLocaleString('es-MX')} (editable; no menor al guardado)`
+      : 'Km actual del tablero';
+  }
+
   document.getElementById('autofill-results').style.display = 'none';
   document.getElementById('autofill-input').value = u.mva + " - " + u.modelo;
   document.getElementById('autofill-input').disabled = true;
@@ -6948,9 +7004,15 @@ function resetAutofill() {
   document.getElementById('autofill-input').focus();
 
   // Limpiamos todos los campos de texto
-  ['f_mva', 'f_cat', 'f_mod', 'f_pla', 'f_not', 'f_est', 'f_ubi'].forEach(id => {
+  ['f_mva', 'f_cat', 'f_mod', 'f_pla', 'f_not', 'f_est', 'f_ubi', 'f_km'].forEach(id => {
     if (document.getElementById(id)) document.getElementById(id).value = "";
   });
+  const fKmReset = document.getElementById('f_km');
+  if (fKmReset) {
+    fKmReset.dataset.kmOriginal = '';
+    fKmReset.disabled = false;
+    fKmReset.title = 'Km actual del tablero';
+  }
 
   // 🚨 CORRECCIÓN: La gasolina debe regresar a "N/A", no a vacío
   if (document.getElementById('f_gas')) document.getElementById('f_gas').value = "N/A";
@@ -7055,6 +7117,22 @@ async function ejecutarGuardadoFlota() {
     if (kmField) { kmField.classList.add('input-error'); setTimeout(() => kmField.classList.remove('input-error'), 400); }
     showToast("Captura el kilometraje de la unidad", "error");
     isValid = false;
+  }
+  if (MODO_FLOTA === "INSERTAR" && kmVal != null) {
+    const kmPiso = (
+      (kmField && kmField.dataset.kmOriginal !== '')
+        ? parseKm(kmField.dataset.kmOriginal)
+        : null
+    ) ?? _resolveKmGuardadoUnidad(mvaField.value);
+    if (kmPiso != null && kmVal < kmPiso) {
+      if (kmField) { kmField.classList.add('input-error'); setTimeout(() => kmField.classList.remove('input-error'), 400); }
+      await mexAlert(
+        'Kilometraje inválido',
+        `El km no puede ser menor al último registrado (${kmPiso.toLocaleString('es-MX')}). Captura el km actual del tablero o uno mayor.`,
+        'error'
+      );
+      return;
+    }
   }
   if (!isValid) return;
 
@@ -14905,13 +14983,14 @@ function _chatUserName(value = '') {
 }
 
 function _refreshChatIdentityModel() {
-  _chatIdentityDirectory = buildChatIdentityDirectory(dbUsuariosLogin);
-  _chatMe = buildChatMyIdentity({
+  const currentIdentityProfile = {
     ...(currentUserProfile || {}),
-    authUid: currentUserProfile?.authUid || currentUserProfile?.uid || auth.currentUser?.uid || '',
-    email: currentUserProfile?.email || auth.currentUser?.email || '',
+    authUid: currentUserProfile?.authUid || currentUserProfile?.uid || auth?.currentUser?.uid || '',
+    email: currentUserProfile?.email || auth?.currentUser?.email || '',
     nombre: currentUserProfile?.nombre || currentUserProfile?.nombreCompleto || USER_NAME
-  });
+  };
+  _chatIdentityDirectory = buildChatIdentityDirectory([...dbUsuariosLogin, currentIdentityProfile]);
+  _chatMe = buildChatMyIdentity(currentIdentityProfile);
   const queryIdentities = new Set(_chatMe.queryIdentities || []);
   const aliases = new Set(_chatMe.aliases || []);
   dbUsuariosLogin.forEach(user => {
@@ -14989,9 +15068,9 @@ function _chatContactByName(name = '') {
   if (!normalized) return null;
   return dbUsuariosLogin.find(user => {
     const identity = _chatIdentityForUser(user);
+    if (identity.key === String(name || '').trim()) return true;
     return [
       identity.label,
-      identity.key,
       user.nombre,
       user.nombreCompleto,
       user.usuario,
@@ -15270,7 +15349,9 @@ function _renderChatContactInfo(user = {}) {
   const liveStatus = _userPresenceIsOnline(user) ? 'ONLINE' : 'OFFLINE';
   const lastSeen = _chatPresenceLabel(user);
   const safeEmail = String(user.email || '').trim().toLowerCase();
-  const chatKey = activeChatPeerKey || _chatIdentityForUser(user).key;
+  const chatKey = Object.keys(user || {}).length
+    ? _chatIdentityForUser(user).key
+    : (activeChatPeerKey || _chatPeerKey(fallbackName));
 
   container.innerHTML = `
     <div class="chat-user-info-hero">
@@ -15342,7 +15423,7 @@ function abrirInfoContactoActivo() {
     showToast('Abre una conversación para ver más información.', 'warning');
     return;
   }
-  abrirInfoContacto(activeChatUser);
+  abrirInfoContacto(activeChatPeerKey || activeChatUser);
 }
 
 function cerrarInfoContacto() {
@@ -16635,7 +16716,7 @@ async function enviarMensajeChat() {
     showToast('No se pudo verificar la identidad del contacto.', 'error');
     return;
   }
-  _restoreChatConversation(activeChatUser, { silent: true });
+  _restoreChatConversation(activeChatPeerKey, { silent: true });
 
   input.value = "";
   input.style.height = "auto";

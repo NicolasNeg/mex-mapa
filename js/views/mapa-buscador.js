@@ -251,10 +251,16 @@
       patio = String(patio || '').trim().toUpperCase();
       flota = String(flota || '').trim().toUpperCase();
     }
+    var kmNum = (typeof u.km === 'number' && isFinite(u.km)) ? u.km : null;
+    if (kmNum == null && u.km != null && String(u.km).trim() !== '') {
+      var kmDigits = String(u.km).replace(/[,\s]/g, '');
+      if (/^\d+$/.test(kmDigits)) kmNum = parseInt(kmDigits, 10);
+    }
     return {
       mva: u.mva, placas: u.placas, modelo: u.modelo, categoria: u.categoria || u.clase,
       vin: u.vin, anio: u.anio || u['año'] || u.anio,
       sucursal: u.sucursal, plazaActual: u.plazaActual, pos: u.pos, ubicacion: u.ubicacion,
+      km: kmNum,
       estado: patio || rawEstado,
       estadoFlota: flota || '',
       estadoPatio: patio || '',
