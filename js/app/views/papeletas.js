@@ -611,11 +611,22 @@ function _mountDiagramIfNeeded(p, editable) {
     danosMarcados: danos,
     editable: !!editable,
     view: 'top',
+    fullscreen: _isMobileCapture(),
     onChange: (next) => {
       _localStrokes = next;
       if (_detail) _detail.diagramaStrokes = next;
     },
     onTap: editable ? (payload) => { void _addDamageFromTap(payload); } : undefined,
+    zonePreview: (zonaId) => {
+      const label = ZONA_CORE_LABELS[zonaId] || zonaId;
+      const path = String(_detail?.zonas?.[zonaId]?.fotoPath || '').trim();
+      const url = path && !path.startsWith('pending:') ? (_fotoCache.get(path) || '') : '';
+      if (path && !url) {
+        getDownloadUrl(path).then((u) => { _fotoCache.set(path, u); }).catch(() => {});
+      }
+      return { label, url };
+    },
+    onZoneHover: () => { /* preview DOM handled inside diagram */ },
   });
   host.dataset.diagramAlive = '1';
 }
@@ -1659,10 +1670,10 @@ function _panelChecklistStep(p, editable) {
 
 function _panelDanos(p, editable) {
   return `
-    <div class="pap-panel pap-panel--app">
-      <h2>Marcar daños</h2>
-      <p class="pap-hint">Toca el diagrama para marcar daños (o usa el lápiz para trazo libre).</p>
-      <div class="pap-hoja__diagram pap-hoja__diagram--app" data-diagram-host></div>
+    <div class="pap-panel pap-panel--app pap-panel--diagram">
+      <h2>Diagrama</h2>
+      <p class="pap-hint">Pantalla completa · pan/zoom · lápiz solo al activarlo. En desktop, hover muestra foto de zona.</p>
+      <div class="pap-hoja__diagram pap-hoja__diagram--app pap-hoja__diagram--fs" data-diagram-host></div>
       ${editable ? `
         <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="save-danos" ${_busy ? 'disabled' : ''}>Guardar diagrama</button>
       ` : ''}

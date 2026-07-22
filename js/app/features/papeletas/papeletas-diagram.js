@@ -74,22 +74,44 @@ export function mountDiagram(host, opts = {}) {
   const editable = opts.editable !== false;
   let strokes = Array.isArray(opts.strokes) ? opts.strokes.map(_cloneStroke) : [];
   let danos = Array.isArray(opts.danosMarcados) ? opts.danosMarcados.map((d) => ({ ...d })) : [];
-  let tool = typeof opts.onTap === 'function' ? 'mark' : 'pen';
+  // Default: pan/zoom. Pen only draws when tool=pen. Mark for typed damages.
+  let tool = editable
+    ? (typeof opts.onTap === 'function' ? 'mark' : 'pan')
+    : 'pan';
+  if (opts.mode === 'pen' || opts.mode === 'mark' || opts.mode === 'pan') tool = opts.mode;
   let drawing = false;
   let current = null;
   let gesture = null; // { mode, clientX, clientY, startPos }
-  const DRAW_SLOP = 10; // px before deciding draw vs scroll
+  let scale = 1;
+  let panX = 0;
+  let panY = 0;
+  let fullscreen = !!opts.fullscreen;
+  const DRAW_SLOP = 10;
   const activeView = String(opts.view || 'top');
   const title = String(opts.title || (editable ? 'Marcar daños' : 'Diagrama · salida'));
   const showLegend = opts.showLegend !== false;
   const showMarksList = opts.showMarksList !== false;
 
+  /** Approximate hover regions (normalized) for desktop zone→foto preview */
+  const ZONE_HITS = Object.freeze([
+    { id: 'frente_defensa', x0: 0.28, y0: 0.02, x1: 0.72, y1: 0.16 },
+    { id: 'parabrisas', x0: 0.30, y0: 0.16, x1: 0.70, y1: 0.28 },
+    { id: 'lateral_izq', x0: 0.02, y0: 0.30, x1: 0.28, y1: 0.62 },
+    { id: 'lateral_der', x0: 0.72, y0: 0.30, x1: 0.98, y1: 0.62 },
+    { id: 'trasera_cajuela', x0: 0.28, y0: 0.78, x1: 0.72, y1: 0.98 },
+    { id: 'interior', x0: 0.32, y0: 0.32, x1: 0.68, y1: 0.58 },
+    { id: 'herramienta', x0: 0.35, y0: 0.60, x1: 0.65, y1: 0.75 },
+  ]);
+
   host.innerHTML = `
-    <div class="pap-diagram ${editable ? '' : 'pap-diagram--ro'}" data-diagram-root>
+    <div class="pap-diagram ${editable ? '' : 'pap-diagram--ro'} ${fullscreen ? 'pap-diagram--fs' : ''}" data-diagram-root>
       <div class="pap-diagram__toolbar">
         <span class="pap-diagram__title">${_escAttr(title)}</span>
         <div class="pap-diagram__actions">
           ${editable ? `
+            <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny ${tool === 'pan' ? 'is-tool-on' : ''}" data-diagram-tool="pan" title="Mover / zoom">
+              <span class="material-symbols-outlined">pan_tool</span>
+            </button>
             <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny ${tool === 'mark' ? 'is-tool-on' : ''}" data-diagram-tool="mark" title="Marcar daño">
               <span class="material-symbols-outlined">add_location</span>
             </button>
@@ -103,12 +125,21 @@ export function mountDiagram(host, opts = {}) {
               <span class="material-symbols-outlined">ink_eraser</span>
             </button>
           ` : ((strokes.length || danos.length) ? '' : '<span class="pap-muted">Sin marcas</span>')}
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny" data-diagram-act="fs" title="Pantalla completa">
+            <span class="material-symbols-outlined">${fullscreen ? 'fullscreen_exit' : 'fullscreen'}</span>
+          </button>
         </div>
       </div>
-      <div class="pap-diagram__stage">
-        <img class="pap-diagram__bg" src="${DIAGRAM_IMAGE_URL}" alt="Silueta del vehículo" draggable="false"
-          data-diagram-src="${DIAGRAM_IMAGE_URL}" data-diagram-fallback="${DIAGRAM_IMAGE_SOURCE}"/>
-        <canvas class="pap-diagram__canvas" width="${VIEWBOX.w}" height="${VIEWBOX.h}"></canvas>
+      <div class="pap-diagram__viewport">
+        <div class="pap-diagram__stage" data-diagram-stage>
+          <img class="pap-diagram__bg" src="${DIAGRAM_IMAGE_URL}" alt="Silueta del vehículo" draggable="false"
+            data-diagram-src="${DIAGRAM_IMAGE_URL}" data-diagram-fallback="${DIAGRAM_IMAGE_SOURCE}"/>
+          <canvas class="pap-diagram__canvas" width="${VIEWBOX.w}" height="${VIEWBOX.h}"></canvas>
+        </div>
+        <div class="pap-diagram__hover-preview" data-diagram-hover hidden>
+          <img alt="" data-diagram-hover-img/>
+          <span data-diagram-hover-label></span>
+        </div>
       </div>
       ${showLegend ? `
       <div class="pap-diagram__legend ${editable ? '' : 'pap-diagram__legend--ro'}" role="toolbar" aria-label="Leyenda de daños">
@@ -117,7 +148,7 @@ export function mountDiagram(host, opts = {}) {
             <b>${_escAttr(l.mark)}</b><span>${_escAttr(l.label)}</span>
           </button>
         `).join('')}
-        ${editable ? '<span class="pap-diagram__tip">Desplaza con el dedo. Toca para marcar. Activa el lápiz solo para rayar.</span>' : ''}
+        ${editable ? '<span class="pap-diagram__tip">Pan/zoom por defecto. Activa el lápiz solo para rayar.</span>' : ''}
       </div>` : ''}
       ${showMarksList ? `
       <ul class="pap-diagram__marks-list" data-diagram-marks-list ${danos.length ? '' : 'hidden'}>
@@ -135,27 +166,48 @@ export function mountDiagram(host, opts = {}) {
   const ctx = canvas.getContext('2d');
   const root = host.querySelector('[data-diagram-root]');
   const bg = host.querySelector('.pap-diagram__bg');
+  const stageEl = host.querySelector('[data-diagram-stage]');
+  const hoverEl = host.querySelector('[data-diagram-hover]');
+  const hoverImg = host.querySelector('[data-diagram-hover-img]');
+  const hoverLabel = host.querySelector('[data-diagram-hover-label]');
+
+  function applyTransform() {
+    if (!stageEl) return;
+    stageEl.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  }
 
   function syncTouchAction() {
-    // mark/scroll: permitir pan vertical; pen activo: captura trazo
-    const pan = !editable || tool === 'mark' || tool === 'pan';
-    canvas.style.touchAction = pan ? 'pan-y' : 'none';
-    root?.classList.toggle('is-draw-mode', editable && tool === 'pen');
+    const isPen = editable && tool === 'pen';
+    canvas.style.touchAction = isPen ? 'none' : 'none'; // we handle pan ourselves
+    root?.classList.toggle('is-draw-mode', isPen);
+    root?.classList.toggle('is-pan-mode', tool === 'pan' || !editable);
+    applyTransform();
   }
   syncTouchAction();
 
   function resize() {
     const stage = host.querySelector('.pap-diagram__stage');
-    if (!stage) return;
-    const rect = stage.getBoundingClientRect();
+    const viewport = host.querySelector('.pap-diagram__viewport');
+    if (!stage || !viewport) return;
+    const rect = viewport.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const natW = bg?.naturalWidth || VIEWBOX.w;
     const natH = bg?.naturalHeight || VIEWBOX.h;
     const ratio = natH / natW || (VIEWBOX.h / VIEWBOX.w);
+    const maxH = fullscreen
+      ? Math.max(280, Math.floor(rect.height - 8))
+      : Math.max(240, Math.min(Math.floor(rect.height || 420), Math.floor(window.innerHeight * 0.62)));
     const cssW = Math.max(220, Math.floor(rect.width));
-    const cssH = Math.max(200, Math.floor(cssW * ratio));
+    let cssH = Math.max(200, Math.floor(cssW * ratio));
+    if (cssH > maxH) {
+      cssH = maxH;
+    }
     canvas.style.width = `${cssW}px`;
     canvas.style.height = `${cssH}px`;
+    if (bg) {
+      bg.style.width = `${cssW}px`;
+      bg.style.height = `${cssH}px`;
+    }
     canvas.width = Math.floor(cssW * dpr);
     canvas.height = Math.floor(cssH * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -207,12 +259,19 @@ export function mountDiagram(host, opts = {}) {
     return src ? { x: src.clientX, y: src.clientY } : { x: 0, y: 0 };
   }
 
+  function hitZone(p) {
+    for (const z of ZONE_HITS) {
+      if (p.x >= z.x0 && p.x <= z.x1 && p.y >= z.y0 && p.y <= z.y1) return z.id;
+    }
+    return null;
+  }
+
   function emit() {
     if (typeof opts.onChange === 'function') opts.onChange(getStrokes());
   }
 
   function setTool(next) {
-    tool = next || 'mark';
+    tool = next || 'pan';
     root.querySelectorAll('[data-diagram-tool]').forEach((btn) => {
       btn.classList.toggle('is-tool-on', btn.getAttribute('data-diagram-tool') === tool);
     });
@@ -243,41 +302,75 @@ export function mountDiagram(host, opts = {}) {
   }
 
   function start(e) {
-    if (!editable) return;
     const xy = clientXY(e);
     const p = pos(e);
+    // Pinch zoom start
+    if (e.touches && e.touches.length === 2) {
+      const d = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      gesture = { mode: 'pinch', dist: d, scale };
+      e.preventDefault();
+      return;
+    }
+    if (!editable) {
+      gesture = { mode: 'pan', clientX: xy.x, clientY: xy.y, panX, panY };
+      return;
+    }
     gesture = {
-      mode: 'undecided',
+      mode: tool === 'pen' ? 'undecided' : (tool === 'pan' ? 'pan' : 'undecided'),
       clientX: xy.x,
       clientY: xy.y,
       startPos: p,
       tool,
+      panX,
+      panY,
     };
-    // No preventDefault aún — deja que el scroll gane si es pan vertical
-    if (tool !== 'pen' && TOOL_GLYPH[tool] && tool !== 'mark') {
-      // stamp tools: wait for end as tap
-      return;
-    }
     if (tool === 'pen' && !e.touches) {
-      // mouse: draw immediately
       e.preventDefault?.();
       gesture.mode = 'draw';
       beginStroke(p);
     }
+    if (tool === 'pan') {
+      e.preventDefault?.();
+    }
   }
 
   function move(e) {
-    if (!editable || !gesture) return;
+    if (!gesture) return;
+    if (gesture.mode === 'pinch' && e.touches && e.touches.length === 2) {
+      const d = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const next = Math.min(3, Math.max(1, gesture.scale * (d / (gesture.dist || 1))));
+      scale = next;
+      applyTransform();
+      e.preventDefault();
+      return;
+    }
     const xy = clientXY(e);
     const dx = xy.x - gesture.clientX;
     const dy = xy.y - gesture.clientY;
     const dist = Math.hypot(dx, dy);
 
+    if (gesture.mode === 'pan') {
+      panX = gesture.panX + dx;
+      panY = gesture.panY + dy;
+      applyTransform();
+      e.preventDefault?.();
+      return;
+    }
+
+    if (!editable) return;
+
     if (gesture.mode === 'undecided') {
       if (dist < DRAW_SLOP) return;
-      // Pan vertical → scroll (no dibujar)
-      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
-        gesture.mode = 'scroll';
+      if (gesture.tool === 'pan' || (Math.abs(dy) > Math.abs(dx) * 1.15 && gesture.tool !== 'pen')) {
+        gesture.mode = 'pan';
+        gesture.panX = panX;
+        gesture.panY = panY;
         return;
       }
       if (gesture.tool === 'pen') {
@@ -288,7 +381,6 @@ export function mountDiagram(host, opts = {}) {
         paint();
         return;
       }
-      // mark / stamp: movement cancels tap
       gesture.mode = 'scroll';
       return;
     }
@@ -301,10 +393,13 @@ export function mountDiagram(host, opts = {}) {
   }
 
   function end(e) {
-    if (!editable) return;
     const g = gesture;
     gesture = null;
     if (!g) return;
+
+    if (g.mode === 'pinch' || g.mode === 'pan') return;
+
+    if (!editable) return;
 
     if (g.mode === 'undecided' || g.mode === 'tap') {
       const p = g.startPos;
@@ -325,6 +420,47 @@ export function mountDiagram(host, opts = {}) {
     }
   }
 
+  function onWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    scale = Math.min(3, Math.max(1, scale * delta));
+    applyTransform();
+  }
+
+  function onMouseMoveHover(e) {
+    if (typeof opts.onZoneHover !== 'function') return;
+    if (window.matchMedia && !window.matchMedia('(min-width: 900px)').matches) return;
+    const p = pos(e);
+    const zoneId = hitZone(p);
+    opts.onZoneHover(zoneId, p);
+    if (!hoverEl) return;
+    if (!zoneId) {
+      hoverEl.hidden = true;
+      return;
+    }
+    const info = opts.zonePreview?.(zoneId) || null;
+    hoverLabel.textContent = info?.label || zoneId;
+    if (info?.url) {
+      hoverImg.src = info.url;
+      hoverImg.hidden = false;
+    } else {
+      hoverImg.removeAttribute('src');
+      hoverImg.hidden = true;
+    }
+    hoverEl.hidden = false;
+    hoverEl.style.left = `${Math.min(e.offsetX + 12, (canvas.clientWidth || 200) - 90)}px`;
+    hoverEl.style.top = `${Math.max(8, e.offsetY - 80)}px`;
+  }
+
+  function toggleFullscreen() {
+    fullscreen = !fullscreen;
+    root.classList.toggle('pap-diagram--fs', fullscreen);
+    document.body.classList.toggle('pap-diagram-fs-open', fullscreen);
+    const icon = root.querySelector('[data-diagram-act="fs"] .material-symbols-outlined');
+    if (icon) icon.textContent = fullscreen ? 'fullscreen_exit' : 'fullscreen';
+    resize();
+  }
+
   function onClick(e) {
     const toolBtn = e.target.closest('[data-diagram-tool]');
     if (toolBtn && editable) {
@@ -332,36 +468,37 @@ export function mountDiagram(host, opts = {}) {
       return;
     }
     const btn = e.target.closest('[data-diagram-act]');
-    if (!btn || !editable) return;
+    if (!btn) return;
     const act = btn.getAttribute('data-diagram-act');
-    if (act === 'undo') {
+    if (act === 'undo' && editable) {
       strokes.pop();
       paint();
       emit();
     }
-    if (act === 'clear') {
+    if (act === 'clear' && editable) {
       strokes = [];
       paint();
       emit();
     }
+    if (act === 'fs') toggleFullscreen();
   }
 
-  if (editable) {
-    canvas.addEventListener('mousedown', start);
-    canvas.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', end);
-    canvas.addEventListener('touchstart', start, { passive: true });
-    canvas.addEventListener('touchmove', move, { passive: false });
-    canvas.addEventListener('touchend', end);
-    canvas.addEventListener('touchcancel', end);
-    root?.addEventListener('click', onClick);
-  }
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end);
+  canvas.addEventListener('touchcancel', end);
+  canvas.addEventListener('wheel', onWheel, { passive: false });
+  canvas.addEventListener('mousemove', onMouseMoveHover);
+  root?.addEventListener('click', onClick);
 
   const ro = typeof ResizeObserver !== 'undefined'
     ? new ResizeObserver(() => resize())
     : null;
-  const stage = host.querySelector('.pap-diagram__stage');
-  if (ro && stage) ro.observe(stage);
+  const viewport = host.querySelector('.pap-diagram__viewport');
+  if (ro && viewport) ro.observe(viewport);
   else window.addEventListener('resize', resize);
   bg?.addEventListener('load', resize);
   bg?.addEventListener('error', () => {
@@ -370,8 +507,8 @@ export function mountDiagram(host, opts = {}) {
       bg.src = bg.dataset.diagramFallback;
       return;
     }
-    if (stage && !stage.querySelector('.pap-diagram__svg')) {
-      stage.insertAdjacentHTML('afterbegin', diagramSvgMarkup());
+    if (stageEl && !stageEl.querySelector('.pap-diagram__svg')) {
+      stageEl.insertAdjacentHTML('afterbegin', diagramSvgMarkup());
     }
     resize();
   });
@@ -410,17 +547,18 @@ export function mountDiagram(host, opts = {}) {
   }
 
   function destroy() {
-    if (editable) {
-      canvas.removeEventListener('mousedown', start);
-      canvas.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', end);
-      canvas.removeEventListener('touchstart', start);
-      canvas.removeEventListener('touchmove', move);
-      canvas.removeEventListener('touchend', end);
-      canvas.removeEventListener('touchcancel', end);
-      root?.removeEventListener('click', onClick);
-    }
-    if (ro && stage) ro.disconnect();
+    canvas.removeEventListener('mousedown', start);
+    canvas.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', end);
+    canvas.removeEventListener('touchstart', start);
+    canvas.removeEventListener('touchmove', move);
+    canvas.removeEventListener('touchend', end);
+    canvas.removeEventListener('touchcancel', end);
+    canvas.removeEventListener('wheel', onWheel);
+    canvas.removeEventListener('mousemove', onMouseMoveHover);
+    root?.removeEventListener('click', onClick);
+    document.body.classList.remove('pap-diagram-fs-open');
+    if (ro && viewport) ro.disconnect();
     else window.removeEventListener('resize', resize);
     host.innerHTML = '';
   }
@@ -434,6 +572,7 @@ export function mountDiagram(host, opts = {}) {
     destroy,
     paint,
     resize,
+    setTool,
   };
 }
 

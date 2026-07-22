@@ -2314,30 +2314,142 @@ body.pap-camflow-open { overflow: hidden; }
   font-size: 11px;
   font-weight: 700;
 }
+.pap-diagram__viewport {
+  position: relative;
+  width: 100%;
+  min-height: 280px;
+  max-height: min(62vh, 640px);
+  overflow: hidden;
+  background: #ffffff;
+  touch-action: none;
+}
 .pap-diagram__stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 416 / 632; /* car-drawable.png 1664×2530 */
+  transform-origin: center center;
+  will-change: transform;
   background: #ffffff;
-  touch-action: pan-y;
-  overflow: hidden;
+  touch-action: none;
+  overflow: visible;
 }
 .pap-diagram__bg,
 .pap-diagram__svg,
 .pap-diagram__canvas,
 .pap-diagram__marks {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  display: block;
   width: 100%;
-  height: 100%;
+  height: auto;
   object-fit: contain;
   object-position: center;
   user-select: none;
   -webkit-user-drag: none;
 }
 .pap-diagram__bg { z-index: 1; background: #ffffff; }
-.pap-diagram__canvas { z-index: 2; cursor: crosshair; }
-.pap-diagram--ro .pap-diagram__canvas { cursor: default; pointer-events: none; }
+.pap-diagram__canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: grab;
+  width: 100%;
+  height: 100%;
+}
+.pap-diagram.is-draw-mode .pap-diagram__canvas { cursor: crosshair; }
+.pap-diagram.is-pan-mode .pap-diagram__canvas { cursor: grab; }
+.pap-diagram.is-pan-mode .pap-diagram__canvas:active { cursor: grabbing; }
+.pap-diagram--ro .pap-diagram__canvas { cursor: grab; }
+.pap-diagram__hover-preview {
+  position: absolute;
+  z-index: 5;
+  width: 96px;
+  padding: 6px;
+  border: 1px solid var(--pap-rule, #e2e8f0);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pap-diagram__hover-preview img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #0f172a;
+}
+.pap-diagram__hover-preview span {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--pap-ink-soft, #334155);
+  text-align: center;
+  line-height: 1.2;
+}
+.pap-diagram--fs {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  border: none;
+  border-radius: 0;
+  background: #0b1220;
+}
+.pap-diagram--fs .pap-diagram__toolbar {
+  flex: 0 0 auto;
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  border-bottom-color: rgba(148, 163, 184, 0.35);
+}
+.pap-diagram--fs .pap-diagram__title { color: #f8fafc; }
+.pap-diagram--fs .pap-diagram__viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  background: #0b1220;
+}
+.pap-diagram--fs .pap-diagram__legend,
+.pap-diagram--fs .pap-diagram__marks-list {
+  flex: 0 0 auto;
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  border-top-color: rgba(148, 163, 184, 0.35);
+}
+body.pap-diagram-fs-open {
+  overflow: hidden;
+}
+.pap-panel--diagram .pap-hoja__diagram--fs,
+.pap-hoja__diagram--fs {
+  min-height: min(70vh, 720px);
+}
+.pap-hoja__diagram--fs .pap-diagram {
+  min-height: inherit;
+  display: flex;
+  flex-direction: column;
+}
+.pap-hoja__diagram--fs .pap-diagram__viewport {
+  flex: 1 1 auto;
+  min-height: 420px;
+  max-height: none;
+}
+@media (max-width: 899px) {
+  .pap-panel--diagram {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100dvh - 120px);
+  }
+  .pap-panel--diagram .pap-hoja__diagram--fs {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .pap-panel--diagram .pap-diagram {
+    min-height: 100%;
+  }
+  .pap-panel--diagram .pap-diagram__viewport {
+    min-height: 52dvh;
+  }
+}
 .pap-diagram__marks { z-index: 2; pointer-events: none; }
 .pap-diagram__marks-list {
   list-style: none;
