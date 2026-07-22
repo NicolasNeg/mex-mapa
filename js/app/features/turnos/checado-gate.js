@@ -30,6 +30,7 @@ import {
   enrolarBiometriaNativa,
   verificarBiometriaNativa,
   credencialesDe,
+  estaEnroladoEnEsteDispositivo,
 } from '/js/app/features/turnos/webauthn-check.js';
 import {
   PIN_LENGTH,
@@ -170,8 +171,16 @@ export function runChecadoGate(opts = {}) {
       }).catch(() => {});
 
       const nativaDisponible = await biometriaNativaDisponible().catch(() => false);
+      // No basta con que el USUARIO tenga credenciales (pueden ser de otro
+      // equipo) — solo intentamos verificar de una vez si ESTE dispositivo
+      // ya enroló antes. Si no, mostramos primero "activar" y solo después
+      // se pide la verificación real (evita el intento a ciegas contra una
+      // credencial ajena, que es lo que disparaba el aviso nativo de iOS).
+      const listoEnEsteDispositivo = nativaDisponible
+        && webauthnCredentialIds.length
+        && estaEnroladoEnEsteDispositivo(docId);
 
-      if (nativaDisponible && webauthnCredentialIds.length) {
+      if (listoEnEsteDispositivo) {
         void tryWebauthn();
       } else if (nativaDisponible) {
         showWebauthnOffer();
@@ -518,9 +527,9 @@ function _shellHtml(mode) {
     <span class="material-symbols-outlined tu-gate__warn-icon" style="color:#3b82f6">fingerprint</span>
     <h3>Activa la verificación rápida</h3>
     <p class="tu-gate__hint">Este dispositivo soporta Face ID / Touch ID / Windows Hello para checar sin cámara.</p>
-    <div class="tu-gate__row" style="flex-direction:column;gap:10px;width:100%;max-width:320px;margin:12px auto 0;">
-      <button type="button" class="tu-btn tu-btn--primary tu-btn--full" data-gate-action="setup-webauthn">
-        <span class="material-symbols-outlined">fingerprint</span> Activar
+    <div class="tu-gate__row" style="flex-direction:column;gap:12px;width:100%;max-width:320px;margin:16px auto 0;">
+      <button type="button" class="tu-btn tu-btn--primary tu-btn--full" data-gate-action="setup-webauthn" style="min-height:52px;font-size:16px;font-weight:700;border-radius:12px;">
+        <span class="material-symbols-outlined" style="font-size:22px;">fingerprint</span> Activar Face ID / Touch ID
       </button>
       <button type="button" class="tu-btn tu-btn--ghost tu-btn--full" data-gate-action="skip-to-face">
         <span class="material-symbols-outlined">face</span> Usar reconocimiento facial

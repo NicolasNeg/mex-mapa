@@ -33,6 +33,32 @@ function _fv() {
   return window.firebase?.firestore?.FieldValue;
 }
 
+function _localFlagKey(docId) {
+  return `mex.webauthn.enrolado.${docId}`;
+}
+
+/**
+ * ¿Este dispositivo/navegador ya enroló una passkey antes? Firestore nos
+ * dice si el USUARIO tiene credenciales (en cualquier equipo), pero no si
+ * ESTE equipo es uno de ellos — eso solo lo sabemos si YA enrolamos aquí
+ * (localStorage, nunca sincronizado). Sin esto, intentabamos verificar a
+ * ciegas contra credenciales de otro dispositivo y el SO mostraba un aviso
+ * de "no encontrada" antes de caer a nuestra pantalla de activar.
+ */
+export function estaEnroladoEnEsteDispositivo(docId) {
+  try {
+    return localStorage.getItem(_localFlagKey(docId)) === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function _marcarEnroladoEnEsteDispositivo(docId) {
+  try {
+    localStorage.setItem(_localFlagKey(docId), '1');
+  } catch (_) {}
+}
+
 export async function biometriaNativaDisponible() {
   try {
     if (!window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) return false;
@@ -70,6 +96,7 @@ export async function enrolarBiometriaNativa(docId, userLabel) {
     webauthnCredentialIds: fv ? fv.arrayUnion(credentialId) : [credentialId],
     webauthnEnrolledAt: Date.now(),
   });
+  _marcarEnroladoEnEsteDispositivo(docId);
   return credentialId;
 }
 
