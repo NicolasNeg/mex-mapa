@@ -1,6 +1,6 @@
 /**
  * Centro Admin — contenido SPA (CONTROLES viven en el sidebar global).
- * LISTAS + OPCIONES operación nativas. Plazas/Ubicaciones/Empresa: iframe.
+ * LISTAS + OPCIONES operación nativas. Ubicaciones: iframe.
  */
 import {
   ADMIN_NATIVE_SECTIONS,
@@ -32,6 +32,11 @@ import {
   unmountEmpresaPanel,
   syncEmpresaSelection
 } from '/js/app/features/admin/admin-empresa-panel.js';
+import {
+  mountPlazasPanel,
+  unmountPlazasPanel,
+  syncPlazasSelection
+} from '/js/app/features/admin/admin-plazas-panel.js';
 import { OPCIONES_SECTIONS } from '/js/app/features/admin/admin-opciones-data.js';
 
 const FRAME_ID = 'mex-admin-legacy-frame';
@@ -137,6 +142,7 @@ function _unmountNative() {
   unmountInvitacionesPanel();
   unmountOpcionesPanel();
   unmountEmpresaPanel();
+  unmountPlazasPanel();
   _nativeSection = '';
 }
 
@@ -194,7 +200,8 @@ function _showNative(section, entityId) {
     usuarios: { mount: mountUsuariosPanel, sync: syncUsuariosSelection },
     roles: { mount: mountRolesPanel, sync: syncRolesSelection },
     invitaciones: { mount: mountInvitacionesPanel, sync: syncInvitacionesSelection },
-    empresa: { mount: mountEmpresaPanel, sync: syncEmpresaSelection }
+    empresa: { mount: mountEmpresaPanel, sync: syncEmpresaSelection },
+    plazas: { mount: mountPlazasPanel, sync: syncPlazasSelection }
   };
   const entry = mountMap[section];
   if (!entry) return;
