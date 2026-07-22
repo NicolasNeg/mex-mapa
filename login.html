@@ -34,8 +34,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 
-  <!-- App Check (reCAPTCHA v3): site key en firebase-config.js → MEX_APPCHECK_SITE_KEY.
-       Docs: /docs/app-check.md -->
+  <!-- Login gate = reCAPTCHA v2 checkbox (No soy un robot). App Check v3 se omite en /login.
+       Site key: window.MEX_RECAPTCHA_V2_SITE_KEY (firebase-config.js). Docs: /docs/app-check.md -->
+  <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
 
   <!-- Firebase core -->
   <script src="/js/core/firebase-config.js"></script>
@@ -283,7 +284,25 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin: 10px 2px 22px;
+      margin: 10px 2px 16px;
+    }
+
+    .login-recaptcha-wrap {
+      display: flex;
+      justify-content: center;
+      margin: 0 0 18px;
+      min-height: 78px;
+    }
+
+    .login-recaptcha-wrap .g-recaptcha {
+      transform-origin: center top;
+    }
+
+    .login-recaptcha-hint {
+      margin: 0 0 12px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
     }
 
     .remember {
@@ -618,6 +637,11 @@
         </label>
         <button type="button" class="link-forgot" onclick="olvidePassword()">Forgot password?</button>
       </div>
+
+      <div class="login-recaptcha-wrap" aria-label="Verificación anti-bot">
+        <div id="login-recaptcha"></div>
+      </div>
+      <p id="login-recaptcha-hint" class="login-recaptcha-hint" hidden>Marca «No soy un robot» para continuar.</p>
 
       <button onclick="loginManual()" id="btnLoginManual" class="btn-primary">LOGIN</button>
 

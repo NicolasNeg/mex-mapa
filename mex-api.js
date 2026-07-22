@@ -50,9 +50,10 @@ if (typeof window.__mexConfigureFirestoreTransport === 'function') {
     try { return localStorage.getItem('mex.firestore.forceLongPolling') === '1'; } catch (_) { return false; }
   })();
   try {
+    // merge:true — no pisar host/ssl por defecto (warning "overriding the original host").
     db.settings(shouldForceLongPolling
-      ? { ignoreUndefinedProperties: true, experimentalForceLongPolling: true }
-      : { ignoreUndefinedProperties: true, experimentalAutoDetectLongPolling: true });
+      ? { ignoreUndefinedProperties: true, experimentalForceLongPolling: true, merge: true }
+      : { ignoreUndefinedProperties: true, experimentalAutoDetectLongPolling: true, merge: true });
     window.__mexFirestoreSettingsApplied = true;
     window.__mexFirestoreTransport = {
       forceLongPolling: shouldForceLongPolling,

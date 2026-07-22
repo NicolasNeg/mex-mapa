@@ -1977,24 +1977,87 @@ exports.enviarCorreoSolicitud = functions
 
 // ══════════════════════════════════════════════════════════════
 //  verifyRecaptchaLogin — HTTPS callable (sin auth)
-//  Valida token reCAPTCHA Enterprise antes de login en cliente.
-//  Configuración (API key de Google Cloud con "reCAPTCHA Enterprise API"):
+//
+//  Preferido en login: reCAPTCHA v2 checkbox (provider: "v2").
+//  Secreto de servidor (NUNCA en cliente):
+//    firebase functions:config:set recaptcha.v2_secret="TU_SECRET"
+//    o env RECAPTCHA_V2_SECRET
+//
+//  Legacy: reCAPTCHA Enterprise (provider omitido / "enterprise"):
 //    firebase functions:config:set recaptcha.api_key="TU_API_KEY"
-//  Opcional umbral de riesgo (0–1, por defecto 0.35):
 //    firebase functions:config:set recaptcha.min_score="0.35"
 // ══════════════════════════════════════════════════════════════
 exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data) => {
   try {
     const token = normalizeString(data?.token);
-    const expectedAction = normalizeString(data?.action || "LOGIN_EMAIL");
-    const siteKey = "6Lf1714tAAAAAK3wyyOhB8nCk6JRh7uwIFlR6ufC";
-    const projectId = "mex-mapa-bjx";
+    const provider = normalizeString(data?.provider || data?.version || "v2").toLowerCase();
 
     if (!token) {
       return { ok: false, code: "token_required", message: "Token reCAPTCHA requerido." };
     }
 
     const cfg = functions.config().recaptcha || {};
+
+    // ── v2 checkbox → Google siteverify ─────────────────────────
+    if (provider === "v2" || provider === "checkbox") {
+      const secret = normalizeString(cfg.v2_secret || process.env.RECAPTCHA_V2_SECRET);
+      if (!secret) {
+        logger.error("[verifyRecaptchaLogin] Falta RECAPTCHA_V2_SECRET / recaptcha.v2_secret");
+        return {
+          ok: false,
+          code: "recaptcha_config_missing",
+          message: "Servidor sin secreto reCAPTCHA v2. Configura RECAPTCHA_V2_SECRET (o recaptcha.v2_secret).",
+        };
+      }
+
+      let res;
+      try {
+        const body = new URLSearchParams({
+          secret,
+          response: token,
+        });
+        res = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: body.toString(),
+        });
+      } catch (e) {
+        logger.error("[verifyRecaptchaLogin] v2 siteverify fetch error", e);
+        return {
+          ok: false,
+          code: "recaptcha_unavailable",
+          message: "No se pudo contactar reCAPTCHA.",
+        };
+      }
+
+      const assessment = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        logger.warn("[verifyRecaptchaLogin] v2 API HTTP error", res.status, assessment);
+        return {
+          ok: false,
+          code: "recaptcha_api_error",
+          message: "Verificación de seguridad no disponible.",
+          status: res.status,
+        };
+      }
+
+      if (!assessment.success) {
+        logger.info("[verifyRecaptchaLogin] v2 token inválido", assessment["error-codes"]);
+        return {
+          ok: false,
+          code: "token_invalid",
+          message: "Verificación de seguridad fallida. Marca «No soy un robot» de nuevo.",
+        };
+      }
+
+      return { ok: true, provider: "v2" };
+    }
+
+    // ── Legacy Enterprise assessment ────────────────────────────
+    const expectedAction = normalizeString(data?.action || "LOGIN_EMAIL");
+    const siteKey = "6Lf1714tAAAAAK3wyyOhB8nCk6JRh7uwIFlR6ufC";
+    const projectId = "mex-mapa-bjx";
+
     const apiKey = normalizeString(cfg.api_key || process.env.RECAPTCHA_ENTERPRISE_API_KEY);
     if (!apiKey) {
       logger.error("[verifyRecaptchaLogin] Falta recaptcha.api_key en functions config");
@@ -2075,7 +2138,7 @@ exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data
       };
     }
 
-    return { ok: true, score: Number.isFinite(score) ? score : null };
+    return { ok: true, score: Number.isFinite(score) ? score : null, provider: "enterprise" };
   } catch (e) {
     logger.error("[verifyRecaptchaLogin] unexpected", e);
     return {

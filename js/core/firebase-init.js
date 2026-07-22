@@ -39,14 +39,18 @@
     // Por defecto: AutoDetect — el SDK cambia a long-polling si WebChannel/QUIC falla
     // (errores Listen 400 / QUIC_NETWORK_IDLE_TIMEOUT suelen ser transitorios y el SDK reintenta).
     const forceLongPolling = _lsGet('mex.firestore.forceLongPolling') === '1';
+    // merge:true evita el warning del SDK: "You are overriding the original host…"
+    // (settings() sin merge reemplaza host/ssl por defecto aunque no los pases).
     const settings = forceLongPolling
       ? {
           ignoreUndefinedProperties: true,
-          experimentalForceLongPolling: true
+          experimentalForceLongPolling: true,
+          merge: true
         }
       : {
           ignoreUndefinedProperties: true,
-          experimentalAutoDetectLongPolling: true
+          experimentalAutoDetectLongPolling: true,
+          merge: true
         };
     try {
       dbInstance.settings(settings);

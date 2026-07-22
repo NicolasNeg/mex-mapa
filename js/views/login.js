@@ -12,32 +12,180 @@
 
 import { auth, db, COL, functions } from '/js/core/database.js';
 
-// Site key pública (App Check / reCAPTCHA). Fuente: window.MEX_APPCHECK_SITE_KEY en firebase-config.js
-const RECAPTCHA_SITE_KEY = String(window.MEX_APPCHECK_SITE_KEY || '').trim();
-const RECAPTCHA_ACTION_EMAIL = 'LOGIN_EMAIL';
-const RECAPTCHA_ACTION_GOOGLE = 'LOGIN_GOOGLE';
+// reCAPTCHA v2 checkbox ("No soy un robot"). Site key pública — no secretos aquí.
+const RECAPTCHA_V2_SITE_KEY = String(
+  window.MEX_RECAPTCHA_V2_SITE_KEY || window.MEX_APPCHECK_SITE_KEY || ''
+).trim();
 
-/**
- * Asegura token App Check antes de Auth (SDK compat).
- * No bloquea el login si App Check no está cargado o falla (enforcement aún no activo).
- */
-async function ensureAppCheckToken() {
-  try {
-    if (typeof firebase?.appCheck !== 'function') return;
-    if (!window.__mexAppCheck && !window._appCheck) return;
-    await firebase.appCheck().getToken(/* forceRefresh */ false);
-  } catch (e) {
-    console.warn('[login] App Check getToken:', e?.message || e);
-  }
-}
-
-/** Respuestas que no deben bloquear el inicio de sesión si el servicio está mal configurado o caído. */
+/** Respuestas de servidor que no deben bloquear si el secreto aún no está configurado. */
 const SOFT_RECAPTCHA_CODES = new Set([
   'recaptcha_config_missing',
   'recaptcha_unavailable',
   'recaptcha_api_error',
   'unexpected_error',
 ]);
+
+let _recaptchaWidgetId = null;
+let _recaptchaToken = '';
+let _recaptchaRenderPromise = null;
+
+function _setRecaptchaHint(visible) {
+  const hint = document.getElementById('login-recaptcha-hint');
+  if (hint) hint.hidden = !visible;
+}
+
+function _onRecaptchaSolved(token) {
+  _recaptchaToken = String(token || '').trim();
+  _setRecaptchaHint(false);
+}
+
+function _onRecaptchaExpired() {
+  _recaptchaToken = '';
+}
+
+function _onRecaptchaError() {
+  _recaptchaToken = '';
+  console.warn('[login] reCAPTCHA v2 error (widget).');
+}
+
+function _waitForGrecaptcha(timeoutMs = 20000) {
+  return new Promise((resolve, reject) => {
+    const ready = () => typeof window.grecaptcha?.render === 'function';
+    if (ready()) return resolve(window.grecaptcha);
+    const start = Date.now();
+    const id = setInterval(() => {
+      if (ready()) {
+        clearInterval(id);
+        resolve(window.grecaptcha);
+      } else if (Date.now() - start > timeoutMs) {
+        clearInterval(id);
+        reject(new Error('reCAPTCHA no cargó. Revisa la red o bloqueadores.'));
+      }
+    }, 50);
+  });
+}
+
+/**
+ * Renderiza el checkbox v2 en #login-recaptcha (render=explicit).
+ * Idempotente: solo un widget por página.
+ */
+async function ensureRecaptchaWidget() {
+  if (_recaptchaWidgetId != null) return _recaptchaWidgetId;
+  if (_recaptchaRenderPromise) return _recaptchaRenderPromise;
+
+  _recaptchaRenderPromise = (async () => {
+    const container = document.getElementById('login-recaptcha');
+    if (!container) throw new Error('Falta el contenedor #login-recaptcha.');
+    if (!RECAPTCHA_V2_SITE_KEY) {
+      throw new Error('Falta window.MEX_RECAPTCHA_V2_SITE_KEY (site key v2 pública).');
+    }
+
+    const grecaptcha = await _waitForGrecaptcha();
+    await new Promise((resolve) => {
+      if (typeof grecaptcha.ready === 'function') grecaptcha.ready(resolve);
+      else resolve();
+    });
+
+    // Evitar doble render si dos llamadas corrieron en paralelo.
+    if (_recaptchaWidgetId != null) return _recaptchaWidgetId;
+    if (container.childElementCount > 0) {
+      // Ya renderizado por otra vía.
+      _recaptchaWidgetId = 0;
+      return _recaptchaWidgetId;
+    }
+
+    _recaptchaWidgetId = grecaptcha.render(container, {
+      sitekey: RECAPTCHA_V2_SITE_KEY,
+      theme: 'light',
+      size: 'normal',
+      callback: _onRecaptchaSolved,
+      'expired-callback': _onRecaptchaExpired,
+      'error-callback': _onRecaptchaError,
+    });
+    console.info('[login] reCAPTCHA v2 checkbox listo.');
+    return _recaptchaWidgetId;
+  })();
+
+  try {
+    return await _recaptchaRenderPromise;
+  } finally {
+    _recaptchaRenderPromise = null;
+  }
+}
+
+function resetRecaptcha() {
+  _recaptchaToken = '';
+  try {
+    if (_recaptchaWidgetId != null && window.grecaptcha?.reset) {
+      window.grecaptcha.reset(_recaptchaWidgetId);
+    }
+  } catch (e) {
+    console.warn('[login] recaptcha reset:', e?.message || e);
+  }
+}
+
+function getClientRecaptchaToken() {
+  const fromState = String(_recaptchaToken || '').trim();
+  if (fromState) return fromState;
+  try {
+    if (_recaptchaWidgetId != null && window.grecaptcha?.getResponse) {
+      return String(window.grecaptcha.getResponse(_recaptchaWidgetId) || '').trim();
+    }
+  } catch (_) { /* ignore */ }
+  return '';
+}
+
+/**
+ * Gate de login: exige checkbox resuelto en cliente.
+ * Si hay CF + secreto, valida en servidor; soft-fail si falta config.
+ */
+async function requireRecaptchaGate() {
+  try {
+    await ensureRecaptchaWidget();
+  } catch (e) {
+    console.error('[login] no se pudo montar reCAPTCHA:', e?.message || e);
+    return {
+      blocked: true,
+      message: 'No se pudo cargar la verificación «No soy un robot». Recarga la página.',
+    };
+  }
+
+  const token = getClientRecaptchaToken();
+  if (!token) {
+    _setRecaptchaHint(true);
+    return {
+      blocked: true,
+      message: 'Marca «No soy un robot» antes de iniciar sesión.',
+    };
+  }
+
+  if (!functions || typeof functions.httpsCallable !== 'function') {
+    console.warn('[login] Functions no disponible; gate solo cliente (token presente).');
+    return { blocked: false, token };
+  }
+
+  try {
+    const callable = functions.httpsCallable('verifyRecaptchaLogin');
+    const res = await callable({ token, provider: 'v2', version: 'v2' });
+    const data = res?.data || {};
+    if (data.ok) return { blocked: false, token };
+    if (data.code && SOFT_RECAPTCHA_CODES.has(data.code)) {
+      console.warn(
+        '[login] verifyRecaptchaLogin soft-fail (client gate OK). Configura RECAPTCHA_V2_SECRET / recaptcha.v2_secret:',
+        data.code
+      );
+      return { blocked: false, token };
+    }
+    resetRecaptcha();
+    return {
+      blocked: true,
+      message: data.message || 'No pudimos validar seguridad, intenta de nuevo.',
+    };
+  } catch (err) {
+    console.warn('[login] verifyRecaptchaLogin error (client gate OK):', err?.code || err?.message || err);
+    return { blocked: false, token };
+  }
+}
 
 // Destino post-login — fuente única de verdad.
 // Cambiar aquí si se mueve el entry point del App Shell.
@@ -106,91 +254,6 @@ function _mexAlert(titulo, texto, tipo = 'info') {
   if (typeof window.mexAlert === 'function') return window.mexAlert(titulo, texto, tipo);
   console.warn('[login] mexAlert no disponible:', titulo, texto);
   return Promise.resolve(true);
-}
-
-
-function _waitForRecaptchaEnterprise(timeoutMs = 15000) {
-  return new Promise((resolve, reject) => {
-    const done = () => {
-      if (window.grecaptcha?.enterprise?.execute) return resolve();
-    };
-    done();
-    const start = Date.now();
-    const id = setInterval(() => {
-      done();
-      if (window.grecaptcha?.enterprise?.execute) {
-        clearInterval(id);
-        resolve();
-      } else if (Date.now() - start > timeoutMs) {
-        clearInterval(id);
-        reject(new Error('reCAPTCHA Enterprise no está disponible.'));
-      }
-    }, 50);
-  });
-}
-
-async function _getRecaptchaToken(action) {
-  await _waitForRecaptchaEnterprise();
-  return new Promise((resolve, reject) => {
-    try {
-      window.grecaptcha.enterprise.ready(async () => {
-        try {
-          const token = await window.grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, { action });
-          resolve(token);
-        } catch (e) {
-          reject(e);
-        }
-      });
-    } catch (e) {
-      reject(e);
-    }
-  });
-}
-
-/**
- * Intenta validar el token en servidor. Si el servicio falla de forma recuperable,
- * devuelve blocked:false para no bloquear el login. Si la validación rechaza el token,
- * devuelve blocked:true con mensaje de seguridad (no confundir con credenciales).
- */
-async function tryVerifyRecaptchaForLogin(action) {
-  // reCAPTCHA desactivado: la site key no está autorizada para este dominio
-  // (badge "Invalid domain for site key"). Bypass total hasta reconfigurar la
-  // key en Google Cloud + reañadir el <script> en login.html.
-  return { blocked: false };
-  // eslint-disable-next-line no-unreachable
-  if (!functions || typeof functions.httpsCallable !== 'function') {
-    console.warn('[login] Firebase Functions no disponible; se omite verificación reCAPTCHA.');
-    return { blocked: false };
-  }
-  let token;
-  try {
-    token = await _getRecaptchaToken(action);
-  } catch (e) {
-    console.warn('[login] reCAPTCHA Enterprise no devolvió token (no bloquea login):', e?.message || e);
-    return { blocked: false };
-  }
-  const callable = functions.httpsCallable('verifyRecaptchaLogin');
-  let data;
-  try {
-    const res = await callable({ token, action });
-    data = res?.data || {};
-  } catch (err) {
-    const code = err?.code || '';
-    const details = err?.details;
-    console.warn('[login] verifyRecaptchaLogin callable error (no bloquea login):', code, details || err?.message || err);
-    return { blocked: false };
-  }
-  if (data.ok) {
-    return { blocked: false };
-  }
-  if (data.code && SOFT_RECAPTCHA_CODES.has(data.code)) {
-    console.warn('[login] reCAPTCHA soft-fail:', data.code);
-    return { blocked: false };
-  }
-  return {
-    blocked: true,
-    message: data.message || 'No pudimos validar seguridad, intenta de nuevo.',
-  };
 }
 
 
@@ -274,19 +337,18 @@ window.loginManual = async function () {
       : firebase.auth.Auth.Persistence.SESSION;
     await firebase.auth().setPersistence(persistence);
 
-    await ensureAppCheckToken();
-
-    const gate = await tryVerifyRecaptchaForLogin(RECAPTCHA_ACTION_EMAIL);
+    const gate = await requireRecaptchaGate();
     if (gate.blocked) {
       btn.disabled = false;
       btn.innerText = 'LOGIN';
-      _showError(gate.message || 'No pudimos validar seguridad, intenta de nuevo.');
+      _showError(gate.message || 'Marca «No soy un robot» antes de iniciar sesión.');
       return;
     }
 
     await firebase.auth().signInWithEmailAndPassword(email, pass);
     // onAuthStateChanged redirige automáticamente
   } catch (err) {
+    resetRecaptcha();
     btn.disabled = false;
     btn.innerText = 'LOGIN';
     const genericAuthMsg = 'No pudimos iniciar sesión. Verifica tus datos o confirma que tu cuenta ya fue autorizada.';
@@ -323,19 +385,18 @@ window.loginConGoogle = async function () {
       : firebase.auth.Auth.Persistence.SESSION;
     await firebase.auth().setPersistence(persistence);
 
-    await ensureAppCheckToken();
-
-    const gate = await tryVerifyRecaptchaForLogin(RECAPTCHA_ACTION_GOOGLE);
+    const gate = await requireRecaptchaGate();
     if (gate.blocked) {
       btn.disabled = false;
       btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> Sign in with Google';
-      _showError(gate.message || 'No pudimos validar seguridad, intenta de nuevo.');
+      _showError(gate.message || 'Marca «No soy un robot» antes de iniciar sesión.');
       return;
     }
 
     btn.innerHTML = '<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite">sync</span> CONECTANDO...';
     await firebase.auth().signInWithPopup(provider);
   } catch (err) {
+    resetRecaptcha();
     btn.disabled = false;
     btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> Sign in with Google';
     if (err.code === 'auth/popup-closed-by-user') return;
@@ -477,6 +538,12 @@ function _initBranding() {
 
 document.addEventListener('DOMContentLoaded', () => {
   _initBranding();
+
+  // Montar checkbox v2 lo antes posible (no bloquear el resto de la UI).
+  ensureRecaptchaWidget().catch((e) => {
+    console.error('[login] render reCAPTCHA v2 falló:', e?.message || e);
+    _setRecaptchaHint(true);
+  });
 
   const emailEl = document.getElementById('auth_email');
   const passEl  = document.getElementById('auth_pass');

@@ -39,7 +39,37 @@ Tras `firebase-app-compat.js` y **antes** de `firebase-init.js`:
 
 ## Login
 
-`login.html` carga App Check → `firebase-init` lo activa → `js/views/login.js` llama `getToken()` antes de email/Google para asegurar token en el flujo de Auth.
+En `/login` **App Check v3 se omite** a propósito (`firebase-init.js` → `_isLoginPage()`). El gate UX es un **reCAPTCHA v2 checkbox** visible («No soy un robot»).
+
+| Pieza | Dónde |
+|---|---|
+| Script | `login.html` → `https://www.google.com/recaptcha/api.js?render=explicit` |
+| Contenedor | `#login-recaptcha` |
+| Site key (pública) | `window.MEX_RECAPTCHA_V2_SITE_KEY` en `js/core/firebase-config.js` |
+| Controlador | `js/views/login.js` → `ensureRecaptchaWidget()` + `requireRecaptchaGate()` |
+
+Comportamiento:
+
+1. El widget se renderiza al cargar la página.
+2. Email/Google **no avanzan** hasta que el checkbox esté resuelto (token cliente).
+3. Si existe Cloud Function + secreto, se llama `verifyRecaptchaLogin` con `{ provider: 'v2' }`.
+4. Si falta el secreto (`recaptcha_config_missing`), el cliente **sigue** con el token local (soft-fail) y deja un warning en consola.
+
+### Secreto de servidor (v2)
+
+El **secret key** de reCAPTCHA v2 **nunca** va en el cliente.
+
+```bash
+# Functions config (legacy)
+firebase functions:config:set recaptcha.v2_secret="TU_SECRET_KEY"
+
+# O variable de entorno en el runtime de Functions
+# RECAPTCHA_V2_SECRET=TU_SECRET_KEY
+```
+
+Tras configurar el secreto, redespliega Functions (`npm run deploy:functions`) para que `verifyRecaptchaLogin` valide contra `https://www.google.com/recaptcha/api/siteverify`.
+
+La site key debe ser de tipo **reCAPTCHA v2 Checkbox** en [Google reCAPTCHA Admin](https://www.google.com/recaptcha/admin) y el dominio de producción debe estar autorizado.
 
 ## Debug tokens (localhost)
 
