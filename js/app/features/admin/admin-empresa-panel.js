@@ -8,7 +8,8 @@ import {
   saveEmpresaFields,
   uploadEmpresaLogo,
   deleteEmpresaLogo,
-  empresaColorKeys
+  empresaColorKeys,
+  EMPRESA_EMAIL_RE
 } from '/js/app/features/admin/admin-empresa-data.js';
 
 function esc(s) {
@@ -226,7 +227,7 @@ function _bind() {
   _host.querySelector('[data-action="add-interno"]')?.addEventListener('click', () => {
     const input = _host.querySelector('[data-interno-input]');
     const val = String(input?.value || '').trim().toLowerCase();
-    if (!val || !val.includes('@')) {
+    if (!EMPRESA_EMAIL_RE.test(val)) {
       toast('Escribe un correo válido.', 'warn');
       return;
     }

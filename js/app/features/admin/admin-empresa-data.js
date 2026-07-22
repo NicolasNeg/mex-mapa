@@ -11,6 +11,8 @@ const COLOR_KEYS = [
   { key: 'colorTexto', label: 'Texto', default: '#0f172a', hint: 'Texto principal' }
 ];
 
+export const EMPRESA_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function empresaColorKeys() {
   return COLOR_KEYS.slice();
 }
@@ -49,16 +51,31 @@ function _ensureEmpresa() {
 
 export async function saveEmpresaFields(fields = {}) {
   const emp = _ensureEmpresa();
-  if (fields.nombre != null) emp.nombre = String(fields.nombre || '').trim();
-  if (fields.correoEmpresa != null) emp.correoEmpresa = String(fields.correoEmpresa || '').trim();
-  if (fields.correoFacturacion != null) emp.correoFacturacion = String(fields.correoFacturacion || '').trim();
-  for (const { key } of COLOR_KEYS) {
+  if (fields.nombre != null) {
+    const nombre = String(fields.nombre || '').trim();
+    if (!nombre) throw new Error('El nombre de la empresa es obligatorio.');
+    emp.nombre = nombre;
+  }
+  if (fields.correoEmpresa != null) {
+    const correo = String(fields.correoEmpresa || '').trim();
+    if (correo && !EMPRESA_EMAIL_RE.test(correo)) throw new Error('El correo de la empresa no es válido.');
+    emp.correoEmpresa = correo;
+  }
+  if (fields.correoFacturacion != null) {
+    const correo = String(fields.correoFacturacion || '').trim();
+    if (correo && !EMPRESA_EMAIL_RE.test(correo)) throw new Error('El correo de facturación no es válido.');
+    emp.correoFacturacion = correo;
+  }
+  for (const { key, label } of COLOR_KEYS) {
     if (fields[key] != null) {
       const hex = String(fields[key] || '').trim();
-      if (/^#[0-9a-fA-F]{6}$/.test(hex)) emp[key] = hex.toLowerCase();
+      if (!/^#[0-9a-fA-F]{6}$/.test(hex)) throw new Error(`El color "${label}" no es válido.`);
+      emp[key] = hex.toLowerCase();
     }
   }
   if (Array.isArray(fields.correosInternos)) {
+    const invalido = fields.correosInternos.find(c => !EMPRESA_EMAIL_RE.test(String(c || '').trim()));
+    if (invalido) throw new Error(`Correo interno no válido: ${invalido}`);
     emp.correosInternos = fields.correosInternos
       .map(c => String(c || '').trim().toLowerCase())
       .filter(Boolean);
