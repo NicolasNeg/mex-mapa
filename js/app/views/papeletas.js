@@ -98,6 +98,8 @@ let _diagramApi = null;
 /** Readonly preview mounts (salida / regreso) — separate from editable daños step. */
 let _readonlyDiagramApis = [];
 let _localStrokes = null;
+let _captureScrollTop = 0;
+let _activeCaptureSec = 'datos';
 let _cameraApi = null;
 let _saveState = 'idle'; // idle | saving | saved | conflict
 /** Local draft for regreso comparison — never mutates salida.danosMarcados */
@@ -167,10 +169,7 @@ function _defaultStepFor(p) {
   if (!p) return 'datos';
   if (p.status === 'entregada' || p.status === 'en_retorno') return 'entrada';
   if (p.status === 'cerrada_historial') return 'salida';
-  if (p.status === 'lista') {
-    _step6Phase = 'resumen';
-    return 'fotos_firma';
-  }
+  _step6Phase = 'fotos';
   return 'datos';
 }
 
@@ -265,6 +264,237 @@ function _flowFooterHtml({ canContinue = true, continueLabel = 'Continuar' } = {
     </footer>`;
 }
 
+const CAPTURE_SECS = Object.freeze([
+  { id: 'datos', label: 'Datos' },
+  { id: 'km_gas', label: 'KM' },
+  { id: 'checklist', label: 'Check' },
+  { id: 'danos', label: 'Daños' },
+  { id: 'fotos', label: 'Fotos' },
+  { id: 'entregar', label: 'Entregar' },
+  { id: 'firma', label: 'Firma' },
+]);
+
+function _captureHeaderHtml(p) {
+  const chip = _saveChipLabel();
+  const plaza = p.ultimaPlazaId || p.plazaId || '';
+  return `
+    <header class="pap-capture-header">
+      <button type="button" class="pap-icon-btn" data-act="flow-back" aria-label="Salir">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <div class="pap-capture-header__mid">
+        <strong>${_esc(p.mva || 'Papeleta')}</strong>
+        <span>${_esc(p.modelo || '')}${plaza ? ` · ${_esc(plaza)}` : ''}</span>
+      </div>
+      <span class="pap-save-chip ${_saveState !== 'idle' ? 'is-on' : ''}" data-save-chip>${_esc(chip)}</span>
+      <button type="button" class="pap-icon-btn" data-act="pdf" aria-label="PDF" title="PDF">
+        <span class="material-symbols-outlined">picture_as_pdf</span>
+      </button>
+    </header>`;
+}
+
+function _captureChipsHtml(p) {
+  const gate = _deliveryGate(p, { firma: p.salida?.firma || null });
+  const softSet = new Set(gate.soft || []);
+  const hardSet = new Set(gate.hard || []);
+  const warnFor = (id) => {
+    if (id === 'km_gas' && (hardSet.has('km') || hardSet.has('gas') || hardSet.has('km_justification'))) return true;
+    if (id === 'checklist' && hardSet.has('checklist')) return true;
+    if (id === 'fotos' && hardSet.has('core_photos')) return true;
+    if (id === 'firma' && hardSet.has('firma')) return true;
+    if (id === 'entregar' && softSet.has('cliente')) return true;
+    return false;
+  };
+  return `
+    <nav class="pap-sec-chips" role="tablist" aria-label="Secciones">
+      ${CAPTURE_SECS.map((s) => `
+        <button type="button" class="pap-sec-chip ${_activeCaptureSec === s.id ? 'is-active' : ''} ${warnFor(s.id) ? 'is-warn' : ''}"
+          data-act="jump-sec" data-sec="${s.id}" role="tab">${_esc(s.label)}</button>
+      `).join('')}
+    </nav>`;
+}
+
+function _captureFooterHtml(p) {
+  const gate = _deliveryGate(p, { firma: p.salida?.firma || null });
+  const hardSansFirma = (gate.hard || []).filter((h) => h !== 'firma');
+  const canEntregar = puedeEditar(p.status) && hardSansFirma.length === 0;
+  return `
+    <footer class="pap-capture-footer">
+      <button type="button" class="pap-btn pap-btn--ghost" data-act="next-gap" ${_busy ? 'disabled' : ''}>
+        Siguiente hueco
+      </button>
+      <button type="button" class="pap-btn pap-btn--primary" data-act="capture-entregar" ${canEntregar && !_busy ? '' : 'disabled'}
+        title="${hardSansFirma.length ? `Falta: ${hardSansFirma.join(', ')}` : 'Revisar y firmar'}">
+        Entregar
+      </button>
+    </footer>`;
+}
+
+function _firstHardSec(p) {
+  const gate = _deliveryGate(p, { firma: p.salida?.firma || null });
+  const hard = gate.hard || [];
+  if (hard.includes('km') || hard.includes('gas') || hard.includes('km_justification')) return 'km_gas';
+  if (hard.includes('checklist')) return 'checklist';
+  if (hard.includes('core_photos')) return 'fotos';
+  if (hard.includes('firma')) return 'firma';
+  if ((gate.soft || []).includes('cliente')) return 'datos';
+  return 'entregar';
+}
+
+function _jumpToSec(secId) {
+  const id = String(secId || 'datos');
+  _activeCaptureSec = id;
+  const el = _container?.querySelector(`#pap-sec-${id}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  _container?.querySelectorAll('.pap-sec-chip').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.sec === id);
+  });
+}
+
+function _bindCaptureScrollSpy() {
+  const scroller = _container?.querySelector('#papCaptureScroll');
+  if (!scroller || scroller.dataset.spyBound === '1') return;
+  scroller.dataset.spyBound = '1';
+  let ticking = false;
+  scroller.addEventListener('scroll', () => {
+    _captureScrollTop = scroller.scrollTop;
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      const secs = CAPTURE_SECS.map((s) => _container?.querySelector(`#pap-sec-${s.id}`)).filter(Boolean);
+      let active = CAPTURE_SECS[0]?.id || 'datos';
+      const top = scroller.scrollTop + 130;
+      for (const el of secs) {
+        if (el.offsetTop <= top) active = el.id.replace('pap-sec-', '');
+      }
+      if (active !== _activeCaptureSec) {
+        _activeCaptureSec = active;
+        _container?.querySelectorAll('.pap-sec-chip').forEach((btn) => {
+          btn.classList.toggle('is-active', btn.dataset.sec === active);
+        });
+      }
+    });
+  }, { passive: true });
+}
+
+async function _captureEntregar() {
+  if (!_detail || !puedeEditar(_detail.status)) return;
+  try {
+    await _saveStepDatos();
+    const kmOk = await _saveStepKmGas();
+    if (!kmOk) {
+      _jumpToSec('km_gas');
+      return;
+    }
+    const checkOk = await _saveCheckCapture();
+    if (!checkOk) {
+      _jumpToSec('checklist');
+      return;
+    }
+    await _saveDanosQuiet();
+  } catch (e) {
+    await _mexAlert('Error', e.message || String(e));
+    return;
+  }
+  const gate = _deliveryGate(_detail, { firma: _detail.salida?.firma || null });
+  const hardSansFirma = (gate.hard || []).filter((h) => h !== 'firma');
+  if (hardSansFirma.length) {
+    _jumpToSec(_firstHardSec(_detail));
+    await _mexAlert('Falta completar', `Completa: ${hardSansFirma.join(', ')}`);
+    return;
+  }
+  if ((gate.soft || []).length) {
+    const ok = await _mexConfirm(
+      'Avisos',
+      `Hay avisos: ${(gate.soft || []).join(', ')}. ¿Continuar a firma?`,
+      'warning'
+    );
+    if (!ok) return;
+  }
+  _jumpToSec('firma');
+  _step6Phase = 'firma';
+  _bindSignature();
+}
+
+async function _saveCheckCapture() {
+  if (!_detail || !puedeEditar(_detail.status)) return false;
+  const checklist = { ...(_detail.checklist || {}) };
+  CHECKLIST_KEYS.forEach((k) => {
+    if (checklist[k] == null) checklist[k] = _detail.checklist?.[k] || '';
+  });
+  const marcasLlantas = {
+    delanteraIzq: '',
+    delanteraDer: '',
+    traseraIzq: '',
+    traseraDer: '',
+    marcarTodas: !!_container.querySelector('#papMarcarTodas')?.checked,
+  };
+  _container.querySelectorAll('[data-llanta]').forEach((inp) => {
+    marcasLlantas[inp.dataset.llanta] = String(inp.value || '').trim();
+  });
+  if (marcasLlantas.marcarTodas) {
+    const master = marcasLlantas.delanteraIzq
+      || marcasLlantas.delanteraDer
+      || marcasLlantas.traseraIzq
+      || marcasLlantas.traseraDer
+      || '';
+    LLANTA_KEYS.forEach((k) => { marcasLlantas[k] = master; });
+  }
+  const tapetesUsoRudoRaw = _container.querySelector('#papTapetesRudo')?.value ?? '';
+  const tapetesAlfombraRaw = _container.querySelector('#papTapetesAlfombra')?.value ?? '';
+  const tapetesUsoRudo = tapetesUsoRudoRaw === '' ? null : Number(String(tapetesUsoRudoRaw).replace(/\D+/g, ''));
+  const tapetesAlfombra = tapetesAlfombraRaw === '' ? null : Number(String(tapetesAlfombraRaw).replace(/\D+/g, ''));
+  const notasInteriores = _container.querySelector('[data-field="notasInteriores"]')?.value?.trim() || '';
+
+  if (!isChecklistComplete({
+    checklist,
+    marcasLlantas,
+    tapetesUsoRudo,
+    tapetesAlfombra,
+  })) {
+    await _mexAlert('Checklist incompleto', 'Marca todos los accesorios, las 4 llantas y ambos contadores de tapetes.');
+    return false;
+  }
+
+  _saveState = 'saving';
+  try {
+    await actualizarPapeleta(_detail.id, {
+      checklist,
+      marcasLlantas,
+      tapetesUsoRudo: Number.isFinite(tapetesUsoRudo) ? tapetesUsoRudo : null,
+      tapetesAlfombra: Number.isFinite(tapetesAlfombra) ? tapetesAlfombra : null,
+      notasInteriores,
+    }, { user: _user(), knownRevision: _detail.revision, plazaId: String(getCurrentPlaza() || '') });
+    _saveState = 'saved';
+    return true;
+  } catch (e) {
+    _saveState = e?.code === 'REVISION_CONFLICT' ? 'conflict' : 'idle';
+    throw e;
+  }
+}
+
+async function _saveDanosQuiet() {
+  if (!_detail || !puedeEditar(_detail.status)) return;
+  if (!_diagramApi && !_localStrokes && !(_detail.danosMarcados || []).length) return;
+  const strokes = _diagramApi ? _diagramApi.getStrokes() : (_localStrokes || _detail.diagramaStrokes || []);
+  const danos = _diagramApi?.getDamages
+    ? _diagramApi.getDamages()
+    : (Array.isArray(_detail.danosMarcados) ? _detail.danosMarcados : []);
+  _localStrokes = strokes;
+  try {
+    await actualizarPapeleta(_detail.id, {
+      diagramaStrokes: strokes,
+      danosMarcados: danos,
+      danosLastDisplayNumber: Number(_detail.danosLastDisplayNumber) || nextDisplayNumber(danos, 0) - 1,
+    }, { user: _user(), knownRevision: _detail.revision, plazaId: String(getCurrentPlaza() || '') });
+    _saveState = 'saved';
+  } catch (e) {
+    _saveState = e?.code === 'REVISION_CONFLICT' ? 'conflict' : 'idle';
+    throw e;
+  }
+}
+
 function _destroyDiagram() {
   if (_diagramApi) {
     try { _diagramApi.destroy(); } catch (_) { /* ignore */ }
@@ -279,14 +509,30 @@ function _destroyReadonlyDiagrams() {
   _readonlyDiagramApis = [];
 }
 
+/** Persist mount: reuse live diagram host across capture re-renders. */
 function _mountDiagramIfNeeded(p, editable) {
-  _destroyDiagram();
   const host = _container?.querySelector('[data-diagram-host]');
-  if (!host) return;
+  if (!host) {
+    _destroyDiagram();
+    return;
+  }
   const strokes = Array.isArray(_localStrokes)
     ? _localStrokes
     : (Array.isArray(p?.diagramaStrokes) ? p.diagramaStrokes : []);
   const danos = Array.isArray(p?.danosMarcados) ? p.danosMarcados : [];
+
+  if (_diagramApi && host.dataset.diagramAlive === '1') {
+    try {
+      if (_diagramApi.setStrokes) _diagramApi.setStrokes(strokes);
+      if (_diagramApi.setDamages) _diagramApi.setDamages(danos);
+      _diagramApi.resize?.();
+      return;
+    } catch (_) {
+      _destroyDiagram();
+    }
+  }
+
+  _destroyDiagram();
   _diagramApi = mountDiagram(host, {
     strokes,
     danosMarcados: danos,
@@ -298,6 +544,7 @@ function _mountDiagramIfNeeded(p, editable) {
     },
     onTap: editable ? (payload) => { void _addDamageFromTap(payload); } : undefined,
   });
+  host.dataset.diagramAlive = '1';
 }
 
 /**
@@ -902,6 +1149,9 @@ function _openDetail(id) {
 
 function _render() {
   if (!_container) return;
+  const scrollerPrev = _container.querySelector('#papCaptureScroll');
+  if (scrollerPrev) _captureScrollTop = scrollerPrev.scrollTop;
+
   const canV = _canVentas();
   const editor = _mode === 'detail';
   _container.innerHTML = `
@@ -925,21 +1175,25 @@ function _render() {
     </section>
   `;
   _bind();
-  if (_wizardStep === 'fotos_firma' && _step6Phase === 'firma') _bindSignature();
-  if (_wizardStep === 'firma') _bindSignature();
+  if (_step6Phase === 'firma' || _wizardStep === 'firma') _bindSignature();
   _hydrateFotos();
-  if (_mode === 'detail' && _detail && (_wizardStep === 'danos' || _wizardStep === 'salida' || _wizardStep === 'entrada')) {
-    const editableDiag = _wizardStep === 'danos' && puedeEditar(_detail.status);
-    if (_wizardStep === 'danos') {
-      _destroyReadonlyDiagrams();
-      _mountDiagramIfNeeded(_detail, editableDiag);
-    } else {
-      _destroyDiagram();
-      _mountReadonlyDiagrams(_detail);
-    }
-  } else {
+
+  const post = _detail ? _isPostEntrega(_detail.status) : false;
+  if (_mode === 'detail' && _detail && !post && _step6Phase !== 'exito') {
+    _destroyReadonlyDiagrams();
+    _mountDiagramIfNeeded(_detail, puedeEditar(_detail.status));
+  } else if (_mode === 'detail' && _detail && post && (_wizardStep === 'salida' || _wizardStep === 'entrada')) {
+    _destroyDiagram();
+    _mountReadonlyDiagrams(_detail);
+  } else if (_mode !== 'detail') {
     _destroyDiagram();
     _destroyReadonlyDiagrams();
+  }
+
+  const scroller = _container.querySelector('#papCaptureScroll');
+  if (scroller) {
+    scroller.scrollTop = _captureScrollTop;
+    _bindCaptureScrollSpy();
   }
   void canV;
 }
@@ -1023,15 +1277,16 @@ function _cardHtml(it) {
   const short = STATUS_LABELS_SHORT[it.status] || STATUS_LABELS[it.status] || it.status;
   const updated = _fmtDate(it.actualizadoAt || it.creadoAt);
   const reporte = _hasReporte(it);
+  const plaza = it.ultimaPlazaId || it.plazaId || '';
   return `
     <button type="button" class="pap-card" data-act="open" data-id="${_esc(it.id)}">
       <div class="pap-card__top">
         <strong class="pap-td-mono">${_esc(it.mva || '—')}</strong>
         <span class="pap-chip pap-chip--${_esc(it.status)}">${_esc(short)}</span>
       </div>
-      <div class="pap-card__mid">${_esc(it.modelo || '—')} · ${_esc(it.placas || 'Sin placas')}</div>
+      <div class="pap-card__mid">${_esc(it.modelo || '—')} · ${_esc(it.placas || 'Sin placas')}${plaza ? ` · ${_esc(plaza)}` : ''}</div>
       <div class="pap-card__bot">
-        <span>${_esc(it.clienteNombre || 'Sin cliente')}</span>
+        <span>${_esc(it.clienteNombre || it.contrato || 'Sin cliente')}</span>
         <span>Core ${core}/6${reporte ? ' · reporte' : ''}</span>
         <span>${updated || '—'}</span>
       </div>
@@ -1152,43 +1407,45 @@ function _renderDetail() {
     `;
   }
 
-  // Salida 6-step mobile flow
-  const stepId = _normalizeWizardStep(_wizardStep);
-  _wizardStep = stepId;
-  let body = '';
-  let continueLabel = 'Continuar';
-  if (stepId === 'datos') body = _panelConfirmarDatos(p, editable);
-  else if (stepId === 'km_gas') body = _panelKmGas(p, editable);
-  else if (stepId === 'checklist') body = _panelChecklistStep(p, editable);
-  else if (stepId === 'danos') body = _panelDanos(p, editable);
-  else if (stepId === 'fotos_firma') {
-    if (_step6Phase === 'firma') {
-      body = _panelFirma(p);
-      continueLabel = 'Confirmar entrega';
-    } else if (_step6Phase === 'resumen') {
-      body = _panelResumen(p);
-      continueLabel = 'Pedir firma';
-    } else if (_step6Phase === 'exito') {
-      body = _panelExito(p);
-      continueLabel = 'Ir al listado';
-    } else {
-      body = _panelZonas(p, editable);
-      continueLabel = 'Ir a resumen';
-    }
+  // Salida: captura continua (hoja + lápiz) — un solo scroll
+  if (_step6Phase === 'exito') {
+    return `
+      <main class="pap-editor-shell pap-editor-shell--sheet">
+        ${_captureHeaderHtml(p)}
+        <div class="pap-capture-scroll">
+          ${_panelExito(p)}
+        </div>
+      </main>`;
   }
 
   return `
-    <main class="pap-editor-shell pap-editor-shell--flow">
-      ${_flowHeaderHtml(stepId)}
-      <div class="pap-flow-meta">
-        <span class="pap-chip pap-chip--${_esc(p.status)}">${_esc(statusLabel)}</span>
-        <strong>${_esc(p.mva || 'Papeleta')}</strong>
-        <span>${_esc(p.modelo || '')} · ${_esc(p.placas || '')}</span>
+    <main class="pap-editor-shell pap-editor-shell--sheet">
+      ${_captureHeaderHtml(p)}
+      ${_captureChipsHtml(p)}
+      <div class="pap-capture-scroll" id="papCaptureScroll">
+        <section class="pap-capture-sec" id="pap-sec-datos" data-sec="datos">
+          ${_panelConfirmarDatos(p, editable)}
+        </section>
+        <section class="pap-capture-sec" id="pap-sec-km_gas" data-sec="km_gas">
+          ${_panelKmGas(p, editable)}
+        </section>
+        <section class="pap-capture-sec" id="pap-sec-checklist" data-sec="checklist">
+          ${_panelChecklistStep(p, editable)}
+        </section>
+        <section class="pap-capture-sec" id="pap-sec-danos" data-sec="danos">
+          ${_panelDanos(p, editable)}
+        </section>
+        <section class="pap-capture-sec" id="pap-sec-fotos" data-sec="fotos">
+          ${_panelZonas(p, editable)}
+        </section>
+        <section class="pap-capture-sec" id="pap-sec-entregar" data-sec="entregar">
+          ${_panelResumen(p)}
+        </section>
+        <section class="pap-capture-sec" id="pap-sec-firma" data-sec="firma">
+          ${_panelFirma(p)}
+        </section>
       </div>
-      <div class="pap-detail pap-detail--flow">
-        ${body}
-      </div>
-      ${_step6Phase === 'exito' ? '' : _flowFooterHtml({ continueLabel })}
+      ${_captureFooterHtml(p)}
     </main>
   `;
 }
@@ -1216,13 +1473,13 @@ function _panelConfirmarDatos(p, editable) {
   return `
     <div class="pap-panel pap-panel--app">
       <h2>Confirmar datos</h2>
-      <p class="pap-hint">Revisa la unidad antes de continuar. Las correcciones se quedan en esta papeleta (no reescriben la ficha maestra en silencio).</p>
+      <p class="pap-hint">Una sola hoja: completa abajo sin cambiar de pantalla. Cliente/contrato son opcionales (se pueden asignar después).</p>
       ${_unitIdentityHtml(p)}
       <div class="pap-fields-2">
         <div class="pap-field">
           <label>Cliente / entrega a</label>
-          ${_canVentas()
-            ? `<input data-field="clienteNombre" value="${_esc(p.clienteNombre || '')}" placeholder="Nombre del cliente" autocomplete="off"/>`
+          ${_canVentas() || editable
+            ? `<input data-field="clienteNombre" value="${_esc(p.clienteNombre || '')}" placeholder="Opcional — se puede asignar después" autocomplete="off"/>`
             : `<input value="${_esc(p.clienteNombre || '—')}" disabled/>`}
         </div>
         <div class="pap-field">
@@ -1765,7 +2022,21 @@ async function _runUnitAutocomplete(raw) {
   _paintUnitHits();
   try {
     const plaza = String(getCurrentPlaza() || '').toUpperCase();
-    const hits = await buscarUnidad(_unitQ, { limit: 12, plazaId: plaza });
+    let hits = [];
+    const mex = window.mexUnidades;
+    if (mex?.isReady?.() && String(raw || '').trim()) {
+      hits = mex.buscar(raw, 12) || [];
+      // Boost plaza actual without hiding others
+      if (plaza && hits.length) {
+        hits = hits.slice().sort((a, b) => {
+          const ap = String(a.plazaId || a.plaza || '').toUpperCase() === plaza ? 0 : 1;
+          const bp = String(b.plazaId || b.plaza || '').toUpperCase() === plaza ? 0 : 1;
+          return ap - bp;
+        });
+      }
+    } else {
+      hits = await buscarUnidad(_unitQ, { limit: 12, plazaId: plaza });
+    }
     if (seq !== _unitSearchSeq) return;
     _unitHits = hits;
   } catch (_) {
@@ -1875,6 +2146,16 @@ function _bind() {
   root.querySelectorAll('[data-act="step"]').forEach((btn) => {
     btn.addEventListener('click', () => { _wizardStep = btn.dataset.step; _render(); });
   });
+  root.querySelectorAll('[data-act="jump-sec"]').forEach((btn) => {
+    btn.addEventListener('click', () => _jumpToSec(btn.dataset.sec));
+  });
+  root.querySelector('[data-act="next-gap"]')?.addEventListener('click', () => {
+    if (!_detail) return;
+    _jumpToSec(_firstHardSec(_detail));
+  });
+  root.querySelector('[data-act="capture-entregar"]')?.addEventListener('click', () => {
+    void _captureEntregar();
+  });
   root.querySelectorAll('[data-act="flow-back"]').forEach((btn) => {
     btn.addEventListener('click', () => { void _flowBack(); });
   });
@@ -1901,9 +2182,18 @@ function _bind() {
       if (!_detail || !puedeEditar(_detail.status)) return;
       if (!_detail.checklist) _detail.checklist = {};
       _detail.checklist[btn.dataset.key] = btn.dataset.val;
-      // keep strokes across checklist re-render
       if (_diagramApi) _localStrokes = _diagramApi.getStrokes();
-      _render();
+      // Update ternary UI in place — avoid full re-render (keeps scroll + diagram)
+      const group = btn.closest('.pap-ternary');
+      group?.querySelectorAll('.pap-ternary__btn').forEach((b) => {
+        b.classList.remove('is-on', 'is-ok', 'is-bad', 'is-na');
+        if (b === btn) {
+          b.classList.add('is-on');
+          if (btn.dataset.val === 'ok') b.classList.add('is-ok');
+          if (btn.dataset.val === 'faltante') b.classList.add('is-bad');
+          if (btn.dataset.val === 'na') b.classList.add('is-na');
+        }
+      });
     });
   });
   root.querySelectorAll('[data-act="gas-set"]').forEach((btn) => {
@@ -1926,9 +2216,7 @@ function _bind() {
     btn.addEventListener('click', () => _openGuidedCamera());
   });
   root.querySelector('[data-act="goto-resumen"]')?.addEventListener('click', () => {
-    _wizardStep = 'fotos_firma';
-    _step6Phase = 'resumen';
-    _render();
+    _jumpToSec('entregar');
   });
   const kmOut = root.querySelector('#papKmSalida');
   if (kmOut && !kmOut.disabled) {
@@ -1984,10 +2272,12 @@ function _bind() {
   root.querySelector('[data-act="save-datos"]')?.addEventListener('click', () => _saveDatos());
   root.querySelector('[data-act="save-zona"]')?.addEventListener('click', () => _saveZona());
   root.querySelector('[data-act="save-check"]')?.addEventListener('click', () => _saveCheck());
-  root.querySelector('[data-act="start-entregar"]')?.addEventListener('click', () => _startEntregar());
+  root.querySelector('[data-act="start-entregar"]')?.addEventListener('click', () => { void _captureEntregar(); });
   root.querySelector('[data-act="sig-clear"]')?.addEventListener('click', () => _clearSig());
   root.querySelector('[data-act="sig-confirm"]')?.addEventListener('click', () => _confirmFirma());
-  root.querySelector('[data-act="pdf"]')?.addEventListener('click', () => _doPdf());
+  root.querySelectorAll('[data-act="pdf"]').forEach((btn) => {
+    btn.addEventListener('click', () => _doPdf());
+  });
   root.querySelectorAll('[data-act="goto-entrada"]').forEach((btn) => {
     btn.addEventListener('click', () => { _wizardStep = 'entrada'; _render(); });
   });
@@ -2126,30 +2416,12 @@ async function _flowBack() {
     _gotoList();
     return;
   }
-  if (_wizardStep === 'fotos_firma') {
-    if (_step6Phase === 'firma') {
-      _step6Phase = 'resumen';
-      _render();
-      return;
-    }
-    if (_step6Phase === 'resumen') {
-      _step6Phase = 'fotos';
-      _render();
-      return;
-    }
-    if (_step6Phase === 'exito') {
-      _gotoList();
-      return;
-    }
-  }
-  const idx = SALIDA_STEP_IDS.indexOf(_wizardStep);
-  if (idx <= 0) {
-    await _openAbandonSheet();
+  if (_step6Phase === 'exito') {
+    _gotoList();
     return;
   }
-  _wizardStep = SALIDA_STEP_IDS[idx - 1];
-  if (_wizardStep === 'fotos_firma') _step6Phase = 'fotos';
-  _render();
+  // Captura continua: atrás = salir del borrador (no hop entre pantallas)
+  await _openAbandonSheet();
 }
 
 /**
@@ -2319,14 +2591,21 @@ async function _saveStepDatos() {
   });
   _saveState = 'saving';
   try {
-    if (patch.clienteNombre != null && _canVentas()) {
-      await asignarCliente(_detail.id, patch.clienteNombre, { user: _user() });
+    if (patch.clienteNombre != null) {
+      await asignarCliente(_detail.id, patch.clienteNombre, {
+        user: _user(),
+        plazaId: String(getCurrentPlaza() || ''),
+      });
       delete patch.clienteNombre;
     }
     const clean = {};
     if (patch.contrato != null) clean.contrato = patch.contrato;
     if (Object.keys(clean).length) {
-      await actualizarPapeleta(_detail.id, clean, { user: _user(), knownRevision: _detail.revision });
+      await actualizarPapeleta(_detail.id, clean, {
+        user: _user(),
+        knownRevision: _detail.revision,
+        plazaId: String(getCurrentPlaza() || ''),
+      });
     }
     _saveState = 'saved';
   } catch (e) {
