@@ -2541,10 +2541,11 @@ auth.onAuthStateChanged(async (user) => {
   }
   if (user) {
     const emailNormalizado = _profileDocId(user?.email || '');
+    // Declarar fuera del try: el catch de red/Auth necesita asignarlo (ReferenceError si vive solo en try).
+    let perfilValidado = null;
     try {
       // Force token refresh so Firestore security rules get the auth context immediately
       await user.getIdToken(true);
-      let perfilValidado = null;
 
       // ── Detectar si corremos dentro del App Shell (iframe) ──
       // En ese caso NO hacer auth.signOut() global si el perfil no carga,

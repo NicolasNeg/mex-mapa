@@ -91,6 +91,9 @@ function _gasProgressHtml(label, { compact = false } = {}) {
 }
 
 function _metaChip(row) {
+  if (row?.broken) {
+    return esc('Ítem incompleto — edita o elimina');
+  }
   const raw = row.raw;
   if (_section === 'estados' && raw && typeof raw === 'object') {
     return `<span class="adm-swatch" style="background:${esc(raw.color || '#64748b')}"></span>${esc(raw.color || '')}`;
@@ -455,10 +458,42 @@ function _paintHtml() {
   `;
 }
 
-function _paint() {
+function _captureScroll() {
+  const listEl = _host?.querySelector('.adm-op-acc-list');
+  const native = _host?.closest?.('#adm-native') || _host?.parentElement;
+  return {
+    list: listEl ? listEl.scrollTop : 0,
+    host: _host ? _host.scrollTop : 0,
+    native: native ? native.scrollTop : 0,
+    win: typeof window !== 'undefined' ? (window.scrollY || window.pageYOffset || 0) : 0
+  };
+}
+
+function _restoreScroll(snap) {
+  if (!snap || !_host) return;
+  const apply = () => {
+    const listEl = _host?.querySelector('.adm-op-acc-list');
+    if (listEl) listEl.scrollTop = snap.list;
+    if (_host) _host.scrollTop = snap.host;
+    const native = _host?.closest?.('#adm-native') || _host?.parentElement;
+    if (native) native.scrollTop = snap.native;
+    if (typeof window !== 'undefined' && snap.win != null) {
+      window.scrollTo(0, snap.win);
+    }
+  };
+  apply();
+  requestAnimationFrame(() => {
+    apply();
+    requestAnimationFrame(apply);
+  });
+}
+
+function _paint({ preserveScroll = true } = {}) {
   if (!_host) return;
+  const snap = preserveScroll ? _captureScroll() : null;
   _host.innerHTML = _paintHtml();
   _bind();
+  if (snap) _restoreScroll(snap);
 }
 
 function _toggleKey(key) {
@@ -658,16 +693,19 @@ async function _delete(itemKey) {
 
 async function _move(itemKey, delta) {
   if (!_canEdit() || !itemKey || itemKey === NEW_KEY) return;
-  const listEl = _host?.querySelector('.adm-op-acc-list');
-  const scrollTop = listEl ? listEl.scrollTop : 0;
+  const snap = _captureScroll();
   try {
     const key = await reorderCatalogItem(_section, itemKey, delta, _actor().email);
     _openKey = key || _openKey;
-    _paint();
-    if (listEl) listEl.scrollTop = scrollTop;
+    _paint({ preserveScroll: false });
+    _restoreScroll(snap);
   } catch (err) {
     console.error('[admin-opciones] reorder:', err);
-    toast(err?.message || 'No se pudo reordenar.', 'error');
+    const code = String(err?.code || '');
+    const msg = code.includes('permission') || /insufficient|permission/i.test(String(err?.message || ''))
+      ? 'Sin permiso para reordenar este catálogo (manage_system_settings).'
+      : (err?.message || 'No se pudo reordenar.');
+    toast(msg, 'error');
   }
 }
 

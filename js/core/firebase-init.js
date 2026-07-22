@@ -114,15 +114,50 @@
     return null;
   }
 
+  function _isLoginPage() {
+    const path = String(location.pathname || '').toLowerCase();
+    return path === '/login' || path.endsWith('/login.html') || path.endsWith('/login');
+  }
+
   function _initAppCheck() {
     if (window.__mexAppCheck) return window.__mexAppCheck;
+    // Login usa reCAPTCHA v2 checkbox como gate UX — no mezclar con App Check v3.
+    if (window.MEX_APPCHECK_DISABLED === true || _isLoginPage()) {
+      console.info('[firebase-init] App Check omitido en login (gate = reCAPTCHA v2 checkbox).');
+      return null;
+    }
     const siteKey = String(window.MEX_APPCHECK_SITE_KEY || '').trim();
     if (!siteKey) {
-      console.warn('[firebase-init] App Check omitido: define window.MEX_APPCHECK_SITE_KEY (site key pública). Ver docs/app-check.md');
+      console.warn('[firebase-init] App Check omitido: define window.MEX_APPCHECK_SITE_KEY (site key v3 pública). Ver docs/app-check.md');
       return null;
     }
     if (typeof firebase.appCheck !== 'function' || !firebase.appCheck) {
       console.warn('[firebase-init] App Check omitido: carga firebase-app-check-compat.js antes de firebase-init.js');
+      return null;
+    }
+
+    // reCAPTCHA necesita document.body (appendChild). Si el script corre en <head>,
+    // deferir hasta DOM listo; no tumbar el boot de Auth/Firestore.
+    if (typeof document === 'undefined') {
+      console.warn('[firebase-init] App Check omitido: sin document.');
+      return null;
+    }
+    if (!document.body) {
+      if (!window.__mexAppCheckDomWait) {
+        window.__mexAppCheckDomWait = true;
+        const retry = () => {
+          window.__mexAppCheckDomWait = false;
+          try { _initAppCheck(); } catch (e) {
+            console.error('[firebase-init] App Check retry falló:', e);
+          }
+        };
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', retry, { once: true });
+        } else {
+          setTimeout(retry, 0);
+        }
+      }
+      console.info('[firebase-init] App Check diferido hasta que exista document.body.');
       return null;
     }
 
@@ -160,12 +195,17 @@
       );
       return appCheck;
     } catch (err) {
-      console.error('[firebase-init] App Check activate falló:', err);
+      // p.ej. grecaptcha container null / red / dominio no permitido — app sigue.
+      console.error('[firebase-init] App Check activate falló (app continúa sin App Check):', err);
       return null;
     }
   }
 
-  _initAppCheck();
+  try {
+    _initAppCheck();
+  } catch (err) {
+    console.error('[firebase-init] App Check init inesperado (app continúa):', err);
+  }
 
   // ── Instancias globales ───────────────────────────────────
   const db        = _configureFirestoreTransport(firebase.firestore());

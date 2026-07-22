@@ -509,11 +509,24 @@ export function mountUsuariosPanel(host, opts = {}) {
     onError: (err) => {
       console.error('[admin-usuarios]', err);
       if (_host) {
+        const code = String(err?.code || '');
+        const isPerm = code.includes('permission') || /insufficient|permission/i.test(String(err?.message || ''));
+        const isOffline = code.includes('unavailable') || /offline|network/i.test(String(err?.message || ''));
+        const title = isPerm
+          ? 'Sin permiso para listar usuarios'
+          : isOffline
+            ? 'Sin conexión a Firestore'
+            : 'No se pudieron cargar usuarios';
+        const detail = isPerm
+          ? 'Tu rol puede ver el panel, pero las reglas de Firestore bloquean la lectura del directorio. Revisa manage_users / perfil activo.'
+          : isOffline
+            ? 'El cliente está offline o el backend no respondió. Reintenta cuando haya red.'
+            : esc(err?.message || 'Error de red o permisos');
         _host.innerHTML = `
           <div class="adm-empty">
             <span class="material-symbols-outlined">error</span>
-            <strong>No se pudieron cargar usuarios</strong>
-            <small>${esc(err?.message || 'Error de red o permisos')}</small>
+            <strong>${esc(title)}</strong>
+            <small>${detail}</small>
           </div>`;
       }
     }

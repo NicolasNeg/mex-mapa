@@ -70,20 +70,28 @@ export function getCatalogList(section) {
   const raw = window.MEX_CONFIG?.listas?.[key];
   const list = Array.isArray(raw) ? raw.slice() : [];
   return list
-    .map((item, index) => ({
-      index,
-      key: catalogEntityKey(key, item),
-      name: catalogDisplayName(key, item),
-      orden: _orderValue(item, index),
-      raw: item
-    }))
+    .map((item, index) => {
+      const name = catalogDisplayName(key, item);
+      const entityKey = catalogEntityKey(key, item);
+      // Ítems vacíos / corruptos: key estable para no romper el acordeón ni colisionar.
+      const safeKey = entityKey || `__ITEM_${index + 1}`;
+      const safeName = name || `(Sin nombre ${index + 1})`;
+      return {
+        index,
+        key: safeKey,
+        name: safeName,
+        orden: _orderValue(item, index),
+        raw: item,
+        broken: !entityKey
+      };
+    })
     .sort((a, b) => (a.orden - b.orden) || a.name.localeCompare(b.name, 'es'));
 }
 
 export function findCatalogItem(section, entityId = '') {
   const want = String(entityId || '').trim().toUpperCase();
   if (!want || want === 'NUEVO') return null;
-  return getCatalogList(section).find(row => row.key === want) || null;
+  return getCatalogList(section).find(row => String(row.key || '').toUpperCase() === want) || null;
 }
 
 export function categoryOptions() {
@@ -255,7 +263,15 @@ export async function saveCatalogItem(section, entityId, fields, actorEmail = ''
     _moveToOrder(list, list.length - 1, built.orden);
   }
 
-  await _persistListas(actorEmail || 'Admin');
+  try {
+    await _persistListas(actorEmail || 'Admin');
+  } catch (err) {
+    const code = String(err?.code || '');
+    if (code.includes('permission') || /insufficient|permission/i.test(String(err?.message || ''))) {
+      throw new Error('Sin permiso para guardar catálogos (se requiere manage_system_settings).');
+    }
+    throw err;
+  }
   return built.key;
 }
 
@@ -284,8 +300,9 @@ export async function reorderCatalogItem(section, entityId, delta, actorEmail = 
 
   const list = _ensureList(section);
   const byKey = new Map();
-  list.forEach((item) => {
-    byKey.set(catalogEntityKey(section, item), item);
+  list.forEach((item, index) => {
+    const k = catalogEntityKey(section, item) || `__ITEM_${index + 1}`;
+    byKey.set(k, item);
   });
   const next = [];
   keys.forEach((k) => {
@@ -299,7 +316,15 @@ export async function reorderCatalogItem(section, entityId, delta, actorEmail = 
   list.length = 0;
   list.push(...next);
   _applyOrder(list);
-  await _persistListas(actorEmail || 'Admin');
+  try {
+    await _persistListas(actorEmail || 'Admin');
+  } catch (err) {
+    const code = String(err?.code || '');
+    if (code.includes('permission') || /insufficient|permission/i.test(String(err?.message || ''))) {
+      throw new Error('Sin permiso para reordenar catálogos (se requiere manage_system_settings).');
+    }
+    throw err;
+  }
   return moved;
 }
 

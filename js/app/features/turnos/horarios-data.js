@@ -3,7 +3,7 @@
 //  Gestión de horarios semanales y registro de asistencia.
 //
 //  Schema horarios/{id}  — id determinístico: {plaza}_{semana}_{uid}
-//  Schema asistencia/{id}
+//  Schema asistencia/{id} — id determinístico: asistencia_{YYYYMMDD}_{plaza}_{uid}
 // ═══════════════════════════════════════════════════════════
 
 import { db, COL } from '/js/core/database.js';
@@ -55,6 +55,21 @@ function _slugUid(uid) {
 /** Doc ID determinístico: {plaza}_{semana}_{uid} */
 export function horarioDocId(plaza, semana, usuarioId) {
   return `${_slugPlaza(plaza)}_${semana}_${_slugUid(usuarioId)}`;
+}
+
+/**
+ * Doc ID determinístico y legible para asistencia.
+ * Evita auto-IDs rotos/ilegibles en consola Firestore.
+ * Formato: asistencia_YYYYMMDD_{plaza}_{uid}
+ */
+export function asistenciaDocId(plaza, fecha, usuarioId) {
+  const f = String(fecha || '').slice(0, 10).replace(/-/g, '');
+  const p = _slugPlaza(plaza);
+  const u = _slugUid(usuarioId);
+  if (!f || !p || !u) {
+    throw new Error('Asistencia incompleta (id).');
+  }
+  return `asistencia_${f}_${p}_${u}`;
 }
 
 /** Lunes de la semana que contiene 'date' (default hoy). */
@@ -392,11 +407,23 @@ export async function registrarAsistencia(usuarioId, plaza, fecha, estado, opts 
   const est = String(estado || '').toUpperCase().trim();
   if (!uid || !p || !f || !est) throw new Error('Asistencia incompleta.');
 
-  let q = db.collection(COL.ASISTENCIA)
-    .where('usuarioId', '==', uid)
-    .where('plaza', '==', p)
-    .where('fecha', '==', f);
-  const snap = await q.limit(1).get();
+  const docId = asistenciaDocId(p, f, uid);
+  const ref = db.collection(COL.ASISTENCIA).doc(docId);
+
+  // Compat: si ya existe un doc legacy (auto-id) para el mismo día, actualizarlo
+  // en lugar de crear un segundo registro con el nuevo formato.
+  let legacyRef = null;
+  try {
+    const snap = await db.collection(COL.ASISTENCIA)
+      .where('usuarioId', '==', uid)
+      .where('plaza', '==', p)
+      .where('fecha', '==', f)
+      .limit(1)
+      .get();
+    if (!snap.empty && snap.docs[0].id !== docId) {
+      legacyRef = snap.docs[0].ref;
+    }
+  } catch (_) { /* índice / offline: seguir con id determinístico */ }
 
   const base = {
     usuarioId: uid,
@@ -416,12 +443,13 @@ export async function registrarAsistencia(usuarioId, plaza, fecha, estado, opts 
     base.confirmadoEn = fv ? fv.serverTimestamp() : Date.now();
   }
 
-  if (snap.empty) {
-    const ref = await db.collection(COL.ASISTENCIA).add(base);
-    return ref.id;
+  if (legacyRef) {
+    await legacyRef.set(base, { merge: true });
+    return legacyRef.id;
   }
-  await snap.docs[0].ref.update(base);
-  return snap.docs[0].id;
+
+  await ref.set(base, { merge: true });
+  return docId;
 }
 
 /**
@@ -434,30 +462,43 @@ export async function registrarAsistenciaDesdeCheckin(usuarioId, plaza, fecha, o
   const f = String(fecha || hoy()).slice(0, 10);
   if (!uid || !p) throw new Error('Asistencia incompleta.');
 
-  const snap = await db.collection(COL.ASISTENCIA)
-    .where('usuarioId', '==', uid)
-    .where('plaza', '==', p)
-    .where('fecha', '==', f)
-    .limit(1)
-    .get();
+  const docId = asistenciaDocId(p, f, uid);
+  const canonical = await db.collection(COL.ASISTENCIA).doc(docId).get().catch(() => null);
+  let existing = canonical?.exists ? canonical : null;
+  let existingRef = existing ? existing.ref : null;
 
-  if (!snap.empty) {
-    const data = snap.docs[0].data() || {};
+  if (!existing) {
+    try {
+      const snap = await db.collection(COL.ASISTENCIA)
+        .where('usuarioId', '==', uid)
+        .where('plaza', '==', p)
+        .where('fecha', '==', f)
+        .limit(1)
+        .get();
+      if (!snap.empty) {
+        existing = snap.docs[0];
+        existingRef = snap.docs[0].ref;
+      }
+    } catch (_) { /* índice / offline */ }
+  }
+
+  if (existing && existingRef) {
+    const data = existing.data() || {};
     const actual = String(data.estado || '').toUpperCase();
     if (ESTADOS_ASISTENCIA_CONFIRMADOS.includes(actual)) {
-      return { id: snap.docs[0].id, skipped: true, reason: 'CONFIRMADO', estado: actual };
+      return { id: existing.id, skipped: true, reason: 'CONFIRMADO', estado: actual };
     }
     // Ya pendiente: solo refresca turnoId / timestamp
     const fv = _fv();
-    await snap.docs[0].ref.update({
+    await existingRef.set({
       estado: 'PENDIENTE',
       turnoId: opts.turnoId || data.turnoId || null,
       origen: 'CHECKIN',
       registradoPor: _authUid(),
       registradoEn: fv ? fv.serverTimestamp() : Date.now(),
       usuarioNombre: String(opts.nombre || data.usuarioNombre || '').trim()
-    });
-    return { id: snap.docs[0].id, skipped: false, estado: 'PENDIENTE' };
+    }, { merge: true });
+    return { id: existing.id, skipped: false, estado: 'PENDIENTE' };
   }
 
   const id = await registrarAsistencia(uid, p, f, 'PENDIENTE', {
