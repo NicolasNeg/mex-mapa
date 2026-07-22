@@ -20,7 +20,7 @@
   // NO pegues API keys de Google Cloud ni secretos de servidor.
   // Override opcional antes de cargar este archivo: window.MEX_APPCHECK_SITE_KEY
   if (g.MEX_APPCHECK_SITE_KEY == null || String(g.MEX_APPCHECK_SITE_KEY).trim() === '') {
-    g.MEX_APPCHECK_SITE_KEY = '6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j';
+    g.MEX_APPCHECK_SITE_KEY = '6Lf1714tAAAAAK3wyyOhB8nCk6JRh7uwIFlR6ufC';
   }
   // 'enterprise' → ReCaptchaEnterpriseProvider | 'v3' → ReCaptchaV3Provider
   if (g.MEX_APPCHECK_PROVIDER == null || String(g.MEX_APPCHECK_PROVIDER).trim() === '') {

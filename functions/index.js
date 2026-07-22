@@ -1987,7 +1987,7 @@ exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data
   try {
     const token = normalizeString(data?.token);
     const expectedAction = normalizeString(data?.action || "LOGIN_EMAIL");
-    const siteKey = "6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j";
+    const siteKey = "6Lf1714tAAAAAK3wyyOhB8nCk6JRh7uwIFlR6ufC";
     const projectId = "mex-mapa-bjx";
 
     if (!token) {
