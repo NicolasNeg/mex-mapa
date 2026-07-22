@@ -15,15 +15,14 @@
   };
 
   // ── App Check (reCAPTCHA) — solo site key PÚBLICA ─────────────────
-  // Firebase Console → App Check → app web "mapGestion" → proveedor
-  // reCAPTCHA Enterprise → copiar Site key aquí.
+  // Firebase Console → App Check → app web "mapGestion" → reCAPTCHA (v3).
   // NO pegues API keys de Google Cloud ni secretos de servidor.
   // Override opcional antes de cargar este archivo: window.MEX_APPCHECK_SITE_KEY
   if (g.MEX_APPCHECK_SITE_KEY == null || String(g.MEX_APPCHECK_SITE_KEY).trim() === '') {
     g.MEX_APPCHECK_SITE_KEY = '6Lf1714tAAAAAK3wyyOhB8nCk6JRh7uwIFlR6ufC';
   }
-  // 'enterprise' → ReCaptchaEnterpriseProvider | 'v3' → ReCaptchaV3Provider
+  // 'v3' → ReCaptchaV3Provider | 'enterprise' → ReCaptchaEnterpriseProvider
   if (g.MEX_APPCHECK_PROVIDER == null || String(g.MEX_APPCHECK_PROVIDER).trim() === '') {
-    g.MEX_APPCHECK_PROVIDER = 'enterprise';
+    g.MEX_APPCHECK_PROVIDER = 'v3';
   }
 })(typeof globalThis !== 'undefined' ? globalThis : window);

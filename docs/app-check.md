@@ -2,20 +2,20 @@
 
 ## Qué hace
 
-El cliente inicializa **Firebase App Check** con **reCAPTCHA Enterprise** (compat SDK `firebase-app-check-compat.js`) justo después de `firebase.initializeApp` en `js/core/firebase-init.js`. El token se adjunta automáticamente a Auth, Firestore, Storage y Functions cuando el SDK lo solicita. **Enforcement** en consola queda fuera de este paso (observación primero).
+El cliente inicializa **Firebase App Check** con **reCAPTCHA v3** (compat SDK `firebase-app-check-compat.js`) justo después de `firebase.initializeApp` en `js/core/firebase-init.js`. El token se adjunta automáticamente a Auth, Firestore, Storage y Functions cuando el SDK lo solicita. **Enforcement** en consola queda fuera de este paso (observación primero).
 
 ## Provider
 
 | Variable | Valor | SDK |
 |---|---|---|
-| `window.MEX_APPCHECK_PROVIDER` | `enterprise` (default) | `ReCaptchaEnterpriseProvider` |
-| `window.MEX_APPCHECK_PROVIDER` | `v3` | `ReCaptchaV3Provider` |
+| `window.MEX_APPCHECK_PROVIDER` | `v3` (default) | `ReCaptchaV3Provider` |
+| `window.MEX_APPCHECK_PROVIDER` | `enterprise` | `ReCaptchaEnterpriseProvider` |
 
-Preferir **Enterprise** si la app web en Firebase Console → App Check está registrada con reCAPTCHA Enterprise (caso actual: app **mapGestion**).
+Default actual: **reCAPTCHA v3** para la site key de App Check de **mapGestion**. Usa `enterprise` solo con la site key del proveedor Enterprise en consola.
 
 ## Dónde poner la site key (pública)
 
-Archivo: `js/core/firebase-config.js`
+Archivo: `js/core/firebase-config.js` → `window.MEX_APPCHECK_SITE_KEY`
 
 ```js
 window.MEX_APPCHECK_SITE_KEY = '<SITE_KEY_PUBLICA>';
@@ -24,7 +24,7 @@ window.MEX_APPCHECK_SITE_KEY = '<SITE_KEY_PUBLICA>';
 Origen de la clave:
 
 1. [Firebase Console](https://console.firebase.google.com/) → proyecto → **App Check**
-2. App web **mapGestion** → proveedor **reCAPTCHA Enterprise** (o reCAPTCHA v3 si usas `MEX_APPCHECK_PROVIDER = 'v3'`)
+2. App web **mapGestion** → proveedor **reCAPTCHA** (v3)
 3. Copiar solo la **Site key** (pública). Nunca pegues API keys de Google Cloud ni secretos de servidor en el cliente.
 
 También puedes definir `window.MEX_APPCHECK_SITE_KEY` en un script **antes** de cargar `firebase-config.js`.

@@ -135,8 +135,8 @@
       }
     }
 
-    const providerName = String(window.MEX_APPCHECK_PROVIDER || 'enterprise').trim().toLowerCase();
-    const useEnterprise = providerName !== 'v3' && providerName !== 'recaptcha-v3';
+    const providerName = String(window.MEX_APPCHECK_PROVIDER || 'v3').trim().toLowerCase();
+    const useEnterprise = providerName === 'enterprise' || providerName === 'recaptcha-enterprise';
     let provider;
     try {
       if (useEnterprise) {
