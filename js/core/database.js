@@ -141,14 +141,6 @@ export const eliminarAlertaMaestraBackend = (...a) => _api().eliminarAlertaMaest
 export const obtenerPlantillasAlerta      = (...a) => _api().obtenerPlantillasAlerta(...a);
 export const guardarPlantillaAlerta       = (...a) => _api().guardarPlantillaAlerta(...a);
 
-// ── Mensajería interna ────────────────────────────────────
-export const obtenerMensajesPrivados   = (...a) => _api().obtenerMensajesPrivados(...a);
-export const enviarMensajePrivado      = (...a) => _api().enviarMensajePrivado(...a);
-export const actualizarReaccionesChatDb= (...a) => _api().actualizarReaccionesChatDb(...a);
-export const marcarMensajesLeidosArray = (...a) => _api().marcarMensajesLeidosArray(...a);
-export const editarMensajeChatDb       = (...a) => _api().editarMensajeChatDb(...a);
-export const eliminarMensajeChatDb     = (...a) => _api().eliminarMensajeChatDb(...a);
-
 // ── Incidencias / Notas Admin ─────────────────────────────
 export const obtenerTodasLasNotas   = (...a) => _api().obtenerTodasLasNotas(...a);
 export const suscribirNotasAdmin    = (...a) => _api().suscribirNotasAdmin(...a);

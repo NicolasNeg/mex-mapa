@@ -120,6 +120,9 @@ function _fallbackCurrentPlaza() {
   );
 }
 
+// Conservado solo para no romper deep links de notificaciones "message.created"
+// que puedan seguir entregadas en dispositivos de usuarios (Mensajes ya no existe
+// como feature: la ruta destino no resuelve a nada, degrada a window.location).
 function _chatDeepLink(chatUser = '') {
   const safeUser = _safeText(chatUser);
   return safeUser ? '/app/mensajes/c/' + encodeURIComponent(safeUser) : '/app/mensajes';
@@ -209,8 +212,6 @@ function _ensureAutoConfiguration() {
       console.log(text);
     },
     routeHandlers: {
-      openBuzon: () => { window.location.href = '/app/mensajes'; },
-      openChat: (chatUser = '') => { window.location.href = _chatDeepLink(chatUser); },
       openCuadre: () => { window.location.href = '/app/cuadrarflota?source=notif'; },
       openAlerts: () => { window.location.href = '/app/mapa?notif=alerts'; }
     }

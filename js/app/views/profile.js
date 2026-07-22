@@ -184,7 +184,7 @@ function _roleScopeLabel(p = _profile) {
   return 'Lectura + operación';
 }
 function _availableModules(p = _profile) {
-  const mods = ['Dashboard', 'Mapa', 'Mensajes', 'Cuadres', 'Perfil'];
+  const mods = ['Dashboard', 'Mapa', 'Cuadres', 'Perfil'];
   if (_canAdmin(p)) mods.push('Panel Admin');
   if (_canProg(p)) mods.push('Consola');
   if (_normBool(p?.isGlobal, false)) mods.push('Global');
@@ -478,7 +478,7 @@ function _html() {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
             <div style="display:grid;gap:14px;">
               ${_selectField('Tema', 'profile-theme-select', [['light', 'Claro'], ['dark', 'Oscuro']])}
-              ${_selectField('Vista inicial', 'profile-home-view-select', [['dashboard', 'Dashboard'], ['mapa', 'Mapa'], ['mensajes', 'Mensajes'], ['cuadre', 'Cuadres']])}
+              ${_selectField('Vista inicial', 'profile-home-view-select', [['dashboard', 'Dashboard'], ['mapa', 'Mapa'], ['cuadre', 'Cuadres']])}
             </div>
             <div style="display:grid;gap:4px;align-content:start;padding-top:4px;">
               <div style="height:1px;background:#e2e8f0;margin-bottom:8px;"></div>
@@ -590,7 +590,6 @@ function _html() {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
             <div>
               <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Tipos de Alerta</p>
-              ${_notifRow('Nuevos Mensajes / Inbox', 'profileNotifMessagesToggle')}
               ${_notifRow('Modificaciones a mi Cuadre', 'profileNotifCuadreToggle')}
               ${_notifRow('Notificaciones Críticas del Sistema', 'profileNotifCriticalToggle')}
               ${_notifRow('Modo No Molestar en este navegador', 'profileNotifMuteToggle')}
@@ -624,11 +623,10 @@ function _html() {
         <div style="padding:16px 22px;border-bottom:1px solid #e2e8f0;">
           <h2 style="margin:0;font-size:18px;font-weight:800;color:#0f172a;">Atajos de Navegación</h2>
         </div>
-        <div style="padding:22px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+        <div style="padding:22px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
           ${[
             ['/app/dashboard', 'Inicio', 'Dashboard'],
             ['/app/mapa', 'Operación', 'Mapa'],
-            ['/app/mensajes', 'Comunicación', 'Mensajes'],
             ['/app/cuadre', 'Inventario', 'Cuadres']
           ].map(([href, cat, name]) =>
             `<a href="${href}" data-app-route="${href}"
@@ -808,7 +806,6 @@ function _renderNotifState() {
   const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
   const masterOn = perm === 'granted' && dev?.pushEnabled !== false && !prefs.muteAll;
   _toggleBtn('profileNotifMasterToggle', masterOn);
-  _toggleBtn('profileNotifMessagesToggle', prefs.directMessages);
   _toggleBtn('profileNotifCuadreToggle', prefs.cuadreMissions);
   _toggleBtn('profileNotifCriticalToggle', prefs.criticalAlerts);
   _toggleBtn('profileNotifMuteToggle', prefs.muteAll);
@@ -829,7 +826,7 @@ function _renderNotifState() {
       ? 'Este equipo ya puede recibir notificaciones reales del sistema.'
       : perm === 'denied'
         ? 'El permiso está bloqueado. Actívalo desde la configuración del sitio.'
-        : 'Activa el permiso para recibir mensajes, inventario y alertas críticas.';
+        : 'Activa el permiso para recibir alertas de inventario y críticas.';
   }
   if (devSummary) {
     devSummary.textContent = `${_friendlyDevice(dev)} · ${_safeText(dev?.activeRoute || '/profile')} · ${prefs.muteAll ? 'Silenciado' : 'Disponible'}`;
@@ -1023,7 +1020,6 @@ function _bindNotifButtons() {
   if (_notifBindsReady) return;
   _notifBindsReady = true;
   document.getElementById('profileNotifMasterToggle')?.addEventListener('click', _toggleMasterNotif);
-  document.getElementById('profileNotifMessagesToggle')?.addEventListener('click', () => _toggleNotifPref('directMessages'));
   document.getElementById('profileNotifCuadreToggle')?.addEventListener('click', () => _toggleNotifPref('cuadreMissions'));
   document.getElementById('profileNotifCriticalToggle')?.addEventListener('click', () => _toggleNotifPref('criticalAlerts'));
   document.getElementById('profileNotifMuteToggle')?.addEventListener('click', () => _toggleNotifPref('muteAll'));
@@ -1069,11 +1065,6 @@ async function _bootNotifications() {
     getCurrentPlaza: () => _upper(window.getMexCurrentPlaza?.() || _profile?.plazaAsignada || _profile?.plaza || ''),
     toast: (msg, type = 'info') => _toast(msg, type),
     routeHandlers: {
-      openBuzon: () => { window.location.href = '/mensajes'; },
-      openChat: (chatUser = '') => {
-        const u = _safeText(chatUser);
-        window.location.href = u ? `/mensajes?notif=chat&chatUser=${encodeURIComponent(u)}` : '/mensajes';
-      },
       openAlerts: () => { window.location.href = '/mapa?notif=alerts'; }
     }
   });

@@ -75,7 +75,6 @@ export async function getNotificationsSummary({ profile = {}, role = '', plaza =
   if (prefs.active === false) {
     return {
       total: 0,
-      mensajes: 0,
       incidencias: 0,
       alertas: 0,
       solicitudes: 0,
@@ -88,7 +87,6 @@ export async function getNotificationsSummary({ profile = {}, role = '', plaza =
   if (!userIdentity) {
     return {
       total: 0,
-      mensajes: 0,
       incidencias: 0,
       alertas: 0,
       solicitudes: 0,
@@ -97,7 +95,6 @@ export async function getNotificationsSummary({ profile = {}, role = '', plaza =
   }
 
   const notif = await checarNotificaciones(userIdentity, currentPlaza).catch(() => ({}));
-  const mensajes = Number(notif?.mensajesSinLeer || 0);
   const incidencias = Number(notif?.incidenciasPendientes || 0);
   const alertas = prefs.passiveAlerts === false
     ? 0
@@ -105,10 +102,9 @@ export async function getNotificationsSummary({ profile = {}, role = '', plaza =
     ? notif.alertas.filter(alerta => !_isAlertReadByAnyAlias(alerta, aliases)).length
     : 0;
   const solicitudes = _isAdminRole(role) ? await _countPendingRequests() : 0;
-  const activeTotal = mensajes + alertas + solicitudes;
+  const activeTotal = alertas + solicitudes;
   return {
     total: activeTotal,
-    mensajes,
     incidencias,
     alertas,
     solicitudes,

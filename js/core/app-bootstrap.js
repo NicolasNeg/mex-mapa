@@ -463,11 +463,6 @@
     if (key === 'p') {
       event.preventDefault();
       root.location.href = '/profile';
-      return;
-    }
-    if (key === 'm') {
-      event.preventDefault();
-      root.location.href = '/mensajes';
     }
   }
 
