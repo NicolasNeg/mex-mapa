@@ -4,6 +4,7 @@
  * campos `plazas` (string[]) y `plazasDetalle` (array de objetos).
  */
 import { db, registrarEventoGestion } from '/js/core/database.js';
+import { getState } from '/js/app/app-state.js';
 import { hasAppPermission } from '/js/app/features/admin/admin-permissions.js';
 import {
   normalizarPlazaKey,
@@ -29,6 +30,11 @@ function _ensureEmpresa() {
 
 function _safeLower(v) { return String(v || '').trim().toLowerCase(); }
 function _safeUpper(v) { return String(v || '').trim().toUpperCase(); }
+
+function _actorDisplayName() {
+  const profile = getState()?.profile || {};
+  return String(profile.nombreCompleto || profile.nombre || profile.email || 'Sistema').trim() || 'Sistema';
+}
 
 /**
  * `correosInternos` en este doc tiene una forma dual heredada del legacy:
@@ -156,7 +162,7 @@ async function _persist(actionType, message, successMessage, extra = {}) {
     console.warn('[admin-plazas] garantizarPlazasOperativas:', err?.message || err);
   }
   try {
-    await registrarEventoGestion(actionType, message, extra);
+    await registrarEventoGestion(actionType, message, _actorDisplayName(), extra);
   } catch (err) {
     console.warn('[admin-plazas] audit log:', err?.message || err);
   }
