@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v775';
+const CACHE_NAME = 'mapa-v778';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -70,8 +70,6 @@ const CRITICAL_ASSETS = [
   '/js/views/mapa-buscador.js',
   '/js/views/gestion.js',
   '/gestion.html',
-  '/mensajes.html',
-  '/js/views/mensajes.js',
   '/profile.html',
   '/editmap.html',
   '/css/profile.css',
@@ -91,15 +89,11 @@ const CRITICAL_ASSETS = [
   '/css/alertas.css',
   '/css/app-registros-movimientos.css',
   '/css/config.css',
-  '/css/mensajes.css',
   '/css/notificaciones.css',
   '/css/programador.css',
   '/css/incidencias.css',
-  '/css/cola-preparacion.css',
   '/css/mapa-fluid.css',
   '/js/mapa-fluid.js',
-  '/cola-preparacion.html',
-  '/js/views/cola-preparacion.js',
   '/cuadre.html',
   '/js/views/cuadre.js',
   '/js/views/legacy-shell-bridge.js',
@@ -128,18 +122,11 @@ const OPTIONAL_ASSETS = [
   '/js/app/views/dashboard.js',
   '/css/app-dashboard.css',
   '/css/app-profile.css',
-  '/css/app-mensajes.css',
   '/css/app-incidencias.css',
   '/css/app-alertas.css',
   '/css/alertas.css',
-  '/css/cola-preparacion.css',
   '/js/app/views/profile.js',
   '/js/app/views/alertas.js',
-  '/js/app/views/mensajes.js',
-  '/js/app/features/mensajes/mensajes-data.js',
-  '/js/app/features/mensajes/mensajes-attachments.js',
-  '/js/app/features/mensajes/mensajes-renderer.js',
-  '/js/app/views/cola-preparacion.js',
   '/js/app/views/traslados.js',
   '/css/app-traslados.css',
   '/js/app/views/cuadrarflota.js',
@@ -288,9 +275,7 @@ function _documentFallbackCandidates(pathname = "/") {
     "/programador": "/programador.html",
     "/home": "/home.html",
     "/gestion": "/gestion.html",
-    "/mensajes": "/mensajes.html",
     "/profile": "/profile.html",
-    "/cola-preparacion": "/cola-preparacion.html",
     "/editmap": "/editmap.html",
     "/incidencias": "/incidencias.html",
     "/cuadre": "/cuadre.html",

@@ -885,56 +885,6 @@ service cloud.firestore {
       allow read, write: if puedeEmitirAlertasMaestras();
     }
 
-    function mensajeNuevoValido() {
-      let data = request.resource.data;
-      let senderUid = data.get('remitenteUid', '');
-      let senderEmail = data.get('remitenteEmail', '');
-      let recipientUid = data.get('destinatarioUid', '');
-      let recipientEmail = data.get('destinatarioEmail', '');
-      return tienePerfilActivo()
-        && request.auth.token.email != null
-        && senderUid is string
-        && senderUid == request.auth.uid
-        && senderEmail is string
-        && senderEmail.lower() == request.auth.token.email.lower()
-        && recipientUid is string
-        && recipientEmail is string
-        && destinatarioMensajeValido(recipientUid, recipientEmail);
-    }
-
-    function destinatarioMensajeValido(uid, email) {
-      return (
-          email != ''
-          && uid == ''
-          && exists(/databases/$(database)/documents/usuarios/$(email))
-        )
-        || (
-          email == ''
-          && uid != ''
-          && exists(/databases/$(database)/documents/usuarios/$(uid))
-        )
-        || (
-          email != ''
-          && uid != ''
-          && (
-            (
-              exists(/databases/$(database)/documents/usuarios/$(email))
-              && get(/databases/$(database)/documents/usuarios/$(email)).data.get('authUid', '') == uid
-            )
-            || (
-              exists(/databases/$(database)/documents/usuarios/$(uid))
-              && get(/databases/$(database)/documents/usuarios/$(uid)).data.get('email', '').lower() == email.lower()
-            )
-          )
-        );
-    }
-
-    match /mensajes/{doc} {
-      allow read: if tienePerfilActual();
-      allow create: if mensajeNuevoValido();
-      allow update, delete: if tienePerfilActual();
-    }
-
     match /logs/{doc} {
       allow read, write: if tienePerfilActual();
     }
@@ -1042,17 +992,6 @@ service cloud.firestore {
             && mismaPlaza(document)
             && tienePermiso(perfilActual(), "manage_system_settings")
           );
-      }
-    }
-
-    // ─── COLA DE PREPARACIÓN ────────────────────────────────
-    match /cola_preparacion/{plaza} {
-      allow read, write: if tienePerfilActual() && plazaAutorizada(plaza);
-      match /items/{itemId} {
-        allow read, write: if tienePerfilActual() && plazaAutorizada(plaza);
-        match /eventos/{eventoId} {
-          allow read, write: if tienePerfilActual() && plazaAutorizada(plaza);
-        }
       }
     }
 

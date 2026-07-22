@@ -6,7 +6,7 @@
 let _container = null;
 
 const APP_ROUTES = [
-  '/app/dashboard', '/app/mapa', '/app/mensajes', '/app/cola-preparacion',
+  '/app/dashboard', '/app/mapa',
   '/app/incidencias', '/app/cuadre', '/app/admin', '/app/programador', '/app/profile',
   '/programador', '/programador/overview',
 ];

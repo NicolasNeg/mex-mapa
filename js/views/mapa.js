@@ -2865,9 +2865,6 @@ function iniciarApp(esNuevoLogin = true) {
     getCurrentPlaza: () => _miPlaza(),
     toast: showToast,
     routeHandlers: {
-      // Siempre ir a la vista SPA de mensajes (no al buzón legacy del mapa).
-      openChat:   nombre => _abrirChatDesdeNotificacion(nombre),
-      openBuzon:  () => _navegarAMensajesApp(),
       openCuadre: () => { window.location.href = '/app/cuadrarflota?source=notif'; },
       openAlerts: () => abrirSiguienteAlerta()
     }
@@ -3710,7 +3707,7 @@ function _scheduleInitialRadarPing() {
   if (_initialRadarPingHandle) return;
   const run = () => {
     _initialRadarPingHandle = null;
-    if (_radarReady.settings && _radarReady.globalSettings && _radarReady.alertas && _radarReady.mensajes && _radarReady.incidencias) return;
+    if (_radarReady.settings && _radarReady.globalSettings && _radarReady.alertas && _radarReady.incidencias) return;
     hacerPingNotificaciones();
   };
   if (typeof window.requestIdleCallback === 'function') {
@@ -3729,7 +3726,6 @@ function _schedulePrivilegedRoutePrefetch() {
   const enqueue = () => {
     [
       '/gestion?tab=usuarios',
-      '/mensajes',
       '/profile',
       '/programador',
       '/editmap',
@@ -9938,8 +9934,8 @@ function refrescarDatos(force = false) {
 
 
 let _unsubRadar = [];
-let _radarState = { settings: null, globalSettings: null, alertas: null, mensajes: null, incidencias: 0 };
-let _radarReady = { settings: false, globalSettings: false, alertas: false, mensajes: false, incidencias: false };
+let _radarState = { settings: null, globalSettings: null, alertas: null, incidencias: 0 };
+let _radarReady = { settings: false, globalSettings: false, alertas: false, incidencias: false };
 let _radarMissingIndexWarned = false;
 
 function _hasOperationalMapChrome() {
@@ -9997,7 +9993,6 @@ function iniciarRadarNotificaciones() {
     _procesarPingUI({
       incidenciasPendientes: _radarState.incidencias || 0,
       alertas,
-      mensajesSinLeer: _radarState.mensajes || 0,
       ultimaActualizacion: _radarState.settings.ultimaModificacion || "--/-- 00:00",
       ultimoCuadre: _radarState.settings.ultimoCuadreTexto || "Sin registro",
       mapaBloqueado: mapaBloqueadoLocal || mapaBloqueadoGlobal,
@@ -10037,15 +10032,6 @@ function iniciarRadarNotificaciones() {
   })());
 
   _unsubRadar.push((() => {
-    let q = db.collection('mensajes').where('destinatario', '==', USER_NAME.toUpperCase());
-    return q.onSnapshot(snap => {
-      _radarState.mensajes = snap.docs.filter(d => d.data().leido !== 'SI').length;
-      _radarReady.mensajes = true;
-      emitir();
-    }, err => console.warn('Radar mensajes:', err));
-  })());
-
-  _unsubRadar.push((() => {
     let q = db.collection('notas_admin').where('estado', '==', 'PENDIENTE');
     return q.onSnapshot(snap => {
       _radarState.incidencias = snap.size;
@@ -10060,7 +10046,7 @@ let STRING_ULTIMO_FEED = ""; // Memoria para detectar cambios reales
 // Conservado para llamadas directas puntuales si se necesitan
 function hacerPingNotificaciones(force = false) {
   if (window.PAUSA_CONEXIONES || !USER_NAME) return;
-  if (!force && _radarReady.settings && _radarReady.globalSettings && _radarReady.alertas && _radarReady.mensajes && _radarReady.incidencias) return;
+  if (!force && _radarReady.settings && _radarReady.globalSettings && _radarReady.alertas && _radarReady.incidencias) return;
   api.checarNotificaciones(USER_NAME, _miPlaza()).then(res => {
     if (res) _procesarPingUI(res);
   }).catch(err => {
@@ -10426,21 +10412,9 @@ function _procesarPingUI(res) {
     filaAlertasPendientes = [];
   }
 
-  // 🔥 7. GESTIÓN DEL BUZÓN DE MENSAJES (EL CULPABLE) 🔥
   const badgeBuzon = document.getElementById('badgeBuzon');
-  if (res.mensajesSinLeer > 0) {
-    if (badgeBuzon) {
-      badgeBuzon.innerText = res.mensajesSinLeer;
-      badgeBuzon.style.display = 'flex';
-    }
-    if (shellBellBadge && alertasPendientes.length === 0) {
-      shellBellBadge.innerText = res.mensajesSinLeer;
-      shellBellBadge.style.display = 'flex';
-    }
-  } else {
-    if (badgeBuzon) badgeBuzon.style.display = 'none';
-    if (shellBellBadge && alertasPendientes.length === 0) shellBellBadge.style.display = 'none';
-  }
+  if (badgeBuzon) badgeBuzon.style.display = 'none';
+  if (shellBellBadge && alertasPendientes.length === 0) shellBellBadge.style.display = 'none';
 }
 
 
@@ -22223,11 +22197,9 @@ async function guardarConfiguracionEnFirebase() {
 // ── S4: Feature flags per empresa ────────────────────────────────────────────
 
 const _empresaFeatureDefs = [
-  { key: 'mensajeria',          label: 'Mensajería interna',     icon: 'chat',                 desc: 'Buzón y mensajes entre operadores' },
   { key: 'alertas',             label: 'Alertas operativas',     icon: 'campaign',             desc: 'Emisión e historial de alertas' },
   { key: 'cuadre',              label: 'Cuadre de inventario',   icon: 'calculate',            desc: 'Módulo de cuadre y reservas' },
   { key: 'incidencias',         label: 'Notas e incidencias',    icon: 'warning',              desc: 'Registro de notas e incidencias' },
-  { key: 'cola_preparacion',    label: 'Cola de preparación',    icon: 'format_list_bulleted', desc: 'Preparación de unidades' },
   { key: 'reportes',            label: 'Reportes',               icon: 'bar_chart',            desc: 'Reportes y estadísticas' },
   { key: 'auditoria',           label: 'Auditoría',              icon: 'policy',               desc: 'Registro de cambios y bitácora' },
   { key: 'exportar_excel',      label: 'Exportar a Excel',       icon: 'table_view',           desc: 'Descarga de datos en hoja de cálculo' },

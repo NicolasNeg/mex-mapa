@@ -239,7 +239,7 @@ export class ShellLayout {
     this._sidebar?.setBadge(navId, count);
   }
 
-  /** Inicia listeners de badges para mensajes + incidencias. */
+  /** Inicia listeners de badges para incidencias. */
   _startBadgesInternal() {
     this._stopBadges();
     const user = this._badgeUser;
@@ -248,25 +248,7 @@ export class ShellLayout {
     const db = window._db;
     if (!db) return;
 
-    const myKey = String(user.email || '').toUpperCase();
     const unsubs = [];
-
-    // Badge mensajes: no leídos donde soy destinatario
-    if (myKey) {
-      try {
-        const u = db.collection('mensajes')
-          .where('destinatario', '==', myKey)
-          .limit(200)
-          .onSnapshot(snap => {
-            const count = snap.docs.filter(d => {
-              const l = d.data().leido;
-              return l !== 'SI';
-            }).length;
-            this._sidebar?.setBadge('mensajes', count);
-          }, () => this._sidebar?.setBadge('mensajes', 0));
-        unsubs.push(u);
-      } catch (_) {}
-    }
 
     // Badge incidencias: pendientes en mi plaza (filtro client-side para evitar índice composite)
     const p = String(plaza || '').toUpperCase().trim();
@@ -294,7 +276,6 @@ export class ShellLayout {
       this._badgeUnsubs.forEach(fn => { try { if (typeof fn === 'function') fn(); } catch (_) {} });
       this._badgeUnsubs = null;
     }
-    this._sidebar?.setBadge('mensajes', 0);
     this._sidebar?.setBadge('incidencias', 0);
   }
 

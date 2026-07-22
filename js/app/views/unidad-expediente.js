@@ -11,8 +11,6 @@ import {
   actualizarUnidadPlaza
 } from '/js/core/database.js';
 import { getUnidadBitacora } from '/js/app/features/cuadre/cuadre-data.js';
-import { getColaItemForMva } from '/js/app/features/cola-preparacion/cola-data.js';
-import { cpProgress, deriveEstadoCola } from '/js/app/features/cola-preparacion/cola-view-model.js';
 import { resolverEstadoFlota, leerEstadoPatioDoc, precheckContratoUnidad } from '/js/app/features/estados/estado-view-model.js';
 import { normalizeIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
 import { historialIconName, stripEmoji } from '/domain/historial-log.model.js';
@@ -142,12 +140,11 @@ async function _load() {
     }
 
     const plaza = norm(indexRow.plazaActual || indexRow.sucursal || indexRow.plaza || '');
-    const [detail, extras, bitacora, notas, colaItem] = await Promise.all([
+    const [detail, extras, bitacora, notas] = await Promise.all([
       obtenerDetalleCompleto(plaza || indexRow.sucursal, _s.mva).catch(() => null),
       _loadExtras(_s.mva, plaza),
       getUnidadBitacora({ plaza, mva: _s.mva, limit: 50 }),
-      _loadNotas(_s.mva),
-      plaza ? getColaItemForMva(plaza, _s.mva) : Promise.resolve(null)
+      _loadNotas(_s.mva)
     ]);
 
     const merged = {
@@ -165,8 +162,7 @@ async function _load() {
       detail: normalizeUnit(merged),
       extras: extras || {},
       bitacora: Array.isArray(bitacora) ? bitacora : [],
-      notas: Array.isArray(notas) ? notas : [],
-      cola: colaItem || null
+      notas: Array.isArray(notas) ? notas : []
     };
     _s.loading = false;
     _paintBody();
@@ -256,7 +252,6 @@ function _paintBody() {
   }
 
   body.innerHTML = `
-    ${_colaBanner(_s.data?.cola, d.plazaActual || d.sucursal)}
     ${_estadosBanner(d)}
 
     <div id="uexp-detail">${renderDetailCardHtml(d, {
@@ -479,23 +474,6 @@ function _estadosBanner(d = {}) {
     </div>`;
 }
 
-function _colaBanner(cola, plaza) {
-  if (!cola) return '';
-  const prog = cpProgress(cola);
-  const estado = deriveEstadoCola(cola);
-  const qs = new URLSearchParams({ mva: _s?.mva || cola.mva || '' });
-  if (plaza) qs.set('plaza', plaza);
-  return `
-    <div class="uexp-cola-banner" role="status">
-      <span class="material-icons">format_list_bulleted</span>
-      <div class="uexp-cola-banner-text">
-        <strong>En cola de preparación</strong>
-        <span>${esc(estado)} · checklist ${prog.done}/${prog.total}</span>
-      </div>
-      <button type="button" class="uexp-link" data-action="cola">Ver cola</button>
-    </div>`;
-}
-
 function _bitacoraHtml(rows) {
   if (!rows.length) return '<p class="uexp-empty">Sin movimientos recientes.</p>';
   return `<ul class="uexp-log">${rows.slice(0, 30).map(r => {
@@ -551,12 +529,6 @@ function _onClick(event) {
     if (!_s.showAdjuntoForm) _s.adjuntoFiles = [];
     _paintBody();
     return;
-  }
-  if (action === 'cola') {
-    const plaza = _s.data?.detail?.plazaActual || _s.data?.detail?.sucursal || '';
-    const qs = new URLSearchParams({ mva: _s.mva });
-    if (plaza) qs.set('plaza', plaza);
-    _go(`/app/cola-preparacion?${qs.toString()}`);
   }
 }
 

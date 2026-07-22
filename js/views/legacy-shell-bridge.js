@@ -7,8 +7,6 @@
   var routeMap = {
     '/home': '/app/dashboard',
     '/profile': '/app/profile',
-    '/mensajes': '/app/mensajes',
-    '/cola-preparacion': '/app/cola-preparacion',
     '/incidencias': '/app/notas',
     '/cuadre': '/app/cuadre',
     '/gestion': '/app/admin',
@@ -25,7 +23,7 @@
   var legacyParam = params.get('legacy') === '1';
   var embeddedParam = params.get('shell') === '1' || params.get('appStage') === '1';
   var adminEmbeddedRoute = path === '/gestion' || params.get('admin') === '1';
-  if (legacyParam && (path === '/mapa' || path === '/cuadre' || path === '/mensajes')) {
+  if (legacyParam && (path === '/mapa' || path === '/cuadre')) {
     try {
       localStorage.setItem('mex.legacy.force', '1');
     } catch (err) {
@@ -63,12 +61,10 @@
 
   function shouldAutoRedirect() {
     if (embeddedParam) return false;
-    if (legacyParam && (path === '/mapa' || path === '/cuadre' || path === '/mensajes')) return false;
+    if (legacyParam && (path === '/mapa' || path === '/cuadre')) return false;
     if (shouldForceLegacy()) return false;
     if (path === '/home') return true;
     if (path === '/profile') return true;
-    if (path === '/mensajes') return true;
-    if (path === '/cola-preparacion') return true;
     if (path === '/incidencias') return true;
     if (path === '/cuadre') return true;
     if (path === '/mapa') return true;
@@ -82,8 +78,6 @@
   var routeProfile = {
     '/home': { hideChrome: true, hideSelectors: [] },
     '/profile': { hideChrome: true, hideSelectors: [] },
-    '/mensajes': { hideChrome: true, hideSelectors: ['#chat-contacts-view .chatv2-panel-header button[title="Volver al mapa"]'] },
-    '/cola-preparacion': { hideChrome: true, hideSelectors: ['.prep-nav-link[href="/mapa"]', '.prep-nav-link[href="/gestion"]'] },
     '/incidencias': { hideChrome: true, hideSelectors: [] },
     '/cuadre': { hideChrome: true, hideSelectors: [] },
     '/gestion': { hideChrome: true, hideSelectors: [] },
@@ -152,14 +146,12 @@
   if (embeddedParam) return;
   var banner = document.createElement('a');
   banner.id = 'legacyAppShellBanner';
-  var isForcedOperationalLegacy = shouldForceLegacy() && (path === '/home' || path === '/profile' || path === '/mensajes' || path === '/cola-preparacion' || path === '/incidencias' || path === '/cuadre' || path === '/mapa');
+  var isForcedOperationalLegacy = shouldForceLegacy() && (path === '/home' || path === '/profile' || path === '/incidencias' || path === '/cuadre' || path === '/mapa');
   banner.href = isForcedOperationalLegacy ? (appRoute + cleanQuery + hash) : appRoute;
   if (isForcedOperationalLegacy && path === '/mapa') {
     banner.innerHTML = '<span class="mat">info</span><span>Estás en mapa clásico · Abrir mapa operativo</span>';
   } else if (isForcedOperationalLegacy && path === '/cuadre') {
     banner.innerHTML = '<span class="mat">info</span><span>Estás en cuadre clásico · Abrir cuadre operativo</span>';
-  } else if (isForcedOperationalLegacy && path === '/mensajes') {
-    banner.innerHTML = '<span class="mat">info</span><span>Estás en mensajes clásico · Abrir mensajes operativo</span>';
   } else if (isForcedOperationalLegacy) {
     banner.innerHTML = '<span class="mat">info</span><span>Estás en vista clásica · Abrir App Shell</span>';
   } else {

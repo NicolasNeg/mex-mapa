@@ -149,22 +149,6 @@
       ]
     },
     {
-      "collectionGroup": "mensajes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "destinatario", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "mensajes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "remitente", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "historial_patio",
       "queryScope": "COLLECTION",
       "fields": [
@@ -235,24 +219,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "empresaId", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "mensajes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "empresaId", "order": "ASCENDING" },
-        { "fieldPath": "remitente", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "mensajes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "empresaId", "order": "ASCENDING" },
-        { "fieldPath": "destinatario", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     },

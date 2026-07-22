@@ -242,7 +242,7 @@ function _roleScopeLabel(profile = _profile) {
 }
 
 function _availableModules(profile = _profile) {
-  const modules = ['Dashboard', 'Mapa', 'Mensajes', 'Cuadres', 'Perfil'];
+  const modules = ['Dashboard', 'Mapa', 'Cuadres', 'Perfil'];
   if (_canAccessAdmin(profile)) modules.push('Panel Admin');
   if (_canAccessProgrammer(profile)) modules.push('Consola');
   if (_normalizeBoolean(profile?.isGlobal, false)) modules.push('Global');
@@ -874,7 +874,7 @@ function _renderNotificationState() {
       ? 'Este equipo ya puede recibir notificaciones reales del sistema.'
       : permission === 'denied'
         ? 'El permiso está bloqueado en el navegador. Puedes activarlo desde la configuración del sitio.'
-        : 'Activa el permiso para recibir mensajes, inventario y alertas críticas.';
+        : 'Activa el permiso para recibir alertas de inventario y críticas.';
   }
 
   if (currentDeviceSummary) {
@@ -964,13 +964,6 @@ async function _bootNotifications() {
     ),
     toast: (msg, type = 'info') => _showToast(msg, type),
     routeHandlers: {
-      openBuzon: () => { window.location.href = '/mensajes'; },
-      openChat: (chatUser = '') => {
-        const safeUser = _safeText(chatUser);
-        window.location.href = safeUser
-          ? `/mensajes?notif=chat&chatUser=${encodeURIComponent(safeUser)}`
-          : '/mensajes';
-      },
       openAlerts: () => { window.location.href = '/mapa?notif=alerts'; }
     }
   });

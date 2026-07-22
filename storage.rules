@@ -179,12 +179,6 @@ service firebase.storage {
       allow read, write: if tienePerfilActual();
     }
 
-    match /mensajes_chat/{fileName} {
-      allow read: if tienePerfilActual();
-      allow write: if tienePerfilActual()
-        && request.resource.size < 10 * 1024 * 1024;
-    }
-
     match /profile_avatars/{userDocId}/{fileName} {
       allow read: if tienePerfilActual();
       // request.resource == null en un DELETE (limpieza del avatar anterior).

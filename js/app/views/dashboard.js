@@ -13,7 +13,6 @@ let _ctr = null;
 let _s = null;
 let _offs = [];
 let _unsubCuadre = null;
-let _unsubCola   = null;
 let _unsubTurno  = null;
 let _unsubPlazaTurnos = null;
 let _turnoTimer  = null;
@@ -50,7 +49,6 @@ export async function mount({ container, navigate }) {
     feats,
     metrics:    { unidades: 0, externos: 0, incidencias: 0, solicitudes: 0 },
     cuadreStats:{ listo: 0, sucio: 0, manto: 0, otros: 0 },
-    colaPreview:  [],
     turnoActivo:  null,
     turnoStatus:  'loading',
     turnoError:   '',
@@ -108,8 +106,6 @@ function _feats() {
   return {
     cuadre:          can('cuadre'),
     incidencias:     can('incidencias'),
-    cola:            can('cola_preparacion'),
-    mensajeria:      can('mensajeria'),
     alertas:         can('alertas'),
     reportes:        can('reportes'),
     edicion_mapa:    can('edicion_mapa'),
@@ -135,7 +131,6 @@ function _renderHtml() {
   const roleLabel = ROLE_LABELS?.[role] || role;
   const canViewTurnos = window.mexPerms?.canDo?.('view_turnos') !== false;
   const showPatio = feats.cuadre && _isAdmin(role);
-  const showCola = feats.cola;
   const now       = new Date();
   const dateStr   = now.toLocaleDateString('es-MX', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -201,9 +196,8 @@ function _renderHtml() {
       ${_renderKpis(metrics, feats, role)}
     </section>
 
-    ${(showPatio || showCola) ? `
+    ${showPatio ? `
     <section class="dash-ops-grid" aria-label="Operación de la plaza">
-        ${showPatio ? `
         <article class="dash-widget dash-patio-widget" aria-labelledby="dashPatioTitle">
           <header class="dash-widget-head">
             <span class="dash-widget-icon material-symbols-outlined" aria-hidden="true">directions_car</span>
@@ -213,19 +207,7 @@ function _renderHtml() {
           <div class="dash-widget-body" id="dashCuadreBody">
             <div class="dash-skeleton dash-skeleton--rows" aria-hidden="true"><i></i><i></i><i></i></div>
           </div>
-        </article>` : ''}
-
-        ${showCola ? `
-        <article class="dash-widget dash-cola-widget" aria-labelledby="dashColaTitle">
-          <header class="dash-widget-head">
-            <span class="dash-widget-icon material-symbols-outlined" aria-hidden="true">format_list_bulleted</span>
-            <h2 id="dashColaTitle">Cola de preparación</h2>
-            <a class="dash-widget-link" href="/app/cola-preparacion" data-app-route="/app/cola-preparacion">Ver todo</a>
-          </header>
-          <div class="dash-widget-body" id="dashColaBody">
-            <div class="dash-skeleton dash-skeleton--rows" aria-hidden="true"><i></i><i></i><i></i></div>
-          </div>
-        </article>` : ''}
+        </article>
     </section>` : ''}
 
     ${_renderPrefBar(feats, prefView)}
@@ -267,9 +249,7 @@ function _renderPrefBar(feats, prefView) {
   const opts = [
     { key: 'dashboard',        label: 'Dashboard', feat: true },
     { key: 'mapa',             label: 'Mapa',      feat: true },
-    { key: 'cola-preparacion', label: 'Cola',      feat: feats.cola },
     { key: 'incidencias',      label: 'Alertas',   feat: feats.incidencias },
-    { key: 'mensajes',         label: 'Mensajes',  feat: feats.mensajeria },
   ].filter(o => o.feat);
   const current = prefView || 'dashboard';
   return `
@@ -398,10 +378,10 @@ async function _loadHorarioUsuario() {
 
 // ── Widgets ───────────────────────────────────────────────────
 function _stopWidgets() {
-  [_unsubCuadre, _unsubCola, _unsubTurno, _unsubPlazaTurnos].forEach(fn => {
+  [_unsubCuadre, _unsubTurno, _unsubPlazaTurnos].forEach(fn => {
     if (typeof fn === 'function') try { fn(); } catch (_) {}
   });
-  _unsubCuadre = _unsubCola = _unsubTurno = _unsubPlazaTurnos = null;
+  _unsubCuadre = _unsubTurno = _unsubPlazaTurnos = null;
   if (_turnoTimer) { clearInterval(_turnoTimer); _turnoTimer = null; }
 }
 
@@ -443,26 +423,6 @@ function _startWidgets() {
     } catch (_) {}
   } else {
     _updateCuadreWidget();
-  }
-
-  // Cola
-  if (feats.cola && plaza) {
-    try {
-      _unsubCola = db.collection(COL.COLA_PREPARACION).doc(plaza).collection('items')
-        .limit(8).onSnapshot(snap => {
-          if (!_s) return;
-          const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          items.sort((a, b) => {
-            const ao = Number(a.orden), bo = Number(b.orden);
-            if (Number.isFinite(ao) && Number.isFinite(bo) && ao !== bo) return ao - bo;
-            return (a.fechaSalida?.toDate?.()?.getTime?.() ?? 0) - (b.fechaSalida?.toDate?.()?.getTime?.() ?? 0);
-          });
-          _s.colaPreview = items.slice(0, 5);
-          _updateColaWidget();
-        }, () => { if (_s) { _s.colaPreview = []; _updateColaWidget(); } });
-    } catch (_) {}
-  } else {
-    _updateColaWidget();
   }
 
   // Mi turno
@@ -776,7 +736,7 @@ function _updateEquipoWidget() {
   }).join('')}</ul>`;
 }
 
-// ── Cuadre / Cola widgets ─────────────────────────────────────
+// ── Cuadre widget ──────────────────────────────────────────────
 function _updateCuadreWidget() {
   const el = _ctr?.querySelector('#dashCuadreBody');
   if (!el) return;
@@ -796,27 +756,6 @@ function _updateCuadreWidget() {
       <i class="dash-cs-segment dash-cs-segment--manto" style="width:${s.manto / Math.max(total, 1) * 100}%"></i>
     </div>
     <div class="dash-cs-avail">Disponibilidad: <strong>${avail}%</strong></div>`;
-}
-
-function _updateColaWidget() {
-  const el = _ctr?.querySelector('#dashColaBody');
-  if (!el) return;
-  const items = _s?.colaPreview || [];
-  if (!_s?.plaza) { el.innerHTML = '<div class="dash-widget-state"><span class="material-symbols-outlined" aria-hidden="true">location_off</span><span>Selecciona una plaza.</span></div>'; return; }
-  if (!items.length) { el.innerHTML = '<div class="dash-widget-state"><span class="material-symbols-outlined" aria-hidden="true">playlist_add_check</span><span>La cola está vacía.</span></div>'; return; }
-  el.innerHTML = items.map(it => {
-    const mva = String(it.mva || it.id || '').toUpperCase().trim();
-    const plaza = String(_s?.plaza || '').trim();
-    const route = mva
-      ? `/app/cola-preparacion?mva=${encodeURIComponent(mva)}${plaza ? `&plaza=${encodeURIComponent(plaza)}` : ''}`
-      : '/app/cola-preparacion';
-    return `
-    <a class="dash-cola-row" href="${route}" data-app-route="${esc(route)}">
-      <span class="dash-cola-mva">${esc(mva || '—')}</span>
-      <span class="dash-cola-info">${esc(String(it.asignado || 'Sin asignar'))}</span>
-      <span class="dash-cola-prog">${_cpDone(it.checklist)}/4</span>
-    </a>`;
-  }).join('');
 }
 
 // ── Preferred view ────────────────────────────────────────────
@@ -872,11 +811,6 @@ async function _countNotas(plaza) {
 
 async function _safeCount(promise) {
   try { return (await promise)?.size || 0; } catch (_) { return 0; }
-}
-
-function _cpDone(checklist) {
-  if (!checklist) return 0;
-  return ['lavado', 'gasolina', 'docs', 'revision'].filter(k => checklist[k] === true).length;
 }
 
 function _isAdmin(role) {

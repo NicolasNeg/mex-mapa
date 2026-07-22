@@ -13,10 +13,8 @@
  *   config.css        — Panel config (cfg-*), plazas, empresa, editor de mapa
  *   admin-luminous.css — Rediseño Luminous Admin (panel administrativo)
  *   app-admin-chrome.css — Corporate Registry chrome (Centro Admin ciclo A)
- *   mensajes.css      — Chat y mensajes
  *   notificaciones.css — Centro de notificaciones, perfil
  *   programador.css      — Centro de Control (programador.html)
- *   cola-preparacion.css — Cola de preparación de unidades (CODEX · Fase 5.1)
  *   incidencias.css      — Kanban de incidencias (Fase 5.4)
  *   mapa-estacionamiento.css — Modo parking: toolbar de filtros, estados cajones, decoración unidades
  */
@@ -28,10 +26,8 @@
 @import url('config.css');
 @import url('admin-luminous.css');
 @import url('app-admin-chrome.css');
-@import url('mensajes.css');
 @import url('notificaciones.css');
 @import url('programador.css');
-@import url('cola-preparacion.css');
 @import url('incidencias.css');
 @import url('mapa-estacionamiento.css');
 @import url('mapa-fluid.css');

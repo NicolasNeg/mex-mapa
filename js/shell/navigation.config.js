@@ -73,22 +73,6 @@ export const NAV_GROUPS = [
         route: '/mapa',
         roles: '*'
       },
-      {
-        id: 'mensajes',
-        label: 'Mensajes',
-        icon: 'chat',
-        route: '/mensajes',
-        roles: '*',
-        feature: 'mensajeria'
-      },
-      {
-        id: 'cola',
-        label: 'Cola de preparación',
-        icon: 'format_list_bulleted',
-        route: '/cola-preparacion',
-        roles: '*',
-        feature: 'cola_preparacion'
-      }
     ]
   },
   {
@@ -151,14 +135,6 @@ export const NAV_GROUPS = [
         roles: '*',
         feature: 'papeletas',
         permission: 'view_papeletas',
-      },
-      {
-        id: 'turnos',
-        label: 'Turnos y horarios',
-        icon: 'schedule',
-        route: '/app/turnos',
-        roles: '*',
-        permission: 'view_turnos',
       },
       {
         id: 'historial-operativo',
@@ -236,8 +212,6 @@ export function filterNavForRole(userRole) {
 export const ROUTE_TITLES = {
   '/home':              'Dashboard',
   '/mapa':              'Mapa operativo',
-  '/mensajes':          'Mensajes',
-  '/cola-preparacion':  'Cola de preparación',
   '/cuadre':            'Cuadre',
   '/incidencias':       'Notas',
   '/gestion':           'Panel administrativo',
@@ -246,8 +220,6 @@ export const ROUTE_TITLES = {
   // App Shell — rutas /app/*
   '/app/dashboard':        'Dashboard',
   '/app/profile':          'Mi perfil',
-  '/app/mensajes':         'Mensajes',
-  '/app/cola-preparacion': 'Cola de preparación',
   '/app/incidencias':      'Notas',
   '/app/notas':            'Notas',
   '/app/reportes-danos':   'Reportes de daños',

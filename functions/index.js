@@ -1142,65 +1142,6 @@ exports.onPatioHistoryCreated = functions.region(REGION).firestore.document("his
   }
 });
 
-exports.onPrivateMessageCreated = functions.region(REGION).firestore.document("mensajes/{msgId}").onCreate(async (snap, context) => {
-  try {
-    const data = snap.data();
-    if (!data) return;
-    const recipientHandle = data.destinatarioEmail || data.destinatarioUid || data.destinatario;
-    const actorHandle = data.remitenteEmail || data.remitenteUid || data.remitente;
-    const [recipients, actorDocIds] = await Promise.all([
-      resolveUserDocIdsByHandle(recipientHandle),
-      resolveUserDocIdsByHandle(actorHandle)
-    ]);
-    const eventId = `msg_${context.params.msgId}`;
-    let actorName = normalizeUpper(data.remitenteEmail || data.remitente || "Sistema");
-    if (actorDocIds.length) {
-      const actorDoc = await db.collection(USERS_COL).doc(actorDocIds[0]).get();
-      const actorProfile = actorDoc.exists ? actorDoc.data() || {} : {};
-      actorName = normalizeUpper(
-        actorProfile.nombre || actorProfile.nombreCompleto || actorProfile.usuario || actorName
-      );
-    }
-    const deepLink = `/mapa?notif=chat&chatUser=${encodeURIComponent(actorHandle)}`;
-    const bodyText = normalizeString(data.mensaje || data.archivoNombre || "Tienes un nuevo mensaje.");
-    await writeOpsEvent(eventId, {
-      id: eventId,
-      type: "message.created",
-      source: "mensajes",
-      sourceRef: `mensajes/${context.params.msgId}`,
-      timestamp: timestampToMillis(data.timestamp) || nowMillis(),
-      actorName,
-      plaza: normalizePlaza(data.plaza),
-      targetUsers: recipients,
-      payload: {
-        remitente: actorName,
-        destinatario: normalizeUpper(data.destinatario),
-        preview: bodyText.slice(0, 160)
-      }
-    });
-    await deliverNotificationToUsers({
-      eventId,
-      eventType: "message.created",
-      title: `Mensaje de ${actorName}`,
-      body: bodyText.slice(0, 180),
-      deepLink,
-      payload: {
-        remitente: actorName,
-        destinatario: normalizeUpper(data.destinatario),
-        timestamp: timestampToMillis(data.timestamp) || nowMillis()
-      },
-      recipientDocIds: recipients,
-      priority: "high",
-      actorName,
-      plaza: data.plaza || "",
-      sourceRef: `mensajes/${context.params.msgId}`
-    });
-  } catch (error) {
-    logger.error("onPrivateMessageCreated", error);
-    await recordProgrammerError("onPrivateMessageCreated", error, { msgId: context.params.msgId });
-  }
-});
-
 exports.onCriticalAlertCreated = functions.region(REGION).firestore.document("alertas/{alertId}").onCreate(async (snap, context) => {
   try {
     const data = snap.data();

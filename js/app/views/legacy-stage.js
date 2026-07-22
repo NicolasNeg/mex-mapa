@@ -21,8 +21,8 @@ let _adminSyncTimers = [];
 // Views kept alive between navigations (iframe preserved in memory, not destroyed).
 // Excludes alertas/alertasHist (tool overlays on mapa, share its iframe src).
 const _keepAliveIds = new Set([
-  'dashboard', 'mapa', 'cuadre', 'admin', 'mensajes',
-  'cola', 'incidencias', 'programador', 'editmap', 'profile'
+  'dashboard', 'mapa', 'cuadre', 'admin',
+  'incidencias', 'programador', 'editmap', 'profile'
 ]);
 // id → { sectionEl, iframe }
 const _iframePool = new Map();
@@ -30,8 +30,6 @@ const _iframePool = new Map();
 const LEGACY_BY_ID = {
   dashboard:   { src: '/home',              title: 'Dashboard' },
   profile:     { src: '/profile',           title: 'Mi perfil' },
-  mensajes:    { src: '/mensajes',          title: 'Mensajes' },
-  cola:        { src: '/cola-preparacion',  title: 'Cola de preparación' },
   incidencias: { src: '/incidencias',       title: 'Incidencias' },
   cuadre:      { src: '/cuadre',            title: 'Cuadre' },
   admin:       { src: '/gestion',           title: 'Panel administrativo' },
@@ -47,9 +45,6 @@ const LEGACY_BY_APP_PATH = {
   '/app/home': 'dashboard',
   '/app/profile': 'profile',
   '/app/perfil': 'profile',
-  '/app/mensajes': 'mensajes',
-  '/app/cola-preparacion': 'cola',
-  '/app/cola': 'cola',
   '/app/incidencias': 'incidencias',
   '/app/notas': 'incidencias',
   '/app/cuadre': 'cuadre',
@@ -67,8 +62,6 @@ const LEGACY_BY_APP_PATH = {
 const LEGACY_ROUTE_TO_APP = {
   '/home': '/app/dashboard',
   '/profile': '/app/profile',
-  '/mensajes': '/app/mensajes',
-  '/cola-preparacion': '/app/cola-preparacion',
   '/incidencias': '/app/notas',
   '/cuadre': '/app/cuadre',
   '/gestion': '/app/admin',
@@ -148,13 +141,11 @@ function _srcFor(id, ctx = {}) {
   params.set('shell', '1');
   params.set('appStage', '1');
   if (id === 'admin') params.set('admin', '1');
-  if (id === 'mensajes') params.set('messages', '1');
   if (cfg.open) params.set('open', cfg.open);
   if ((id === 'alertas' || id === 'alertasHist') && plaza) params.set('plaza', plaza);
   if (id === 'cuadre') {
     if (!params.get('tab')) params.set('tab', 'normal');
   }
-  if (id === 'cola' && plaza) params.set('plaza', plaza);
   if (id === 'editmap') {
     const base = plaza ? `/editmap/${encodeURIComponent(plaza)}` : '/editmap';
     return `${base}?${params.toString()}${window.location.hash || ''}`;
@@ -254,7 +245,7 @@ function _bindFrameRouteBridge(frame, id, ctx = {}) {
         target.getAttribute?.('data-app-route') ||
         target.getAttribute?.('data-route') ||
         target.getAttribute?.('href') ||
-        (onclick.match(/['"]((?:\/home|\/profile|\/mensajes|\/cola-preparacion|\/incidencias|\/cuadre|\/gestion|\/programador|\/mapa|\/editmap)(?:[?#][^'"]*)?)['"]/) || [])[1] ||
+        (onclick.match(/['"]((?:\/home|\/profile|\/incidencias|\/cuadre|\/gestion|\/programador|\/mapa|\/editmap)(?:[?#][^'"]*)?)['"]/) || [])[1] ||
         '';
       const appRoute = _appRouteFromLegacyValue(routeValue);
       if (!appRoute) return;
@@ -379,8 +370,6 @@ function _scheduleToolFrameSync(frame, id) {
 const SEARCH_SELECTORS = {
   dashboard: ['#homeSearchInput', '#shellRouteSearchInput'],
   profile: ['#profileRouteSearchInput', '#shellRouteSearchInput'],
-  mensajes: ['#buscadorContactos', '.chatv2-search-input'],
-  cola: ['#prepSearchInput'],
   cuadre: ['#searchFlota', '#searchInput', '#searchInputMobile', '#audit-search'],
   admin: ['#cfg-search-input', '#um-search', '#busqueda-solicitudes', '#cfg-plaza-search', '#cfg-correo-interno-search'],
   programador: ['#programmerRouteSearchInput', '#programmerSearchInput'],
@@ -469,7 +458,7 @@ function _syncPlaza(plaza, id, ctx) {
   if (!normalized || !_iframe) return;
   _applyPlazaToWindow(_iframe.contentWindow, id, normalized);
 
-  if (['cola', 'dashboard', 'profile', 'programador', 'alertas', 'alertasHist', 'editmap'].includes(id)) {
+  if (['dashboard', 'profile', 'programador', 'alertas', 'alertasHist', 'editmap'].includes(id)) {
     const nextSrc = _srcFor(id, ctx);
     if (_iframe.getAttribute('src') !== nextSrc) _iframe.setAttribute('src', nextSrc);
   }

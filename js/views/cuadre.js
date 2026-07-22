@@ -20,12 +20,6 @@ function buildFleetFrameUrl() {
   return `/mapa?${params.toString()}`;
 }
 
-function buildQueueRouteUrl() {
-  const plaza = String(window.getMexCurrentPlaza?.() || '').trim().toUpperCase();
-  const base = '/app/cola-preparacion';
-  return plaza ? `${base}?plaza=${encodeURIComponent(plaza)}` : base;
-}
-
 function routeIsWarm() {
   try {
     return sessionStorage.getItem('mex.bootstrap.warm.v1') === '1';
@@ -121,10 +115,6 @@ async function _runFleetAction(action) {
       window.location.href = '/mapa';
       return;
     }
-
-    if (action === 'cola') {
-      window.location.href = buildQueueRouteUrl();
-    }
   } catch (error) {
     console.warn('[cuadre] action:', action, error);
     _setRouteHint(error?.message || 'No se pudo ejecutar la acción rápida de la consola.');
@@ -135,7 +125,6 @@ function _bindRouteActions() {
   document.getElementById('cuadreActionResumen')?.addEventListener('click', () => _runFleetAction('resumen'));
   document.getElementById('cuadreActionActividad')?.addEventListener('click', () => _runFleetAction('actividad'));
   document.getElementById('cuadreActionPrediccion')?.addEventListener('click', () => _runFleetAction('prediccion'));
-  document.getElementById('cuadreActionCola')?.addEventListener('click', () => _runFleetAction('cola'));
   document.getElementById('cuadreActionMapa')?.addEventListener('click', () => _runFleetAction('mapa'));
 }
 

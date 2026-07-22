@@ -50,25 +50,22 @@
         return db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE").get();
       });
 
-      const msgsQuery = db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase());
-      const [settings, globalSettings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
+      const [settings, globalSettings, alertasSnap, notasSnap] = await Promise.all([
         _getSettings(plaza),
         _getSettings('GLOBAL'),
         alertasPromise,
-        msgsQuery.get(),
         notasPromise
       ]);
       const alertas = alertasSnap.docs.map(d => ({ id: d.id, ...d.data() }))
         .filter(a => !plazaUp || _matchesPlaza(a, plazaUp))
         .filter(a => !_alertReadByUser(a, usuarioActivo))
         .filter(a => _alertMatchesUser(a, usuarioActivo));
-      const mensajesSinLeer = msgsSnap.docs.filter(d => d.data().leido !== "SI").length;
       let liveFeed = settings.liveFeed || [];
       if (typeof liveFeed === "string") { try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; } }
       if (!Array.isArray(liveFeed)) liveFeed = [];
       const lockState = _resolverEstadoBloqueoMapa(settings, globalSettings);
       return {
-        incidenciasPendientes: notasSnap.docs.filter(d => !plazaUp || _matchesPlaza(d.data(), plazaUp)).length, alertas, mensajesSinLeer,
+        incidenciasPendientes: notasSnap.docs.filter(d => !plazaUp || _matchesPlaza(d.data(), plazaUp)).length, alertas,
         ultimaActualizacion: settings.ultimaModificacion || "--/-- 00:00",
         ultimoCuadre:        settings.ultimoCuadreTexto || "Sin registro",
         mapaBloqueado:       lockState.mapaBloqueado,

@@ -54,7 +54,7 @@ export function puedeVerPlaza(usuario, plazaId) {
 export const PERMISSION_KEYS = Object.freeze([
   // Navigation
   'view_dashboard', 'view_mapa', 'view_cuadre', 'view_incidencias',
-  'view_cola_preparacion', 'view_mensajes', 'view_alertas', 'view_admin', 'view_reportes',
+  'view_alertas', 'view_admin', 'view_reportes',
   // Mapa operations
   'edit_mapa_layout', 'move_units', 'change_unit_state', 'manage_unit_info',
   // Cuadre
@@ -82,7 +82,7 @@ export const PERMISSION_KEYS = Object.freeze([
 export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
   AUXILIAR: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
-    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_alertas: true,
     view_admin: false,     view_reportes: false,
     edit_mapa_layout: false, move_units: true, change_unit_state: true, manage_unit_info: false,
     view_cuadre_admin: false, edit_cuadre_admin: false, export_data: false,
@@ -96,7 +96,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
   },
   VENTAS: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
-    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_alertas: true,
     view_admin: true,      view_reportes: true,
     edit_mapa_layout: false, move_units: true, change_unit_state: true, manage_unit_info: true,
     view_cuadre_admin: true, edit_cuadre_admin: false, export_data: true,
@@ -110,7 +110,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
   },
   SUPERVISOR: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
-    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_alertas: true,
     view_admin: true,      view_reportes: true,
     edit_mapa_layout: false, move_units: true, change_unit_state: true, manage_unit_info: true,
     view_cuadre_admin: true, edit_cuadre_admin: true, export_data: true,
@@ -124,7 +124,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
   },
   JEFE_PATIO: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
-    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_alertas: true,
     view_admin: true,      view_reportes: true,
     edit_mapa_layout: true, move_units: true, change_unit_state: true, manage_unit_info: true,
     view_cuadre_admin: true, edit_cuadre_admin: true, export_data: true,
@@ -138,7 +138,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
   },
   GERENTE_PLAZA: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
-    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_alertas: true,
     view_admin: true,      view_reportes: true,
     edit_mapa_layout: true, move_units: true, change_unit_state: true, manage_unit_info: true,
     view_cuadre_admin: true, edit_cuadre_admin: true, export_data: true,
@@ -152,7 +152,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
   },
   JEFE_REGIONAL: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
-    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_alertas: true,
     view_admin: true,      view_reportes: true,
     edit_mapa_layout: true, move_units: true, change_unit_state: true, manage_unit_info: true,
     view_cuadre_admin: true, edit_cuadre_admin: true, export_data: true,

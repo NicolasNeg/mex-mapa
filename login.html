@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="es" data-page-title="Iniciar sesi├│n">
+<html lang="es" data-page-title="Iniciar sesión">
 
 <head>
   <meta charset="UTF-8">
@@ -7,14 +7,14 @@
   <meta name="theme-color" content="#0f172a">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="description" content="Acceso a la plataforma de gesti├│n operativa de flota.">
+  <meta name="description" content="Acceso a la plataforma de gestión operativa de flota.">
   <meta name="robots" content="noindex, nofollow">
 
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/img/logo.png" type="image/png">
   <link rel="apple-touch-icon" href="/img/logo.png">
 
-  <!-- Inter (fuente ├║nica del sistema) + Material Icons -->
+  <!-- Inter (fuente única del sistema) + Material Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -45,12 +45,12 @@
   <script src="/js/core/feature-gates.js"></script>
   <script src="/js/core/dialogs.js"></script>
 
-  <title>Iniciar sesi├│n</title>
+  <title>Iniciar sesión</title>
 
   <style>
     /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
        LOGIN ÔÇö foto full-bg + tarjeta flotante (Armenta Rent A Car)
-       Desktop: tarjeta a la derecha ┬À Mobile: wordmark + tarjeta centrada
+       Desktop: tarjeta a la derecha · Mobile: wordmark + tarjeta centrada
     ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
     *,
     *::before,
@@ -97,7 +97,7 @@
       padding: 32px clamp(24px, 6vw, 96px);
     }
 
-    /* ÔöÇÔöÇ Wordmark (visible s├│lo en mobile, sobre la foto) ÔöÇÔöÇ */
+    /* ÔöÇÔöÇ Wordmark (visible sólo en mobile, sobre la foto) ÔöÇÔöÇ */
     .brand-wordmark {
       display: none;
       align-items: center;
@@ -158,7 +158,7 @@
     .login-topbar .brand-name { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
     .login-topbar .tb-sub { font-size: 14px; font-weight: 500; opacity: 0.9; }
 
-    /* ÔöÇÔöÇ Subt├¡tulo del card ÔöÇÔöÇ */
+    /* ÔöÇÔöÇ Subtítulo del card ÔöÇÔöÇ */
     .form-sub {
       margin: 0 0 26px;
       text-align: center;
@@ -397,6 +397,38 @@
       width: 20px;
     }
 
+    .btn-passkey {
+      width: 100%;
+      height: 54px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 12px;
+      background: #0f172a;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: none; /* JS lo pone en flex solo si el dispositivo soporta biometría y ya hay passkey enrolada */
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: background 0.15s;
+    }
+
+    .btn-passkey:hover {
+      background: #1e293b;
+    }
+
+    .btn-passkey:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-passkey .material-icons {
+      font-size: 18px;
+    }
+
     .login-error-box {
       display: flex;
       align-items: center;
@@ -577,7 +609,7 @@
     </span>
     <span class="tb-text">
       <strong class="brand-name">Armenta</strong>
-      <span class="tb-sub">Rent A Car ┬À Panel operativo</span>
+      <span class="tb-sub">Rent A Car · Panel operativo</span>
     </span>
   </header>
 
@@ -613,7 +645,7 @@
       </span>
 
       <h1 class="form-title">Login</h1>
-      <p class="form-sub">Accede a tu panel de gesti├│n de flota</p>
+      <p class="form-sub">Accede a tu panel de gestión de flota</p>
 
       <div class="field">
         <div class="field-pill">
@@ -638,15 +670,15 @@
         <button type="button" class="link-forgot" onclick="olvidePassword()">Forgot password?</button>
       </div>
 
-      <div class="login-recaptcha-wrap" aria-label="Verificaci├│n anti-bot">
+      <div class="login-recaptcha-wrap" aria-label="Verificación anti-bot">
         <div id="login-recaptcha"></div>
       </div>
-      <p id="login-recaptcha-hint" class="login-recaptcha-hint" hidden>Marca ┬½No soy un robot┬╗ para continuar.</p>
+      <p id="login-recaptcha-hint" class="login-recaptcha-hint" hidden>Marca «No soy un robot» para continuar.</p>
 
       <button onclick="loginManual()" id="btnLoginManual" class="btn-primary">LOGIN</button>
 
-      <button onclick="loginConPasskey()" id="btnLoginPasskey" class="btn-primary" style="display:none;background:#0f172a;margin-top:8px;">
-        <span class="material-icons" style="font-size:16px;vertical-align:-3px;">fingerprint</span>
+      <button onclick="loginConPasskey()" id="btnLoginPasskey" class="btn-passkey">
+        <span class="material-icons">fingerprint</span>
         Entrar con Face ID / Touch ID
       </button>
 
@@ -678,12 +710,12 @@
   <div id="modal-solicitud" class="request-view">
     <section class="request-card">
       <h1 class="request-title">Request Access</h1>
-      <p class="request-sub">├Ünete a la red ┬À ingresa tu c├│digo de invitaci├│n</p>
+      <p class="request-sub">Únete a la red · ingresa tu código de invitación</p>
       <form class="request-form" id="inv-reg-form">
         <div class="field">
           <div class="field-pill">
             <span class="material-icons pill-icon">confirmation_number</span>
-            <input id="reg_codigo" placeholder="C├│digo de invitaci├│n" required autocomplete="off"
+            <input id="reg_codigo" placeholder="Código de invitación" required autocomplete="off"
               style="text-transform:uppercase;letter-spacing:2px;">
           </div>
         </div>
@@ -708,14 +740,14 @@
         <div class="field">
           <div class="field-pill">
             <span class="material-icons pill-icon">lock</span>
-            <input id="reg_pass" type="password" placeholder="Contrase├▒a (6+)" required autocomplete="new-password">
+            <input id="reg_pass" type="password" placeholder="Contraseña (6+)" required autocomplete="new-password">
             <span class="material-icons pill-toggle" onclick="togglePassword('reg_pass', this)">visibility</span>
           </div>
         </div>
         <div class="field">
           <div class="field-pill">
             <span class="material-icons pill-icon">lock</span>
-            <input id="reg_pass2" type="password" placeholder="Confirmar contrase├▒a" required autocomplete="new-password">
+            <input id="reg_pass2" type="password" placeholder="Confirmar contraseña" required autocomplete="new-password">
             <span class="material-icons pill-toggle" onclick="togglePassword('reg_pass2', this)">visibility</span>
           </div>
         </div>

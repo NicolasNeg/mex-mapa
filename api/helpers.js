@@ -74,8 +74,6 @@
     'obtenerConfiguracion',
     'obtenerTodasLasNotas',
     'obtenerTodasLasAlertas',
-    'obtenerMensajesPrivados',
-    'enviarMensajePrivado',
     'modificarUsuario',
     'eliminarUsuario'
   ]);

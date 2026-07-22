@@ -39,22 +39,6 @@ const HOME_VARIANTS = {
         badge: 'Principal',
         tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
       },
-      {
-        id: 'mensajes',
-        title: 'Mensajes',
-        description: 'Coordinación interna, evidencias y seguimiento del equipo.',
-        route: '/mensajes',
-        icon: 'mail',
-        tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
-      },
-      {
-        id: 'cola',
-        title: 'Cola de preparación',
-        description: 'Checklist, prioridad de salida y avance de unidades listas.',
-        route: '/cola-preparacion',
-        icon: 'format_list_bulleted',
-        tone: 'linear-gradient(135deg, #7c2d12 0%, #b49a5e 100%)'
-      }
     ]
   },
   admin: {
@@ -80,14 +64,6 @@ const HOME_VARIANTS = {
         route: '/mapa',
         icon: 'map',
         tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
-      },
-      {
-        id: 'mensajes',
-        title: 'Mensajes',
-        description: 'Atender coordinación interna, solicitudes y seguimiento.',
-        route: '/mensajes',
-        icon: 'chat',
-        tone: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)'
       }
     ]
   },
@@ -113,14 +89,6 @@ const HOME_VARIANTS = {
         route: '/mapa',
         icon: 'map',
         tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
-      },
-      {
-        id: 'mensajes',
-        title: 'Mensajes',
-        description: 'Abrir comunicaciones y avisos internos recientes.',
-        route: '/mensajes',
-        icon: 'mail',
-        tone: 'linear-gradient(135deg, #1e293b 0%, #64748b 100%)'
       }
     ]
   },
@@ -146,14 +114,6 @@ const HOME_VARIANTS = {
         route: '/mapa',
         icon: 'map',
         tone: 'linear-gradient(135deg, #064e3b 0%, #16a34a 100%)'
-      },
-      {
-        id: 'mensajes',
-        title: 'Mensajes',
-        description: 'Depurar experiencia del chat y revisar actividad del cliente.',
-        route: '/mensajes',
-        icon: 'mail',
-        tone: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)'
       }
     ]
   }
@@ -716,7 +676,6 @@ function availableModules(profile = {}) {
 
 function moduleMeta(module = {}, metrics = {}) {
   if (module.route === '/mapa') return `${metrics.focus || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`;
-  if (module.route === '/mensajes') return 'Comunicacion interna';
   if (module.route.startsWith('/gestion')) return `${metrics.solicitudesPendientes || 0} solicitudes pendientes`;
   if (module.route === '/programador') return `${metrics.incidenciasAbiertas || 0} incidencias abiertas`;
   return 'Acceso rápido';
@@ -758,14 +717,10 @@ export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '', cur
 
   const operacionItems = onMapa
     ? [
-        { label: 'Mapa',         description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`, route: '/mapa',            icon: 'map' },
-        { label: 'Mensajes',     description: 'Coordinación y chat',                                     route: '/mensajes',        icon: 'chat' },
-        { label: 'Cola prep.',   description: 'Salidas y checklist',                                     route: '/cola-preparacion', icon: 'format_list_bulleted' }
+        { label: 'Mapa',         description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`, route: '/mapa',            icon: 'map' }
       ]
     : [
-        { label: 'Mapa',         description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`, route: '/mapa',  icon: 'map' },
-        { label: 'Mensajes',     description: 'Coordinación y chat',                                     route: '/mensajes',        icon: 'chat' },
-        { label: 'Cola prep.',   description: 'Salidas y checklist',                                     route: '/cola-preparacion', icon: 'format_list_bulleted' }
+        { label: 'Mapa',         description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`, route: '/mapa',  icon: 'map' }
       ];
 
   const groups = [

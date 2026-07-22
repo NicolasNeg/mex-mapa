@@ -15,8 +15,6 @@ let _cleanupRelease = null;
 const _RELEASE_ROUTES = [
   '/app/dashboard',
   '/app/mapa',
-  '/app/mensajes',
-  '/app/cola-preparacion',
   '/app/incidencias',
   '/app/unidades',
   '/app/cuadre',

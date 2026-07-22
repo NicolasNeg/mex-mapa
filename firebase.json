@@ -121,15 +121,7 @@
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
       {
-        "source": "/mensajes",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-      },
-      {
         "source": "/profile",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-      },
-      {
-        "source": "/cola-preparacion",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
       {
@@ -201,9 +193,7 @@
       { "source": "/programador/**", "destination": "/programador.html" },
       { "source": "/home",        "destination": "/home.html" },
       { "source": "/gestion",     "destination": "/gestion.html" },
-      { "source": "/mensajes",    "destination": "/mensajes.html" },
       { "source": "/profile",     "destination": "/profile.html" },
-      { "source": "/cola-preparacion", "destination": "/cola-preparacion.html" },
       { "source": "/editmap",     "destination": "/editmap.html" },
       { "source": "/editmap/**",  "destination": "/editmap.html" },
       { "source": "/incidencias",   "destination": "/incidencias.html" },

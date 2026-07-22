@@ -113,7 +113,6 @@ const COL = {
   USERS:     "usuarios",
   ADMINS:    "admins",
   ALERTAS:   "alertas",
-  MENSAJES:  "mensajes",
   LOGS:      "logs",
   ADMIN_AUDIT: "bitacora_gestion",
   NOTAS:     "notas_admin",
@@ -2316,23 +2315,21 @@ const API_FUNCTIONS = {
 
   // ─── RADAR ───────────────────────────────────────────────
   async checarNotificaciones(usuarioActivo, plaza) {
-    const [settings, globalSettings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
+    const [settings, globalSettings, alertasSnap, notasSnap] = await Promise.all([
       _getSettings(plaza), // [F1] settings por plaza
       _getSettings('GLOBAL'),
       (plaza ? db.collection(COL.ALERTAS).where('plaza', '==', _normalizePlazaId(plaza)).orderBy("timestamp", "desc").limit(50) : db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50)).get(), // [1.4]
-      db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get(),
       (plaza ? db.collection(COL.NOTAS).where('plaza', '==', _normalizePlazaId(plaza)).where("estado", "==", "PENDIENTE") : db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE")).get() // [1.4]
     ]);
     const alertas = alertasSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(a => !_alertReadByUser(a, usuarioActivo))
       .filter(a => _alertMatchesUser(a, usuarioActivo));
-    const mensajesSinLeer = msgsSnap.docs.filter(d => d.data().leido !== "SI").length;
     let liveFeed = settings.liveFeed || [];
     if (typeof liveFeed === "string") { try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; } }
     if (!Array.isArray(liveFeed)) liveFeed = [];
     const lockState = _resolverEstadoBloqueoMapa(settings, globalSettings);
     return {
-      incidenciasPendientes: notasSnap.size, alertas, mensajesSinLeer,
+      incidenciasPendientes: notasSnap.size, alertas,
       ultimaActualizacion: settings.ultimaModificacion || "--/-- 00:00",
       ultimoCuadre:        settings.ultimoCuadreTexto || "Sin registro",
       mapaBloqueado:       lockState.mapaBloqueado,
@@ -2510,83 +2507,6 @@ const API_FUNCTIONS = {
       });
       return "EXITO";
     } catch(e) { return "ERROR: " + e.message; }
-  },
-
-  // ─── MENSAJES ────────────────────────────────────────────
-  async obtenerMensajesPrivados(usuario) {
-    const me = usuario.trim().toUpperCase();
-    const [sent, recv] = await Promise.all([
-      db.collection(COL.MENSAJES).where("remitente", "==", me).orderBy("timestamp", "desc").get(),
-      db.collection(COL.MENSAJES).where("destinatario", "==", me).orderBy("timestamp", "desc").get()
-    ]);
-    const todos = [...sent.docs, ...recv.docs].map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.timestamp - a.timestamp);
-    const vistos = new Set();
-    return todos.filter(m => { if (vistos.has(m.id)) return false; vistos.add(m.id); return true; })
-      .map(m => ({ ...m, esMio: m.remitente === me, leido: m.leido === "SI" }));
-  },
-  async enviarMensajePrivado(remitente, destinatario, texto, archivoUrl = null, archivoNombre = null, replyTo = null, meta = null) {
-    const ts = _ts();
-    const id = `msg_${ts}_${Math.floor(Math.random() * 1000)}`;
-    const identityMeta = meta && typeof meta === 'object' ? meta : {};
-    const rEmail = String(identityMeta.remitenteEmail || '').trim().toLowerCase();
-    const dEmail = String(identityMeta.destinatarioEmail || '').trim().toLowerCase();
-    const rUid = String(identityMeta.remitenteUid || '').trim();
-    const dUid = String(identityMeta.destinatarioUid || '').trim();
-    const rName = String(identityMeta.remitenteNombre || '').trim();
-    const dName = String(identityMeta.destinatarioNombre || '').trim();
-    const participantUids = [...new Set([rUid, dUid].filter(Boolean))].sort();
-    const participantEmails = [...new Set([rEmail, dEmail].filter(Boolean))].sort();
-    const payload = {
-      timestamp: ts,
-      fecha: _now(),
-      remitente: (rEmail || String(remitente || '')).trim().toUpperCase(),
-      destinatario: (dEmail || String(destinatario || '')).trim().toUpperCase(),
-      mensaje: texto || '',
-      leido: 'NO'
-    };
-    if (archivoUrl)  { payload.archivoUrl = archivoUrl; payload.archivoNombre = archivoNombre; }
-    if (replyTo)     { payload.replyTo = { id: replyTo.id, remitente: replyTo.remitente, mensaje: replyTo.mensaje }; }
-    if (rEmail) payload.remitenteEmail = rEmail;
-    if (dEmail) payload.destinatarioEmail = dEmail;
-    if (rUid) payload.remitenteUid = rUid;
-    if (dUid) payload.destinatarioUid = dUid;
-    if (rName) payload.remitenteNombre = rName;
-    if (dName) payload.destinatarioNombre = dName;
-    if (rEmail && dEmail) payload.participantEmails = participantEmails;
-    if (rUid && dUid) {
-      payload.participantUids = participantUids;
-      payload.conversationId = `UID:${participantUids.join(':')}`;
-    } else if (rEmail && dEmail) {
-      payload.conversationId = `EMAIL:${participantEmails.join(':')}`;
-    }
-    await db.collection(COL.MENSAJES).doc(id).set(payload);
-    return "EXITO";
-  },
-  async actualizarReaccionesChatDb(msgId, reacciones) {
-    await db.collection(COL.MENSAJES).doc(msgId).update({ reacciones });
-    return "OK";
-  },
-  async marcarMensajesLeidosArray(idsArray) {
-    const batch = db.batch();
-    for (const id of idsArray) batch.update(db.collection(COL.MENSAJES).doc(id.toString()), { leido: "SI" });
-    await batch.commit();
-    return "OK";
-  },
-  async editarMensajeChatDb(idStr, nuevoTexto) {
-    await db.collection(COL.MENSAJES).doc(idStr).update({ mensaje: nuevoTexto });
-    return "OK";
-  },
-  async eliminarMensajeChatDb(idStr) {
-    const ref = db.collection(COL.MENSAJES).doc(idStr);
-    const snap = await ref.get();
-    if(snap.exists && snap.data().archivoUrl) {
-      try {
-         const storageRef = firebase.storage().refFromURL(snap.data().archivoUrl);
-         await storageRef.delete();
-      } catch(e) { console.warn("Could not delete associated chat file", e); }
-    }
-    await ref.delete();
-    return "OK";
   },
 
   // ─── NOTAS ───────────────────────────────────────────────

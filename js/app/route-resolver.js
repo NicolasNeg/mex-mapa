@@ -38,26 +38,6 @@ export const ROUTE_MAP = {
     shellIntegrated:    true,
     fullModuleMigrated: true,
   },
-  mensajes: {
-    id: 'mensajes', label: 'Mensajes',
-    legacyRoute:  '/mensajes',
-    appRoute:     '/app/mensajes',
-    navRoute:     '/mensajes',
-    fallbackRoute:'/mensajes',
-    shellIntegrated:    true,
-    fullModuleMigrated: true,
-    feature: 'mensajeria',
-  },
-  cola: {
-    id: 'cola', label: 'Cola de preparación',
-    legacyRoute:  '/cola-preparacion',
-    appRoute:     '/app/cola-preparacion',
-    navRoute:     '/cola-preparacion',
-    fallbackRoute:'/cola-preparacion',
-    shellIntegrated:    true,
-    fullModuleMigrated: true,
-    feature: 'cola_preparacion',
-  },
   incidencias: {
     id: 'incidencias', label: 'Notas',
     legacyRoute:  '/incidencias',
@@ -244,8 +224,6 @@ export const ROUTE_MAP = {
 
 function _dynamicAppRoute(pathname, tail = '') {
   const path = String(pathname || '');
-  if (path.startsWith('/app/mensajes/')) return path + tail;
-  if (path.startsWith('/mensajes/')) return '/app' + path + tail;
   if (path.startsWith('/app/editmap/')) return path + tail;
   if (path.startsWith('/editmap/')) return '/app' + path + tail;
   if (path.startsWith('/app/papeletas/')) return path + tail;
@@ -258,8 +236,6 @@ function _dynamicRouteEntry(pathname) {
   let path = String(pathname || '');
   while (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
   if (!path) path = '/';
-  if (path.startsWith('/app/mensajes/')) return ROUTE_MAP.mensajes;
-  if (path.startsWith('/mensajes/')) return ROUTE_MAP.mensajes;
   if (path.startsWith('/app/editmap/')) return ROUTE_MAP.editmap;
   if (path.startsWith('/editmap/')) return ROUTE_MAP.editmap;
   if (path.startsWith('/app/reportes-danos/') || path === '/app/reportes-danos') return ROUTE_MAP.reportesDanos;

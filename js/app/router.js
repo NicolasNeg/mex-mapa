@@ -76,11 +76,9 @@ function _safeLS(key) {
 const _PREF_ROUTES = new Set([
   '/app/dashboard',
   '/app/mapa',
-  '/app/cola-preparacion',
   '/app/incidencias',
   '/app/notas',
   '/app/unidades',
-  '/app/mensajes',
   '/app/cuadre',
   "/app/traslados",
   '/app/alertas',
@@ -116,9 +114,6 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/profile.js'),
     navRoute: '/profile'
   },
-  '/app/mensajes':         { loader: () => import('/js/app/views/mensajes.js'),         navRoute: '/mensajes',         feature: 'mensajeria' },
-  '/app/cola-preparacion': { loader: () => import('/js/app/views/cola-preparacion.js'), navRoute: '/cola-preparacion', feature: 'cola_preparacion' },
-  '/app/cola':              { redirect: '/app/cola-preparacion' },
   '/app/notas': {
     loader:   () => import('/js/app/views/incidencias.js'),
     navRoute: '/app/notas',
@@ -225,8 +220,6 @@ const ROUTE_STYLES = {
     { href: "/css/app-profile.css", attr: "data-app-profile-css" },
     { href: "/css/profile.css", attr: "data-profile-css" },
   ],
-  "/app/mensajes": [{ href: "/css/app-mensajes.css", attr: "data-app-mensajes-css" }],
-  "/app/cola-preparacion": [{ href: "/css/cola-preparacion.css", attr: "data-cola-css" }],
   "/app/incidencias": [{ href: "/css/app-incidencias.css", attr: "data-app-incidencias-css" }],
   "/app/notas": [{ href: "/css/app-incidencias.css", attr: "data-app-incidencias-css" }],
   "/app/reportes-danos": [{ href: "/css/app-reportes-danos.css", attr: "data-app-reportes-danos-css" }],
@@ -309,7 +302,6 @@ function _isAdminAppPath(path) {
 function _routeForPath(path) {
   const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
   if (_isAdminAppPath(key)) return ROUTE_TABLE['/app/admin'];
-  if (key.startsWith('/app/mensajes/')) return ROUTE_TABLE['/app/mensajes'];
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return ROUTE_TABLE['/app/traslados'];
   if (key.startsWith('/app/notas/') || key.startsWith('/app/incidencias/')) return ROUTE_TABLE['/app/notas'];
   if (key.startsWith('/app/cuadre/u/')) return ROUTE_TABLE['/app/cuadre/u'];
@@ -322,7 +314,6 @@ function _routeForPath(path) {
 function _styleKeyForPath(path) {
   const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
   if (_isAdminAppPath(key)) return '/app/admin';
-  if (key.startsWith('/app/mensajes/')) return '/app/mensajes';
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return '/app/traslados';
   if (key.startsWith('/app/notas/') || key.startsWith('/app/incidencias/')) return '/app/notas';
   if (key.startsWith('/app/cuadre/u/')) return '/app/cuadre/u';
@@ -510,31 +501,11 @@ export function createRouter({ shell }) {
 
   function _renderRouteSkeleton(contentEl, path = "") {
     const normalized = String(path || "").split("?")[0];
-    const variant = normalized.includes("mensajes")
-      ? "mensajes"
-      : normalized.includes("mapa")
-        ? "mapa"
-        : normalized.includes("incidencias")
-          ? "incidencias"
-          : "generic";
-
-    if (variant === "mensajes") {
-      contentEl.innerHTML = [
-        "<section class=\"mex-route-skeleton mex-route-skeleton--mensajes\" aria-busy=\"true\" aria-label=\"Cargando mensajes\">",
-        "<div class=\"mex-route-skel-panel mex-route-skel-rail\">",
-        "<span class=\"mex-skel mex-skel-title\"></span>",
-        "<span class=\"mex-skel mex-skel-input\"></span>",
-        "<div class=\"mex-route-skel-list\">",
-        Array.from({ length: 6 }).map(() => "<div class=\"mex-skel-row\"><span class=\"mex-skel mex-skel-avatar\"></span><span class=\"mex-skel mex-skel-text\"></span></div>").join(""),
-        "</div></div>",
-        "<div class=\"mex-route-skel-panel mex-route-skel-chat\">",
-        "<span class=\"mex-skel mex-skel-title w-40\"></span>",
-        "<div class=\"mex-route-skel-bubbles\">",
-        "<span class=\"mex-skel mex-skel-bubble w-60\"></span><span class=\"mex-skel mex-skel-bubble is-right w-40\"></span><span class=\"mex-skel mex-skel-bubble w-80\"></span>",
-        "</div><span class=\"mex-skel mex-skel-input\"></span></div></section>"
-      ].join("");
-      return;
-    }
+    const variant = normalized.includes("mapa")
+      ? "mapa"
+      : normalized.includes("incidencias")
+        ? "incidencias"
+        : "generic";
 
     if (variant === "mapa") {
       contentEl.innerHTML = [

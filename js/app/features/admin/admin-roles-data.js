@@ -14,8 +14,6 @@ const PERM_LABELS = {
   view_mapa: 'Ver mapa',
   view_cuadre: 'Ver cuadre',
   view_incidencias: 'Ver incidencias',
-  view_cola_preparacion: 'Ver cola',
-  view_mensajes: 'Ver mensajes',
   view_alertas: 'Ver alertas',
   view_admin: 'Ver panel admin',
   view_reportes: 'Ver reportes',
