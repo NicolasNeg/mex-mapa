@@ -2,6 +2,8 @@ import { parseKm } from '/domain/kilometraje.model.js';
 import {
   buildIdentityDirectory as buildChatIdentityDirectory,
   buildMyIdentity as buildChatMyIdentity,
+  canonicalizeArchivedConversations as canonicalizeChatArchives,
+  canonicalizePeerKey as canonicalizeChatPeerKey,
   getCanonicalMessageIdentity as getChatCanonicalIdentity,
   getPeerSide as getChatPeerSide,
   isMessageMine as isChatMessageMine
@@ -1412,8 +1414,12 @@ function _normalizeUserProfile(raw = {}) {
     licenciaVencimiento: _dateInputValue(raw.licenciaVencimiento || raw.licenciaChoferVence || ''),
     licenciaArchivoUrl: String(raw.licenciaArchivoUrl || raw.licenciaUrl || '').trim(),
     licenciaArchivoPath: String(raw.licenciaArchivoPath || '').trim(),
+    licenciaArchivoPublicId: String(raw.licenciaArchivoPublicId || '').trim(),
+    licenciaArchivoProvider: String(raw.licenciaArchivoProvider || '').trim(),
     licenciaArchivoNombre: String(raw.licenciaArchivoNombre || '').trim(),
     licenciaArchivoTipo: String(raw.licenciaArchivoTipo || '').trim(),
+    licencias: Array.isArray(raw.licencias) ? raw.licencias : [],
+    licenciaUrls: Array.isArray(raw.licenciaUrls) ? raw.licenciaUrls : [],
     licenciaSubidaPor: String(raw.licenciaSubidaPor || '').trim(),
     permissionOverrides: _normalizePermissionOverrides(raw.permissionOverrides || raw.permisosUsuario || {})
   };
@@ -2878,6 +2884,15 @@ function _iniciarSincronizacionUsuarios() {
     if (document.getElementById('crear-alerta-modal')?.classList.contains('active') && typeof _renderDestinatariosAlerta === 'function') {
       _renderDestinatariosAlerta();
       _updateBtnEmitir();
+    }
+    if (document.getElementById('buzon-modal')?.classList.contains('active')) {
+      _refreshChatIdentityModel();
+      const nextIdentitySignature = JSON.stringify(_chatListenerIdentities());
+      if (_chatListenerIdentitySignature && nextIdentitySignature !== _chatListenerIdentitySignature) {
+        _startChatListener();
+      } else if (typeof renderContactos === 'function') {
+        renderContactos();
+      }
     }
 
     // Detectar si el usuario actual tiene _reloadRequired → recargar permisos
@@ -7906,7 +7921,7 @@ async function umGuardarCambios(docId) {
 
   if (!nombre) return showToast('El nombre es obligatorio', 'error');
   if (isChofer && !licenciaVencimiento) return showToast('Captura el vencimiento de licencia del chofer.', 'error');
-  if (isChofer && !(targetUser.licenciaArchivoUrl || targetUser.licenciaArchivoPath)) {
+  if (isChofer && !_choferesTieneArchivo(targetUser)) {
     return showToast('Registra la licencia desde Panel admin > Choferes para habilitarlo.', 'error');
   }
   if (!canManageTargetRole(targetUser.rol) || !canAssignRole(rol)) {
@@ -14817,12 +14832,14 @@ function renderHistorialCuadres() {
 // ==========================================
 let allChatMessages = [];
 let activeChatUser = null;
+let activeChatPeerKey = null;
 let _chatIdentityDirectory = buildChatIdentityDirectory([]);
 let _chatMe = buildChatMyIdentity({});
 let pendingChatFile = null;   // { file, previewUrl, isImg }
 let pendingAudioBlob = null;   // { blob, localUrl, mimeType, extension }
 let replyingToMsg = null;   // { id, remitente, mensaje }
 let _chatListenerUnsubs = [];
+let _chatListenerIdentitySignature = '';
 let chatMediaRecorder = null;
 let chatAudioChunks = [];
 let _chatAudioCtx = null;
@@ -14918,6 +14935,16 @@ function _chatPeerIdentity(message = {}) {
   return getChatPeerSide(message, _chatMe, _chatIdentityDirectory);
 }
 
+function _chatListenerIdentities() {
+  return [...new Set([
+    ...(_chatMe.queryIdentities || []),
+    USER_NAME,
+    currentUserProfile?.email,
+    auth.currentUser?.email,
+    auth.currentUser?.uid
+  ].map(value => value === _chatMe.uid ? value : _chatUserName(value)).filter(Boolean))].sort();
+}
+
 function _chatMessageTimestamp(msg = {}) {
   return _coerceTimestamp(msg.timestamp || msg.ts || msg.createdAt || msg.id);
 }
@@ -14927,6 +14954,34 @@ function _chatIdentityForUser(user = {}) {
   const uid = String(user.authUid || user.uid || '').trim();
   const name = user.nombre || user.nombreCompleto || user.usuario || email || user.id || uid;
   return getChatCanonicalIdentity(name, email, _chatIdentityDirectory, uid);
+}
+
+function _chatPeerKey(identifier = '') {
+  const raw = String(identifier || '').trim();
+  if (!raw) return '';
+  if (/^(UID|EMAIL|LEGACY):/.test(raw)) {
+    return canonicalizeChatPeerKey(raw, _chatIdentityDirectory);
+  }
+  const contact = _chatContactByName(raw);
+  if (contact) return _chatIdentityForUser(contact).key;
+  const normalized = _chatUserName(raw);
+  const message = allChatMessages.find(item => {
+    const peer = _chatPeerIdentity(item);
+    return [peer.key, peer.label, peer.email, peer.raw]
+      .some(value => _chatUserName(value) === normalized);
+  });
+  if (message) return _chatPeerIdentity(message).key;
+  return canonicalizeChatPeerKey(raw, _chatIdentityDirectory);
+}
+
+function _chatPeerLabel(peerKey = '', fallback = '') {
+  const key = _chatPeerKey(peerKey || fallback);
+  const direct = _chatIdentityDirectory.identities?.get(key);
+  if (direct?.label) return _chatUserName(direct.label);
+  const message = allChatMessages.find(item => _chatPeerIdentity(item).key === key);
+  if (message) return _chatUserName(_chatPeerIdentity(message).label || fallback);
+  const contact = _chatContactByName(fallback || peerKey);
+  return _chatUserName(contact ? _chatIdentityForUser(contact).label : (fallback || peerKey));
 }
 
 function _chatContactByName(name = '') {
@@ -14956,7 +15011,7 @@ function _chatContactByIdentifier(identifier = '') {
 }
 
 function _activeChatContact() {
-  return _chatContactByName(activeChatUser);
+  return _chatContactByName(activeChatPeerKey || activeChatUser);
 }
 
 function _chatPresenceLabel(user = {}) {
@@ -14999,13 +15054,8 @@ function _loadChatArchivedThreads() {
   try {
     const raw = localStorage.getItem(_chatArchiveStorageKey());
     const parsed = raw ? JSON.parse(raw) : {};
-    const next = {};
-    Object.entries(parsed || {}).forEach(([name, ts]) => {
-      const normalized = _chatUserName(name);
-      const safeTs = _coerceTimestamp(ts);
-      if (normalized && safeTs) next[normalized] = safeTs;
-    });
-    _chatArchivedThreads = next;
+    _chatArchivedThreads = canonicalizeChatArchives(parsed, _chatIdentityDirectory);
+    _saveChatArchivedThreads();
   } catch (_) {
     _chatArchivedThreads = {};
   }
@@ -15013,8 +15063,8 @@ function _loadChatArchivedThreads() {
 
 function _saveChatArchivedThreads() {
   const entries = Object.entries(_chatArchivedThreads)
-    .map(([name, ts]) => [_chatUserName(name), _coerceTimestamp(ts)])
-    .filter(([name, ts]) => name && ts);
+    .map(([peerKey, ts]) => [canonicalizeChatPeerKey(peerKey, _chatIdentityDirectory), _coerceTimestamp(ts)])
+    .filter(([peerKey, ts]) => peerKey && ts);
   if (entries.length === 0) {
     localStorage.removeItem(_chatArchiveStorageKey());
     return;
@@ -15022,44 +15072,44 @@ function _saveChatArchivedThreads() {
   localStorage.setItem(_chatArchiveStorageKey(), JSON.stringify(Object.fromEntries(entries)));
 }
 
-function _chatConversationLastTimestamp(name = '') {
-  const target = _chatUserName(name);
+function _chatConversationLastTimestamp(identifier = '') {
+  const target = _chatPeerKey(identifier);
   if (!target) return 0;
   return allChatMessages.reduce((max, msg) => {
-    const other = _chatUserName(_chatPeerIdentity(msg).label || (msg.esMio ? msg.destinatario : msg.remitente));
+    const other = _chatPeerIdentity(msg).key;
     if (other !== target) return max;
     const ts = _chatMessageTimestamp(msg);
     return ts > max ? ts : max;
   }, 0);
 }
 
-function _chatIsArchived(name = '', lastTs = null) {
-  const target = _chatUserName(name);
+function _chatIsArchived(identifier = '', lastTs = null) {
+  const target = _chatPeerKey(identifier);
   if (!target) return false;
   const archivedAt = _coerceTimestamp(_chatArchivedThreads[target]);
   const safeLastTs = _coerceTimestamp(lastTs || _chatConversationLastTimestamp(target));
   return Boolean(archivedAt && safeLastTs && safeLastTs <= archivedAt);
 }
 
-function _archiveChatConversation(name, lastTs = null, options = {}) {
-  const target = _chatUserName(name);
+function _archiveChatConversation(identifier, lastTs = null, options = {}) {
+  const target = _chatPeerKey(identifier);
   const safeTs = _coerceTimestamp(lastTs || _chatConversationLastTimestamp(target));
   if (!target || !safeTs) return;
   _chatArchivedThreads[target] = safeTs;
   _saveChatArchivedThreads();
-  if (activeChatUser === target) cerrarChat();
+  if (activeChatPeerKey === target) cerrarChat();
   renderContactos();
-  if (!options.silent) showToast(`Conversación con ${target} archivada.`, 'success');
+  if (!options.silent) showToast(`Conversación con ${_chatPeerLabel(target, identifier)} archivada.`, 'success');
 }
 
-function _restoreChatConversation(name, options = {}) {
-  const target = _chatUserName(name);
+function _restoreChatConversation(identifier, options = {}) {
+  const target = _chatPeerKey(identifier);
   if (!target || !_chatArchivedThreads[target]) return;
   delete _chatArchivedThreads[target];
   _saveChatArchivedThreads();
   renderContactos();
   _actualizarHeaderChatActivo();
-  if (!options.silent) showToast(`Conversación con ${target} restaurada.`, 'success');
+  if (!options.silent) showToast(`Conversación con ${_chatPeerLabel(target, identifier)} restaurada.`, 'success');
 }
 
 function _syncChatArchiveUi(summary = {}) {
@@ -15075,7 +15125,7 @@ function _syncChatArchiveUi(summary = {}) {
   const archiveBtn = document.getElementById('chatArchiveBtn');
   const archiveIcon = archiveBtn?.querySelector('.material-icons');
   if (archiveBtn && archiveIcon) {
-    const target = _chatUserName(activeChatUser);
+    const target = activeChatPeerKey || _chatPeerKey(activeChatUser);
     const lastTs = _chatConversationLastTimestamp(target);
     const canToggle = Boolean(target && lastTs);
     archiveBtn.style.display = canToggle ? 'inline-flex' : 'none';
@@ -15096,11 +15146,11 @@ function toggleArchivadosChat() {
 }
 
 function toggleArchivoChatActivo() {
-  if (!activeChatUser) return;
-  const lastTs = _chatConversationLastTimestamp(activeChatUser);
+  if (!activeChatPeerKey) return;
+  const lastTs = _chatConversationLastTimestamp(activeChatPeerKey);
   if (!lastTs) return;
-  if (_chatIsArchived(activeChatUser, lastTs)) _restoreChatConversation(activeChatUser);
-  else _archiveChatConversation(activeChatUser, lastTs);
+  if (_chatIsArchived(activeChatPeerKey, lastTs)) _restoreChatConversation(activeChatPeerKey);
+  else _archiveChatConversation(activeChatPeerKey, lastTs);
 }
 
 function prepararNuevoChat() {
@@ -15212,7 +15262,7 @@ function _renderChatContactInfo(user = {}) {
   const container = document.getElementById('chat-user-info-content');
   if (!container) return;
 
-  const fallbackName = _chatUserName(user.usuario || user.nombre || activeChatUser || 'USUARIO');
+  const fallbackName = _chatUserName(user.nombre || user.nombreCompleto || user.usuario || activeChatUser || 'USUARIO');
   const avatar = _buildAvatarMarkup(user, fallbackName);
   const plaza = _normalizePlaza(user.plazaAsignada || '') || 'Sin plaza asignada';
   const role = user.roleLabel || user.rol || 'Sin rol';
@@ -15220,6 +15270,7 @@ function _renderChatContactInfo(user = {}) {
   const liveStatus = _userPresenceIsOnline(user) ? 'ONLINE' : 'OFFLINE';
   const lastSeen = _chatPresenceLabel(user);
   const safeEmail = String(user.email || '').trim().toLowerCase();
+  const chatKey = activeChatPeerKey || _chatIdentityForUser(user).key;
 
   container.innerHTML = `
     <div class="chat-user-info-hero">
@@ -15262,7 +15313,7 @@ function _renderChatContactInfo(user = {}) {
     </div>
 
     <div class="chat-user-info-actions">
-      <button class="primary" data-chat-name="${escapeHtml(fallbackName)}" onclick="abrirChat(this.dataset.chatName); cerrarInfoContacto();">
+      <button class="primary" data-chat-key="${escapeHtml(chatKey)}" onclick="abrirChat(this.dataset.chatKey); cerrarInfoContacto();">
         Abrir chat
       </button>
       <button class="secondary" onclick="cerrarInfoContacto()">
@@ -15970,6 +16021,7 @@ function abrirBuzon() {
   }
 
   activeChatUser = null;
+  activeChatPeerKey = null;
 
   // Empty state visible, chat oculto
   const emptyState = document.getElementById('chat-empty-state');
@@ -15997,18 +16049,14 @@ function abrirBuzon() {
 function _stopChatListener() {
   _chatListenerUnsubs.forEach(u => u && u());
   _chatListenerUnsubs = [];
+  _chatListenerIdentitySignature = '';
 }
 
 function _startChatListener() {
   _stopChatListener();
   _refreshChatIdentityModel();
-  const identities = [...new Set([
-    ...(_chatMe.queryIdentities || []),
-    USER_NAME,
-    currentUserProfile?.email,
-    auth.currentUser?.email,
-    auth.currentUser?.uid
-  ].map(value => value === _chatMe.uid ? value : _chatUserName(value)).filter(Boolean))];
+  const identities = _chatListenerIdentities();
+  _chatListenerIdentitySignature = JSON.stringify(identities);
   const sentByIdentity = new Map();
   const receivedByIdentity = new Map();
 
@@ -16061,11 +16109,14 @@ function renderContactos() {
   const ultimosMensajes = {};
   const noLeidos = {};
   const lastMessageTs = {};
+  const peerLabels = {};
 
   // Agrupamos los mensajes por conversación
   allChatMessages.forEach(m => {
-    const elOtro = _chatUserName(_chatPeerIdentity(m).label || (m.esMio ? m.destinatario : m.remitente));
+    const peer = _chatPeerIdentity(m);
+    const elOtro = peer.key;
     if (!elOtro) return;
+    peerLabels[elOtro] = _chatUserName(peer.label || peer.email || peer.raw);
     const ts = _chatMessageTimestamp(m);
     if (!ultimosMensajes[elOtro] || ts > (lastMessageTs[elOtro] || 0)) {
       ultimosMensajes[elOtro] = m;
@@ -16075,7 +16126,6 @@ function renderContactos() {
     if (!m.esMio && !m.leido) noLeidos[elOtro]++;
   });
 
-  const miNombre = _chatUserName(_chatMe.display || USER_NAME);
   const usuariosMap = new Map();
 
   dbUsuariosLogin
@@ -16083,7 +16133,7 @@ function renderContactos() {
     .forEach(user => {
       const identity = _chatIdentityForUser(user);
       const displayName = _chatUserName(identity.label || user.nombre || user.usuario);
-      usuariosMap.set(displayName, {
+      usuariosMap.set(identity.key, {
         ...user,
         usuario: displayName,
         nombre: displayName,
@@ -16091,11 +16141,12 @@ function renderContactos() {
       });
     });
 
-  Object.keys(ultimosMensajes).forEach(nombre => {
-    if (!usuariosMap.has(nombre) && nombre !== miNombre) {
-      usuariosMap.set(nombre, {
-        usuario: nombre,
-        nombre: nombre,
+  Object.keys(ultimosMensajes).forEach(peerKey => {
+    if (!usuariosMap.has(peerKey) && peerKey !== _chatMe.key) {
+      const displayName = peerLabels[peerKey] || _chatPeerLabel(peerKey);
+      usuariosMap.set(peerKey, {
+        usuario: displayName,
+        nombre: displayName,
         email: '',
         rol: '',
         roleLabel: 'Sin perfil',
@@ -16104,19 +16155,21 @@ function renderContactos() {
         telefono: '',
         isOnline: false,
         lastSeenAt: 0,
-        avatarUrl: ''
+        avatarUrl: '',
+        _chatIdentityKey: peerKey
       });
     }
   });
 
   let usuariosMostrar = Array.from(usuariosMap.values()).filter(user => {
+    const peerKey = user._chatIdentityKey || _chatIdentityForUser(user).key;
     const nombre = _chatUserName(user.usuario || user.nombre);
     const samePlaza = plaza ? _normalizePlaza(user.plazaAsignada) === plaza : true;
     const sameRole = rol ? _sanitizeRole(user.rol) === rol : true;
     const sameStatus = status ? String(user.status || 'ACTIVO').trim().toUpperCase() === status : true;
-    const hasConversation = Boolean(ultimosMensajes[nombre]);
-    const isArchived = hasConversation && _chatIsArchived(nombre, lastMessageTs[nombre]);
-    const inDefaultScope = _normalizePlaza(user.plazaAsignada) === _normalizePlaza(_miPlaza()) || hasConversation || nombre === _chatUserName(activeChatUser);
+    const hasConversation = Boolean(ultimosMensajes[peerKey]);
+    const isArchived = hasConversation && _chatIsArchived(peerKey, lastMessageTs[peerKey]);
+    const inDefaultScope = _normalizePlaza(user.plazaAsignada) === _normalizePlaza(_miPlaza()) || hasConversation || peerKey === activeChatPeerKey;
     const searchable = [
       user.usuario,
       user.nombre,
@@ -16135,14 +16188,16 @@ function renderContactos() {
   });
 
   usuariosMostrar.sort((a, b) => {
+    const keyA = a._chatIdentityKey || _chatIdentityForUser(a).key;
+    const keyB = b._chatIdentityKey || _chatIdentityForUser(b).key;
     const nameA = _chatUserName(a.usuario || a.nombre);
     const nameB = _chatUserName(b.usuario || b.nombre);
-    let unreadA = noLeidos[nameA] || 0;
-    let unreadB = noLeidos[nameB] || 0;
+    let unreadA = noLeidos[keyA] || 0;
+    let unreadB = noLeidos[keyB] || 0;
     if (unreadA !== unreadB) return unreadB - unreadA;
 
-    let msgA = ultimosMensajes[nameA];
-    let msgB = ultimosMensajes[nameB];
+    let msgA = ultimosMensajes[keyA];
+    let msgB = ultimosMensajes[keyB];
 
     if (msgA && msgB) {
       return _chatMessageTimestamp(msgB) - _chatMessageTimestamp(msgA);
@@ -16165,7 +16220,7 @@ function renderContactos() {
   });
 
   const archivedCount = Object.keys(lastMessageTs)
-    .filter(nombre => _chatIsArchived(nombre, lastMessageTs[nombre]))
+    .filter(peerKey => _chatIsArchived(peerKey, lastMessageTs[peerKey]))
     .length;
   _syncChatArchiveUi({ archivedCount, visibleCount: usuariosMostrar.length });
 
@@ -16191,17 +16246,18 @@ function renderContactos() {
   }
 
   container.innerHTML = usuariosMostrar.map(u => {
+    const peerKey = u._chatIdentityKey || _chatIdentityForUser(u).key;
     const uName = _chatUserName(u.usuario || u.nombre);
-    const unread = noLeidos[uName] || 0;
-    const lastMsg = ultimosMensajes[uName];
-    const lastTs = lastMessageTs[uName] || 0;
-    const isArchived = Boolean(lastMsg) && _chatIsArchived(uName, lastTs);
+    const unread = noLeidos[peerKey] || 0;
+    const lastMsg = ultimosMensajes[peerKey];
+    const lastTs = lastMessageTs[peerKey] || 0;
+    const isArchived = Boolean(lastMsg) && _chatIsArchived(peerKey, lastTs);
     const avatar = _buildAvatarMarkup(u, uName);
     const online = _userPresenceIsOnline(u);
     const plazaLabel = _normalizePlaza(u.plazaAsignada || '') || 'Sin plaza';
     const roleLabel = u.roleLabel || u.rol || 'Sin rol';
-    const encodedName = encodeURIComponent(uName);
-    const activeClass = _chatUserName(activeChatUser) === uName ? ' active' : '';
+    const encodedPeerKey = encodeURIComponent(peerKey);
+    const activeClass = activeChatPeerKey === peerKey ? ' active' : '';
     const unreadClass = unread > 0 ? ' unread' : '';
     const archivedClass = isArchived ? ' archived' : '';
 
@@ -16239,7 +16295,7 @@ function renderContactos() {
     const archiveButton = lastMsg
       ? `
         <button class="chat-contact-action${isArchived ? ' restore' : ''}" type="button"
-          onclick="event.stopPropagation(); ${isArchived ? `_restoreChatConversation(decodeURIComponent('${encodedName}'))` : `_archiveChatConversation(decodeURIComponent('${encodedName}'), ${lastTs})`}"
+          onclick="event.stopPropagation(); ${isArchived ? `_restoreChatConversation(decodeURIComponent('${encodedPeerKey}'))` : `_archiveChatConversation(decodeURIComponent('${encodedPeerKey}'), ${lastTs})`}"
           title="${isArchived ? 'Restaurar conversación' : 'Archivar conversación'}">
           <span class="material-icons" style="font-size:16px;">${isArchived ? 'unarchive' : 'delete_outline'}</span>
         </button>
@@ -16247,7 +16303,7 @@ function renderContactos() {
       : '';
 
     return `
-      <div class="chat-contact${activeClass}${unreadClass}${archivedClass}" data-chat-name="${escapeHtml(uName)}" onclick="abrirChat(this.dataset.chatName)">
+      <div class="chat-contact${activeClass}${unreadClass}${archivedClass}" data-chat-key="${escapeHtml(peerKey)}" onclick="abrirChat(this.dataset.chatKey)">
         <button class="chat-avatar chat-avatar-button" data-user-id="${escapeHtml(u.email || uName)}"
           onclick="event.stopPropagation(); abrirInfoContacto(this.dataset.userId)"
           style="background:${avatar.background}; width:48px; height:48px; font-size:18px; flex-shrink:0;">
@@ -16286,7 +16342,8 @@ function renderContactos() {
 }
 
 function abrirChat(nombre) {
-  activeChatUser = _chatUserName(nombre);
+  activeChatPeerKey = _chatPeerKey(nombre);
+  activeChatUser = _chatPeerLabel(activeChatPeerKey, nombre);
   _actualizarHeaderChatActivo();
 
   // En mobile: slide-in con transform
@@ -16323,8 +16380,8 @@ function abrirChat(nombre) {
 
   let idsToMark = [];
   allChatMessages.forEach(m => {
-    const peer = _chatUserName(_chatPeerIdentity(m).label || m.remitente);
-    if (peer === activeChatUser && !m.leido && !m.esMio) {
+    const peer = _chatPeerIdentity(m).key;
+    if (peer === activeChatPeerKey && !m.leido && !m.esMio) {
       m.leido = true;
       idsToMark.push(m.id);
     }
@@ -16341,6 +16398,7 @@ function abrirChat(nombre) {
 
 function cerrarChat() {
   activeChatUser = null;
+  activeChatPeerKey = null;
 
   const win = document.getElementById('chat-window-view');
   if (window.innerWidth <= 768) {
@@ -16394,7 +16452,7 @@ function renderChatWindow() {
   _actualizarHeaderChatActivo();
 
   let history = allChatMessages
-    .filter(m => _chatUserName(_chatPeerIdentity(m).label) === activeChatUser)
+    .filter(m => _chatPeerIdentity(m).key === activeChatPeerKey)
     .reverse();
 
   if (history.length === 0) {
@@ -16564,7 +16622,7 @@ async function enviarMensajeChat() {
   if (!txt && !pendingChatFile && !pendingAudioBlob) return;
   if (!activeChatUser) return;
   _refreshChatIdentityModel();
-  const destinationProfile = _chatContactByName(activeChatUser) || {};
+  const destinationProfile = _chatContactByName(activeChatPeerKey || activeChatUser) || {};
   const messageIdentity = {
     remitenteUid: _chatMe.uid || '',
     remitenteEmail: _chatMe.email || '',
@@ -22271,7 +22329,7 @@ function renderizarTabConfigChoferes(container) {
             <div>
               <span class="um-column-kicker">Registro de chofer</span>
               <h4>Licencia y alta operativa</h4>
-              <p>Los datos base se toman del perfil de usuario. La licencia vigente debe cargarse como imagen o PDF.</p>
+              <p>Los datos base se toman del perfil de usuario. La licencia vigente se carga en hasta 2 archivos (frente y reverso): JPG, PNG, WEBP o PDF.</p>
             </div>
           </div>
           <div id="choferes-form-host" class="um-editor-stage">
@@ -22309,10 +22367,65 @@ function _choferesIniciar() {
   });
 }
 
+function _choferesNormalizeLicencias(user = {}) {
+  const sides = ['frente', 'reverso'];
+  const out = [];
+  const seen = new Set();
+  const push = (raw, index = 0) => {
+    if (!raw || typeof raw !== 'object') return;
+    const url = String(raw.url || raw.licenciaUrl || '').trim();
+    const publicId = String(raw.publicId || raw.public_id || '').trim();
+    const path = String(raw.path || raw.storagePath || '').trim();
+    if (!url && !publicId && !path) return;
+    const key = `${publicId}|${url}|${path}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    let side = String(raw.side || raw.tipoLado || '').trim().toLowerCase();
+    if (side !== 'frente' && side !== 'reverso') side = sides[index] || `archivo_${index + 1}`;
+    out.push({
+      url,
+      publicId,
+      path,
+      tipo: String(raw.tipo || raw.contentType || '').trim(),
+      name: String(raw.name || raw.nombre || `licencia_${index + 1}`).trim(),
+      provider: String(raw.provider || '').trim(),
+      side
+    });
+  };
+  if (Array.isArray(user.licencias) && user.licencias.length) {
+    user.licencias.slice(0, 2).forEach((item, i) => push(item, i));
+  } else if (Array.isArray(user.licenciaUrls) && user.licenciaUrls.length) {
+    user.licenciaUrls.slice(0, 2).forEach((item, i) => {
+      if (typeof item === 'string') push({ url: item, side: sides[i] }, i);
+      else push(item, i);
+    });
+  } else {
+    const url = String(user.licenciaArchivoUrl || user.licenciaUrl || '').trim();
+    const path = String(user.licenciaArchivoPath || '').trim();
+    const publicId = String(user.licenciaArchivoPublicId || '').trim();
+    if (url || path || publicId) {
+      push({
+        url,
+        path,
+        publicId,
+        tipo: user.licenciaArchivoTipo,
+        name: user.licenciaArchivoNombre || 'licencia',
+        provider: user.licenciaArchivoProvider || '',
+        side: 'frente'
+      }, 0);
+    }
+  }
+  return out.slice(0, 2);
+}
+
+function _choferesTieneArchivo(user = {}) {
+  return _choferesNormalizeLicencias(user).length > 0;
+}
+
 function _choferesEstaRegistrado(user = {}) {
   return user.isChofer === true
     && Boolean(String(user.licenciaVencimiento || '').trim())
-    && Boolean(String(user.licenciaArchivoUrl || user.licenciaArchivoPath || '').trim());
+    && _choferesTieneArchivo(user);
 }
 
 function _choferesFiltrar() {
@@ -22404,9 +22517,17 @@ function _choferesRenderForm() {
   const roleBadge = _umRoleBadge(user.rol);
   const registered = _choferesEstaRegistrado(user);
   const canEdit = canViewAdminUsers() && canManageTargetRole(user.rol);
-  const fileLabel = user.licenciaArchivoNombre
-    ? `Archivo actual: ${user.licenciaArchivoNombre}`
-    : (registered ? 'Licencia cargada' : 'Sin archivo cargado');
+  const licencias = _choferesNormalizeLicencias(user);
+  const sideLabel = (side) => (side === 'reverso' ? 'Reverso' : 'Frente');
+  const hintFor = (side) => {
+    const entry = licencias.find(l => l.side === side);
+    return entry ? `Actual: ${entry.name || sideLabel(side)}` : 'Sin archivo';
+  };
+  const linksHtml = licencias.map(item => {
+    if (!item.url) return '';
+    return `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="um-btn-secondary" style="text-decoration:none;justify-content:center;margin-top:8px;"><span class="material-icons" style="font-size:17px;">open_in_new</span> Ver ${escapeHtml(sideLabel(item.side).toLowerCase())}</a>`;
+  }).filter(Boolean).join('');
+  const acceptLic = 'image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf';
   host.innerHTML = `
     <div class="um-form-container" style="display:block;">
       <div class="um-form-card">
@@ -22451,10 +22572,15 @@ function _choferesRenderForm() {
               <input type="date" id="choferes-licencia-vencimiento" value="${escapeHtml(user.licenciaVencimiento || '')}" ${canEdit ? '' : 'disabled'}>
             </div>
             <div class="um-form-field">
-              <label>Archivo de licencia ${registered ? '' : '<span style="color:#ef4444;">*</span>'}</label>
-              <input type="file" id="choferes-licencia-file" accept="image/*,application/pdf,.pdf" onchange="_choferesHandleFile()" ${canEdit ? '' : 'disabled'}>
-              <div id="choferes-file-label" class="um-permission-intro">${escapeHtml(fileLabel)}</div>
-              ${user.licenciaArchivoUrl ? `<a href="${escapeHtml(user.licenciaArchivoUrl)}" target="_blank" rel="noopener" class="um-btn-secondary" style="text-decoration:none;justify-content:center;margin-top:8px;"><span class="material-icons" style="font-size:17px;">open_in_new</span> Ver licencia</a>` : ''}
+              <label>Archivos de licencia (máx. 2: frente y reverso) ${registered ? '' : '<span style="color:#ef4444;">*</span>'}</label>
+              <div class="um-permission-intro" style="margin-bottom:8px;">JPG, JPEG, PNG, WEBP o PDF. Puedes subir solo frente, o frente + reverso.</div>
+              <label style="font-size:12px;font-weight:700;margin-top:8px;">Frente</label>
+              <input type="file" id="choferes-licencia-frente" accept="${acceptLic}" onchange="_choferesHandleFile('frente')" ${canEdit ? '' : 'disabled'}>
+              <div id="choferes-file-label-frente" class="um-permission-intro">${escapeHtml(hintFor('frente'))}</div>
+              <label style="font-size:12px;font-weight:700;margin-top:12px;">Reverso</label>
+              <input type="file" id="choferes-licencia-reverso" accept="${acceptLic}" onchange="_choferesHandleFile('reverso')" ${canEdit ? '' : 'disabled'}>
+              <div id="choferes-file-label-reverso" class="um-permission-intro">${escapeHtml(hintFor('reverso'))}</div>
+              ${linksHtml}
             </div>
           </div>
         </div>
@@ -22475,10 +22601,23 @@ function _choferesRenderForm() {
   `;
 }
 
-function _choferesHandleFile() {
-  const file = document.getElementById('choferes-licencia-file')?.files?.[0] || null;
-  const label = document.getElementById('choferes-file-label');
-  if (label) label.textContent = file ? `Archivo seleccionado: ${file.name}` : 'Sin archivo seleccionado';
+function _choferesHandleFile(side) {
+  const key = side === 'reverso' ? 'reverso' : 'frente';
+  const inputId = key === 'reverso' ? 'choferes-licencia-reverso' : 'choferes-licencia-frente';
+  const labelId = key === 'reverso' ? 'choferes-file-label-reverso' : 'choferes-file-label-frente';
+  const input = document.getElementById(inputId);
+  const file = input?.files?.[0] || null;
+  const label = document.getElementById(labelId);
+  if (file) {
+    const err = _choferesValidarArchivo(file);
+    if (err) {
+      showToast(err, 'error');
+      if (input) input.value = '';
+      if (label) label.textContent = 'Sin archivo';
+      return;
+    }
+  }
+  if (label) label.textContent = file ? `Seleccionado: ${file.name}` : 'Sin archivo';
 }
 
 function _choferesJsArg(value) {
@@ -22490,18 +22629,44 @@ function _choferesSafeSegment(value) {
 }
 
 function _choferesValidarArchivo(file) {
-  if (!file) return 'Sube una foto o PDF de la licencia.';
+  if (!file) return 'Sube una foto o PDF de la licencia (frente y/o reverso).';
   const type = String(file.type || '').toLowerCase();
   const name = String(file.name || '').toLowerCase();
-  const isAllowed = type.startsWith('image/') || type === 'application/pdf' || name.endsWith('.pdf');
-  if (!isAllowed) return 'La licencia debe ser imagen o PDF.';
-  if (file.size > 12 * 1024 * 1024) return 'La licencia no puede pesar mas de 12 MB.';
+  const ext = (name.match(/\.([a-z0-9]+)$/) || [])[1] || '';
+  const allowedExt = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+  const allowedMime = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+  const ok = allowedMime.includes(type) || allowedExt.includes(ext);
+  if (!ok) return 'Solo se permiten JPG, JPEG, PNG, WEBP o PDF.';
+  if (file.size > 12 * 1024 * 1024) return 'Cada archivo de licencia no puede pesar mas de 12 MB.';
   return '';
 }
 
-async function _choferesSubirLicencia(user, file) {
+async function _choferesDestroyLicenciaEntry(entry) {
+  if (!entry) return;
+  const isCloudinary = entry.provider === 'cloudinary'
+    || Boolean(entry.publicId)
+    || /cloudinary/i.test(String(entry.url || ''));
+  if (isCloudinary) {
+    const media = window.mexMedia?.destroyMedia
+      ? window.mexMedia
+      : await import('/js/core/media-upload.js');
+    media.destroyMedia?.({
+      publicId: entry.publicId,
+      url: entry.url,
+      provider: 'cloudinary',
+      resourceType: String(entry.tipo || '').includes('pdf') ? 'raw' : 'image'
+    })?.catch?.(() => {});
+    return;
+  }
+  if (entry.path) {
+    const storageRoot = window._storage || (firebase?.storage ? firebase.storage() : null);
+    try { storageRoot?.ref(entry.path)?.delete()?.catch(() => {}); } catch (_) {}
+  }
+}
+
+async function _choferesSubirLicencia(user, file, side = 'frente') {
   const safeUser = _choferesSafeSegment(user.id || user.email || user.nombre);
-  const safeName = _choferesSafeSegment(file.name || 'licencia').replace(/\.[^.]+$/, '');
+  const safeName = _choferesSafeSegment(file.name || side).replace(/\.[^.]+$/, '');
   const contentType = file.type
     || (String(file.name || '').toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
   const resourceType = contentType.startsWith('image/') ? 'image' : 'raw';
@@ -22511,23 +22676,17 @@ async function _choferesSubirLicencia(user, file) {
   const result = await media.uploadMedia({
     folder: `licencias_choferes/${safeUser}`,
     file,
-    publicId: `licencia_${Date.now()}_${safeName}`,
+    publicId: `${side}_${Date.now()}_${safeName}`,
     resourceType
   });
-  if (user.licenciaArchivoPublicId || (user.licenciaArchivoUrl && /cloudinary/i.test(String(user.licenciaArchivoUrl)))) {
-    media.destroyMedia?.({
-      publicId: user.licenciaArchivoPublicId,
-      url: user.licenciaArchivoUrl,
-      provider: 'cloudinary',
-      resourceType: String(user.licenciaArchivoTipo || '').includes('pdf') ? 'raw' : 'image'
-    })?.catch?.(() => {});
-  }
   return {
-    path: result.publicId || '',
-    publicId: result.publicId || '',
-    provider: result.provider || 'cloudinary',
     url: result.url,
-    contentType
+    publicId: result.publicId || '',
+    path: result.publicId || '',
+    tipo: contentType || file.type || '',
+    name: file.name || side,
+    provider: result.provider || 'cloudinary',
+    side
   };
 }
 
@@ -22538,11 +22697,14 @@ async function _choferesGuardarRegistro() {
   if (!canManageTargetRole(user.rol)) return showToast('Tu rol no puede modificar este usuario.', 'error');
 
   const licenciaVencimiento = _dateInputValue(document.getElementById('choferes-licencia-vencimiento')?.value || '');
-  const file = document.getElementById('choferes-licencia-file')?.files?.[0] || null;
-  const hasExistingFile = Boolean(user.licenciaArchivoUrl || user.licenciaArchivoPath);
+  const fileFrente = document.getElementById('choferes-licencia-frente')?.files?.[0] || null;
+  const fileReverso = document.getElementById('choferes-licencia-reverso')?.files?.[0] || null;
+  const existing = _choferesNormalizeLicencias(user);
   if (!licenciaVencimiento) return showToast('Captura el vencimiento de licencia.', 'error');
-  if (!file && !hasExistingFile) return showToast('Sube la foto o PDF de la licencia vigente.', 'error');
-  if (file) {
+  if (!fileFrente && !fileReverso && !existing.length) {
+    return showToast('Sube al menos un archivo de licencia (frente o reverso). JPG, PNG, WEBP o PDF.', 'error');
+  }
+  for (const file of [fileFrente, fileReverso].filter(Boolean)) {
     const fileError = _choferesValidarArchivo(file);
     if (fileError) return showToast(fileError, 'error');
   }
@@ -22555,33 +22717,62 @@ async function _choferesGuardarRegistro() {
   }
 
   try {
+    const next = existing.map(e => ({ ...e }));
+    const replaced = [];
+    const pending = [];
+    if (fileFrente) pending.push({ side: 'frente', file: fileFrente });
+    if (fileReverso) pending.push({ side: 'reverso', file: fileReverso });
+
+    for (const { side, file } of pending) {
+      const uploaded = await _choferesSubirLicencia(user, file, side);
+      const idx = next.findIndex(e => e.side === side);
+      if (idx >= 0) {
+        replaced.push(next[idx]);
+        next[idx] = uploaded;
+      } else if (next.length < 2) {
+        next.push(uploaded);
+      } else {
+        replaced.push(next[0]);
+        next[0] = uploaded;
+      }
+    }
+
+    next.sort((a, b) => {
+      const order = { frente: 0, reverso: 1 };
+      return (order[a.side] ?? 99) - (order[b.side] ?? 99);
+    });
+    const licencias = next.slice(0, 2);
+    const first = licencias[0] || null;
+
     const updateData = {
       isChofer: true,
       licenciaVencimiento,
+      licencias,
+      licenciaUrls: licencias.map(l => l.url).filter(Boolean),
       licenciaSubidaPor: USER_NAME || currentUserProfile?.email || 'Sistema',
       licenciaActualizadaAt: firebase.firestore.FieldValue.serverTimestamp()
     };
-    if (file) {
-      const uploaded = await _choferesSubirLicencia(user, file);
-      updateData.licenciaArchivoUrl = uploaded.url;
-      updateData.licenciaArchivoPath = uploaded.path || uploaded.publicId || '';
-      updateData.licenciaArchivoPublicId = uploaded.publicId || '';
-      updateData.licenciaArchivoProvider = uploaded.provider || 'cloudinary';
-      updateData.licenciaArchivoNombre = file.name || 'licencia';
-      updateData.licenciaArchivoTipo = uploaded.contentType || file.type || '';
-      updateData.licenciaSubidaAt = firebase.firestore.FieldValue.serverTimestamp();
-      // Previous Cloudinary asset is cleaned inside _choferesSubirLicencia; legacy Firebase only here
-      if (user.licenciaArchivoPath && !/cloudinary/i.test(String(user.licenciaArchivoUrl || '')) && !user.licenciaArchivoPublicId) {
-        const storageRoot = window._storage || (firebase?.storage ? firebase.storage() : null);
-        try { storageRoot?.ref(user.licenciaArchivoPath)?.delete()?.catch(() => {}); } catch (_) {}
-      }
+    if (first) {
+      updateData.licenciaArchivoUrl = first.url || '';
+      updateData.licenciaArchivoPath = first.path || first.publicId || '';
+      updateData.licenciaArchivoPublicId = first.publicId || '';
+      updateData.licenciaArchivoProvider = first.provider || 'cloudinary';
+      updateData.licenciaArchivoNombre = first.name || 'licencia';
+      updateData.licenciaArchivoTipo = first.tipo || '';
     }
+    if (pending.length) {
+      updateData.licenciaSubidaAt = firebase.firestore.FieldValue.serverTimestamp();
+    }
+
     await db.collection(COL.USERS).doc(user.id).set(updateData, { merge: true });
+    for (const old of replaced) {
+      _choferesDestroyLicenciaEntry(old).catch(() => {});
+    }
     await registrarEventoGestion('CHOFER_REGISTRADO', `Registró chofer ${user.nombre || user.email || user.id}`, {
       entidad: 'USUARIOS',
       referencia: user.id,
       objetivo: user.email || user.nombre || user.id,
-      detalles: `Licencia: ${licenciaVencimiento}${file ? ' | Archivo actualizado' : ''}`,
+      detalles: `Licencia: ${licenciaVencimiento}${pending.length ? ` | Archivos: ${pending.map(p => p.side).join('+')}` : ''}`,
       resultado: 'EXITO'
     });
     showToast('Chofer registrado.', 'success');
@@ -22607,31 +22798,25 @@ async function _choferesDeshabilitar(id) {
   );
   if (!ok) return;
   try {
+    const previous = _choferesNormalizeLicencias(user);
     const del = firebase.firestore.FieldValue.delete();
     await db.collection(COL.USERS).doc(id).set({
       isChofer: false,
       licenciaVencimiento: del,
+      licencias: del,
+      licenciaUrls: del,
       licenciaArchivoUrl: del,
       licenciaArchivoPath: del,
+      licenciaArchivoPublicId: del,
+      licenciaArchivoProvider: del,
       licenciaArchivoNombre: del,
       licenciaArchivoTipo: del,
       licenciaSubidaAt: del,
       licenciaActualizadaAt: del,
       licenciaSubidaPor: del
     }, { merge: true });
-    if (user.licenciaArchivoPublicId || (user.licenciaArchivoUrl && /cloudinary/i.test(String(user.licenciaArchivoUrl)))) {
-      const media = window.mexMedia?.destroyMedia
-        ? window.mexMedia
-        : await import('/js/core/media-upload.js');
-      media.destroyMedia?.({
-        publicId: user.licenciaArchivoPublicId,
-        url: user.licenciaArchivoUrl,
-        provider: 'cloudinary',
-        resourceType: String(user.licenciaArchivoTipo || '').includes('pdf') ? 'raw' : 'image'
-      })?.catch?.(() => {});
-    } else if (user.licenciaArchivoPath) {
-      const storageRoot = window._storage || (firebase?.storage ? firebase.storage() : null);
-      try { storageRoot?.ref(user.licenciaArchivoPath)?.delete()?.catch(() => {}); } catch (_) {}
+    for (const entry of previous) {
+      _choferesDestroyLicenciaEntry(entry).catch(() => {});
     }
     await registrarEventoGestion('CHOFER_DESHABILITADO', `Deshabilitó chofer ${user.nombre || user.email || id}`, {
       entidad: 'USUARIOS',

@@ -58,11 +58,21 @@
     if (_upper(t && t.estado) === 'CERRADO') return 'CERRADO';
     return 'ABIERTO';
   }
+  function _choferTieneLicencia(u) {
+    if (!u) return false;
+    if (Array.isArray(u.licencias) && u.licencias.some(function (item) {
+      return item && (_text(item.url) || _text(item.publicId) || _text(item.path));
+    })) return true;
+    if (Array.isArray(u.licenciaUrls) && u.licenciaUrls.some(function (item) {
+      return typeof item === 'string' ? !!_text(item) : !!(item && (_text(item.url) || _text(item.publicId)));
+    })) return true;
+    return !!_text(u.licenciaArchivoUrl || u.licenciaArchivoPath || u.licenciaUrl);
+  }
   function _choferElegible(u) {
     return u
       && u.isChofer === true
       && !!_text(u.licenciaVencimiento || u.licenciaChoferVence)
-      && !!_text(u.licenciaArchivoUrl || u.licenciaArchivoPath || u.licenciaUrl);
+      && _choferTieneLicencia(u);
   }
   function _userName(u) { return _text(u.nombreCompleto || u.displayName || u.nombre || u.usuario || u.email || 'Usuario'); }
   function _tipoList() {

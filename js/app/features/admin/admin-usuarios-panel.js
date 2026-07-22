@@ -10,7 +10,11 @@ import { canEditUsersBasics, canAssignPlazaAsGlobal, canEditChoferRecord } from 
 import {
   isChoferRegistrado,
   saveChoferRegistro,
-  disableChoferRegistro
+  disableChoferRegistro,
+  normalizeLicencias,
+  validateLicenciaFile,
+  LICENCIA_ACCEPT,
+  LICENCIA_MAX_FILES
 } from '/js/app/features/admin/admin-choferes-data.js';
 import { adminSectionPath } from '/js/app/features/admin/admin-nav.js';
 import { admRibbonSelectHtml, admBindRibbonRoot } from '/js/app/features/admin/admin-ribbon-ui.js';
@@ -57,7 +61,8 @@ let _navigate = null;
 let _editing = false;
 /** Modo edición licencia / chofer. */
 let _editingChofer = false;
-let _pendingLicenciaFile = null;
+/** @type {{ frente: File|null, reverso: File|null }} */
+let _pendingLicenciaFiles = { frente: null, reverso: null };
 
 function _actor() {
   const st = getState() || {};
@@ -189,7 +194,7 @@ function _paint() {
       _selectedId = btn.getAttribute('data-user-id') || '';
       _editing = false;
       _editingChofer = false;
-      _pendingLicenciaFile = null;
+      _pendingLicenciaFiles = { frente: null, reverso: null };
       if (typeof _navigate === 'function') {
         _navigate(adminSectionPath('usuarios', _selectedId), { replace: true, soft: true });
       }
@@ -210,22 +215,39 @@ function _paint() {
   _host.querySelector('[data-action="edit-chofer"]')?.addEventListener('click', () => {
     if (!_canEditChofer(_selected())) return;
     _editingChofer = true;
-    _pendingLicenciaFile = null;
+    _pendingLicenciaFiles = { frente: null, reverso: null };
     _paint();
   });
   _host.querySelector('[data-action="cancel-edit-chofer"]')?.addEventListener('click', () => {
     _editingChofer = false;
-    _pendingLicenciaFile = null;
+    _pendingLicenciaFiles = { frente: null, reverso: null };
     _paint();
   });
-  _host.querySelector('[data-action="licencia-file"]')?.addEventListener('change', (e) => {
-    _pendingLicenciaFile = e.target.files?.[0] || null;
-    const label = _host.querySelector('#adm-licencia-file-label');
-    if (label) {
-      label.textContent = _pendingLicenciaFile
-        ? `Archivo seleccionado: ${_pendingLicenciaFile.name}`
-        : 'Sin archivo seleccionado';
-    }
+  _host.querySelectorAll('[data-action="licencia-file"]').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const side = e.target.getAttribute('data-side') === 'reverso' ? 'reverso' : 'frente';
+      const file = e.target.files?.[0] || null;
+      if (file) {
+        const err = validateLicenciaFile(file);
+        if (err) {
+          toast(err, 'error');
+          e.target.value = '';
+          _pendingLicenciaFiles[side] = null;
+        } else {
+          _pendingLicenciaFiles[side] = file;
+        }
+      } else {
+        _pendingLicenciaFiles[side] = null;
+      }
+      const label = _host.querySelector(`#adm-licencia-file-${side}`);
+      if (label) {
+        const pending = _pendingLicenciaFiles[side];
+        const entry = normalizeLicencias(_selected() || {}).find(l => l.side === side);
+        label.textContent = pending
+          ? `Seleccionado: ${pending.name}`
+          : (entry ? `Actual: ${entry.name || side}` : 'Sin archivo');
+      }
+    });
   });
   _host.querySelector('[data-action="save-chofer"]')?.addEventListener('click', () => _saveChofer());
   _host.querySelector('[data-action="disable-chofer"]')?.addEventListener('click', () => _disableChofer());
@@ -244,11 +266,22 @@ function _detailHtml(user, canEdit) {
   const canChofer = _canEditChofer(user);
   const choferRegistered = isChoferRegistrado(user);
   const editingChofer = canChofer && _editingChofer;
-  const fileLabel = _pendingLicenciaFile
-    ? `Archivo seleccionado: ${_pendingLicenciaFile.name}`
-    : (user.licenciaArchivoNombre
-      ? `Archivo actual: ${user.licenciaArchivoNombre}`
-      : (choferRegistered ? 'Licencia cargada' : 'Sin archivo cargado'));
+  const licencias = normalizeLicencias(user);
+  const licenciaSummary = licencias.length
+    ? `${licencias.length}/${LICENCIA_MAX_FILES} archivo(s): ${licencias.map(l => (l.side === 'reverso' ? 'Reverso' : 'Frente')).join(', ')}`
+    : 'Sin archivo cargado';
+  const licenciaLinks = licencias.map(item => {
+    if (!item.url) return '';
+    const label = item.side === 'reverso' ? 'reverso' : 'frente';
+    return `<a class="adm-link" href="${esc(item.url)}" target="_blank" rel="noopener">Ver ${label}</a>`;
+  }).filter(Boolean).join(' · ');
+  const fileHint = (side) => {
+    const pending = _pendingLicenciaFiles[side];
+    if (pending) return `Seleccionado: ${pending.name}`;
+    const entry = licencias.find(l => l.side === side);
+    if (entry) return `Actual: ${entry.name || side}`;
+    return 'Sin archivo';
+  };
 
   return `
     <div class="adm-detail">
@@ -340,15 +373,24 @@ function _detailHtml(user, canEdit) {
               ? `<input name="licenciaVencimiento" type="date" value="${esc(user.licenciaVencimiento || '')}">`
               : _roValue(user.licenciaVencimiento, 'Sin fecha')}
           </label>
-          <label>
-            <span>Archivo de licencia</span>
+          <label class="adm-form-full">
+            <span>Archivos de licencia (máx. ${LICENCIA_MAX_FILES}: frente y reverso)</span>
             ${editingChofer
-              ? `<input name="licenciaFile" type="file" accept="image/*,application/pdf,.pdf" data-action="licencia-file">
-                 <small class="adm-hint" id="adm-licencia-file-label">${esc(fileLabel)}</small>`
-              : `<div class="adm-field-value">${esc(fileLabel)}</div>
-                 ${user.licenciaArchivoUrl
-                   ? `<a class="adm-link" href="${esc(user.licenciaArchivoUrl)}" target="_blank" rel="noopener">Ver licencia</a>`
-                   : ''}`}
+              ? `<small class="adm-hint">JPG, JPEG, PNG, WEBP o PDF.</small>
+                 <div style="display:grid;gap:12px;margin-top:8px;">
+                   <div>
+                     <span style="font-size:12px;font-weight:600;">Frente</span>
+                     <input name="licenciaFrente" type="file" accept="${LICENCIA_ACCEPT}" data-action="licencia-file" data-side="frente">
+                     <small class="adm-hint" id="adm-licencia-file-frente">${esc(fileHint('frente'))}</small>
+                   </div>
+                   <div>
+                     <span style="font-size:12px;font-weight:600;">Reverso</span>
+                     <input name="licenciaReverso" type="file" accept="${LICENCIA_ACCEPT}" data-action="licencia-file" data-side="reverso">
+                     <small class="adm-hint" id="adm-licencia-file-reverso">${esc(fileHint('reverso'))}</small>
+                   </div>
+                 </div>`
+              : `<div class="adm-field-value">${esc(licenciaSummary)}</div>
+                 ${licenciaLinks}`}
           </label>
           <div class="adm-form-actions">
             ${canChofer && !editingChofer ? `
@@ -375,15 +417,21 @@ async function _saveChofer() {
   if (!form) return;
   const fd = new FormData(form);
   const licenciaVencimiento = String(fd.get('licenciaVencimiento') || '');
-  const file = _pendingLicenciaFile || form.querySelector('[name="licenciaFile"]')?.files?.[0] || null;
+  const fileFrente = _pendingLicenciaFiles.frente
+    || form.querySelector('[name="licenciaFrente"]')?.files?.[0]
+    || null;
+  const fileReverso = _pendingLicenciaFiles.reverso
+    || form.querySelector('[name="licenciaReverso"]')?.files?.[0]
+    || null;
   try {
     await saveChoferRegistro(user, {
       licenciaVencimiento,
-      file,
+      fileFrente,
+      fileReverso,
       actorEmail: _actor().email
     });
     _editingChofer = false;
-    _pendingLicenciaFile = null;
+    _pendingLicenciaFiles = { frente: null, reverso: null };
     toast('Chofer registrado.', 'success');
     _paint();
   } catch (err) {
@@ -448,7 +496,7 @@ export function mountUsuariosPanel(host, opts = {}) {
   _query = '';
   _editing = false;
   _editingChofer = false;
-  _pendingLicenciaFile = null;
+  _pendingLicenciaFiles = { frente: null, reverso: null };
   _host.innerHTML = `<div class="adm-loading"><span class="material-symbols-outlined">progress_activity</span> Cargando usuarios…</div>`;
   admBindRibbonRoot(_host);
 
@@ -479,7 +527,7 @@ export function syncUsuariosSelection(entityId = '') {
   if (next !== _selectedId) {
     _editing = false;
     _editingChofer = false;
-    _pendingLicenciaFile = null;
+    _pendingLicenciaFiles = { frente: null, reverso: null };
   }
   _selectedId = next;
   _paint();
@@ -496,5 +544,5 @@ export function unmountUsuariosPanel() {
   _host = null;
   _navigate = null;
   _editingChofer = false;
-  _pendingLicenciaFile = null;
+  _pendingLicenciaFiles = { frente: null, reverso: null };
 }
