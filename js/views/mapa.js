@@ -297,6 +297,28 @@ function _syncMapaBusinessMode() {
 let _configAppliedPlaza = null;
 let _configInitInFlight = null;
 
+function _mexConfigListasReady() {
+  const listas = window.MEX_CONFIG?.listas;
+  if (!listas || typeof listas !== 'object') return false;
+  return (
+    (Array.isArray(listas.estados) && listas.estados.length > 0)
+    || (Array.isArray(listas.ubicaciones) && listas.ubicaciones.length > 0)
+    || (Array.isArray(listas.gasolinas) && listas.gasolinas.length > 0)
+    || (Array.isArray(listas.categorias) && listas.categorias.length > 0)
+  );
+}
+
+function _applyConfigToMapaUi(forceLog = false) {
+  _ensureSecurityConfig();
+  aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
+  _aplicarColoresEstados();
+  _syncMapaBusinessMode();
+  if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos(forceLog);
+  if (typeof _renderPlazaSwitcher === 'function') _renderPlazaSwitcher();
+  _syncEmpresaCorreosInternosState();
+  _updateGlobalPlazaEmail();
+}
+
 async function inicializarConfiguracion(opts = {}) {
   const force = !!(opts && opts.force);
   const plaza = String(_miPlaza() || '').toUpperCase();
@@ -307,6 +329,34 @@ async function inicializarConfiguracion(opts = {}) {
     return window.MEX_CONFIG;
   }
   if (!force && _configInitInFlight) return _configInitInFlight;
+
+  // Bootstrap ya hidrató listas (local/session): pintar selects ya; revalidar en background.
+  if (!force && _mexConfigListasReady()) {
+    const firstLoad = _configAppliedPlaza == null;
+    _configAppliedPlaza = plaza;
+    if (force || firstLoad) {
+      console.log('✅ Configuración Global (cache):', window.MEX_CONFIG);
+    }
+    _applyConfigToMapaUi(force || firstLoad);
+    _configInitInFlight = (async () => {
+      try {
+        const config = typeof window.__mexEnsureConfigLoaded === 'function'
+          ? await window.__mexEnsureConfigLoaded(plaza)
+          : await api.obtenerConfiguracion(plaza);
+        if (config && config.listas) {
+          window.MEX_CONFIG = config;
+          _applyConfigToMapaUi(false);
+        }
+        return window.MEX_CONFIG;
+      } catch (error) {
+        console.error('❌ Error revalidando configuración:', error);
+        return window.MEX_CONFIG;
+      } finally {
+        _configInitInFlight = null;
+      }
+    })();
+    return _configInitInFlight;
+  }
 
   const run = (async () => {
     try {
@@ -321,21 +371,12 @@ async function inicializarConfiguracion(opts = {}) {
           api.guardarConfiguracionListas(config.listas, 'Sistema', _miPlaza()).catch(e => console.warn("No se pudo guardar estados por defecto:", e));
         }
         window.MEX_CONFIG = config;
-        _ensureSecurityConfig();
         const firstLoad = _configAppliedPlaza == null;
         _configAppliedPlaza = plaza;
+        _applyConfigToMapaUi(force || firstLoad);
         if (force || firstLoad) {
           console.log("✅ Configuración Global Cargada:", window.MEX_CONFIG);
         }
-        aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
-        _aplicarColoresEstados();
-        _syncMapaBusinessMode();
-        if (typeof llenarSelectsDinamicos === 'function') {
-          llenarSelectsDinamicos(force || firstLoad);
-        }
-        if (typeof _renderPlazaSwitcher === 'function') _renderPlazaSwitcher();
-        _syncEmpresaCorreosInternosState();
-        _updateGlobalPlazaEmail();
       }
       return window.MEX_CONFIG;
     } catch (error) {

@@ -7,6 +7,8 @@
   const DEFAULT_COMPANY_NAME = 'EMPRESA';
   const SESSION_BOOTSTRAP_CONFIG_KEY = 'mex.bootstrap.baseConfig.v1';
   const LOCAL_BOOTSTRAP_CONFIG_KEY = 'mex.bootstrap.baseConfig.local.v1';
+  const PLAZA_BOOTSTRAP_CONFIG_PREFIX = 'mex.bootstrap.plazaConfig.local.v1.';
+  const BOOTSTRAP_CONFIG_REVALIDATE_MS = 90 * 1000;
   const SESSION_BOOTSTRAP_WARM_KEY = 'mex.bootstrap.warm.v1';
   const SESSION_PROFILE_CACHE_PREFIX = 'mex.bootstrap.profile.v1.';
   const LOCAL_PROFILE_CACHE_PREFIX = 'mex.bootstrap.profile.local.v1.';
@@ -99,23 +101,89 @@
       sessionStorage.removeItem(SESSION_BOOTSTRAP_WARM_KEY);
       sessionStorage.removeItem(SESSION_BOOTSTRAP_CONFIG_KEY);
       localStorage.removeItem(LOCAL_BOOTSTRAP_CONFIG_KEY);
+      clearPlazaConfigCaches('');
     } catch (_) {}
   }
 
-  function readCachedBaseConfig() {
-    const cached = readSessionItem(SESSION_BOOTSTRAP_CONFIG_KEY, null)
+  function unwrapCachedConfigEntry(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    if (raw.config && typeof raw.config === 'object') {
+      return {
+        ts: Number(raw.ts || 0),
+        config: normalizeConfig(raw.config)
+      };
+    }
+    if (raw.empresa || raw.listas) {
+      return { ts: 0, config: normalizeConfig(raw) };
+    }
+    return null;
+  }
+
+  function readCachedBaseConfigEntry() {
+    const raw = readSessionItem(SESSION_BOOTSTRAP_CONFIG_KEY, null)
       || readLocalItem(LOCAL_BOOTSTRAP_CONFIG_KEY, null);
-    if (!cached || typeof cached !== 'object') return null;
-    return normalizeConfig(cached);
+    return unwrapCachedConfigEntry(raw);
+  }
+
+  function readCachedBaseConfig() {
+    return readCachedBaseConfigEntry()?.config || null;
+  }
+
+  function plazaConfigStorageKey(plaza = '') {
+    const plazaUp = safeText(plaza).toUpperCase();
+    return plazaUp ? `${PLAZA_BOOTSTRAP_CONFIG_PREFIX}${plazaUp}` : '';
+  }
+
+  function readCachedPlazaConfigEntry(plaza = '') {
+    const key = plazaConfigStorageKey(plaza);
+    if (!key) return null;
+    const raw = readSessionItem(key, null) || readLocalItem(key, null);
+    return unwrapCachedConfigEntry(raw);
+  }
+
+  function clearPlazaConfigCaches(plaza = '') {
+    const plazaUp = safeText(plaza).toUpperCase();
+    try {
+      if (plazaUp) {
+        const key = plazaConfigStorageKey(plazaUp);
+        sessionStorage.removeItem(key);
+        localStorage.removeItem(key);
+        return;
+      }
+      for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+        const storageKey = localStorage.key(i);
+        if (storageKey && storageKey.startsWith(PLAZA_BOOTSTRAP_CONFIG_PREFIX)) {
+          localStorage.removeItem(storageKey);
+        }
+      }
+      for (let i = sessionStorage.length - 1; i >= 0; i -= 1) {
+        const storageKey = sessionStorage.key(i);
+        if (storageKey && storageKey.startsWith(PLAZA_BOOTSTRAP_CONFIG_PREFIX)) {
+          sessionStorage.removeItem(storageKey);
+        }
+      }
+    } catch (_) {}
   }
 
   function persistCachedBaseConfig(config = {}) {
     const normalized = normalizeConfig(config);
-    const wroteSession = writeSessionItem(SESSION_BOOTSTRAP_CONFIG_KEY, normalized);
-    writeLocalItem(LOCAL_BOOTSTRAP_CONFIG_KEY, normalized);
+    const entry = { ts: Date.now(), config: normalized };
+    const wroteSession = writeSessionItem(SESSION_BOOTSTRAP_CONFIG_KEY, entry);
+    writeLocalItem(LOCAL_BOOTSTRAP_CONFIG_KEY, entry);
     if (wroteSession) {
       markBootstrapWarm();
     }
+    return normalized;
+  }
+
+  function persistCachedPlazaConfig(plaza = '', config = {}) {
+    const plazaUp = safeText(plaza).toUpperCase();
+    if (!plazaUp) return normalizeConfig(config);
+    const normalized = normalizeConfig(config);
+    const entry = { ts: Date.now(), config: normalized };
+    const key = plazaConfigStorageKey(plazaUp);
+    writeSessionItem(key, entry);
+    writeLocalItem(key, entry);
     return normalized;
   }
 
@@ -1448,21 +1516,83 @@
     });
   }
 
-  async function fetchConfig(plaza = '') {
+  async function fetchConfigFromNetwork(plaza = '') {
     const key = safeText(plaza).toUpperCase() || 'GLOBAL';
-    if (state.cache.has(key)) return state.cache.get(key);
+    const config = (root.api?.obtenerConfiguracion && key !== 'GLOBAL')
+      ? await root.api.obtenerConfiguracion(key)
+      : (root.api?.obtenerConfiguracion
+        ? await root.api.obtenerConfiguracion('')
+        : await fetchBaseConfigDirect());
+    return normalizeConfig(config);
+  }
+
+  function configFingerprint(config = {}) {
+    try {
+      return JSON.stringify(normalizeConfig(config));
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function scheduleConfigRevalidate(plaza = '') {
+    const key = safeText(plaza).toUpperCase() || 'GLOBAL';
+    state.configRevalidate = state.configRevalidate || {};
+    const last = Number(state.configRevalidate[key] || 0);
+    if (Date.now() - last < BOOTSTRAP_CONFIG_REVALIDATE_MS) return;
+    state.configRevalidate[key] = Date.now();
+
+    fetchConfigFromNetwork(plaza).then((fresh) => {
+      const prevEntry = key === 'GLOBAL'
+        ? readCachedBaseConfigEntry()
+        : readCachedPlazaConfigEntry(key);
+      const prevFp = configFingerprint(prevEntry?.config);
+      const freshFp = configFingerprint(fresh);
+      if (key === 'GLOBAL') persistCachedBaseConfig(fresh);
+      else persistCachedPlazaConfig(key, fresh);
+      if (prevFp && prevFp !== freshFp) {
+        try {
+          if (typeof root.__mexInvalidateSelectsCache === 'function') {
+            root.__mexInvalidateSelectsCache();
+          }
+        } catch (_) { /* mapa aún no cargó */ }
+      }
+      state.cache.delete(key);
+    }).catch((error) => {
+      console.warn('[app-bootstrap] config revalidate', key, error);
+    });
+  }
+
+  async function fetchConfig(plaza = '', options = {}) {
+    const key = safeText(plaza).toUpperCase() || 'GLOBAL';
+    const force = options.force === true;
+    if (!force && state.cache.has(key)) return state.cache.get(key);
 
     const task = (async () => {
-      const config = (root.api?.obtenerConfiguracion && key !== 'GLOBAL')
-        ? await root.api.obtenerConfiguracion(key)
-        : (root.api?.obtenerConfiguracion
-          ? await root.api.obtenerConfiguracion('')
-          : await fetchBaseConfigDirect());
-      const normalized = normalizeConfig(config);
-      if (key === 'GLOBAL') persistCachedBaseConfig(normalized);
-      applyPageBranding(normalized);
-      return normalized;
-    })().catch(error => {
+      const cachedEntry = key === 'GLOBAL'
+        ? readCachedBaseConfigEntry()
+        : readCachedPlazaConfigEntry(key);
+
+      if (!force && cachedEntry?.config) {
+        applyPageBranding(cachedEntry.config);
+        scheduleConfigRevalidate(plaza);
+        return cachedEntry.config;
+      }
+
+      try {
+        const normalized = await fetchConfigFromNetwork(plaza);
+        if (key === 'GLOBAL') persistCachedBaseConfig(normalized);
+        else persistCachedPlazaConfig(key, normalized);
+        applyPageBranding(normalized);
+        return normalized;
+      } catch (error) {
+        if (cachedEntry?.config) {
+          applyPageBranding(cachedEntry.config);
+          scheduleConfigRevalidate(plaza);
+          return cachedEntry.config;
+        }
+        throw error;
+      }
+    })().catch((error) => {
       state.cache.delete(key);
       throw error;
     });
@@ -1471,16 +1601,18 @@
     return task;
   }
 
-  root.__mexEnsureConfigLoaded = async function (plaza = '') {
-    const baseConfig = await fetchConfig('');
+  root.__mexEnsureConfigLoaded = async function (plaza = '', options = {}) {
+    const force = options.force === true;
+    const baseConfig = await fetchConfig('', { force });
     const plazaKey = safeText(plaza).toUpperCase();
     if (!plazaKey || plazaKey === 'GLOBAL') {
       applyPageBranding(baseConfig);
       return baseConfig;
     }
-    const plazaConfig = await fetchConfig(plazaKey);
+    const plazaConfig = await fetchConfig(plazaKey, { force });
     const merged = mergeConfig(baseConfig, plazaConfig);
     applyPageBranding(merged);
+    if (!force) persistCachedPlazaConfig(plazaKey, merged);
     return merged;
   };
 
@@ -1490,7 +1622,7 @@
       'Reintentando carga...',
       'Estamos consultando de nuevo la configuración base de la empresa.'
     );
-    root.__mexConfigReadyPromise = root.__mexEnsureConfigLoaded('')
+    root.__mexConfigReadyPromise = root.__mexEnsureConfigLoaded('', { force: true })
       .then(config => {
         state.resolved = true;
         applyPageBranding(config);
@@ -1517,6 +1649,7 @@
     } else {
       state.cache.delete(key);
       state.cache.delete('GLOBAL');
+      clearPlazaConfigCaches(key);
       if (key === 'GLOBAL') clearBootstrapWarm();
     }
     // Selects de mapa/cuadre dependen de MEX_CONFIG; invalidar su cache en memoria.
