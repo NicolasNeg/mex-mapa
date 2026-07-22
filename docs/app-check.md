@@ -1,22 +1,64 @@
-# Firebase App Check (web)
+# Firebase App Check + Login reCAPTCHA
 
-## Qué hace
+## Separación importante
 
-El cliente inicializa **Firebase App Check** con **reCAPTCHA v3** (compat SDK `firebase-app-check-compat.js`) justo después de `firebase.initializeApp` en `js/core/firebase-init.js`. El token se adjunta automáticamente a Auth, Firestore, Storage y Functions cuando el SDK lo solicita. **Enforcement** en consola queda fuera de este paso (observación primero).
+| Uso | Producto | Variable cliente | Dónde |
+|---|---|---|---|
+| **Login gate** | reCAPTCHA **v2 checkbox** (“No soy un robot”) | `window.MEX_RECAPTCHA_V2_SITE_KEY` | `login.html` + `js/views/login.js` |
+| **App Check** (opcional) | reCAPTCHA **v3** / Enterprise | `window.MEX_APPCHECK_SITE_KEY` | resto de la app vía `firebase-init.js` |
 
-## Provider
+**No reutilices la site key v2 del login como App Check.** Son productos distintos.
+
+---
+
+## Login — reCAPTCHA v2 checkbox
+
+1. `login.html` carga `https://www.google.com/recaptcha/api.js` y renderiza el widget checkbox.
+2. Site key pública: `js/core/firebase-config.js` → `MEX_RECAPTCHA_V2_SITE_KEY`.
+3. Email/password y Google **bloquean** hasta `grecaptcha.getResponse()` no vacío.
+4. Tras login fallido (o rechazo de verificación), se llama `grecaptcha.reset()`.
+5. En `/login`, App Check está **desactivado** (`MEX_APPCHECK_DISABLED` + skip en `firebase-init`) para no pelear con el checkbox v2.
+
+### Verificación en servidor (recomendado)
+
+Callable: `verifyRecaptchaLogin` → Google `siteverify` con el **secret** de la clave v2.
+
+Configura **uno** de estos secretos (no inventar valores; copiar el secret de [Google reCAPTCHA Admin](https://www.google.com/recaptcha/admin)):
+
+```bash
+# Preferido (Secret Manager)
+firebase functions:secrets:set RECAPTCHA_SECRET_KEY
+# alias aceptado:
+firebase functions:secrets:set RECAPTCHA_V2_SECRET
+
+# Legacy config (alternativa)
+firebase functions:config:set recaptcha.secret_key="TU_SECRET_V2"
+```
+
+Luego:
+
+```bash
+npm run deploy:functions
+```
+
+Si el secreto **no** está configurado, la función responde `recaptcha_config_missing` y el cliente hace **soft-fail** (permite continuar) — pero la casilla del cliente **sigue siendo obligatoria**.
+
+---
+
+## App Check (reCAPTCHA v3) — opcional / observación
+
+El cliente puede inicializar **Firebase App Check** con **reCAPTCHA v3** en `js/core/firebase-init.js` **fuera de login**, si hay site key.
 
 | Variable | Valor | SDK |
 |---|---|---|
 | `window.MEX_APPCHECK_PROVIDER` | `v3` (default) | `ReCaptchaV3Provider` |
 | `window.MEX_APPCHECK_PROVIDER` | `enterprise` | `ReCaptchaEnterpriseProvider` |
 
-Default actual: **reCAPTCHA v3** para la site key de App Check de **mapGestion**. Usa `enterprise` solo con la site key del proveedor Enterprise en consola.
-
-## Dónde poner la site key (pública)
+### Dónde poner la site key App Check (pública, v3)
 
 Archivo: `js/core/firebase-config.js` → `window.MEX_APPCHECK_SITE_KEY`
 
+<<<<<<< Updated upstream
 ```js
 window.MEX_APPCHECK_SITE_KEY = '<SITE_KEY_V3_PUBLICA>';
 ```
@@ -37,10 +79,19 @@ Origen de la clave v3:
 1. [Firebase Console](https://console.firebase.google.com/) → proyecto → **App Check**
 2. App web **mapGestion** → proveedor **reCAPTCHA** (v3) — registra un sitio **v3**, no el checkbox v2
 3. Copiar solo la **Site key** (pública). Nunca pegues API keys de Google Cloud ni secretos de servidor en el cliente.
+=======
+Por defecto queda **vacío** (App Check off) hasta que registres una site key **v3** de App Check en consola.
+
+Origen:
+
+1. [Firebase Console](https://console.firebase.google.com/) → proyecto → **App Check**
+2. App web → proveedor **reCAPTCHA** (v3)
+3. Copiar solo la **Site key** (pública). Nunca pegues secretos en el cliente.
+>>>>>>> Stashed changes
 
 También puedes definir `window.MEX_APPCHECK_SITE_KEY` en un script **antes** de cargar `firebase-config.js`.
 
-## Scripts HTML
+### Scripts HTML (páginas con App Check)
 
 Tras `firebase-app-compat.js` y **antes** de `firebase-init.js`:
 
@@ -48,8 +99,9 @@ Tras `firebase-app-compat.js` y **antes** de `firebase-init.js`:
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
 ```
 
-## Login
+`login.html` **no** carga App Check a propósito.
 
+<<<<<<< Updated upstream
 En `/login` **App Check v3 se omite** a propósito (`firebase-init.js` → `_isLoginPage()`). El gate UX es un **reCAPTCHA v2 checkbox** visible («No soy un robot»).
 
 | Pieza | Dónde |
@@ -81,16 +133,15 @@ firebase functions:config:set recaptcha.v2_secret="TU_SECRET_KEY"
 Tras configurar el secreto, redespliega Functions (`npm run deploy:functions`) para que `verifyRecaptchaLogin` valide contra `https://www.google.com/recaptcha/api/siteverify`.
 
 La site key debe ser de tipo **reCAPTCHA v2 Checkbox** en [Google reCAPTCHA Admin](https://www.google.com/recaptcha/admin) y el dominio de producción debe estar autorizado.
+=======
+### Debug tokens (localhost)
+>>>>>>> Stashed changes
 
-## Debug tokens (localhost)
+No añadas `localhost` a los dominios permitidos de reCAPTCHA (App Check).
 
-No añadas `localhost` a los dominios permitidos de reCAPTCHA.
-
-En **localhost** / `127.0.0.1` el init activa el debug provider (`self.FIREBASE_APPCHECK_DEBUG_TOKEN = true`). La consola del navegador muestra un UUID; regístralo en:
+En **localhost** / `127.0.0.1` el init activa el debug provider (`self.FIREBASE_APPCHECK_DEBUG_TOKEN = true`) cuando App Check está habilitado. La consola del navegador muestra un UUID; regístralo en:
 
 **Firebase Console → App Check → overflow menu → Manage debug tokens**
-
-Opciones:
 
 | Método | Uso |
 |---|---|

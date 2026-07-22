@@ -261,7 +261,7 @@ const ROUTE_STYLES = {
   "/app/programador": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
   "/app/editmap": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
   "/app/turnos": [{ href: "/css/app-turnos.css", attr: "data-app-turnos-css" }],
-  "/app/historial-operativo": [{ href: "/css/app-historial-operativo.css?v=20260715a", attr: "data-app-historial-operativo-css" }],
+  "/app/historial-operativo": [{ href: "/css/app-historial-operativo.css?v=20260721a", attr: "data-app-historial-operativo-css" }],
   "/app/papeletas": [{ href: "/css/app-papeletas.css?v=20260720g", attr: "data-app-papeletas-css" }],
 };
 

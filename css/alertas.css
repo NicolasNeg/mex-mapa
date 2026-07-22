@@ -2480,40 +2480,40 @@
     }
 
     /* state colors — border + icon bg + text */
-    .LISTO { border-left-color: #16a34a; }
-    .LISTO .lbl, .LISTO .val { color: #16a34a; }
-    .LISTO .stat-icon { background: #dcfce7; color: #16a34a; }
+    #modal-resumen-flota .LISTO { border-left-color: #16a34a; }
+    #modal-resumen-flota .LISTO .lbl, #modal-resumen-flota .LISTO .val { color: #16a34a; }
+    #modal-resumen-flota .LISTO .stat-icon { background: #dcfce7; color: #16a34a; }
 
-    .RETENIDA { border-left-color: #92400e; }
-    .RETENIDA .lbl, .RETENIDA .val { color: #92400e; }
-    .RETENIDA .stat-icon { background: #fef3c7; color: #92400e; }
+    #modal-resumen-flota .RETENIDA { border-left-color: #92400e; }
+    #modal-resumen-flota .RETENIDA .lbl, #modal-resumen-flota .RETENIDA .val { color: #92400e; }
+    #modal-resumen-flota .RETENIDA .stat-icon { background: #fef3c7; color: #92400e; }
 
-    .VENTA { border-left-color: #b45309; }
-    .VENTA .lbl, .VENTA .val { color: #b45309; }
-    .VENTA .stat-icon { background: #fef9c3; color: #b45309; }
+    #modal-resumen-flota .VENTA { border-left-color: #b45309; }
+    #modal-resumen-flota .VENTA .lbl, #modal-resumen-flota .VENTA .val { color: #b45309; }
+    #modal-resumen-flota .VENTA .stat-icon { background: #fef9c3; color: #b45309; }
 
-    .NO-ARRENDABLE { border-left-color: #475569; }
-    .NO-ARRENDABLE .lbl, .NO-ARRENDABLE .val { color: #475569; }
-    .NO-ARRENDABLE .stat-icon { background: #f1f5f9; color: #475569; }
+    #modal-resumen-flota .NO-ARRENDABLE { border-left-color: #475569; }
+    #modal-resumen-flota .NO-ARRENDABLE .lbl, #modal-resumen-flota .NO-ARRENDABLE .val { color: #475569; }
+    #modal-resumen-flota .NO-ARRENDABLE .stat-icon { background: #f1f5f9; color: #475569; }
 
-    .SUCIO { border-left-color: #ea580c; }
-    .SUCIO .lbl, .SUCIO .val { color: #ea580c; }
-    .SUCIO .stat-icon { background: #fff7ed; color: #ea580c; }
+    #modal-resumen-flota .SUCIO { border-left-color: #ea580c; }
+    #modal-resumen-flota .SUCIO .lbl, #modal-resumen-flota .SUCIO .val { color: #ea580c; }
+    #modal-resumen-flota .SUCIO .stat-icon { background: #fff7ed; color: #ea580c; }
 
-    .MANTENIMIENTO { border-left-color: #dc2626; }
-    .MANTENIMIENTO .lbl, .MANTENIMIENTO .val { color: #dc2626; }
-    .MANTENIMIENTO .stat-icon { background: #fef2f2; color: #dc2626; }
+    #modal-resumen-flota .MANTENIMIENTO { border-left-color: #dc2626; }
+    #modal-resumen-flota .MANTENIMIENTO .lbl, #modal-resumen-flota .MANTENIMIENTO .val { color: #dc2626; }
+    #modal-resumen-flota .MANTENIMIENTO .stat-icon { background: #fef2f2; color: #dc2626; }
 
-    .TRASLADO { border-left-color: #2563eb; }
-    .TRASLADO .lbl, .TRASLADO .val { color: #2563eb; }
-    .TRASLADO .stat-icon { background: #eff6ff; color: #2563eb; }
+    #modal-resumen-flota .TRASLADO { border-left-color: #2563eb; }
+    #modal-resumen-flota .TRASLADO .lbl, #modal-resumen-flota .TRASLADO .val { color: #2563eb; }
+    #modal-resumen-flota .TRASLADO .stat-icon { background: #eff6ff; color: #2563eb; }
 
-    .RESGUARDO { border-left-color: #6b7280; }
-    .RESGUARDO .lbl, .RESGUARDO .val { color: #6b7280; }
-    .RESGUARDO .stat-icon { background: #f3f4f6; color: #6b7280; }
+    #modal-resumen-flota .RESGUARDO { border-left-color: #6b7280; }
+    #modal-resumen-flota .RESGUARDO .lbl, #modal-resumen-flota .RESGUARDO .val { color: #6b7280; }
+    #modal-resumen-flota .RESGUARDO .stat-icon { background: #f3f4f6; color: #6b7280; }
 
     /* EXPANDED state */
-    .stat-box.active {
+    #modal-resumen-flota .stat-box.active {
       grid-column: span 2;
       order: -1;
       padding: 18px;
@@ -2522,7 +2522,7 @@
       box-shadow: 0 12px 28px rgba(15, 35, 67, 0.08);
     }
 
-    .inner-detail {
+    #modal-resumen-flota .inner-detail {
       display: none;
       width: 100%;
       margin-top: 12px;
@@ -2530,12 +2530,12 @@
       border-top: 1px solid #f1f5f9;
     }
 
-    .stat-box.active .inner-detail {
+    #modal-resumen-flota .stat-box.active .inner-detail {
       display: block;
       animation: slideDown 0.3s ease;
     }
 
-    .fila-cat {
+    #modal-resumen-flota .fila-cat {
       display: flex;
       justify-content: space-between;
       font-size: 12px;
@@ -2544,7 +2544,7 @@
       padding: 5px 0;
     }
 
-    .mod-list {
+    #modal-resumen-flota .mod-list {
       font-size: 10px;
       color: #94a3b8;
       margin-bottom: 8px;

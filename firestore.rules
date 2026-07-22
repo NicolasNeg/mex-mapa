@@ -899,7 +899,34 @@ service cloud.firestore {
         && senderEmail.lower() == request.auth.token.email.lower()
         && recipientUid is string
         && recipientEmail is string
-        && (recipientUid != '' || recipientEmail != '');
+        && destinatarioMensajeValido(recipientUid, recipientEmail);
+    }
+
+    function destinatarioMensajeValido(uid, email) {
+      return (
+          email != ''
+          && uid == ''
+          && exists(/databases/$(database)/documents/usuarios/$(email))
+        )
+        || (
+          email == ''
+          && uid != ''
+          && exists(/databases/$(database)/documents/usuarios/$(uid))
+        )
+        || (
+          email != ''
+          && uid != ''
+          && (
+            (
+              exists(/databases/$(database)/documents/usuarios/$(email))
+              && get(/databases/$(database)/documents/usuarios/$(email)).data.get('authUid', '') == uid
+            )
+            || (
+              exists(/databases/$(database)/documents/usuarios/$(uid))
+              && get(/databases/$(database)/documents/usuarios/$(uid)).data.get('email', '').lower() == email.lower()
+            )
+          )
+        );
     }
 
     match /mensajes/{doc} {

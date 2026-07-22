@@ -26,20 +26,28 @@
   <link rel="prefetch" href="/app" as="document">
   <link rel="modulepreload" href="/js/app/main.js">
 
-  <!-- Firebase compat SDK -->
+  <!-- Firebase compat SDK (sin App Check en login: gate = reCAPTCHA v2 checkbox) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 
+<<<<<<< Updated upstream
   <!-- Login gate = reCAPTCHA v2 checkbox (No soy un robot). App Check v3 se omite en /login.
        Site key: window.MEX_RECAPTCHA_V2_SITE_KEY (firebase-config.js). Docs: /docs/app-check.md -->
   <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
+=======
+  <!-- reCAPTCHA v2 checkbox (“No soy un robot”). Site key: MEX_RECAPTCHA_V2_SITE_KEY -->
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+>>>>>>> Stashed changes
 
   <!-- Firebase core -->
   <script src="/js/core/firebase-config.js"></script>
+  <script>
+    // Evita que firebase-init active App Check v3 en esta página.
+    window.MEX_APPCHECK_DISABLED = true;
+  </script>
   <script src="/js/core/firebase-init.js"></script>
   <script src="/js/core/app-bootstrap.js"></script>
   <script src="/js/core/feature-gates.js"></script>
@@ -287,13 +295,19 @@
       margin: 10px 2px 16px;
     }
 
+<<<<<<< Updated upstream
     .login-recaptcha-wrap {
+=======
+    /* reCAPTCHA v2 checkbox — centrado y responsive */
+    .login-recaptcha {
+>>>>>>> Stashed changes
       display: flex;
       justify-content: center;
       margin: 0 0 18px;
       min-height: 78px;
     }
 
+<<<<<<< Updated upstream
     .login-recaptcha-wrap .g-recaptcha {
       transform-origin: center top;
     }
@@ -303,6 +317,16 @@
       text-align: center;
       font-size: 12px;
       color: var(--muted);
+=======
+    .login-recaptcha .g-recaptcha {
+      transform-origin: center center;
+    }
+
+    @media (max-width: 400px) {
+      .login-recaptcha .g-recaptcha {
+        transform: scale(0.92);
+      }
+>>>>>>> Stashed changes
     }
 
     .remember {
@@ -638,10 +662,22 @@
         <button type="button" class="link-forgot" onclick="olvidePassword()">Forgot password?</button>
       </div>
 
+<<<<<<< Updated upstream
       <div class="login-recaptcha-wrap" aria-label="Verificación anti-bot">
         <div id="login-recaptcha"></div>
       </div>
       <p id="login-recaptcha-hint" class="login-recaptcha-hint" hidden>Marca «No soy un robot» para continuar.</p>
+=======
+      <div class="login-recaptcha" aria-label="Verificación reCAPTCHA">
+        <div
+          id="login-recaptcha"
+          class="g-recaptcha"
+          data-sitekey="6Lf1714tAAAAAK3wyyOhB8nCk6JRh7uwIFlR6ufC"
+          data-theme="light"
+          data-size="normal"
+        ></div>
+      </div>
+>>>>>>> Stashed changes
 
       <button onclick="loginManual()" id="btnLoginManual" class="btn-primary">LOGIN</button>
 

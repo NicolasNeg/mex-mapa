@@ -539,17 +539,21 @@ function _syncLegacyMapUnitsHeader(id) {
   document.getElementById('mexHdrLegacyUnitsBtn')?.addEventListener('click', _toggleLegacyUnitsSidebar);
 }
 
-function _syncLegacyCuadreHeader(id, ctx) {
+function _syncLegacyCuadreHeader(id) {
   if (id !== 'cuadre' || !_shell || !_iframe) return;
   const win = _iframe.contentWindow;
   const doc = _iframe.contentDocument;
   if (!win || !doc) return;
 
+  const isAdmins = doc.documentElement?.dataset?.cuadreView === 'admins';
+  _shell.setHeaderTitle?.(isAdmins ? 'Cuadre de admins' : 'Cuadre');
+
   // Mobile: el footer ya tiene Controles — no duplicar tune/car en el header del shell
   const isMobile = window.matchMedia('(max-width: 768px)').matches;
   if (isMobile) {
-    if (_unitsHeaderSig === 'cuadre:mobile-clear') return;
-    _unitsHeaderSig = 'cuadre:mobile-clear';
+    const mobileSig = `cuadre:mobile-clear:${isAdmins ? 'admins' : 'normal'}`;
+    if (_unitsHeaderSig === mobileSig) return;
+    _unitsHeaderSig = mobileSig;
     _shell.setHeaderActions?.('');
     return;
   }
@@ -558,60 +562,31 @@ function _syncLegacyCuadreHeader(id, ctx) {
   // display:none !important, así que el computed de sus hijos siempre es none
   // aunque el JS de rol haya puesto style.display = 'inline-block'.
   const masControles = doc.getElementById('btnMasControlesWrapper');
-  const adminControles = doc.getElementById('btnAdminControlsWrapper');
   const showMas = !!(masControles
     && masControles.style.display
     && masControles.style.display !== 'none');
-  const showAdmin = !!(adminControles
-    && !adminControles.hidden
-    && adminControles.style.display
-    && adminControles.style.display !== 'none');
 
-  const sig = `cuadre:${showMas ? 1 : 0}:${showAdmin ? 1 : 0}`;
-  if (sig === _unitsHeaderSig) return;
+  const sig = `cuadre:${showMas ? 1 : 0}:${isAdmins ? 'admins' : 'normal'}`;
+  const existingMoreBtn = document.getElementById('mexHdrCuadreMoreBtn');
+  if (sig === _unitsHeaderSig && (!showMas || existingMoreBtn)) return;
   _unitsHeaderSig = sig;
 
-  let html = `
-    <button type="button" class="mex-hdr-limbo-btn--legacy mex-hdr-icon-btn" id="mexHdrCuadreResumenBtn" title="Resumen flota" aria-label="Resumen flota">
-      <span class="material-icons">pie_chart</span>
-    </button>
-  `;
+  let html = '';
   if (showMas) {
     html += `
-      <button type="button" class="mex-hdr-limbo-btn--legacy mex-hdr-icon-btn" id="mexHdrCuadreMoreBtn" title="Más controles" aria-label="Más controles">
+      <button type="button" class="mex-hdr-limbo-btn--legacy mex-hdr-icon-btn" id="mexHdrCuadreMoreBtn" title="Más controles" aria-label="Más controles" aria-expanded="false">
         <span class="material-icons">tune</span>
-      </button>
-    `;
-  }
-  if (showAdmin) {
-    html += `
-      <button type="button" class="mex-hdr-limbo-btn--legacy mex-hdr-icon-btn" id="mexHdrCuadreAdminBtn" title="Controles admin" aria-label="Controles admin">
-        <span class="material-icons">admin_panel_settings</span>
       </button>
     `;
   }
 
   _shell.setHeaderActions?.(html);
 
-  const resumenBtn = document.getElementById('mexHdrCuadreResumenBtn');
-  if (resumenBtn) {
-    resumenBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      try { win.abrirResumenFlota?.(true); } catch (_) {}
-    });
-  }
   const moreBtn = document.getElementById('mexHdrCuadreMoreBtn');
   if (moreBtn) {
     moreBtn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       try { win.toggleMoreControls?.(ev); } catch (_) {}
-    });
-  }
-  const adminBtn = document.getElementById('mexHdrCuadreAdminBtn');
-  if (adminBtn) {
-    adminBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      try { win.toggleAdminControls?.(); } catch (_) {}
     });
   }
 }
@@ -623,8 +598,19 @@ function _bindCuadreEvents() {
   window.addEventListener('mex:cuadre:more', () => {
     try { _iframe?.contentWindow?.toggleMoreControls?.(); } catch(_) {}
   });
-  window.addEventListener('mex:cuadre:admin', () => {
-    try { _iframe?.contentWindow?.toggleAdminControls?.(); } catch(_) {}
+  window.addEventListener('mex:cuadre:view-change', event => {
+    if (_currentId !== 'cuadre') return;
+    const tab = String(event?.detail?.tab || '').toUpperCase();
+    _shell?.setHeaderTitle?.(tab === 'ADMINS' ? 'Cuadre de admins' : 'Cuadre');
+  });
+  document.addEventListener('click', event => {
+    if (_currentId !== 'cuadre') return;
+    if (event.target?.closest?.('#mexHdrCuadreMoreBtn')) return;
+    try { _iframe?.contentWindow?.cerrarMoreControlsDropdown?.(); } catch (_) {}
+  }, true);
+  document.addEventListener('keydown', event => {
+    if (_currentId !== 'cuadre' || event.key !== 'Escape') return;
+    try { _iframe?.contentWindow?.cerrarMoreControlsDropdown?.(); } catch (_) {}
   });
 }
 
@@ -635,8 +621,8 @@ function _startLegacyHeaderSync(id, ctx) {
     _unitsHeaderTimer = window.setInterval(() => _syncLegacyMapUnitsHeader(id), 1000);
   } else if (id === 'cuadre') {
     _bindCuadreEvents();
-    _syncLegacyCuadreHeader(id, ctx);
-    _unitsHeaderTimer = window.setInterval(() => _syncLegacyCuadreHeader(id, ctx), 1000);
+    _syncLegacyCuadreHeader(id);
+    _unitsHeaderTimer = window.setInterval(() => _syncLegacyCuadreHeader(id), 1000);
   }
 }
 

@@ -208,7 +208,33 @@ const ESTADOS_DEFAULT = [
 ];
 
 function _companyNameFrom(empresaObj = window.MEX_CONFIG?.empresa || {}) {
-  return String(empresaObj?.nombre || APP_DEFAULT_COMPANY_NAME).trim() || APP_DEFAULT_COMPANY_NAME;
+  return String(
+    empresaObj?.nombre
+    || empresaObj?.nombreComercial
+    || empresaObj?.razonSocial
+    || empresaObj?.empresa
+    || APP_DEFAULT_COMPANY_NAME
+  ).trim() || APP_DEFAULT_COMPANY_NAME;
+}
+
+function _resumenCompanyName(config = null) {
+  const candidates = [];
+  const addEmpresa = empresa => {
+    const value = _companyNameFrom(empresa || {});
+    if (value) candidates.push(value);
+  };
+
+  addEmpresa(config?.empresa);
+  addEmpresa(window.MEX_CONFIG?.empresa);
+  if (window.__mexCompanyName) candidates.push(String(window.__mexCompanyName).trim());
+  try {
+    addEmpresa(window.parent?.MEX_CONFIG?.empresa);
+    if (window.parent?.__mexCompanyName) candidates.push(String(window.parent.__mexCompanyName).trim());
+  } catch (_) { /* same-origin shell expected */ }
+
+  return candidates.find(value => value && !/^(EMPRESA|CARGANDO EMPRESA\.\.\.)$/i.test(value))
+    || candidates.find(Boolean)
+    || 'Empresa';
 }
 
 function _setTextById(id, value) {
@@ -780,13 +806,48 @@ function actualizarPanelLateralFlota() {
   }
 }
 
+function _syncCuadreViewContext(tabSeleccionado) {
+  const isAdmins = String(tabSeleccionado || '').toUpperCase() === 'ADMINS';
+  const tab = isAdmins ? 'ADMINS' : 'NORMAL';
+  const title = isAdmins ? 'Cuadre de admins' : 'Cuadre';
+  document.documentElement.dataset.cuadreView = isAdmins ? 'admins' : 'normal';
+
+  const buttons = [
+    { element: document.getElementById('tabFlotaNormal'), active: !isAdmins },
+    { element: document.getElementById('tabFlotaAdmins'), active: isAdmins }
+  ];
+  buttons.forEach(({ element, active }) => {
+    if (!element) return;
+    element.classList.toggle('is-active', active);
+    element.setAttribute('aria-selected', active ? 'true' : 'false');
+    if (element.classList.contains('cuadre-view-btn')) {
+      element.style.removeProperty('background');
+      element.style.removeProperty('color');
+    } else {
+      element.style.background = active ? 'var(--accent)' : 'transparent';
+      element.style.color = active ? 'var(--on-accent)' : 'var(--text-muted)';
+    }
+  });
+
+  const internalTitle = document.querySelector('#fleet-modal .fleet-header-top h2');
+  if (internalTitle) internalTitle.textContent = title;
+
+  try {
+    if (window.parent && window.parent !== window) {
+      const EventCtor = window.parent.CustomEvent || CustomEvent;
+      window.parent.dispatchEvent(new EventCtor('mex:cuadre:view-change', { detail: { tab, title } }));
+    }
+  } catch (_) { /* same-origin shell expected */ }
+}
+
 function cambiarTabFlota(tabSeleccionado) {
-  VISTA_ACTUAL_FLOTA = tabSeleccionado;
+  const requestedTab = String(tabSeleccionado || '').toUpperCase() === 'ADMINS' ? 'ADMINS' : 'NORMAL';
+  VISTA_ACTUAL_FLOTA = requestedTab;
   SELECT_REF_FLOTA = null;
   ADMIN_INSERT_UNIT = null;
   try { _syncHistorialMisionBadge(); } catch (_) {}
   if (_isCuadreFleetMode() && !_isDedicatedCuadreIframeMode()) {
-    _syncInlineFleetRoute(tabSeleccionado);
+    _syncInlineFleetRoute(requestedTab);
   }
 
   // 🔥 NUEVO: Resetear buscador y chips al cambiar de pestaña
@@ -799,36 +860,28 @@ function cambiarTabFlota(tabSeleccionado) {
   const btnAdmins = document.getElementById('tabFlotaAdmins');
   const btnHistorial = document.getElementById('tabFlotaHistorial');
 
-  if (tabSeleccionado === 'NORMAL') {
-    btnNormal.style.background = '#0ea5e9';
-    btnNormal.style.color = 'white';
-    btnAdmins.style.background = 'transparent';
-    btnAdmins.style.color = '#64748b';
+  if (requestedTab === 'NORMAL') {
+    _syncCuadreViewContext('NORMAL');
     if (btnHistorial) {
       btnHistorial.style.background = 'transparent';
-      btnHistorial.style.color = '#64748b';
+      btnHistorial.style.color = 'var(--text-muted)';
     }
     cargarFlota();
   } else {
     if (!canViewAdminCuadre()) {
-      btnNormal.style.background = '#0ea5e9';
-      btnNormal.style.color = 'white';
-      btnAdmins.style.background = 'transparent';
-      btnAdmins.style.color = '#64748b';
+      VISTA_ACTUAL_FLOTA = 'NORMAL';
+      _syncCuadreViewContext('NORMAL');
       if (btnHistorial) {
         btnHistorial.style.background = 'transparent';
-        btnHistorial.style.color = '#64748b';
+        btnHistorial.style.color = 'var(--text-muted)';
       }
       document.getElementById('tablaCuerpoFlota').innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px; color:#94a3b8;">Sin acceso al Cuadre Admins.</td></tr>`;
       return;
     }
-    btnAdmins.style.background = '#d97706';
-    btnAdmins.style.color = 'white';
-    btnNormal.style.background = 'transparent';
-    btnNormal.style.color = '#64748b';
+    _syncCuadreViewContext('ADMINS');
     if (btnHistorial) {
       btnHistorial.style.background = 'transparent';
-      btnHistorial.style.color = '#64748b';
+      btnHistorial.style.color = 'var(--text-muted)';
     }
 
     document.getElementById('tablaCuerpoFlota').innerHTML = flotaSkeletonHtml(10);
@@ -1540,17 +1593,6 @@ function _sessionDisplayName() {
   return fromEmail ? fromEmail.toUpperCase() : "Sistema";
 }
 
-function _auditAuthorDisplay(autor) {
-  const s = String(autor || "").trim();
-  if (!s) return "Sistema";
-  if (!s.includes("@")) return s;
-  const p = currentUserProfile || window.CURRENT_USER_PROFILE || {};
-  if (p.email && s.toLowerCase() === String(p.email).toLowerCase()) {
-    return String(p.usuario || p.nombre || p.nombreCompleto || s).trim() || s;
-  }
-  return s.split("@")[0].replace(/[._-]+/g, " ").trim().toUpperCase() || "Sistema";
-}
-
 function _setSessionProfile(profile) {
   currentUserProfile = profile;
   USER_NAME = profile.nombre || profile.nombreCompleto || profile.usuario || profile.displayName
@@ -1792,10 +1834,7 @@ function canViewExactLocationLogs() { return hasPermission('view_exact_location_
 function canLockMap() { return hasPermission('lock_map') || _roleMeta().fullAccess; }
 function canInsertExternalUnits() { return hasPermission('insert_external_units') || _roleMeta().level >= (_roleMeta('GERENTE_PLAZA').level || 25); }
 function hasFullAccess() { return hasPermission('platform_full_access') || _roleMeta().fullAccess; }
-/** Pestaña Gestión: solo acceso total (PROGRAMADOR / JEFE_OPERACION / CORPORATIVO). */
-function canAccessAuditoriaGestion() { return hasFullAccess(); }
-/** Botón Ver ubi: permiso de ubicación + rol admin. */
-function canAccessAuditoriaVerUbi() {
+function canViewLogExactLocation() {
   return canViewExactLocationLogs() && (_roleMeta().isAdmin === true || hasFullAccess());
 }
 function canViewAdminUsers() { return hasPermission('view_admin_users') || canManageUsers(); }
@@ -6545,17 +6584,12 @@ function _openFleetModalInPlace(initialTab = 'NORMAL') {
   const btnNuevo = document.getElementById('btnNuevaUnidadFlota');
   if (btnNuevo) btnNuevo.style.display = esOperario ? 'none' : 'flex';
 
-  // 🔥 APAGAR EL BOTÓN COMPLETO DE "MÁS CONTROLES" 🔥
+  // Resumen de flota es consulta operativa y permanece disponible para todos.
+  // Las acciones avanzadas conservan el gate administrativo existente.
   const menuMasControles = document.getElementById('btnMasControlesWrapper');
-  if (menuMasControles) menuMasControles.style.display = esOperario ? 'none' : 'inline-block';
-
-  // Controles admin → /app/unidades (misma visibilidad que Más controles / manage_fleet)
-  const menuAdminControls = document.getElementById('btnAdminControlsWrapper');
-  if (menuAdminControls) {
-    menuAdminControls.style.display = esAdminUi ? 'inline-block' : 'none';
-    menuAdminControls.hidden = !esAdminUi;
-    menuAdminControls.setAttribute('aria-hidden', esAdminUi ? 'false' : 'true');
-  }
+  if (menuMasControles) menuMasControles.style.display = 'inline-block';
+  const advancedControls = document.getElementById('mcAdvancedControls');
+  if (advancedControls) advancedControls.style.display = esAdminUi ? 'flex' : 'none';
 
   const btnTabAdmins = document.getElementById('tabFlotaAdmins');
   if (btnTabAdmins) {
@@ -8365,6 +8399,38 @@ function abrirLogs() {
     document.getElementById('logs-table-body').innerHTML =
       `<tr><td colspan="6" style="text-align:center;padding:20px;color:#ef4444;font-weight:800;">Error al cargar el historial.</td></tr>`;
   });
+}
+
+function _resolveLogExactLocation(log = {}) {
+  const exactLocation = log.exactLocation || {};
+  const latitude = Number(exactLocation.latitude ?? log.latitude ?? log.geoLatitude);
+  const longitude = Number(exactLocation.longitude ?? log.longitude ?? log.geoLongitude);
+  const mapsUrl = String(exactLocation.googleMapsUrl || log.googleMapsUrl || '').trim();
+  const status = String(log.locationStatus || exactLocation.status || '').trim().toLowerCase();
+  const city = String(exactLocation.city || log.city || '').trim();
+  const state = String(exactLocation.state || log.state || '').trim();
+  const addressLabel = String(exactLocation.addressLabel || log.addressLabel || [city, state].filter(Boolean).join(', ')).trim();
+  return { latitude, longitude, mapsUrl, status, city, state, addressLabel };
+}
+
+function _logExactLocationHtml(log = {}) {
+  if (!canViewLogExactLocation()) return '';
+
+  const { latitude, longitude, mapsUrl, status, addressLabel, city, state } = _resolveLogExactLocation(log);
+  const summaryLabel = addressLabel || [city, state].filter(Boolean).join(', ') || 'Ubicación disponible';
+  const locLabel = `<span class="log-meta-loc"><span class="material-icons">location_on</span>${escapeHtml(summaryLabel)}</span>`;
+
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    const href = mapsUrl || `https://maps.google.com/?q=${latitude},${longitude}`;
+    return `${locLabel}<a class="log-ubi-btn" href="${escapeHtml(href)}" target="_blank" rel="noopener"><span class="material-icons">map</span>Ver ubi</a>`;
+  }
+  if (mapsUrl) {
+    return `${locLabel}<a class="log-ubi-btn" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener"><span class="material-icons">map</span>Ver ubi</a>`;
+  }
+  if (status === 'denied') return '<span class="log-meta-loc">Permiso denegado</span>';
+  if (status === 'unsupported') return '<span class="log-meta-loc">Sin soporte</span>';
+  if (status === 'error') return '<span class="log-meta-loc">Error de ubicación</span>';
+  return '';
 }
 
 function _renderLogsTabla() {
@@ -11355,6 +11421,15 @@ function obtenerDisenoCalor(fechaIngresoStr) {
 
 // --- LÓGICA DEL MENÚ 'MÁS CONTROLES' ---
 
+function _setMoreControlsExpanded(expanded) {
+  document.querySelector('#btnMasControlesWrapper [aria-controls="moreControlsDropdown"]')
+    ?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  try {
+    window.parent?.document?.getElementById('mexHdrCuadreMoreBtn')
+      ?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  } catch (_) { /* same-origin shell expected */ }
+}
+
 function _closeMoreControlsDropdown() {
   const menu = document.getElementById('moreControlsDropdown');
   if (!menu) return;
@@ -11362,6 +11437,11 @@ function _closeMoreControlsDropdown() {
   menu.removeAttribute('style');
   const wrapper = document.getElementById('btnMasControlesWrapper');
   if (wrapper && menu.parentElement !== wrapper) wrapper.appendChild(menu);
+  _setMoreControlsExpanded(false);
+}
+
+function cerrarMoreControlsDropdown() {
+  _closeMoreControlsDropdown();
 }
 
 function _positionMoreControlsDropdown() {
@@ -11647,12 +11727,8 @@ function toggleMoreControls(ev) {
   }
   _syncExportFlotaMenuItems();
   menu.classList.add('show');
+  _setMoreControlsExpanded(true);
   _positionMoreControlsDropdown();
-}
-
-function toggleAdminControls() {
-  _closeMoreControlsDropdown();
-  irAModuloUnidades();
 }
 
 function _clickInsideMoreControls(event) {
@@ -11660,21 +11736,30 @@ function _clickInsideMoreControls(event) {
   if (menu?.contains(event.target)) return true;
   const wrapper = document.getElementById('btnMasControlesWrapper');
   if (wrapper?.contains(event.target)) return true;
-  const adminWrap = document.getElementById('btnAdminControlsWrapper');
-  if (adminWrap?.contains(event.target)) return true;
   try {
     const parentDoc = window.parent.document;
     if (parentDoc.getElementById('mexHdrCuadreMoreBtn')?.contains(event.target)) return true;
-    if (parentDoc.getElementById('mexHdrCuadreAdminBtn')?.contains(event.target)) return true;
   } catch (_) { /* cross-origin */ }
   return false;
 }
 
 // Cerrar los menús si hacemos clic afuera de ellos
 document.addEventListener('click', function (event) {
+  if (event.target?.closest?.('#moreControlsDropdown .mc-item')) {
+    _closeMoreControlsDropdown();
+    return;
+  }
   if (!_clickInsideMoreControls(event)) {
     _closeMoreControlsDropdown();
     document.getElementById('adminControlsDropdown')?.classList.remove('show');
+  }
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  _closeMoreControlsDropdown();
+  if (document.getElementById('modal-resumen-flota')?.classList.contains('active')) {
+    cerrarResumenFlota();
   }
 });
 
@@ -11684,8 +11769,8 @@ const ICONOS_RESUMEN = {
   "LISTO": "check_circle",
   "SUCIO": "cleaning_services",
   "TRASLADO": "local_shipping",
-  "RESGUARDO": "shield",
-  "MANTENIMIENTO": "build",
+  "RESGUARDO": "inventory_2",
+  "MANTENIMIENTO": "build_circle",
   "RETENIDA": "lock",
   "VENTA": "sell",
   "NO ARRENDABLE": "block",
@@ -11694,49 +11779,114 @@ const ICONOS_RESUMEN = {
 
 let globalResData = null;
 let vistaActualResumen = 'patio';
+let _resumenRequestGeneration = 0;
+
+function _resumenEstadoSlug(value = '') {
+  return String(value || 'SIN ESTADO')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'sin-estado';
+}
+
+function _syncResumenIdentity(config = null) {
+  _setTextById('resv2-company-name', _resumenCompanyName(config));
+  _setTextById('resv2-branch', _miPlaza() || '---');
+}
+
+function _resumenLoadingHtml() {
+  return `<div class="resv2-loading" role="status">
+    <span class="resv2-loading-mark" aria-hidden="true"></span>
+    <strong>Calculando inventario</strong>
+    <span>Estamos consolidando los estados de la plaza.</span>
+  </div>`;
+}
+
+function cerrarResumenFlota() {
+  _resumenRequestGeneration += 1;
+  const modal = document.getElementById('modal-resumen-flota');
+  if (!modal) return;
+  modal.classList.remove('active');
+  modal.setAttribute('aria-hidden', 'true');
+}
 
 async function abrirResumenFlota(fromToolbar) {
-  if (fromToolbar !== true) {
-    const menu = document.getElementById('moreControlsDropdown');
-    if (menu?.classList.contains('show')) toggleMoreControls();
-  }
-  const modal = await _openLegacyModalElement('modal-resumen-flota');
+  void fromToolbar;
+  _closeMoreControlsDropdown();
+  const modal = document.getElementById('modal-resumen-flota')
+    || await _openLegacyModalElement('modal-resumen-flota');
   if (!modal) return;
+  const requestGeneration = ++_resumenRequestGeneration;
   const branch = document.getElementById('resv2-branch');
   if (branch) branch.innerText = _miPlaza() || '---';
 
-  // Loader
-  document.getElementById('main-grid-resumen').innerHTML = `<div style="grid-column: span 2; text-align: center; padding: 40px; color: #94a3b8;">
-        <span class="material-icons spinner" style="border-top-color: var(--mex-green); width: 30px; height: 30px;">sync</span>
-        <br><br><span style="font-weight:700; font-size:12px;">Calculando inventario...</span></div>`;
+  modal.classList.add('active');
+  modal.setAttribute('aria-hidden', 'false');
+  globalResData = null;
+  vistaActualResumen = 'patio';
+  _syncResumenIdentity();
+  Promise.resolve(window.__mexConfigReadyPromise)
+    .then(config => {
+      if (requestGeneration === _resumenRequestGeneration) _syncResumenIdentity(config);
+    })
+    .catch(() => {});
+
+  const grid = document.getElementById('main-grid-resumen');
+  if (grid) grid.innerHTML = _resumenLoadingHtml();
   document.getElementById('total-val-resumen').innerText = "...";
   document.getElementById('resv2-patio-val').innerText = "...";
   document.getElementById('resv2-fuera-val').innerText = "...";
   document.getElementById('resv2-footer-num').innerText = "...";
+  document.getElementById('resv2-sync-time').innerText = 'Actualizando';
 
   actualizarFechaResumen();
+  cambiarVistaResumen('patio');
+  requestAnimationFrame(() => modal.querySelector('.resv2-close')?.focus());
 
-  api.obtenerResumenFlotaPatio(_miPlaza()).then(res => {
-    globalResData = res;
+  try {
+    const res = await api.obtenerResumenFlotaPatio(_miPlaza());
+    if (requestGeneration !== _resumenRequestGeneration) return;
+    const patio = {
+      total: Number(res?.patio?.total) || 0,
+      lista: Array.isArray(res?.patio?.lista) ? res.patio.lista : []
+    };
+    const fuera = {
+      total: Number(res?.fuera?.total) || 0,
+      lista: Array.isArray(res?.fuera?.lista) ? res.fuera.lista : []
+    };
+    globalResData = { patio, fuera };
 
-    // Populate metrics row (always show both)
-    const totalFlota = res.patio.total + res.fuera.total;
+    const totalFlota = patio.total + fuera.total;
     document.getElementById('total-val-resumen').innerText = totalFlota;
-    document.getElementById('resv2-patio-val').innerText = res.patio.total;
-    document.getElementById('resv2-fuera-val').innerText = res.fuera.total;
+    document.getElementById('resv2-patio-val').innerText = patio.total;
+    document.getElementById('resv2-fuera-val').innerText = fuera.total;
     document.getElementById('resv2-footer-num').innerText = totalFlota;
     document.getElementById('resv2-sync-time').innerText = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
     cambiarVistaResumen('patio');
-  }).catch(() => {
-    document.getElementById('main-grid-resumen').innerHTML = `<div style="grid-column: span 2; text-align: center; padding: 40px; color: #DC2626; font-weight:700;">Error al cargar datos del servidor.</div>`;
-  });
+  } catch (error) {
+    if (requestGeneration !== _resumenRequestGeneration) return;
+    console.error('[resumen-flota]', error);
+    if (grid) {
+      grid.innerHTML = `<div class="resv2-error" role="alert">
+        <strong>No se pudo cargar el resumen</strong>
+        <span>Revisa la conexión e intenta de nuevo.</span>
+        <button type="button" class="resv2-retry" onclick="abrirResumenFlota()">Reintentar</button>
+      </div>`;
+    }
+    document.getElementById('resv2-sync-time').innerText = 'Sin actualizar';
+  }
 }
 
 function cambiarVistaResumen(v) {
-  vistaActualResumen = v;
-  document.getElementById('btn-patio-res').classList.toggle('active', v === 'patio');
-  document.getElementById('btn-fuera-res').classList.toggle('active', v === 'fuera');
+  vistaActualResumen = v === 'fuera' ? 'fuera' : 'patio';
+  const patioBtn = document.getElementById('btn-patio-res');
+  const fueraBtn = document.getElementById('btn-fuera-res');
+  patioBtn?.classList.toggle('active', vistaActualResumen === 'patio');
+  fueraBtn?.classList.toggle('active', vistaActualResumen === 'fuera');
+  patioBtn?.setAttribute('aria-selected', vistaActualResumen === 'patio' ? 'true' : 'false');
+  fueraBtn?.setAttribute('aria-selected', vistaActualResumen === 'fuera' ? 'true' : 'false');
   renderizarResumen();
 }
 
@@ -11744,45 +11894,47 @@ function renderizarResumen() {
   if (!globalResData) return;
   const grid = document.getElementById('main-grid-resumen');
   const d = globalResData[vistaActualResumen];
+  if (!grid || !d) return;
 
-  // Update footer
   document.getElementById('resv2-footer-num').innerText = d.total;
-  grid.innerHTML = "";
+  grid.innerHTML = '';
+  grid.setAttribute('role', 'list');
 
-  d.lista.forEach((info, index) => {
-    const box = document.createElement('div');
-    box.className = `stat-box ${info.nombre.replace(/\s+/g, '-')}`;
-    box.style.animationDelay = `${index * 0.05}s`;
+  if (!d.lista.length) {
+    grid.innerHTML = `<div class="resv2-empty" role="status">
+      <strong>Sin vehículos en esta vista</strong>
+      <span>No hay estados que mostrar para ${vistaActualResumen === 'patio' ? 'patio' : 'fuera'}.</span>
+    </div>`;
+    return;
+  }
 
-    const iconName = ICONOS_RESUMEN[info.nombre] || "help_outline";
-
-    let detHtml = "";
-    for (let c in info.categorias) {
-      detHtml += `<div class="fila-cat"><span>${c}</span><span>${info.categorias[c].cant}</span></div>
-                  <span class="mod-list">${info.categorias[c].modelos.join(' · ')}</span>`;
-    }
-
-    box.innerHTML = `<div class="stat-top">
-                       <div class="stat-icon"><span class="material-icons">${iconName}</span></div>
-                       <span class="lbl">${info.nombre}</span>
-                     </div>
-                     <span class="val">${info.total}</span>
-                     <div class="inner-detail">${detHtml}</div>`;
-
-    box.onclick = () => {
-      const isA = box.classList.contains('active');
-      document.querySelectorAll('#main-grid-resumen .stat-box').forEach(b => b.classList.remove('active'));
-      if (!isA) box.classList.add('active');
-    };
-    grid.appendChild(box);
+  const fragment = document.createDocumentFragment();
+  d.lista.forEach(info => {
+    const nombre = String(info?.nombre || 'SIN ESTADO').trim().toUpperCase() || 'SIN ESTADO';
+    const total = Number(info?.total) || 0;
+    const slug = _resumenEstadoSlug(nombre);
+    const iconName = ICONOS_RESUMEN[nombre] || 'help_outline';
+    const box = document.createElement('article');
+    box.className = `stat-box resv2-status resv2-status--${slug}`;
+    box.setAttribute('role', 'listitem');
+    box.setAttribute('aria-label', `${nombre}: ${total} vehículos`);
+    box.innerHTML = `<span class="resv2-status-icon" aria-hidden="true">
+        <span class="material-symbols-outlined">${iconName}</span>
+      </span>
+      <span class="resv2-status-copy"><span class="lbl">${escapeHtml(nombre)}</span></span>
+      <strong class="val">${total}</strong>`;
+    fragment.appendChild(box);
   });
+  grid.appendChild(fragment);
 }
 
 function actualizarFechaResumen() {
   const ahora = new Date();
   const opciones = { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' };
-  document.getElementById('fecha-full-resumen').innerText = ahora.toLocaleDateString('es-MX', opciones).toUpperCase();
-  document.getElementById('reloj-big-resumen').innerText = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  const fecha = document.getElementById('fecha-full-resumen');
+  const reloj = document.getElementById('reloj-big-resumen');
+  if (fecha) fecha.innerText = ahora.toLocaleDateString('es-MX', opciones);
+  if (reloj) reloj.innerText = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 }
 
 // ==============================================================
@@ -12798,281 +12950,6 @@ function actualizarTablaLocal(mva, tipoAccion, datosNuevos = null) {
   // Redibuja la tabla al instante
   filtrarFlota();
 }
-
-// ==============================================================
-// LÓGICA: REGISTROS Y MOVIMIENTOS (AUDITORÍA)
-// ==============================================================
-let aud_logsGlobales = [];
-let aud_logsFiltrados = [];
-let aud_paginaActual = 1;
-let aud_modoActual = 'OPERACION';
-const AUD_ITEMS_POR_PAGINA = 25;
-
-function _metaModoAuditoria(mode = aud_modoActual) {
-  if (mode === 'GESTION') {
-    return {
-      title: 'BITÁCORA DE GESTIÓN',
-      subtitle: 'Usuarios, solicitudes, bloqueos, alertas y cambios globales',
-      placeholder: 'Buscar usuario, acción, rol o referencia...',
-      loadingText: 'Sincronizando bitácora de gestión...',
-      emptyText: 'La bitácora de gestión está vacía.',
-      options: [
-        { value: 'TODOS', label: 'Todas las acciones' },
-        { value: 'SOLICITUD_APROBADA', label: 'Solicitudes aprobadas' },
-        { value: 'SOLICITUD_RECHAZADA', label: 'Solicitudes rechazadas' },
-        { value: 'USUARIO_CREADO', label: 'Usuarios creados' },
-        { value: 'USUARIO_EDITADO', label: 'Usuarios editados' },
-        { value: 'USUARIO_ELIMINADO', label: 'Usuarios eliminados' },
-        { value: 'CONFIG_GLOBAL', label: 'Configuración global' }
-      ]
-    };
-  }
-
-  return {
-    title: 'AUDITORÍA DEL SISTEMA',
-    subtitle: 'Historial operativo del mapa y la flota',
-    placeholder: 'Buscar unidad, fecha o autor...',
-    loadingText: 'Sincronizando registros operativos...',
-    emptyText: 'El registro operativo está vacío.',
-    options: [
-      { value: 'TODOS', label: 'Todas las acciones' },
-      { value: 'IN', label: 'Solo Entradas (IN)' },
-      { value: 'BAJA', label: 'Solo Bajas (BAJA)' },
-      { value: 'MODIF', label: 'Modificaciones' }
-    ]
-  };
-}
-
-function actualizarModoAuditoriaUI() {
-  const meta = _metaModoAuditoria();
-  const title = document.getElementById('auditTitle');
-  const subtitle = document.getElementById('auditSubtitle');
-  const search = document.getElementById('logBuscador');
-  const filter = document.getElementById('logFiltroTipo');
-  const tabOperacion = document.getElementById('auditModeOperacion');
-  const tabGestion = document.getElementById('auditModeGestion');
-  const canGestion = canAccessAuditoriaGestion();
-
-  if (!canGestion && aud_modoActual === 'GESTION') aud_modoActual = 'OPERACION';
-
-  if (title) title.innerText = meta.title;
-  if (subtitle) subtitle.innerText = meta.subtitle;
-  if (search) search.placeholder = meta.placeholder;
-  if (filter) {
-    filter.innerHTML = meta.options.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('');
-  }
-
-  if (tabOperacion) {
-    const on = aud_modoActual === 'OPERACION';
-    tabOperacion.classList.toggle('is-active', on);
-    tabOperacion.setAttribute('aria-selected', on ? 'true' : 'false');
-  }
-
-  if (tabGestion) {
-    tabGestion.style.display = canGestion ? 'inline-flex' : 'none';
-    const on = aud_modoActual === 'GESTION';
-    tabGestion.classList.toggle('is-active', on);
-    tabGestion.setAttribute('aria-selected', on ? 'true' : 'false');
-  }
-}
-
-function cambiarModoAuditoria(mode) {
-  if (mode === 'GESTION' && !canAccessAuditoriaGestion()) {
-    showToast('Solo administradores con acceso total pueden ver la bitácora de gestión.', 'error');
-    return;
-  }
-  aud_modoActual = mode === 'GESTION' ? 'GESTION' : 'OPERACION';
-  const search = document.getElementById('logBuscador');
-  if (search) search.value = '';
-  actualizarModoAuditoriaUI();
-  cargarLogsAuditoria();
-}
-
-async function abrirRegistrosMovimientos() {
-  toggleMoreControls(); // Cierra el menú desplegable
-  aud_modoActual = 'OPERACION';
-  const modal = await _openLegacyModalElement('modal-registros-movimientos');
-  if (!modal) return;
-  const search = document.getElementById('logBuscador');
-  if (search) search.value = '';
-  actualizarModoAuditoriaUI();
-  cargarLogsAuditoria();
-}
-
-function cargarLogsAuditoria() {
-  const meta = _metaModoAuditoria();
-  const icon = document.getElementById('logRefreshIcon');
-  const contenedor = document.getElementById('listaLogsAuditoria');
-  const btnMas = document.getElementById('btnCargarMasLogs');
-  if (!icon || !contenedor || !btnMas) {
-    console.warn('[cuadre/modal] Auditoría no está montada todavía.');
-    return;
-  }
-
-  icon.classList.add('spinner');
-  btnMas.style.display = 'none';
-  contenedor.innerHTML = `<div class="log-loading"><span class="material-icons spinner">sync</span><br>${escapeHtml(meta.loadingText)}</div>`;
-
-  const fetcher = aud_modoActual === 'GESTION' ? api.obtenerEventosGestion() : api.obtenerLogsServer();
-  fetcher.then(data => {
-    icon.classList.remove('spinner');
-    aud_logsGlobales = Array.isArray(data) ? data : [];
-    if (aud_logsGlobales.length === 0) {
-      contenedor.innerHTML = `<div class="log-empty">${escapeHtml(meta.emptyText)}</div>`;
-      return;
-    }
-    aplicarFiltrosLogs(true);
-  }).catch(error => {
-    icon.classList.remove('spinner');
-    console.error(error);
-    contenedor.innerHTML = `<div class="log-empty" style="color:#ef4444;">No se pudieron cargar los registros.</div>`;
-  });
-}
-
-function aplicarFiltrosLogs(reiniciarPagina = false) {
-  if (reiniciarPagina) aud_paginaActual = 1;
-
-  const termino = document.getElementById('logBuscador').value.toLowerCase().trim();
-  const tipo = document.getElementById('logFiltroTipo').value;
-
-  aud_logsFiltrados = aud_logsGlobales.filter(log => {
-    const coincideTipo = (tipo === "TODOS") || ((log.tipo || "").toUpperCase() === tipo);
-    const textoCombinado = [
-      log.autor || "",
-      log.accion || "",
-      log.fecha || "",
-      log.entidad || "",
-      log.referencia || "",
-      log.detalles || "",
-      log.objetivo || "",
-      log.rolObjetivo || "",
-      log.plazaObjetivo || ""
-    ].join(' ').toLowerCase();
-    const coincideTexto = textoCombinado.includes(termino);
-
-    return coincideTipo && coincideTexto;
-  });
-
-  renderizarLogsAuditoria();
-}
-
-function _resolveLogExactLocation(log = {}) {
-  const exactLocation = log.exactLocation || {};
-  const latitude = Number(exactLocation.latitude ?? log.latitude ?? log.geoLatitude);
-  const longitude = Number(exactLocation.longitude ?? log.longitude ?? log.geoLongitude);
-  const accuracy = Number(exactLocation.accuracy ?? log.accuracy ?? log.geoAccuracy);
-  const mapsUrl = String(exactLocation.googleMapsUrl || log.googleMapsUrl || '').trim();
-  const status = String(log.locationStatus || exactLocation.status || '').trim().toLowerCase();
-  const city = String(exactLocation.city || log.city || '').trim();
-  const state = String(exactLocation.state || log.state || '').trim();
-  const addressLabel = String(exactLocation.addressLabel || log.addressLabel || [city, state].filter(Boolean).join(', ')).trim();
-  return { latitude, longitude, accuracy, mapsUrl, status, city, state, addressLabel };
-}
-
-function _logExactLocationHtml(log = {}) {
-  // Sin permiso admin: no revelar ubicación ni CTA (solo info operativa normal).
-  if (!canAccessAuditoriaVerUbi()) return '';
-
-  const { latitude, longitude, mapsUrl, status, addressLabel, city, state } = _resolveLogExactLocation(log);
-  const summaryLabel = addressLabel || [city, state].filter(Boolean).join(', ') || 'Ubicación disponible';
-  const locLabel = `<span class="log-meta-loc"><span class="material-icons">location_on</span>${escapeHtml(summaryLabel)}</span>`;
-
-  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-    const href = mapsUrl || `https://maps.google.com/?q=${latitude},${longitude}`;
-    return `${locLabel}<a class="log-ubi-btn" href="${escapeHtml(href)}" target="_blank" rel="noopener"><span class="material-icons">map</span>Ver ubi</a>`;
-  }
-
-  if (mapsUrl) {
-    return `${locLabel}<a class="log-ubi-btn" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener"><span class="material-icons">map</span>Ver ubi</a>`;
-  }
-
-  if (status === 'denied') return '<span class="log-meta-loc">Permiso denegado</span>';
-  if (status === 'unsupported') return '<span class="log-meta-loc">Sin soporte</span>';
-  if (status === 'error') return '<span class="log-meta-loc">Error de ubicación</span>';
-  return '';
-}
-
-function _visualLogAuditoria(log) {
-  const tipo = String(log.tipo || '').toUpperCase();
-
-  if (aud_modoActual === 'GESTION') {
-    if (tipo.includes('APROBADA') || tipo.includes('CREADO') || tipo.includes('EMITIDA') || tipo.includes('LIBERADO')) {
-      return { colorClass: 'log-badge-in', borderLeft: '#10b981' };
-    }
-    if (tipo.includes('RECHAZADA') || tipo.includes('ELIMINADO') || tipo.includes('BLOQUEADO')) {
-      return { colorClass: 'log-badge-baja', borderLeft: '#ef4444' };
-    }
-    return { colorClass: 'log-badge-modif', borderLeft: '#0ea5e9' };
-  }
-
-  if (tipo === "IN") return { colorClass: 'log-badge-in', borderLeft: '#10b981' };
-  if (tipo === "BAJA") return { colorClass: 'log-badge-baja', borderLeft: '#ef4444' };
-  if (tipo === "MODIF" || tipo === "MODIFICACION") return { colorClass: 'log-badge-modif', borderLeft: '#f59e0b' };
-  return { colorClass: 'log-badge-default', borderLeft: '#e2e8f0' };
-}
-
-function renderizarLogsAuditoria() {
-  const contenedor = document.getElementById('listaLogsAuditoria');
-  const btnMas = document.getElementById('btnCargarMasLogs');
-  const meta = _metaModoAuditoria();
-
-  if (aud_logsFiltrados.length === 0) {
-    contenedor.innerHTML = `<div class="log-empty">No se encontraron movimientos.</div>`;
-    btnMas.style.display = 'none';
-    return;
-  }
-
-  const recortes = aud_logsFiltrados.slice(0, aud_paginaActual * AUD_ITEMS_POR_PAGINA);
-  btnMas.style.display = (aud_logsFiltrados.length > recortes.length) ? 'flex' : 'none';
-
-  contenedor.innerHTML = recortes.map((log) => {
-    const visual = _visualLogAuditoria(log);
-    const tipo = String(log.tipo || '').toUpperCase();
-    const toneClass = aud_modoActual === 'GESTION'
-      ? 'is-gestion'
-      : (tipo === 'IN' ? 'is-in' : tipo === 'BAJA' ? 'is-baja' : (tipo === 'MODIF' || tipo === 'MODIFICACION') ? 'is-modif' : '');
-    const detalles = [
-      log.entidad ? `Entidad: ${escapeHtml(log.entidad)}` : '',
-      log.referencia ? `Ref: ${escapeHtml(log.referencia)}` : '',
-      log.objetivo ? `Objetivo: ${escapeHtml(log.objetivo)}` : '',
-      log.rolObjetivo ? `Rol: ${escapeHtml(log.rolObjetivo)}` : '',
-      log.plazaObjetivo ? `Plaza: ${escapeHtml(log.plazaObjetivo)}` : '',
-      log.resultado ? `Resultado: ${escapeHtml(log.resultado)}` : '',
-      log.detalles ? escapeHtml(stripEmoji(log.detalles)) : ''
-    ].filter(Boolean);
-    const locationHtml = _logExactLocationHtml(log);
-    const detailHtml = detalles.length ? `<span>${detalles.join(' · ')}</span>` : '';
-    const extraHtml = (detailHtml || locationHtml)
-      ? `<div class="log-meta">${detailHtml}${locationHtml}</div>`
-      : '';
-
-    return `
-      <article class="log-card ${toneClass}">
-        <div class="log-card-header">
-          <div>
-            <div class="log-author">
-              <span class="material-icons" style="font-size:16px;">account_circle</span>
-              ${escapeHtml(_auditAuthorDisplay(log.autor))}
-            </div>
-            <div class="log-date">${escapeHtml(log.fecha || '')}</div>
-          </div>
-          <div class="log-badge ${visual.colorClass}">${escapeHtml(log.tipo || 'INFO')}</div>
-        </div>
-        <div class="log-action-text">
-          ${escapeHtml(stripEmoji(log.accion || '') || meta.emptyText)}
-        </div>
-        ${extraHtml}
-      </article>
-    `;
-  }).join('');
-}
-
-function cargarMasLogs() {
-  aud_paginaActual++;
-  renderizarLogsAuditoria();
-}
-
-
 
 let currentFiltroEspecial = "TODOS";
 
@@ -25009,7 +24886,6 @@ Object.assign(window, {
   _limpiarRadar,
   _linkifyText,
   _llenarSelectPlazasUbi,
-  _metaModoAuditoria,
   _normalizarAccionAlerta,
   _normalizarBannerAlerta,
   _normalizarEstructuraMapa,
@@ -25121,7 +24997,6 @@ Object.assign(window, {
   _umToggleDriverFields,
   _updateAlertaTipoStyle,
   _updateBtnEmitir,
-  _visualLogAuditoria,
   abrirAuditoria,
   abrirBuzon,
   abrirChat,
@@ -25150,7 +25025,6 @@ Object.assign(window, {
   abrirModalSolicitudes,
   abrirPanelAdministracion,
   abrirPanelConfiguracion,
-  abrirRegistrosMovimientos,
   abrirPrediccionCuadre,
   abrirReporteImpresion,
   abrirResumenFlota,
@@ -25166,7 +25040,6 @@ Object.assign(window, {
   actualizarEstadoArchivosAdmin,
   actualizarFechaResumen,
   actualizarMetaNuevaNota,
-  actualizarModoAuditoriaUI,
   actualizarPanelLateralFlota,
   actualizarPreviewNuevaNota,
   actualizarResumenIncidencias,
@@ -25182,13 +25055,11 @@ Object.assign(window, {
   alertaInsertLink,
   aplicarAutofill,
   aplicarCambioDOM,
-  aplicarFiltrosLogs,
   aplicarFormatoIncidencia,
   aplicarVariablesDeEmpresa,
   autocompletarInsertarAdmin,
   buscarEnListaConfig,
   buscarMasivo,
-  cambiarModoAuditoria,
   cambiarTabFlota,
   cambiarTabSolicitudes,
   cambiarVistaResumen,
@@ -25206,9 +25077,7 @@ Object.assign(window, {
   cancelarRecorteAvatarPerfil,
   cancelarRespuestaChat,
   cargarFlota,
-  cargarLogsAuditoria,
   cargarMaestra,
-  cargarMasLogs,
   cargarNotasIncidencias,
   cargarPlantillaSeleccionada,
   cargarSolicitudesDeTab,
@@ -25226,6 +25095,8 @@ Object.assign(window, {
   cerrarModificadorMaestro,
   cerrarPanel,
   cerrarReserveModal,
+  cerrarResumenFlota,
+  cerrarMoreControlsDropdown,
   cerrarSesion,
   confirmarReserva,
   cerrarUsuariosModal,
@@ -25417,7 +25288,6 @@ Object.assign(window, {
   renderizarAdjuntosIncidencia,
   renderizarArchivosNuevaNota,
   renderizarListaConfig,
-  renderizarLogsAuditoria,
   renderizarPaseLista,
   renderizarResumen,
   renderizarTabConfigChoferes,
@@ -25444,7 +25314,6 @@ Object.assign(window, {
   startAutoRefresh,
   subirLogoEmpresa,
   switchIncTab,
-  toggleAdminControls,
   toggleActionsMenu,
   irAModuloUnidades,
   toggleAdminSidebar,

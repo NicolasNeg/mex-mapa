@@ -24,51 +24,42 @@
 
     <div class="cuadre-tools-bar">
       <div class="cuadre-tools-bar__group">
-        <button type="button" class="cuadre-hdr-btn" id="btnCuadreResumenFlota" onclick="abrirResumenFlota(true)" title="Resumen flota" aria-label="Resumen flota">
-          <span class="material-icons">pie_chart</span>
-        </button>
         <div id="btnMasControlesWrapper" class="more-controls-wrapper">
-          <button type="button" class="cuadre-hdr-btn" onclick="toggleMoreControls(event)" title="Más controles" aria-label="Más controles">
+          <button type="button" class="cuadre-hdr-btn" onclick="toggleMoreControls(event)" title="Más controles" aria-label="Más controles" aria-controls="moreControlsDropdown" aria-expanded="false">
             <span class="material-icons">tune</span>
           </button>
 
-          <div id="moreControlsDropdown" class="more-controls-dropdown cuadre-more-menu">
-            <div class="mc-section-registros">
-              <div class="mc-section-label"><span class="material-icons">manage_search</span> Registros / Movimientos</div>
-              <div class="mc-item" onclick="abrirRegistrosMovimientos()">
-                <span class="material-icons">fact_check</span> Auditoría operativa
+          <div id="moreControlsDropdown" class="more-controls-dropdown cuadre-more-menu" role="menu" aria-label="Más controles de Cuadre">
+            <button type="button" id="mcResumenFlota" class="mc-item mc-item--primary" role="menuitem" onclick="abrirResumenFlota()">
+              <span class="material-icons">monitoring</span> Resumen de flota
+            </button>
+            <div id="mcAdvancedControls" class="mc-advanced-controls">
+              <div class="mc-section-registros">
+                <button type="button" id="mcHistorialCuadre" class="mc-item" role="menuitem" onclick="abrirHistorialCuadres()">
+                  <span class="material-icons">history</span> Historial de Cuadre
+                  <small id="lblUltimoCuadre">--/-- 00:00 (Nadie)</small>
+                </button>
               </div>
-              <div id="mcHistorialCuadre" class="mc-item" onclick="abrirHistorialCuadres()">
-                <span class="material-icons">history</span> Historial de Cuadre
-                <small id="lblUltimoCuadre">--/-- 00:00 (Nadie)</small>
-              </div>
-            </div>
 
-            <div id="mcInsertarExterno" class="mc-item" style="display:none;" onclick="abrirModalInsertarExterno()">
-              <span class="material-icons" style="color:#8b5cf6;">directions_car</span>
-              Insertar Unidad Externa
-            </div>
+              <button type="button" id="mcInsertarExterno" class="mc-item" role="menuitem" style="display:none;" onclick="abrirModalInsertarExterno()">
+                <span class="material-icons">directions_car</span> Insertar unidad externa
+              </button>
 
-            <div id="mcPdfReservas" class="mc-item"
-              onclick="document.getElementById('modal-lector-reservas').classList.add('active'); toggleMoreControls();">
-              <span class="material-icons" style="color: #0284c7;">receipt_long</span> Generar PDF Reservas
-            </div>
+              <button type="button" id="mcPdfReservas" class="mc-item" role="menuitem"
+                onclick="document.getElementById('modal-lector-reservas').classList.add('active')">
+                <span class="material-icons">receipt_long</span> Análisis de reservas
+              </button>
 
-            <div id="mcPredicciones" class="mc-item"
-              onclick="reiniciarPrediccion(); document.getElementById('modal-prediccion').classList.add('active'); toggleMoreControls(); document.getElementById('fecha-prediccion').valueAsDate = new Date();">
-              <span class="material-icons" style="color: #10b981;">query_stats</span> Cuadre de Predicciones
-            </div>
+              <button type="button" id="mcPredicciones" class="mc-item" role="menuitem"
+                onclick="reiniciarPrediccion(); document.getElementById('modal-prediccion').classList.add('active'); document.getElementById('fecha-prediccion').valueAsDate = new Date();">
+                <span class="material-icons">query_stats</span> Cuadre de predicciones
+              </button>
 
-            <div id="mcExportFlota" class="mc-item" onclick="exportarFlotaCuadre()">
-              <span class="material-icons" style="color:#0ea5e9;">download</span> Exportar flota
+              <button type="button" id="mcExportFlota" class="mc-item" role="menuitem" onclick="exportarFlotaCuadre()">
+                <span class="material-icons">download</span> Exportar flota
+              </button>
             </div>
           </div>
-        </div>
-
-        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;">
-          <button type="button" class="cuadre-hdr-btn" onclick="toggleAdminControls()" title="Controles admin" aria-label="Controles admin">
-            <span class="material-icons">admin_panel_settings</span>
-          </button>
         </div>
       </div>
     </div>

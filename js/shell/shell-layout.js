@@ -229,6 +229,11 @@ export class ShellLayout {
     this._header?.setCustomActions(htmlOrElement);
   }
 
+  /** Permite que una vista actualice su contexto sin reconstruir el shell. */
+  setHeaderTitle(title) {
+    this._header?.setTitle(String(title || ''));
+  }
+
   /** Muestra/oculta badge numérico en un ítem del sidebar. */
   setBadge(navId, count) {
     this._sidebar?.setBadge(navId, count);

@@ -48,6 +48,72 @@ function _upper(value) {
   return String(value || '').toUpperCase().trim();
 }
 
+function _firstText(...values) {
+  for (const value of values) {
+    if (value == null) continue;
+    const text = _clean(value);
+    if (text) return text;
+  }
+  return '';
+}
+
+function _finiteKm(...values) {
+  for (const value of values) {
+    if (value == null || value === '') continue;
+    const normalized = typeof value === 'number'
+      ? value
+      : Number(String(value).replace(/[^0-9.-]/g, ''));
+    if (Number.isFinite(normalized) && normalized >= 0) return normalized;
+  }
+  return null;
+}
+
+function _normalizeMotivoSalida(value) {
+  const motivo = _upper(value);
+  return motivo === 'RENTA' || motivo === 'OTRO' ? motivo : '';
+}
+
+function _structuredChanges(raw = {}) {
+  if (!Array.isArray(raw.cambios)) return [];
+  return raw.cambios
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const campo = _upper(item.campo || item.field).toLowerCase();
+      if (!campo) return null;
+      return {
+        campo,
+        anterior: _clean(item.anterior ?? item.oldValue ?? ''),
+        nuevo: _clean(item.nuevo ?? item.newValue ?? '')
+      };
+    })
+    .filter(Boolean);
+}
+
+function _changeForField(changes, field) {
+  const wanted = _upper(field).toLowerCase();
+  return changes.find(item => item.campo === wanted) || null;
+}
+
+function _transitionFromText(text, labels) {
+  const labelPattern = labels.map(_escapeRe).join('|');
+  const match = _clean(text).match(
+    new RegExp(`(?:^|[|\u00b7])\\s*(?:[A-Z0-9][\\w-]*\\s*:\\s*)?(?:${labelPattern})\\s+(.+?)\\s*(?:\\u2192|->|\\u279c|\\u21d2)\\s*(.+?)(?=\\s*[|\\u00b7]|$)`, 'i')
+  );
+  return match
+    ? { anterior: _clean(match[1]), nuevo: _clean(match[2]) }
+    : { anterior: '', nuevo: '' };
+}
+
+function _kmFromText(text) {
+  const match = _clean(text).match(/\bkm(?:\s+de\s+(?:entrada|salida))?\s*:?\s*([0-9][0-9.,]*)/i);
+  return match ? _finiteKm(match[1]) : null;
+}
+
+function _motivoFromText(text) {
+  const match = _clean(text).match(/\bmotivo\s*:?\s*(RENTA|OTRO)\b/i);
+  return match ? _normalizeMotivoSalida(match[1]) : '';
+}
+
 /**
  * Extract Estado / Gas / Ubi transitions from a free-text change blob.
  * @returns {{ estadoAnterior: string, estadoNuevo: string, otros: string[] }}
@@ -211,17 +277,49 @@ export function normalizeHistorialLog(raw = {}) {
   const autor = _clean(raw.autor || raw.usuario || 'Sistema') || 'Sistema';
   const accion = raw.accion || raw.detalles || '';
   const legacy = parseLegacyAccion(accion);
+  const cambios = _structuredChanges(raw);
+  const estadoCambio = _changeForField(cambios, 'estado');
+  const ubicacionCambio = _changeForField(cambios, 'ubicacion');
+  const notaCambio = _changeForField(cambios, 'notas');
 
   const mva = _upper(
     raw.mva || raw.objetivo || raw.referencia || legacy.mva || ''
   );
 
-  let estadoAnterior = _clean(raw.estadoAnterior || '');
-  let estadoNuevo = _clean(raw.estadoNuevo || '');
+  let estadoAnterior = _firstText(raw.estadoAnterior, estadoCambio?.anterior);
+  let estadoNuevo = _firstText(raw.estadoNuevo, estadoCambio?.nuevo);
   if (!estadoAnterior && !estadoNuevo) {
     estadoAnterior = legacy.estadoAnterior;
     estadoNuevo = legacy.estadoNuevo;
   }
+
+  const rawChangeText = [raw.cambio, accion].filter(Boolean).join(' | ');
+  const legacyUbicacion = _transitionFromText(rawChangeText, ['Ubi', 'Ubicacion', 'Ubicación']);
+  const ubicacionAnterior = _firstText(
+    raw.ubicacionAnterior,
+    raw.ubicacionOrigen,
+    ubicacionCambio?.anterior,
+    legacyUbicacion.anterior
+  );
+  const ubicacionNueva = _firstText(
+    raw.ubicacionNueva,
+    raw.ubicacionDestino,
+    ubicacionCambio?.nuevo,
+    legacyUbicacion.nuevo
+  );
+  const notaAnterior = _firstText(raw.notaAnterior, notaCambio?.anterior);
+  const notaNueva = _firstText(raw.notaNueva, raw.notasNuevas, notaCambio?.nuevo);
+  const km = _finiteKm(
+    raw.km,
+    raw.kmEntrada,
+    raw.kmIngreso,
+    raw.kmSalida,
+    raw.kilometraje,
+    _kmFromText(rawChangeText)
+  );
+  const motivoSalida = _normalizeMotivoSalida(
+    raw.motivoSalida || raw.motivoBaja || raw.motivo || _motivoFromText(rawChangeText)
+  );
 
   // Structured `cambio` preferred; else legacy; strip leading MVA: if still present
   let cambio = _clean(raw.cambio || '');
@@ -252,6 +350,13 @@ export function normalizeHistorialLog(raw = {}) {
     estadoAnterior,
     estadoNuevo,
     estadoLabel,
+    ubicacionAnterior,
+    ubicacionNueva,
+    notaAnterior,
+    notaNueva,
+    km,
+    motivoSalida,
+    cambios,
     tipo,
     autor,
     fecha: raw.fecha || '',

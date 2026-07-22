@@ -1133,51 +1133,42 @@
 
     <div class="cuadre-tools-bar">
       <div class="cuadre-tools-bar__group">
-        <button type="button" class="cuadre-hdr-btn" id="btnCuadreResumenFlota" onclick="abrirResumenFlota(true)" title="Resumen flota" aria-label="Resumen flota">
-          <span class="material-icons">pie_chart</span>
-        </button>
         <div id="btnMasControlesWrapper" class="more-controls-wrapper">
-          <button type="button" class="cuadre-hdr-btn" onclick="toggleMoreControls(event)" title="Más controles" aria-label="Más controles">
+          <button type="button" class="cuadre-hdr-btn" onclick="toggleMoreControls(event)" title="Más controles" aria-label="Más controles" aria-controls="moreControlsDropdown" aria-expanded="false">
             <span class="material-icons">tune</span>
           </button>
 
-          <div id="moreControlsDropdown" class="more-controls-dropdown cuadre-more-menu">
-            <div class="mc-section-registros">
-              <div class="mc-section-label"><span class="material-icons">manage_search</span> Registros / Movimientos</div>
-              <div class="mc-item" onclick="abrirRegistrosMovimientos()">
-                <span class="material-icons">fact_check</span> Auditoría operativa
+          <div id="moreControlsDropdown" class="more-controls-dropdown cuadre-more-menu" role="menu" aria-label="Más controles de Cuadre">
+            <button type="button" id="mcResumenFlota" class="mc-item mc-item--primary" role="menuitem" onclick="abrirResumenFlota()">
+              <span class="material-icons">monitoring</span> Resumen de flota
+            </button>
+            <div id="mcAdvancedControls" class="mc-advanced-controls">
+              <div class="mc-section-registros">
+                <button type="button" id="mcHistorialCuadre" class="mc-item" role="menuitem" onclick="irACuadreFlota()">
+                  <span class="material-icons">history</span> Cuadre de Flota
+                  <small id="lblUltimoCuadre">--/-- 00:00 (Nadie)</small>
+                </button>
               </div>
-              <div id="mcHistorialCuadre" class="mc-item" onclick="irACuadreFlota()">
-                <span class="material-icons">history</span> Cuadre de Flota
-                <small id="lblUltimoCuadre">--/-- 00:00 (Nadie)</small>
-              </div>
-            </div>
 
-            <div id="mcInsertarExterno" class="mc-item" style="display:none;" onclick="abrirModalInsertarExterno()">
-              <span class="material-icons" style="color:#8b5cf6;">directions_car</span>
-              Insertar Unidad Externa
-            </div>
+              <button type="button" id="mcInsertarExterno" class="mc-item" role="menuitem" style="display:none;" onclick="abrirModalInsertarExterno()">
+                <span class="material-icons">directions_car</span> Insertar unidad externa
+              </button>
 
-            <div id="mcPdfReservas" class="mc-item"
-              onclick="document.getElementById('modal-lector-reservas').classList.add('active'); toggleMoreControls();">
-              <span class="material-icons" style="color: #0284c7;">receipt_long</span> Generar PDF Reservas
-            </div>
+              <button type="button" id="mcPdfReservas" class="mc-item" role="menuitem"
+                onclick="document.getElementById('modal-lector-reservas').classList.add('active')">
+                <span class="material-icons">receipt_long</span> Análisis de reservas
+              </button>
 
-            <div id="mcPredicciones" class="mc-item"
-              onclick="reiniciarPrediccion(); document.getElementById('modal-prediccion').classList.add('active'); toggleMoreControls(); document.getElementById('fecha-prediccion').valueAsDate = new Date();">
-              <span class="material-icons" style="color: #10b981;">query_stats</span> Cuadre de Predicciones
-            </div>
+              <button type="button" id="mcPredicciones" class="mc-item" role="menuitem"
+                onclick="reiniciarPrediccion(); document.getElementById('modal-prediccion').classList.add('active'); document.getElementById('fecha-prediccion').valueAsDate = new Date();">
+                <span class="material-icons">query_stats</span> Cuadre de predicciones
+              </button>
 
-            <div id="mcExportFlota" class="mc-item" onclick="exportarFlotaCuadre()">
-              <span class="material-icons" style="color:#0ea5e9;">download</span> Exportar flota
+              <button type="button" id="mcExportFlota" class="mc-item" role="menuitem" onclick="exportarFlotaCuadre()">
+                <span class="material-icons">download</span> Exportar flota
+              </button>
             </div>
           </div>
-        </div>
-
-        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;">
-          <button type="button" class="cuadre-hdr-btn" onclick="toggleAdminControls()" title="Controles admin" aria-label="Controles admin">
-            <span class="material-icons">admin_panel_settings</span>
-          </button>
         </div>
       </div>
     </div>
@@ -2428,51 +2419,6 @@
 
     </div>
   </div>
-
-  <div id="modal-registros-movimientos" class="modal-overlay" style="z-index: 6000;">
-    <div class="log-container" role="dialog" aria-labelledby="auditTitle" aria-modal="true">
-      <button type="button" class="log-close" onclick="document.getElementById('modal-registros-movimientos').classList.remove('active')" aria-label="Cerrar">
-        <span class="material-icons">close</span>
-      </button>
-
-      <div class="log-header">
-        <div class="log-header-text">
-          <p class="log-kicker">Registros / Movimientos</p>
-          <h2 id="auditTitle">AUDITORÍA DEL SISTEMA</h2>
-          <p id="auditSubtitle">Historial operativo del mapa y la flota</p>
-        </div>
-        <div class="log-header-actions">
-          <div class="log-mode-switch" role="tablist" aria-label="Modo de bitácora">
-            <button type="button" id="auditModeOperacion" class="log-mode-btn is-active" role="tab" aria-selected="true" onclick="cambiarModoAuditoria('OPERACION')">Operación</button>
-            <button type="button" id="auditModeGestion" class="log-mode-btn" role="tab" aria-selected="false" onclick="cambiarModoAuditoria('GESTION')">Gestión</button>
-          </div>
-          <button type="button" class="log-action-btn" onclick="cargarLogsAuditoria()" title="Actualizar">
-            <span class="material-icons" id="logRefreshIcon">sync</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="log-main-content">
-        <div class="log-filter-container">
-          <input type="search" id="logBuscador" class="log-search-box" placeholder="Buscar unidad, fecha o autor..."
-            onkeyup="aplicarFiltrosLogs(true)" autocomplete="off">
-          <select id="logFiltroTipo" class="log-select-box" onchange="aplicarFiltrosLogs(true)">
-            <option value="TODOS">Todas las acciones</option>
-            <option value="IN">Solo Entradas (IN)</option>
-            <option value="BAJA">Solo Bajas (BAJA)</option>
-            <option value="MODIF">Modificaciones</option>
-          </select>
-        </div>
-
-        <div id="listaLogsAuditoria"></div>
-
-        <button type="button" id="btnCargarMasLogs" class="log-btn-load" onclick="cargarMasLogs()">
-          <span class="material-icons">expand_more</span> Cargar más antiguos
-        </button>
-      </div>
-    </div>
-  </div>
-
 
   <div id="bannerBloqueo"
     style="display:none; position:fixed; top:0; left:0; width:100%; height:40px; background:#ef4444; color:white; z-index:10000; align-items:center; justify-content:center; font-weight:900; font-size:12px; letter-spacing:1px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">

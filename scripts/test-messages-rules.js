@@ -45,10 +45,17 @@ function message(overrides = {}) {
         rol: 'AUXILIAR',
         status: 'ACTIVO',
       });
-      await db.doc('usuarios/bob-uid').set({
+      await db.doc('usuarios/bob@example.com').set({
         authUid: 'bob-uid',
         email: 'bob@example.com',
         nombre: 'BOB',
+        rol: 'AUXILIAR',
+        status: 'ACTIVO',
+      });
+      await db.doc('usuarios/charlie-uid').set({
+        authUid: 'charlie-uid',
+        email: 'charlie@example.com',
+        nombre: 'CHARLIE',
         rol: 'AUXILIAR',
         status: 'ACTIVO',
       });
@@ -59,6 +66,12 @@ function message(overrides = {}) {
     }).firestore();
 
     await assertSucceeds(alice.doc('mensajes/valid').set(message()));
+    await assertSucceeds(alice.doc('mensajes/valid-uid-profile').set(message({
+      destinatario: 'CHARLIE@EXAMPLE.COM',
+      destinatarioUid: 'charlie-uid',
+      destinatarioEmail: 'charlie@example.com',
+      destinatarioNombre: 'CHARLIE',
+    })));
     await assertFails(alice.doc('mensajes/spoofed-uid').set(message({
       remitenteUid: 'bob-uid',
     })));
@@ -69,8 +82,11 @@ function message(overrides = {}) {
       destinatarioUid: '',
       destinatarioEmail: '',
     })));
+    await assertFails(alice.doc('mensajes/mismatched-recipient').set(message({
+      destinatarioUid: 'otro-uid',
+    })));
 
-    console.log('Mensajes rules: 4/4 checks passed.');
+    console.log('Mensajes rules: 6/6 checks passed.');
   } finally {
     await env.cleanup();
   }

@@ -601,6 +601,13 @@ function _sanitizeText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function _parseKmInput(raw) {
+  if (raw == null || raw === '') return null;
+  const kmStr = String(raw).replace(/[,\s]/g, '');
+  const kmNum = /^\d+$/.test(kmStr) ? parseInt(kmStr, 10) : NaN;
+  return Number.isFinite(kmNum) && kmNum >= 0 ? kmNum : null;
+}
+
 function _sanearEventoGestionExtra(extra = {}) {
   const lat = Number(extra?.exactLocation?.latitude);
   const lng = Number(extra?.exactLocation?.longitude);
@@ -617,8 +624,15 @@ function _sanearEventoGestionExtra(extra = {}) {
     rolObjetivo: _sanitizeText(extra.rolObjetivo),
     plazaObjetivo: _sanitizeText(extra.plazaObjetivo),
     resultado: _sanitizeText(extra.resultado),
+    plaza: _sanitizeText(extra.plaza).toUpperCase(),
+    role: _sanitizeText(extra.role).toUpperCase(),
+    userEmail: _sanitizeText(extra.userEmail).toLowerCase(),
+    userDocId: _sanitizeText(extra.userDocId),
     deviceId: _sanitizeText(extra.deviceId),
     activeRoute: _sanitizeText(extra.activeRoute),
+    userAgent: _sanitizeText(extra.userAgent),
+    ipAddress: _sanitizeText(extra.ipAddress),
+    forwardedFor: _sanitizeText(extra.forwardedFor),
     locationStatus: _sanitizeText(extra.locationStatus),
     exactLocation: (Number.isFinite(lat) && Number.isFinite(lng)) ? {
       latitude: lat,
@@ -1234,33 +1248,73 @@ function _extractMvaFromLogAccion(mensaje) {
   return '';
 }
 
+function _sanitizeHistorialLogText(value, maxLength = 2000) {
+  if (value == null) return '';
+  return String(value).replace(/\0/g, '').trim().slice(0, maxLength);
+}
+
+function _sanitizeHistorialCambios(cambios) {
+  const camposPermitidos = new Set(['estado', 'gasolina', 'ubicacion', 'notas']);
+  if (!Array.isArray(cambios)) return [];
+  return cambios.slice(0, 12).map(item => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const campo = _sanitizeHistorialLogText(item.campo, 40).toLowerCase();
+    if (!camposPermitidos.has(campo)) return null;
+    return {
+      campo,
+      anterior: _sanitizeHistorialLogText(item.anterior, 2000),
+      nuevo: _sanitizeHistorialLogText(item.nuevo, 2000)
+    };
+  }).filter(Boolean);
+}
+
 async function _registrarLog(tipo, mensaje, autor, plaza, extra = {}) {
   const ts = _ts();
   const id = `log_${ts}_${Math.floor(Math.random() * 1000)}`;
-  const payload = { fecha: _now(), timestamp: ts, tipo, accion: mensaje, autor: _resolveLogAutorName(autor) };
-  if (plaza) payload.plaza = (plaza || '').toUpperCase().trim();
+  const payload = {
+    fecha: _now(),
+    timestamp: ts,
+    tipo: _sanitizeHistorialLogText(tipo, 40) || 'OTRO',
+    accion: _sanitizeHistorialLogText(mensaje, 4000),
+    autor: _resolveLogAutorName(autor)
+  };
+  if (plaza) payload.plaza = _sanitizeHistorialLogText(plaza, 80).toUpperCase();
   const auditExtra = _windowLocationAuditExtra(extra);
   if (auditExtra.locationStatus) payload.locationStatus = auditExtra.locationStatus;
   if (auditExtra.exactLocation) payload.exactLocation = auditExtra.exactLocation;
   if (auditExtra.ipAddress) payload.ipAddress = auditExtra.ipAddress;
   if (auditExtra.forwardedFor) payload.forwardedFor = auditExtra.forwardedFor;
   const mva = extra?.mva
-    ? String(extra.mva).toUpperCase().trim()
+    ? _sanitizeHistorialLogText(extra.mva, 64).toUpperCase()
     : _extractMvaFromLogAccion(mensaje);
   if (mva) payload.mva = mva;
-  if (extra?.cambio != null && String(extra.cambio).trim()) {
-    payload.cambio = String(extra.cambio).trim();
+  if (extra?.cambio != null && _sanitizeHistorialLogText(extra.cambio)) {
+    payload.cambio = _sanitizeHistorialLogText(extra.cambio);
   }
-  if (extra?.estadoAnterior != null && String(extra.estadoAnterior).trim()) {
-    payload.estadoAnterior = String(extra.estadoAnterior).trim();
+  if (extra?.estadoAnterior != null && _sanitizeHistorialLogText(extra.estadoAnterior, 120)) {
+    payload.estadoAnterior = _sanitizeHistorialLogText(extra.estadoAnterior, 120);
   }
-  if (extra?.estadoNuevo != null && String(extra.estadoNuevo).trim()) {
-    payload.estadoNuevo = String(extra.estadoNuevo).trim();
+  if (extra?.estadoNuevo != null && _sanitizeHistorialLogText(extra.estadoNuevo, 120)) {
+    payload.estadoNuevo = _sanitizeHistorialLogText(extra.estadoNuevo, 120);
   }
-  if (Array.isArray(extra?.cambios) && extra.cambios.length) {
-    payload.cambios = extra.cambios;
+  const camposTexto = {
+    ubicacionAnterior: 240,
+    ubicacionNueva: 240,
+    notaAnterior: 2000,
+    notaNueva: 2000
+  };
+  for (const [campo, limite] of Object.entries(camposTexto)) {
+    if (Object.prototype.hasOwnProperty.call(extra || {}, campo)) {
+      payload[campo] = _sanitizeHistorialLogText(extra[campo], limite);
+    }
   }
-  if (extra?.turnoId) payload.turnoId = String(extra.turnoId);
+  const km = _parseKmInput(extra?.km);
+  if (km != null) payload.km = km;
+  const motivoSalida = _sanitizeHistorialLogText(extra?.motivoSalida, 20).toUpperCase();
+  if (motivoSalida === 'RENTA' || motivoSalida === 'OTRO') payload.motivoSalida = motivoSalida;
+  const cambios = _sanitizeHistorialCambios(extra?.cambios);
+  if (cambios.length) payload.cambios = cambios;
+  if (extra?.turnoId) payload.turnoId = _sanitizeHistorialLogText(extra.turnoId, 120);
   await db.collection(COL.LOGS).doc(id).set(payload);
 }
 // Clasifica un movimiento de cajón para historial_patio:
@@ -1717,36 +1771,53 @@ const API_FUNCTIONS = {
 
     // Registrar SOLO los cambios reales (no mostrar campos sin cambio)
     const cambiosReales = [];
+    const cambiosEstructurados = [];
+    const etiquetasCambio = [];
     const estadoAnterior = actual.estado || '';
     const estadoCambio = estadoAnterior !== estado;
-    if (estadoCambio) cambiosReales.push(`Estado ${estadoAnterior || '?'} → ${estado}`);
-    if ((actual.gasolina || '') !== gas) cambiosReales.push(`Gas ${actual.gasolina || '?'} → ${gas}`);
-    if ((actual.ubicacion || '') !== ubi) cambiosReales.push(`Ubi ${actual.ubicacion || '?'} → ${ubi}`);
-    const notaAnterior = (actual.notas || '').trim();
-    if (notaFinal.trim() !== notaAnterior && notaEntrada !== '') {
-      cambiosReales.push(borrarNotas === true || borrarNotas === 'true' ? 'Notas reemplazadas' : 'Nota añadida');
+    if (estadoCambio) {
+      cambiosReales.push(`Estado ${estadoAnterior || '?'} → ${estado}`);
+      cambiosEstructurados.push({ campo: 'estado', anterior: estadoAnterior, nuevo: estado });
+      etiquetasCambio.push('Cambio de estado');
     }
-    if (borrarNotas === true || borrarNotas === 'true' && notaEntrada === '') {
-      cambiosReales.push('Notas eliminadas');
+    const gasolinaAnterior = actual.gasolina || '';
+    if (gasolinaAnterior !== gas) {
+      cambiosReales.push(`Gas ${gasolinaAnterior || '?'} → ${gas}`);
+      cambiosEstructurados.push({ campo: 'gasolina', anterior: gasolinaAnterior, nuevo: gas });
+      etiquetasCambio.push('Cambio de gasolina');
+    }
+    const ubicacionAnterior = actual.ubicacion || '';
+    const ubicacionCambio = ubicacionAnterior !== ubi;
+    if (ubicacionCambio) {
+      cambiosReales.push(`Ubi ${ubicacionAnterior || '?'} → ${ubi}`);
+      cambiosEstructurados.push({ campo: 'ubicacion', anterior: ubicacionAnterior, nuevo: ubi });
+      etiquetasCambio.push('Cambio de ubicación');
+    }
+    const notaAnteriorRaw = (actual.notas || '').trim();
+    const notaCambio = notaFinal.trim() !== notaAnteriorRaw;
+    const notaAnterior = _parseNotaOperativa(notaAnteriorRaw).texto;
+    const notaNueva = _parseNotaOperativa(notaFinal).texto;
+    if (notaCambio) {
+      if (!notaNueva) cambiosReales.push('Notas eliminadas');
+      else if (borrarNotas === true || borrarNotas === 'true') cambiosReales.push('Notas reemplazadas');
+      else cambiosReales.push('Nota añadida');
+      cambiosEstructurados.push({ campo: 'notas', anterior: notaAnterior, nuevo: notaNueva });
+      etiquetasCambio.push(notaNueva ? 'Notas actualizadas' : 'Notas eliminadas');
     }
 
     const logMsg = cambiosReales.length > 0
       ? `${mvaStr}: ${cambiosReales.join(' | ')}`
       : `${mvaStr} (revisión sin cambios)`;
-    const cambioHuman = cambiosReales.length > 0
-      ? cambiosReales
-          .map(c => c
-            .replace(/^Estado\s+.+$/i, 'Cambio de estado')
-            .replace(/^Gas\s+/i, 'Gasolina ')
-            .replace(/^Ubi\s+/i, 'Ubicación ')
-            .replace(/Notas reemplazadas/i, 'Notas actualizadas'))
-          .filter((c, i, arr) => arr.indexOf(c) === i)
-          .join(' · ')
+    const cambioHuman = etiquetasCambio.length > 0
+      ? etiquetasCambio.filter((c, i, arr) => arr.indexOf(c) === i).join(' · ')
       : 'Revisión sin cambios';
     await _registrarLog("MODIF", logMsg, responsableSesion, plazaUp, {
       mva: mvaStr,
       cambio: cambioHuman,
-      ...(estadoCambio ? { estadoAnterior: estadoAnterior || '?', estadoNuevo: estado } : {})
+      ...(estadoCambio ? { estadoAnterior: estadoAnterior || '?', estadoNuevo: estado } : {}),
+      ...(ubicacionCambio ? { ubicacionAnterior, ubicacionNueva: ubi } : {}),
+      ...(notaCambio ? { notaAnterior, notaNueva } : {}),
+      cambios: cambiosEstructurados
     }); // [F1] incluye plaza en log
     return "EXITO";
   },
@@ -1899,6 +1970,7 @@ const API_FUNCTIONS = {
       return `La unidad ${mvaStr} figura activa en ${sucursalIdx}. Retírala de ahí antes de insertarla aquí.`;
     }
 
+    const kmInsert = _parseKmInput(objeto.km);
     const unitData = {
       categoria:    indexData.categoria || objeto.categ || "S/C",
       modelo:       indexData.modelo || objeto.modelo || "S/M",
@@ -1916,6 +1988,7 @@ const API_FUNCTIONS = {
       _createdAt:   ahora,
       _createdBy:   objeto.responsableSesion || "Sistema"
     };
+    if (kmInsert != null) unitData.km = kmInsert;
 
     // [F1] Escribir siempre en colección raíz con docId sanitizado
     await db.collection(COL.CUADRE).doc(docId).set(unitData); // [F1]
@@ -1923,7 +1996,8 @@ const API_FUNCTIONS = {
     await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp); // [F1]
     await _registrarLog("IN", `INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
       mva: mvaStr,
-      cambio: 'Unidad insertada'
+      cambio: 'Unidad insertada',
+      ...(kmInsert != null ? { km: kmInsert } : {})
     }); // [F1]
     return `EXITO|${indexData.modelo || objeto.modelo}|${indexData.placas || objeto.placas}`;
   },
@@ -1977,7 +2051,11 @@ const API_FUNCTIONS = {
     return `EXITO|${objeto.modelo || 'S/M'}|${objeto.placas || 'S/P'}`;
   },
 
-  async ejecutarEliminacion(listaMvas, responsableSesion, plaza) {
+  async ejecutarEliminacion(listaMvas, responsableSesion, plaza, retiro = null) {
+    const esRetiroIndividual = listaMvas.length === 1 && retiro && typeof retiro === 'object';
+    const kmRetiro = esRetiroIndividual ? _parseKmInput(retiro.km) : null;
+    const motivoInput = esRetiroIndividual ? String(retiro.motivo || '').trim().toUpperCase() : '';
+    const motivoSalida = motivoInput === 'RENTA' || motivoInput === 'OTRO' ? motivoInput : '';
     const plazaUp = _normalizePlazaId(plaza);
     for (const mva of listaMvas) {
       const mvaStr = mva.toString().trim().toUpperCase();
@@ -2001,7 +2079,9 @@ const API_FUNCTIONS = {
         await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion, plazaUp); // [F1]
         await _registrarLog("BAJA", `SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp, {
           mva: mvaStr,
-          cambio: 'Unidad eliminada'
+          cambio: 'Unidad eliminada',
+          ...(kmRetiro != null ? { km: kmRetiro } : {}),
+          ...(motivoSalida ? { motivoSalida } : {})
         }); // [F1]
       }
     }
@@ -2744,6 +2824,15 @@ const API_FUNCTIONS = {
         estado:   estadoNuevo || (estadoMatch ? estadoMatch[1] : (data.tipo || "")),
         estadoAnterior,
         estadoNuevo,
+        km: (typeof data.km === 'number' && Number.isFinite(data.km) && data.km >= 0) ? data.km : null,
+        motivoSalida: ['RENTA', 'OTRO'].includes(String(data.motivoSalida || '').toUpperCase())
+          ? String(data.motivoSalida).toUpperCase()
+          : '',
+        ubicacionAnterior: String(data.ubicacionAnterior || '').trim(),
+        ubicacionNueva: String(data.ubicacionNueva || '').trim(),
+        notaAnterior: String(data.notaAnterior || '').trim(),
+        notaNueva: String(data.notaNueva || '').trim(),
+        cambios: Array.isArray(data.cambios) ? data.cambios : [],
         autor:    data.autor || "",
         usuario:  data.autor || "",
         timestamp: data.timestamp || 0,
@@ -2763,6 +2852,7 @@ const API_FUNCTIONS = {
       return {
         id: d.id,
         fecha: _fecha(data),
+        timestamp: data.timestamp || 0,
         tipo: data.tipo || "GESTION",
         accion: data.accion || "",
         autor: data.autor || "Sistema",
@@ -2774,6 +2864,13 @@ const API_FUNCTIONS = {
         rolObjetivo: data.rolObjetivo || "",
         plazaObjetivo: data.plazaObjetivo || "",
         resultado: data.resultado || "",
+        plaza: data.plaza || "",
+        role: data.role || "",
+        userEmail: data.userEmail || "",
+        userDocId: data.userDocId || "",
+        deviceId: data.deviceId || "",
+        activeRoute: data.activeRoute || "",
+        userAgent: data.userAgent || "",
         locationStatus: data.locationStatus || '',
         exactLocation: data.exactLocation || null,
         googleMapsUrl: data.exactLocation?.googleMapsUrl || '',

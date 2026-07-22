@@ -1671,51 +1671,6 @@
     </div>
   </div>
 
-<!-- ── modal-registros-movimientos ─────────────────────────────── -->
-  <div id="modal-registros-movimientos" class="modal-overlay" style="z-index: 6000;">
-    <div class="log-container" role="dialog" aria-labelledby="auditTitle" aria-modal="true">
-      <button type="button" class="log-close" onclick="document.getElementById('modal-registros-movimientos').classList.remove('active')" aria-label="Cerrar">
-        <span class="material-icons">close</span>
-      </button>
-
-      <div class="log-header">
-        <div class="log-header-text">
-          <p class="log-kicker">Registros / Movimientos</p>
-          <h2 id="auditTitle">AUDITORÍA DEL SISTEMA</h2>
-          <p id="auditSubtitle">Historial operativo del mapa y la flota</p>
-        </div>
-        <div class="log-header-actions">
-          <div class="log-mode-switch" role="tablist" aria-label="Modo de bitácora">
-            <button type="button" id="auditModeOperacion" class="log-mode-btn is-active" role="tab" aria-selected="true" onclick="cambiarModoAuditoria('OPERACION')">Operación</button>
-            <button type="button" id="auditModeGestion" class="log-mode-btn" role="tab" aria-selected="false" onclick="cambiarModoAuditoria('GESTION')">Gestión</button>
-          </div>
-          <button type="button" class="log-action-btn" onclick="cargarLogsAuditoria()" title="Actualizar">
-            <span class="material-icons" id="logRefreshIcon">sync</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="log-main-content">
-        <div class="log-filter-container">
-          <input type="search" id="logBuscador" class="log-search-box" placeholder="Buscar unidad, fecha o autor..."
-            onkeyup="aplicarFiltrosLogs(true)" autocomplete="off">
-          <select id="logFiltroTipo" class="log-select-box" onchange="aplicarFiltrosLogs(true)">
-            <option value="TODOS">Todas las acciones</option>
-            <option value="IN">Solo Entradas (IN)</option>
-            <option value="BAJA">Solo Bajas (BAJA)</option>
-            <option value="MODIF">Modificaciones</option>
-          </select>
-        </div>
-
-        <div id="listaLogsAuditoria"></div>
-
-        <button type="button" id="btnCargarMasLogs" class="log-btn-load" onclick="cargarMasLogs()">
-          <span class="material-icons">expand_more</span> Cargar más antiguos
-        </button>
-      </div>
-    </div>
-  </div>
-
 <!-- ── bannerBloqueo ─────────────────────────────── -->
   <div id="bannerBloqueo"
 

@@ -227,35 +227,52 @@
       await _actualizarFeed(_feedAccionUnidad(mvaStr, actual, estado, ubi, gas, notaFinal, notaEntrada, borrarNotas), responsableSesion, plazaUp);
 
       const cambiosReales = [];
+      const cambiosEstructurados = [];
+      const etiquetasCambio = [];
       const estadoAnterior = actual.estado || '';
       const estadoCambio = estadoAnterior !== estado;
-      if (estadoCambio) cambiosReales.push(`Estado ${estadoAnterior || '?'} → ${estado}`);
-      if ((actual.gasolina || '') !== gas) cambiosReales.push(`Gas ${actual.gasolina || '?'} → ${gas}`);
-      if ((actual.ubicacion || '') !== ubi) cambiosReales.push(`Ubi ${actual.ubicacion || '?'} → ${ubi}`);
-      const notaAnterior = (actual.notas || '').trim();
-      if (notaFinal.trim() !== notaAnterior && notaEntrada !== '') {
-        cambiosReales.push(borrarNotas === true || borrarNotas === 'true' ? 'Notas reemplazadas' : 'Nota añadida');
+      if (estadoCambio) {
+        cambiosReales.push(`Estado ${estadoAnterior || '?'} → ${estado}`);
+        cambiosEstructurados.push({ campo: 'estado', anterior: estadoAnterior, nuevo: estado });
+        etiquetasCambio.push('Cambio de estado');
       }
-      if (borrarNotas === true || borrarNotas === 'true' && notaEntrada === '') {
-        cambiosReales.push('Notas eliminadas');
+      const gasolinaAnterior = actual.gasolina || '';
+      if (gasolinaAnterior !== gas) {
+        cambiosReales.push(`Gas ${gasolinaAnterior || '?'} → ${gas}`);
+        cambiosEstructurados.push({ campo: 'gasolina', anterior: gasolinaAnterior, nuevo: gas });
+        etiquetasCambio.push('Cambio de gasolina');
+      }
+      const ubicacionAnterior = actual.ubicacion || '';
+      const ubicacionCambio = ubicacionAnterior !== ubi;
+      if (ubicacionCambio) {
+        cambiosReales.push(`Ubi ${ubicacionAnterior || '?'} → ${ubi}`);
+        cambiosEstructurados.push({ campo: 'ubicacion', anterior: ubicacionAnterior, nuevo: ubi });
+        etiquetasCambio.push('Cambio de ubicación');
+      }
+      const notaAnteriorRaw = (actual.notas || '').trim();
+      const notaCambio = notaFinal.trim() !== notaAnteriorRaw;
+      const notaAnterior = _parseNotaOperativa(notaAnteriorRaw).texto;
+      const notaNueva = _parseNotaOperativa(notaFinal).texto;
+      if (notaCambio) {
+        if (!notaNueva) cambiosReales.push('Notas eliminadas');
+        else if (borrarNotas === true || borrarNotas === 'true') cambiosReales.push('Notas reemplazadas');
+        else cambiosReales.push('Nota añadida');
+        cambiosEstructurados.push({ campo: 'notas', anterior: notaAnterior, nuevo: notaNueva });
+        etiquetasCambio.push(notaNueva ? 'Notas actualizadas' : 'Notas eliminadas');
       }
       const logMsg = cambiosReales.length > 0
         ? `${mvaStr}: ${cambiosReales.join(' | ')}`
         : `${mvaStr} (revisión sin cambios)`;
-      const cambioHuman = cambiosReales.length > 0
-        ? cambiosReales
-            .map(c => c
-              .replace(/^Estado\s+.+$/i, 'Cambio de estado')
-              .replace(/^Gas\s+/i, 'Gasolina ')
-              .replace(/^Ubi\s+/i, 'Ubicación ')
-              .replace(/Notas reemplazadas/i, 'Notas actualizadas'))
-            .filter((c, i, arr) => arr.indexOf(c) === i)
-            .join(' · ')
+      const cambioHuman = etiquetasCambio.length > 0
+        ? etiquetasCambio.filter((c, i, arr) => arr.indexOf(c) === i).join(' · ')
         : 'Revisión sin cambios';
       await _registrarLog("MODIF", logMsg, responsableSesion, plazaUp, {
         mva: mvaStr,
         cambio: cambioHuman,
-        ...(estadoCambio ? { estadoAnterior: estadoAnterior || '?', estadoNuevo: estado } : {})
+        ...(estadoCambio ? { estadoAnterior: estadoAnterior || '?', estadoNuevo: estado } : {}),
+        ...(ubicacionCambio ? { ubicacionAnterior, ubicacionNueva: ubi } : {}),
+        ...(notaCambio ? { notaAnterior, notaNueva } : {}),
+        cambios: cambiosEstructurados
       });
       return "EXITO";
     },
@@ -443,7 +460,8 @@
       await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp);
       await _registrarLog("IN", `INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
         mva: mvaStr,
-        cambio: kmInsert != null ? `Unidad insertada · km ${kmInsert}` : 'Unidad insertada'
+        cambio: 'Unidad insertada',
+        ...(kmInsert != null ? { km: kmInsert } : {})
       });
       // Completitud del índice global: si la unidad no tiene doc en index_unidades,
       // lo creamos para que sea buscable (con su ubicación actual ya puesta).
@@ -549,11 +567,15 @@
 
     async ejecutarEliminacion(listaMvas, responsableSesion, plaza, retiro = null) {
       // Km de salida + motivo (RENTA/OTRO), solo para retiros individuales.
-      if (retiro && retiro.km != null && listaMvas.length === 1) {
+      const esRetiroIndividual = listaMvas.length === 1 && retiro && typeof retiro === 'object';
+      const kmRetiro = esRetiroIndividual ? _parseKmInput(retiro.km) : null;
+      const motivoInput = esRetiroIndividual ? String(retiro.motivo || '').trim().toUpperCase() : '';
+      const motivoSalida = motivoInput === 'RENTA' || motivoInput === 'OTRO' ? motivoInput : '';
+      if (kmRetiro != null) {
         try {
           await this.registrarKm({
-            mva: listaMvas[0], km: retiro.km, fuente: 'RETIRO',
-            motivo: retiro.motivo || '', usuario: responsableSesion, plaza
+            mva: listaMvas[0], km: kmRetiro, fuente: 'RETIRO',
+            motivo: motivoSalida, usuario: responsableSesion, plaza
           });
         } catch (_) { /* best-effort: la eliminación procede igual */ }
       }
@@ -578,7 +600,9 @@
           await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion, plazaUp);
           await _registrarLog("BAJA", `SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp, {
             mva: mvaStr,
-            cambio: 'Unidad eliminada'
+            cambio: 'Unidad eliminada',
+            ...(kmRetiro != null ? { km: kmRetiro } : {}),
+            ...(motivoSalida ? { motivoSalida } : {})
           });
           // Sale de todo cuadre → queda "No Registrado" en el índice global.
           _syncIndexUbicacion(mvaStr, { plazaActual: '', pos: '', ubicacion: '' });

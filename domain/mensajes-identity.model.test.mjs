@@ -29,7 +29,12 @@ test('unifica nombre y correo cuando pertenecen al mismo UID', () => {
 
 test('nombre y correo terminan en una sola agrupacion de historial', () => {
   const directory = buildIdentityDirectory([
-    { authUid: 'uid-angel', email: 'angel@example.com', nombre: 'Angel Armenta' }
+    {
+      authUid: 'uid-angel',
+      email: 'angel@example.com',
+      nombre: 'Angel Armenta',
+      usuario: 'ANGEL@EXAMPLE.COM'
+    }
   ]);
   const me = buildMyIdentity({ uid: 'uid-me', email: 'yo@example.com', nombre: 'Yo' });
   const messages = [
@@ -52,6 +57,10 @@ test('nombre y correo terminan en una sola agrupacion de historial', () => {
 
   assert.equal(grouped.size, 1);
   assert.deepEqual(grouped.get('UID:uid-angel'), ['legacy', 'email']);
+  assert.equal(
+    getCanonicalMessageIdentity('ANGEL@EXAMPLE.COM', '', directory).label,
+    'ANGEL ARMENTA'
+  );
 });
 
 test('no fusiona homonimos cuando el alias de nombre es ambiguo', () => {
@@ -72,6 +81,12 @@ test('no fusiona homonimos cuando el alias de nombre es ambiguo', () => {
     getCanonicalMessageIdentity('dos@example.com', '', directory).key,
     'UID:uid-2'
   );
+  const me = buildMyIdentity({ uid: 'uid-me', email: 'yo@example.com', nombre: 'Yo' });
+  const peerKeys = new Set([
+    getPeerKey({ remitente: 'uno@example.com', destinatario: 'yo@example.com' }, me, directory),
+    getPeerKey({ remitente: 'dos@example.com', destinatario: 'yo@example.com' }, me, directory)
+  ]);
+  assert.deepEqual(peerKeys, new Set(['UID:uid-1', 'UID:uid-2']));
 });
 
 test('normaliza mayusculas y espacios en nombres y correos', () => {

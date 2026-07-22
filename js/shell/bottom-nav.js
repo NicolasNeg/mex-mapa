@@ -9,7 +9,6 @@
 // ═══════════════════════════════════════════════════════════
 
 import { filterNavForRole } from './navigation.config.js';
-import { esAdmin } from '/domain/permissions.model.js';
 
 // Pestañas fijas. Labels cortos para móvil; el id/route sale de la config
 // (así heredan el filtrado por rol/feature: si el rol no tiene Cuadre, cae solo).
@@ -107,15 +106,6 @@ export class ShellBottomNav {
           <span class="mex-bottomnav-icon" style="color:var(--mex-blue, #1d4ed8);">more_horiz</span>
           <span class="mex-bottomnav-label">Controles</span>
         </button>`;
-      // Controles admin (mismo gate que Más controles: roles isAdmin / manage_fleet)
-      const canAdmin = esAdmin(this._role)
-        || (typeof window.mexPerms?.canDo === 'function' && window.mexPerms.canDo('manage_fleet'));
-      if (canAdmin) {
-        more += `<button class="mex-bottomnav-item" data-action="cuadre_admin" aria-label="Controles admin">
-          <span class="mex-bottomnav-icon">admin_panel_settings</span>
-          <span class="mex-bottomnav-label">Admin</span>
-        </button>`;
-      }
     } else {
       more = `<button class="mex-bottomnav-item" data-action="more" aria-label="Más opciones">
           <span class="mex-bottomnav-icon">more_horiz</span>
@@ -159,7 +149,6 @@ export class ShellBottomNav {
       if (btn.dataset.action === 'more')   { this._onMore?.();   return; }
       if (btn.dataset.action === 'config') { this._onConfig?.(); return; }
       if (btn.dataset.action === 'cuadre_more') { window.dispatchEvent(new CustomEvent('mex:cuadre:more')); return; }
-      if (btn.dataset.action === 'cuadre_admin') { window.dispatchEvent(new CustomEvent('mex:cuadre:admin')); return; }
       if (btn.dataset.route) this._onNavigate?.(btn.dataset.route);
     });
 

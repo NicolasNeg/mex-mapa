@@ -15,6 +15,7 @@ let _emojiPickerImport = null;
 let _cssLink = null;
 let _offGlobalSearch = null;
 let _pendingDeepLinkPeer = "";
+let _mountGeneration = 0;
 
 const EMOJI_PICKER_SRC = 'https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js';
 const PEER_PREFIX_RE = /^(UID|EMAIL|LEGACY):/;
@@ -107,6 +108,7 @@ function _ensureCss() {
 }
 
 export async function mount(ctx) {
+  const mountGeneration = ++_mountGeneration;
   const container = ctx.container || document.querySelector('#routeMainStage') || document.body;
   _ensureCss();
   const { profile } = getState();
@@ -116,11 +118,19 @@ export async function mount(ctx) {
   container.innerHTML = R.shellLayout(_me.display);
   _bindEvents(container);
   _captureNotificationDeepLink();
-  _unsub = D.startRealtimeListener(_me, msgs => { _all = msgs; _refresh(); });
+  _unsub = D.startRealtimeListener(_me, msgs => {
+    if (mountGeneration !== _mountGeneration) return;
+    _all = msgs;
+    _refresh();
+  });
   // Load full user directory in background for cross-plaza search
   D.getAllUsers().then(async users => {
+    if (mountGeneration !== _mountGeneration) return;
     _allUsers = users;
-    _identityDirectory = D.buildIdentityDirectory(users);
+    _identityDirectory = D.buildIdentityDirectory([
+      ...users,
+      { ...profile, authUid: _me.uid || profile?.authUid || profile?.uid || '' }
+    ]);
     _directoryReady = true;
     const listenerAliasesChanged = _enrichMyIdentityFromDirectory(users);
     const previousArchived = _archived;
@@ -131,10 +141,16 @@ export async function mount(ctx) {
     if (_activePeer) _activePeer = D.canonicalizePeerKey(_activePeer, _identityDirectory);
     if (listenerAliasesChanged) {
       _unsub?.();
-      _unsub = D.startRealtimeListener(_me, msgs => { _all = msgs; _refresh(); });
+      _unsub = D.startRealtimeListener(_me, msgs => {
+        if (mountGeneration !== _mountGeneration) return;
+        _all = msgs;
+        _refresh();
+      });
     }
+    if (mountGeneration !== _mountGeneration) return;
     await _refresh();
   }).catch(err => {
+    if (mountGeneration !== _mountGeneration) return;
     console.error('[mensajes] No se pudo cargar el directorio', err);
     _toast('No se pudo verificar el directorio de contactos.');
   });
@@ -150,6 +166,7 @@ export async function mount(ctx) {
 }
 
 export function unmount() {
+  _mountGeneration += 1;
   _unsub?.(); _unsub = null; _stopRecording(true);
   try { _offGlobalSearch?.(); } catch (_) {}
   _offGlobalSearch = null;
@@ -291,8 +308,14 @@ function _bindEvents(rootNode) {
 }
 
 async function _refresh() {
+  const activeDraft = _activePeer
+    ? _convs.find(conversation => conversation.peerKey === _activePeer && !conversation.last)
+    : null;
   if (_activePeer) _activePeer = D.canonicalizePeerKey(_activePeer, _identityDirectory);
   _convs = D.buildConversations(_all, _me, _identityDirectory);
+  if (activeDraft && !_convs.some(conversation => conversation.peerKey === _activePeer)) {
+    _convs.unshift({ ...activeDraft, peerKey: _activePeer });
+  }
   const newMeta = await D.hydratePeerMeta(_convs);
   newMeta.forEach((v,k) => _meta.set(k,v));
   _populateFilters();

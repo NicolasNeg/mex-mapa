@@ -3,11 +3,12 @@
 //  Historial Operativo — vista SPA independiente.
 //
 //  Tab 1: Movimientos (historial_patio — MOVE/SWAP/ADD/EDIT/DEL)
-//         → en el futuro se moverá a Cuadre
-//  Tab 2: Estados (COL.LOGS: IN / BAJA / EDIT / GESTION)
+//  Tab 2: Estados (COL.LOGS: IN / BAJA / EDIT)
+//  Tab 3: Gestión (bitacora_gestion, solo acceso total)
 // ═══════════════════════════════════════════════════════════
 
 import { normalizeHistorialLog, stripEmoji } from '/domain/historial-log.model.js';
+import { hasAppPermission } from '/js/app/features/admin/admin-permissions.js';
 import { buildExportFilename } from '/js/core/export-signing.js';
 import {
   openExportChooser,
@@ -24,13 +25,18 @@ let _abortCtrl  = null;
 const PAGE_SIZES = [25, 50, 100];
 
 // ── Estado interno ───────────────────────────────────────────
-function _makeState() {
+function _makeState(access = {}) {
   return {
-    tab:          'movimientos',   // 'movimientos' | 'estado'
+    tab:          'movimientos',   // 'movimientos' | 'estado' | 'gestion'
     movimientos:  [],
     estado:       [],
+    gestion:      [],
     loadingMov:   false,
     loadingEst:   false,
+    loadingGes:   false,
+    errorGes:     '',
+    canGestion:   access.canGestion === true,
+    canVerUbi:    access.canVerUbi === true,
     // filtros movimientos
     qMov:         '',
     tipoMov:      '',
@@ -43,6 +49,11 @@ function _makeState() {
     tipoEst:      'TODOS',
     pageEst:      1,
     pageSizeEst:  50,
+    // filtros gestion
+    qGes:         '',
+    tipoGes:      'TODOS',
+    pageGes:      1,
+    pageSizeGes:  50,
   };
 }
 
@@ -50,16 +61,34 @@ function _makeState() {
 function _ensureCss() {
   if (_cssInjected) return;
   _cssInjected = true;
+  if (document.querySelector('link[data-app-historial-operativo-css], link[data-hist-op-css]')) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = '/css/app-historial-operativo.css?v=20260715b';
+  link.href = '/css/app-historial-operativo.css?v=20260721a';
   link.setAttribute('data-hist-op-css', '1');
   document.head.appendChild(link);
 }
 
 // ── Helpers ──────────────────────────────────────────────────
 const q   = id  => _container?.querySelector(`#hist-op-${id}`);
-const esc = str => String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc = str => String(str ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+function _resolveAccess(ctx = {}) {
+  const shellState = ctx.state || {};
+  const profile = shellState.profile
+    || window.MEX_CONFIG?.profile
+    || window._userProfile
+    || {};
+  const role = String(shellState.role || profile.rol || profile.role || 'AUXILIAR').toUpperCase().trim();
+  const canGestion = hasAppPermission(profile, role, 'platform_full_access');
+  const canVerUbi = canGestion && hasAppPermission(profile, role, 'view_exact_location_logs');
+  return { canGestion, canVerUbi };
+}
 
 function _csvCell(value) {
   const s = String(value ?? '');
@@ -128,6 +157,13 @@ function _normalizeEstadoRow(log) {
     estadoAnterior: n.estadoAnterior,
     estadoNuevo: n.estadoNuevo,
     estadoLabel: n.estadoLabel,
+    ubicacionAnterior: n.ubicacionAnterior,
+    ubicacionNueva: n.ubicacionNueva,
+    notaAnterior: n.notaAnterior,
+    notaNueva: n.notaNueva,
+    km: n.km,
+    motivoSalida: n.motivoSalida,
+    cambios: n.cambios,
     accion: n.cambio,
     detalles: n.cambio,
     autor: n.autor,
@@ -142,14 +178,110 @@ function _filteredEstado() {
   let rows = _state.estado.filter(_estadoPermitido);
   if (qv) {
     rows = rows.filter(r =>
-      [r.unidad, r.mva, r.autor, r.cambio, r.tipo, r.estadoLabel, r.estadoAnterior, r.estadoNuevo]
-        .some(v => String(v || '').toLowerCase().includes(qv))
+      [
+        r.unidad, r.mva, r.autor, r.cambio, r.tipo, r.estadoLabel,
+        r.estadoAnterior, r.estadoNuevo, r.ubicacionAnterior, r.ubicacionNueva,
+        r.notaAnterior, r.notaNueva, r.motivoSalida, r.km
+      ]
+        .some(v => String(v ?? '').toLowerCase().includes(qv))
     );
   }
   if (_state.tipoEst && _state.tipoEst !== 'TODOS') {
     rows = rows.filter(r => _normalizeTipo(r.tipo) === _state.tipoEst);
   }
   return rows;
+}
+
+function _normalizeGestionRow(log = {}) {
+  const exactLocation = log.exactLocation && typeof log.exactLocation === 'object'
+    ? log.exactLocation
+    : {};
+  return {
+    ...log,
+    tipo: _normalizeTipo(log.tipo || 'GESTION'),
+    accion: _cleanAuditText(log.accion || 'Evento de gestion'),
+    autor: _cleanAuditText(log.autor || log.usuario || 'Sistema'),
+    fecha: String(log.fecha || ''),
+    timestamp: log.timestamp || exactLocation.capturedAt || 0,
+    exactLocation
+  };
+}
+
+function _filteredGestion() {
+  if (!_state.canGestion) return [];
+  const qv = _state.qGes.toLowerCase().trim();
+  let rows = _state.gestion;
+  if (qv) {
+    rows = rows.filter(row => [
+      row.tipo, row.accion, row.autor, row.usuario, row.fecha,
+      row.entidad, row.referencia, row.detalles, row.objetivo,
+      row.rolObjetivo, row.plazaObjetivo, row.resultado, row.plaza,
+      row.userEmail, row.role, row.exactLocation?.addressLabel,
+      row.exactLocation?.city, row.exactLocation?.state
+    ].some(value => String(value || '').toLowerCase().includes(qv)));
+  }
+  if (_state.tipoGes && _state.tipoGes !== 'TODOS') {
+    rows = rows.filter(row => _normalizeTipo(row.tipo) === _state.tipoGes);
+  }
+  return rows;
+}
+
+function _gestionTypes() {
+  return [...new Set(_state.gestion.map(row => _normalizeTipo(row.tipo)).filter(Boolean))].sort();
+}
+
+function _syncGestionTypeOptions() {
+  const select = q('tipoGes');
+  if (!select) return;
+  const current = _state.tipoGes;
+  select.innerHTML = `<option value="TODOS">Todos los tipos</option>`
+    + _gestionTypes().map(tipo => `<option value="${esc(tipo)}">${esc(_gestionTypeLabel(tipo))}</option>`).join('');
+  select.value = _gestionTypes().includes(current) ? current : 'TODOS';
+  _state.tipoGes = select.value;
+}
+
+function _gestionContext(row = {}) {
+  const main = row.referencia || row.objetivo || row.entidad || row.plaza || 'Sin referencia';
+  const meta = [
+    row.entidad && row.entidad !== main ? row.entidad : '',
+    row.rolObjetivo ? `Rol: ${row.rolObjetivo}` : '',
+    row.plazaObjetivo ? `Plaza: ${row.plazaObjetivo}` : '',
+    row.resultado ? `Resultado: ${row.resultado}` : '',
+    row.detalles || ''
+  ].filter(Boolean);
+  return { main: _cleanAuditText(main), meta: meta.map(_cleanAuditText) };
+}
+
+function _safeMapsUrl(row = {}) {
+  if (!_state.canVerUbi) return '';
+  const exact = row.exactLocation || {};
+  const latitude = Number(exact.latitude ?? row.latitude ?? row.geoLatitude);
+  const longitude = Number(exact.longitude ?? row.longitude ?? row.geoLongitude);
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)
+      && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+    return `https://www.google.com/maps?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
+  }
+  const raw = String(exact.googleMapsUrl || row.googleMapsUrl || '').trim();
+  if (!raw) return '';
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === 'https:' ? parsed.href : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function _gestionLocationLabel(row = {}) {
+  if (!_state.canVerUbi) return 'Sin permiso';
+  const exact = row.exactLocation || {};
+  const label = exact.addressLabel
+    || [exact.city, exact.state].filter(Boolean).join(', ');
+  if (label) return _cleanAuditText(label);
+  const status = String(row.locationStatus || exact.status || '').toLowerCase();
+  if (status === 'denied') return 'Permiso denegado';
+  if (status === 'unsupported') return 'Sin soporte';
+  if (status === 'error') return 'Error de ubicacion';
+  return 'Sin ubicacion';
 }
 
 // Normaliza cualquier timestamp (segundos | ms | Firestore {seconds}) a día local
@@ -197,6 +329,17 @@ function _tipoIcon(tipo) {
   return map[_normalizeTipo(tipo)] || "info";
 }
 
+function _gestionBadgeClass(tipo) {
+  const value = _normalizeTipo(tipo);
+  if (/RECHAZ|ELIMIN|BLOQUE|ERROR|FALLO/.test(value)) return 'badge-del';
+  if (/APROBAD|CREAD|EMITID|LIBERAD|COMPLET/.test(value)) return 'badge-add';
+  return 'badge-gestion';
+}
+
+function _gestionTypeLabel(tipo) {
+  return _tipoLabel(tipo).replace(/_/g, ' ');
+}
+
 function _cleanAuditText(value) {
   return stripEmoji(value)
     .replace(/\s*\|\s*Notas eliminadas/gi, "")
@@ -206,7 +349,7 @@ function _cleanAuditText(value) {
 }
 
 function _estadoPermitido(row) {
-  return ["IN", "BAJA", "EDIT", "GESTION"].includes(_normalizeTipo(row?.tipo));
+  return ["IN", "BAJA", "EDIT"].includes(_normalizeTipo(row?.tipo));
 }
 
 function _toMs(ts) {
@@ -228,8 +371,82 @@ function _estadoCellHtml(row) {
   return `<span class="hist-op-estado-empty">—</span>`;
 }
 
+function _formatKm(value) {
+  if (!Number.isFinite(value)) return '';
+  return new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 }).format(value);
+}
+
+function _detailAlreadyVisible(cambio, label, value) {
+  const compact = input => String(input || '').toLowerCase().replace(/[\s,]+/g, '');
+  const text = compact(cambio);
+  const cleanValue = compact(value);
+  return text.includes(compact(label))
+    && (!cleanValue || text.includes(cleanValue));
+}
+
+function _estadoDetails(row) {
+  const tipo = _normalizeTipo(row.tipo);
+  const details = [];
+  const push = (label, value, options = {}) => {
+    if (!value && value !== 0) return;
+    const aliases = [label, ...(options.aliases || [])];
+    if (!options.always && aliases.some(alias => _detailAlreadyVisible(row.cambio, alias, value))) return;
+    details.push({ label, value: String(value), tone: options.tone || '' });
+  };
+
+  if (tipo === 'IN') {
+    const km = _formatKm(row.km);
+    push('Km de entrada', km || 'No registrado', { always: !km, tone: km ? '' : 'muted', aliases: ['km'] });
+  }
+
+  if (tipo === 'BAJA') {
+    const motivo = row.motivoSalida === 'RENTA'
+      ? 'Renta'
+      : row.motivoSalida === 'OTRO' ? 'Otro' : 'Sin motivo registrado';
+    push('Motivo de salida', motivo, {
+      always: !row.motivoSalida,
+      tone: row.motivoSalida ? 'danger' : 'muted',
+      aliases: ['motivo']
+    });
+    if (Number.isFinite(row.km)) push('Km de salida', _formatKm(row.km));
+  }
+
+  if (tipo === 'EDIT') {
+    if (row.ubicacionAnterior || row.ubicacionNueva) {
+      const value = `${row.ubicacionAnterior || 'Sin ubicación'} → ${row.ubicacionNueva || 'Sin ubicación'}`;
+      push('Ubicación', value);
+    }
+    if (row.notaNueva) push('Notas nuevas', row.notaNueva);
+  }
+
+  return details;
+}
+
+function _cambioCellHtml(row) {
+  const details = _estadoDetails(row);
+  return `
+    <div class="hist-op-change-main">${esc(row.cambio || 'Cambio registrado')}</div>
+    ${details.length ? `<div class="hist-op-change-details">
+      ${details.map(detail => `<div class="hist-op-change-detail ${detail.tone ? `is-${detail.tone}` : ''}">
+        <span>${esc(detail.label)}</span><strong>${esc(detail.value)}</strong>
+      </div>`).join('')}
+    </div>` : ''}`;
+}
+
+function _gestionLocationHtml(row) {
+  const label = _gestionLocationLabel(row);
+  const href = _safeMapsUrl(row);
+  return `<div class="hist-op-location-cell">
+    <span class="hist-op-location-label"><span class="material-icons" aria-hidden="true">location_on</span>${esc(label)}</span>
+    ${href ? `<a class="hist-op-ubi-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer">
+      <span class="material-icons" aria-hidden="true">map</span>Ver ubi
+    </a>` : ''}
+  </div>`;
+}
+
 // ── Popover cajón-a-cajón (solo PC con hover) ────────────────
 let _pop = null;
+let _popHideTimer = null;
 function _ensurePop() {
   if (_pop) return _pop;
   _pop = document.createElement('div');
@@ -243,6 +460,10 @@ function _parseMove(detalles) {
   return { origen: (parts[0] || '').trim(), destino: (parts[1] || '').trim() };
 }
 function _showPop(tr) {
+  if (_popHideTimer) {
+    clearTimeout(_popHideTimer);
+    _popHideTimer = null;
+  }
   const { origen, destino } = _parseMove(tr.dataset.detalles);
   if (!origen && !destino) return;
   const mva  = tr.dataset.mva || "";
@@ -275,7 +496,15 @@ function _showPop(tr) {
   pop.style.top  = Math.max(8, top) + "px";
   pop.style.left = Math.max(8, left) + "px";
 }
-function _hidePop() { if (_pop) _pop.style.display = 'none'; }
+function _hidePop({ immediate = false } = {}) {
+  if (_popHideTimer) clearTimeout(_popHideTimer);
+  const hide = () => {
+    if (_pop) _pop.style.display = 'none';
+    _popHideTimer = null;
+  };
+  if (immediate) hide();
+  else _popHideTimer = setTimeout(hide, 200);
+}
 
 // ── Render ───────────────────────────────────────────────────
 function _renderShell() {
@@ -290,6 +519,10 @@ function _renderShell() {
           data-tab="estado">
           <span class="material-icons">tune</span> Estados
         </button>
+        ${_state.canGestion ? `<button id="hist-op-tab-ges" class="hist-op-tab ${_state.tab === 'gestion' ? 'active' : ''}"
+          data-tab="gestion">
+          <span class="material-icons">admin_panel_settings</span> Gestión
+        </button>` : ''}
       </div>
 
       <div id="hist-op-panel-movimientos" class="hist-op-panel ${_state.tab === 'movimientos' ? '' : 'hidden'}">
@@ -319,7 +552,7 @@ function _renderShell() {
         <div class="hist-op-filters">
           <input id="hist-op-qEst" type="text" placeholder="Buscar unidad, autor o cambio" value="${esc(_state.qEst)}">
           <select id="hist-op-tipoEst">
-            ${['TODOS','IN','BAJA','EDIT','GESTION'].map(t =>
+            ${['TODOS','IN','BAJA','EDIT'].map(t =>
               `<option value="${t}" ${_state.tipoEst===t?'selected':''}>${_tipoLabel(t)}</option>`).join('')}
           </select>
           <button id="hist-op-exportEst" class="hist-op-btn-export" type="button" title="Exportar PDF / XLS / CSV">
@@ -332,6 +565,24 @@ function _renderShell() {
         </div>
         <div id="hist-op-tablaEst" class="hist-op-table-wrap"></div>
       </div>
+
+      ${_state.canGestion ? `<div id="hist-op-panel-gestion" class="hist-op-panel ${_state.tab === 'gestion' ? '' : 'hidden'}">
+        <div class="hist-op-filters">
+          <input id="hist-op-qGes" type="text" placeholder="Buscar usuario, acción o referencia" value="${esc(_state.qGes)}">
+          <select id="hist-op-tipoGes">
+            <option value="TODOS">Todos los tipos</option>
+          </select>
+          <button id="hist-op-limpiarGes" class="hist-op-btn-clear" type="button">Limpiar</button>
+          <button id="hist-op-exportGes" class="hist-op-btn-export" type="button" title="Exportar PDF / XLS / CSV">
+            <span class="material-icons">download</span> Exportar
+          </button>
+          <button id="hist-op-recargarGes" class="hist-op-btn-refresh" type="button" title="Actualizar gestión">
+            <span class="material-icons">sync</span>
+          </button>
+          <span id="hist-op-contadorGes" class="hist-op-counter"></span>
+        </div>
+        <div id="hist-op-tablaGes" class="hist-op-table-wrap"></div>
+      </div>` : ''}
     </div>
   `;
 }
@@ -423,7 +674,7 @@ function _renderEstado() {
                 <td class="hist-op-cell-date">${esc(r.fecha || "")}</td>
                 <td><span class="hist-op-badge ${_tipoBadgeClass(tipo)}"><span class="material-icons">${_tipoIcon(tipo)}</span>${esc(_tipoLabel(tipo))}</span></td>
                 <td class="hist-op-cell-mva">${esc(unidad)}</td>
-                <td class="hist-op-cell-cambio">${esc(r.cambio || "Cambio registrado")}</td>
+                <td class="hist-op-cell-cambio">${_cambioCellHtml(r)}</td>
                 <td class="hist-op-cell-estado">${_estadoCellHtml(r)}</td>
                 <td>${esc(r.autor || "Sistema")}</td>
               </tr>`;
@@ -433,16 +684,94 @@ function _renderEstado() {
     </div>`;
 }
 
+function _renderGestion() {
+  if (!_state.canGestion) return;
+  const wrap = q('tablaGes');
+  if (!wrap) return;
+
+  if (_state.loadingGes) {
+    wrap.innerHTML = `<div class="hist-op-loading"><span class="material-icons spin">sync</span> Cargando gestión...</div>`;
+    return;
+  }
+
+  if (_state.errorGes) {
+    wrap.innerHTML = `<div class="hist-op-empty"><span class="material-icons">error_outline</span><div>${esc(_state.errorGes)}</div></div>`;
+    return;
+  }
+
+  const rows = _filteredGestion();
+  const counter = q('contadorGes');
+  if (counter) counter.textContent = `${rows.length} de ${_state.gestion.length} registros`;
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / _state.pageSizeGes) || 1);
+  if (_state.pageGes > totalPages) _state.pageGes = totalPages;
+  if (_state.pageGes < 1) _state.pageGes = 1;
+  const start = (_state.pageGes - 1) * _state.pageSizeGes;
+  const pageRows = rows.slice(start, start + _state.pageSizeGes);
+
+  if (!rows.length) {
+    wrap.innerHTML = `${_pagerHtml('Ges', _state.pageGes, _state.pageSizeGes, 0)}
+      <div class="hist-op-empty"><span class="material-icons">admin_panel_settings</span><div>No hay eventos de gestión con esos filtros.</div></div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    ${_pagerHtml('Ges', _state.pageGes, _state.pageSizeGes, rows.length)}
+    <div class="hist-op-table-scroll">
+      <table class="hist-op-table hist-op-table--dense hist-op-table--gestion">
+        <thead><tr>
+          <th>FECHA</th><th>TIPO</th><th>ACCIÓN</th><th>CONTEXTO</th><th>AUTOR</th><th>UBICACIÓN</th>
+        </tr></thead>
+        <tbody>
+          ${pageRows.map(row => {
+            const context = _gestionContext(row);
+            const email = row.userEmail && row.userEmail !== row.autor ? row.userEmail : '';
+            return `<tr>
+              <td class="hist-op-cell-date">${esc(row.fecha || '')}</td>
+              <td><span class="hist-op-badge ${_gestionBadgeClass(row.tipo)}"><span class="material-icons">admin_panel_settings</span>${esc(_gestionTypeLabel(row.tipo))}</span></td>
+              <td class="hist-op-cell-action">${esc(row.accion || 'Evento de gestión')}</td>
+              <td class="hist-op-cell-context">
+                <strong>${esc(context.main)}</strong>
+                ${context.meta.length ? `<span>${context.meta.map(esc).join(' · ')}</span>` : ''}
+              </td>
+              <td class="hist-op-cell-author"><strong>${esc(row.autor || 'Sistema')}</strong>${email ? `<span>${esc(email)}</span>` : ''}</td>
+              <td>${_gestionLocationHtml(row)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
 function _exportMatrix(kind) {
   const isMov = kind === 'mov';
-  const rows = isMov ? _filteredMovimientos() : _filteredEstado();
+  const isGes = kind === 'ges';
+  const rows = isMov ? _filteredMovimientos() : isGes ? _filteredGestion() : _filteredEstado();
   if (!rows.length) return null;
   const headers = isMov
     ? ['Fecha', 'Tipo', 'MVA', 'Movimiento', 'Usuario']
-    : ['Fecha', 'Tipo', 'Unidad', 'Cambio', 'Estado anterior', 'Estado nuevo', 'Autor'];
+    : isGes
+      ? ['Fecha', 'Tipo', 'Acción', 'Referencia', 'Detalles', 'Autor', 'Ubicación', 'Mapa']
+      : [
+        'Fecha', 'Tipo', 'Unidad', 'Cambio', 'Estado anterior', 'Estado nuevo',
+        'Ubicación anterior', 'Ubicación nueva', 'Km', 'Motivo de salida', 'Notas nuevas', 'Autor'
+      ];
   const body = rows.map((r) => {
     if (isMov) {
       return [r.fecha, _tipoLabel(r.tipo), r.mva, _cleanAuditText(r.detalles), _cleanAuditText(r.usuario)];
+    }
+    if (isGes) {
+      const context = _gestionContext(r);
+      return [
+        r.fecha || '',
+        _gestionTypeLabel(r.tipo),
+        r.accion || '',
+        context.main,
+        context.meta.join(' · '),
+        r.autor || 'Sistema',
+        _gestionLocationLabel(r),
+        _safeMapsUrl(r)
+      ];
     }
     return [
       r.fecha || '',
@@ -451,13 +780,18 @@ function _exportMatrix(kind) {
       r.cambio || '',
       r.estadoAnterior || '',
       r.estadoNuevo || '',
+      r.ubicacionAnterior || '',
+      r.ubicacionNueva || '',
+      Number.isFinite(r.km) ? r.km : '',
+      r.motivoSalida || '',
+      r.notaNueva || '',
       r.autor || 'Sistema',
     ];
   });
   return {
     headers,
     body,
-    title: isMov ? 'Historial de movimientos' : 'Historial de estados',
+    title: isMov ? 'Historial de movimientos' : isGes ? 'Historial de gestión' : 'Historial de estados',
     count: rows.length,
   };
 }
@@ -529,6 +863,30 @@ async function _loadEstado() {
   }
 }
 
+async function _loadGestion() {
+  if (!_state?.canGestion || _state.loadingGes) return;
+  _state.loadingGes = true;
+  _state.errorGes = '';
+  _renderGestion();
+  try {
+    if (typeof window.api?.obtenerEventosGestion !== 'function') {
+      throw new Error('API de gestion no disponible');
+    }
+    const logs = await window.api.obtenerEventosGestion();
+    _state.gestion = (Array.isArray(logs) ? logs : [])
+      .map(_normalizeGestionRow)
+      .sort((a, b) => _toMs(b.timestamp) - _toMs(a.timestamp));
+  } catch (error) {
+    console.error('[historial-op] gestion', error);
+    _state.gestion = [];
+    _state.errorGes = 'No se pudo cargar el historial de gestión.';
+  } finally {
+    _state.loadingGes = false;
+    _syncGestionTypeOptions();
+    _renderGestion();
+  }
+}
+
 // ── Eventos ──────────────────────────────────────────────────
 function _bindEvents() {
   _abortCtrl?.abort();
@@ -538,12 +896,15 @@ function _bindEvents() {
     if (!_state) return;
     const tabBtn = e.target.closest('[data-tab]');
     if (tabBtn) {
+      if (tabBtn.dataset.tab === 'gestion' && !_state.canGestion) return;
       _state.tab = tabBtn.dataset.tab;
       _container.querySelectorAll('.hist-op-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === _state.tab));
-      document.getElementById('hist-op-panel-movimientos')?.classList.toggle('hidden', _state.tab !== 'movimientos');
-      document.getElementById('hist-op-panel-estado')?.classList.toggle('hidden', _state.tab !== 'estado');
+      q('panel-movimientos')?.classList.toggle('hidden', _state.tab !== 'movimientos');
+      q('panel-estado')?.classList.toggle('hidden', _state.tab !== 'estado');
+      q('panel-gestion')?.classList.toggle('hidden', _state.tab !== 'gestion');
       if (_state.tab === 'movimientos' && !_state.movimientos.length && !_state.loadingMov) _loadMovimientos();
       if (_state.tab === 'estado' && !_state.estado.length && !_state.loadingEst) _loadEstado();
+      if (_state.tab === 'gestion' && !_state.gestion.length && !_state.loadingGes) _loadGestion();
       return;
     }
 
@@ -557,10 +918,19 @@ function _bindEvents() {
       _renderMovimientos();
       return;
     }
+    if (e.target.closest('#hist-op-limpiarGes')) {
+      _state.qGes = ''; _state.tipoGes = 'TODOS'; _state.pageGes = 1;
+      const qi = q('qGes'); if (qi) qi.value = '';
+      const ti = q('tipoGes'); if (ti) ti.value = 'TODOS';
+      _renderGestion();
+      return;
+    }
     if (e.target.closest('#hist-op-exportMov')) { void _exportKind('mov'); return; }
     if (e.target.closest('#hist-op-exportEst')) { void _exportKind('est'); return; }
+    if (e.target.closest('#hist-op-exportGes')) { void _exportKind('ges'); return; }
     if (e.target.closest('#hist-op-recargarMov')) { _state.movimientos = []; _state.pageMov = 1; _loadMovimientos(); return; }
     if (e.target.closest('#hist-op-recargarEst')) { _state.estado = []; _state.pageEst = 1; _loadEstado(); return; }
+    if (e.target.closest('#hist-op-recargarGes')) { _state.gestion = []; _state.pageGes = 1; _loadGestion(); return; }
 
     const pageBtn = e.target.closest('[data-page-action]');
     if (pageBtn) {
@@ -569,6 +939,8 @@ function _bindEvents() {
       if (act === 'next-Mov') { _state.pageMov += 1; _renderMovimientos(); return; }
       if (act === 'prev-Est') { _state.pageEst = Math.max(1, _state.pageEst - 1); _renderEstado(); return; }
       if (act === 'next-Est') { _state.pageEst += 1; _renderEstado(); return; }
+      if (act === 'prev-Ges') { _state.pageGes = Math.max(1, _state.pageGes - 1); _renderGestion(); return; }
+      if (act === 'next-Ges') { _state.pageGes += 1; _renderGestion(); return; }
     }
   }, sig);
 
@@ -576,6 +948,7 @@ function _bindEvents() {
     if (!_state) return;
     if (e.target.id === 'hist-op-qMov') { _state.qMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
     if (e.target.id === 'hist-op-qEst') { _state.qEst = e.target.value; _state.pageEst = 1; _renderEstado(); return; }
+    if (e.target.id === 'hist-op-qGes') { _state.qGes = e.target.value; _state.pageGes = 1; _renderGestion(); return; }
   }, sig);
 
   _container.addEventListener('change', e => {
@@ -584,6 +957,7 @@ function _bindEvents() {
     if (e.target.id === 'hist-op-fechaMov') { _state.fechaMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
     if (e.target.id === 'hist-op-usuarioMov') { _state.usuarioMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
     if (e.target.id === 'hist-op-tipoEst') { _state.tipoEst = e.target.value; _state.pageEst = 1; _renderEstado(); return; }
+    if (e.target.id === 'hist-op-tipoGes') { _state.tipoGes = e.target.value; _state.pageGes = 1; _renderGestion(); return; }
     if (e.target.id === 'hist-op-pageSizeMov') {
       _state.pageSizeMov = Number(e.target.value) || 50;
       _state.pageMov = 1;
@@ -594,6 +968,12 @@ function _bindEvents() {
       _state.pageSizeEst = Number(e.target.value) || 50;
       _state.pageEst = 1;
       _renderEstado();
+      return;
+    }
+    if (e.target.id === 'hist-op-pageSizeGes') {
+      _state.pageSizeGes = Number(e.target.value) || 50;
+      _state.pageGes = 1;
+      _renderGestion();
       return;
     }
   }, sig);
@@ -616,7 +996,7 @@ export function mount(ctx) {
   _ensureCss();
   _container = ctx?.container || document.getElementById('mexShellMain');
   if (!_container) return;
-  _state = _makeState();
+  _state = _makeState(_resolveAccess(ctx));
   _renderShell();
   _bindEvents();
   _loadMovimientos();
@@ -625,6 +1005,7 @@ export function mount(ctx) {
 export function unmount() {
   _abortCtrl?.abort();
   _abortCtrl = null;
+  _hidePop({ immediate: true });
   if (_pop) { _pop.remove(); _pop = null; }
   if (_container) _container.innerHTML = '';
   _container = null;

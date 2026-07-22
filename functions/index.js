@@ -1977,6 +1977,7 @@ exports.enviarCorreoSolicitud = functions
 
 // ══════════════════════════════════════════════════════════════
 //  verifyRecaptchaLogin — HTTPS callable (sin auth)
+<<<<<<< Updated upstream
 //
 //  Preferido en login: reCAPTCHA v2 checkbox (provider: "v2").
 //  Secreto de servidor (NUNCA en cliente):
@@ -1986,16 +1987,41 @@ exports.enviarCorreoSolicitud = functions
 //  Legacy: reCAPTCHA Enterprise (provider omitido / "enterprise"):
 //    firebase functions:config:set recaptcha.api_key="TU_API_KEY"
 //    firebase functions:config:set recaptcha.min_score="0.35"
+=======
+//  Valida token reCAPTCHA v2 (checkbox “No soy un robot”) vía siteverify.
+//
+//  Secreto (NO en cliente). Configurar UNO de:
+//    firebase functions:secrets:set RECAPTCHA_SECRET_KEY
+//    firebase functions:secrets:set RECAPTCHA_V2_SECRET
+//    firebase functions:config:set recaptcha.secret_key="TU_SECRET"
+//  Luego redeploy functions. Sin secreto → code recaptcha_config_missing
+//  (cliente soft-fail: sigue exigiendo casilla marcada).
+>>>>>>> Stashed changes
 // ══════════════════════════════════════════════════════════════
+function getRecaptchaV2Secret() {
+  const cfg = (typeof functions.config === "function" ? (functions.config().recaptcha || {}) : {}) || {};
+  return normalizeString(
+    process.env.RECAPTCHA_SECRET_KEY ||
+    process.env.RECAPTCHA_V2_SECRET ||
+    cfg.secret_key ||
+    cfg.secret ||
+    ""
+  );
+}
+
 exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data) => {
   try {
     const token = normalizeString(data?.token);
+<<<<<<< Updated upstream
     const provider = normalizeString(data?.provider || data?.version || "v2").toLowerCase();
 
+=======
+>>>>>>> Stashed changes
     if (!token) {
       return { ok: false, code: "token_required", message: "Token reCAPTCHA requerido." };
     }
 
+<<<<<<< Updated upstream
     const cfg = functions.config().recaptcha || {};
 
     // ── v2 checkbox → Google siteverify ─────────────────────────
@@ -2061,41 +2087,44 @@ exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data
     const apiKey = normalizeString(cfg.api_key || process.env.RECAPTCHA_ENTERPRISE_API_KEY);
     if (!apiKey) {
       logger.error("[verifyRecaptchaLogin] Falta recaptcha.api_key en functions config");
+=======
+    const secret = getRecaptchaV2Secret();
+    if (!secret) {
+      logger.error(
+        "[verifyRecaptchaLogin] Falta secreto v2. Configura RECAPTCHA_SECRET_KEY o RECAPTCHA_V2_SECRET " +
+        "(firebase functions:secrets:set …) o recaptcha.secret_key en functions config."
+      );
+>>>>>>> Stashed changes
       return {
         ok: false,
         code: "recaptcha_config_missing",
-        message: "Servidor sin clave reCAPTCHA Enterprise. Un administrador debe configurar recaptcha.api_key.",
+        message: "Servidor sin secreto reCAPTCHA v2. Un administrador debe configurar RECAPTCHA_SECRET_KEY.",
       };
     }
 
-    const url = `https://recaptchaenterprise.googleapis.com/v1/projects/${projectId}/assessments?key=${encodeURIComponent(apiKey)}`;
-    const body = {
-      event: {
-        token,
-        expectedAction,
-        siteKey,
-      },
-    };
+    const body = new URLSearchParams();
+    body.set("secret", secret);
+    body.set("response", token);
 
     let res;
     try {
-      res = await fetch(url, {
+      res = await fetch("https://www.google.com/recaptcha/api/siteverify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
       });
     } catch (e) {
-      logger.error("[verifyRecaptchaLogin] fetch error", e);
+      logger.error("[verifyRecaptchaLogin] siteverify fetch error", e);
       return {
         ok: false,
         code: "recaptcha_unavailable",
-        message: "No se pudo contactar reCAPTCHA Enterprise.",
+        message: "No se pudo contactar reCAPTCHA.",
       };
     }
 
-    const assessment = await res.json().catch(() => ({}));
+    const result = await res.json().catch(() => ({}));
     if (!res.ok) {
-      logger.warn("[verifyRecaptchaLogin] API error", res.status, assessment);
+      logger.warn("[verifyRecaptchaLogin] siteverify HTTP error", res.status, result);
       return {
         ok: false,
         code: "recaptcha_api_error",
@@ -2104,18 +2133,16 @@ exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data
       };
     }
 
-    const tp = assessment.tokenProperties || {};
-    const risk = assessment.riskAnalysis || {};
-
-    if (!tp.valid) {
-      logger.info("[verifyRecaptchaLogin] token inválido", tp.invalidReason);
+    if (!result.success) {
+      logger.info("[verifyRecaptchaLogin] token inválido", result["error-codes"]);
       return {
         ok: false,
         code: "token_invalid",
-        message: "Verificación de seguridad fallida. Intenta de nuevo.",
+        message: "Verificación de seguridad fallida. Marca de nuevo «No soy un robot».",
       };
     }
 
+<<<<<<< Updated upstream
     if (expectedAction && tp.action && normalizeString(tp.action) !== normalizeString(expectedAction)) {
       logger.info("[verifyRecaptchaLogin] acción no coincide", tp.action, expectedAction);
       return {
@@ -2139,6 +2166,9 @@ exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data
     }
 
     return { ok: true, score: Number.isFinite(score) ? score : null, provider: "enterprise" };
+=======
+    return { ok: true, version: "v2" };
+>>>>>>> Stashed changes
   } catch (e) {
     logger.error("[verifyRecaptchaLogin] unexpected", e);
     return {

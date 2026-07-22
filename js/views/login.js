@@ -12,6 +12,7 @@
 
 import { auth, db, COL, functions } from '/js/core/database.js';
 
+<<<<<<< Updated upstream
 // reCAPTCHA v2 checkbox ("No soy un robot"). Site key pública — no secretos aquí.
 // No usar MEX_APPCHECK_SITE_KEY aquí: App Check es v3 y debe ser otra clave.
 const RECAPTCHA_V2_SITE_KEY = String(
@@ -19,6 +20,14 @@ const RECAPTCHA_V2_SITE_KEY = String(
 ).trim();
 
 /** Respuestas de servidor que no deben bloquear si el secreto aún no está configurado. */
+=======
+// Site key pública reCAPTCHA v2 (checkbox). Fuente: window.MEX_RECAPTCHA_V2_SITE_KEY
+const RECAPTCHA_V2_SITE_KEY = String(
+  window.MEX_RECAPTCHA_V2_SITE_KEY || '6Lf1714tAAAAAK3wyyOhB8nCk6JRh7uwIFlR6ufC'
+).trim();
+
+/** Respuestas del servidor que no bloquean login si el secreto aún no está configurado. */
+>>>>>>> Stashed changes
 const SOFT_RECAPTCHA_CODES = new Set([
   'recaptcha_config_missing',
   'recaptcha_unavailable',
@@ -192,6 +201,72 @@ async function requireRecaptchaGate() {
 // Cambiar aquí si se mueve el entry point del App Shell.
 const POST_LOGIN_ROUTE = '/app/dashboard';
 
+function _getRecaptchaV2Response() {
+  try {
+    if (typeof window.grecaptcha?.getResponse === 'function') {
+      return String(window.grecaptcha.getResponse() || '').trim();
+    }
+  } catch (e) {
+    console.warn('[login] grecaptcha.getResponse:', e?.message || e);
+  }
+  return '';
+}
+
+function _resetRecaptchaV2() {
+  try {
+    if (typeof window.grecaptcha?.reset === 'function') {
+      window.grecaptcha.reset();
+    }
+  } catch (e) {
+    console.warn('[login] grecaptcha.reset:', e?.message || e);
+  }
+}
+
+/**
+ * Exige casilla “No soy un robot” marcada (token no vacío).
+ * Opcionalmente verifica en servidor (verifyRecaptchaLogin).
+ * Si el secreto del servidor no está configurado → soft-fail (no bloquea),
+ * pero la casilla del cliente SÍ es obligatoria.
+ */
+async function tryVerifyRecaptchaForLogin() {
+  const token = _getRecaptchaV2Response();
+  if (!token) {
+    return {
+      blocked: true,
+      message: 'Marca la casilla «No soy un robot» para continuar.',
+    };
+  }
+
+  if (!functions || typeof functions.httpsCallable !== 'function') {
+    console.warn('[login] Firebase Functions no disponible; se omite verificación servidor (casilla OK).');
+    return { blocked: false, token };
+  }
+
+  const callable = functions.httpsCallable('verifyRecaptchaLogin');
+  let data;
+  try {
+    const res = await callable({ token, version: 'v2' });
+    data = res?.data || {};
+  } catch (err) {
+    const code = err?.code || '';
+    const details = err?.details;
+    console.warn('[login] verifyRecaptchaLogin callable error (no bloquea login):', code, details || err?.message || err);
+    return { blocked: false, token };
+  }
+
+  if (data.ok) {
+    return { blocked: false, token };
+  }
+  if (data.code && SOFT_RECAPTCHA_CODES.has(data.code)) {
+    console.warn('[login] reCAPTCHA soft-fail (casilla OK, secreto/servidor pendiente):', data.code);
+    return { blocked: false, token };
+  }
+  return {
+    blocked: true,
+    message: data.message || 'No pudimos validar seguridad, intenta de nuevo.',
+  };
+}
+
 /**
  * Resuelve el documento del usuario SOLO por docId (sin query/list).
  * Contrato esperado (Cloud Functions): usuarios/{emailLowercase} y fallback usuarios/{uid}.
@@ -212,7 +287,7 @@ async function resolveUsuarioRecordForAuthUser(user) {
       const code = String(e?.code || '');
       if (code === 'permission-denied') {
         lastPermissionDenied = e;
-        continue; // probar siguiente formato de docId
+        continue;
       }
       throw e;
     }
@@ -241,14 +316,6 @@ function _resetManualLoginButton() {
   if (!btn) return;
   btn.disabled = false;
   btn.innerText = 'LOGIN';
-}
-
-function upper(value) {
-  return String(value || '').trim().toUpperCase();
-}
-
-function unique(values = []) {
-  return Array.from(new Set((values || []).map(upper).filter(Boolean)));
 }
 
 function _mexAlert(titulo, texto, tipo = 'info') {
@@ -333,11 +400,21 @@ window.loginManual = async function () {
   _hideError();
 
   try {
+    const gate = await tryVerifyRecaptchaForLogin();
+    if (gate.blocked) {
+      btn.disabled = false;
+      btn.innerText = 'LOGIN';
+      _resetRecaptchaV2();
+      _showError(gate.message || 'Marca la casilla «No soy un robot» para continuar.');
+      return;
+    }
+
     const persistence = remember
       ? firebase.auth.Auth.Persistence.LOCAL
       : firebase.auth.Auth.Persistence.SESSION;
     await firebase.auth().setPersistence(persistence);
 
+<<<<<<< Updated upstream
     const gate = await requireRecaptchaGate();
     if (gate.blocked) {
       btn.disabled = false;
@@ -346,12 +423,15 @@ window.loginManual = async function () {
       return;
     }
 
+=======
+>>>>>>> Stashed changes
     await firebase.auth().signInWithEmailAndPassword(email, pass);
     // onAuthStateChanged redirige automáticamente
   } catch (err) {
     resetRecaptcha();
     btn.disabled = false;
     btn.innerText = 'LOGIN';
+    _resetRecaptchaV2();
     const genericAuthMsg = 'No pudimos iniciar sesión. Verifica tus datos o confirma que tu cuenta ya fue autorizada.';
     const MSGS = {
       'auth/wrong-password': genericAuthMsg,
@@ -375,17 +455,28 @@ window.loginManual = async function () {
 window.loginConGoogle = async function () {
   const provider = new firebase.auth.GoogleAuthProvider();
   const btn = document.getElementById('btnGoogleLogin');
+  const googleBtnHtml = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt=""> Sign in with Google';
   btn.disabled = true;
   btn.innerHTML = '<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite">sync</span> VERIFICANDO...';
   _hideError();
 
   try {
+    const gate = await tryVerifyRecaptchaForLogin();
+    if (gate.blocked) {
+      btn.disabled = false;
+      btn.innerHTML = googleBtnHtml;
+      _resetRecaptchaV2();
+      _showError(gate.message || 'Marca la casilla «No soy un robot» para continuar.');
+      return;
+    }
+
     const remember = document.getElementById('auth_remember')?.checked ?? true;
     const persistence = remember
       ? firebase.auth.Auth.Persistence.LOCAL
       : firebase.auth.Auth.Persistence.SESSION;
     await firebase.auth().setPersistence(persistence);
 
+<<<<<<< Updated upstream
     const gate = await requireRecaptchaGate();
     if (gate.blocked) {
       btn.disabled = false;
@@ -394,12 +485,15 @@ window.loginConGoogle = async function () {
       return;
     }
 
+=======
+>>>>>>> Stashed changes
     btn.innerHTML = '<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite">sync</span> CONECTANDO...';
     await firebase.auth().signInWithPopup(provider);
   } catch (err) {
     resetRecaptcha();
     btn.disabled = false;
-    btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> Sign in with Google';
+    btn.innerHTML = googleBtnHtml;
+    _resetRecaptchaV2();
     if (err.code === 'auth/popup-closed-by-user') return;
     const code = err?.code || '';
     if (String(code).startsWith('auth/')) {
@@ -540,11 +634,19 @@ function _initBranding() {
 document.addEventListener('DOMContentLoaded', () => {
   _initBranding();
 
+<<<<<<< Updated upstream
   // Montar checkbox v2 lo antes posible (no bloquear el resto de la UI).
   ensureRecaptchaWidget().catch((e) => {
     console.error('[login] render reCAPTCHA v2 falló:', e?.message || e);
     _setRecaptchaHint(true);
   });
+=======
+  // Sync site key from config if the widget attribute was stale.
+  const widget = document.getElementById('login-recaptcha');
+  if (widget && RECAPTCHA_V2_SITE_KEY) {
+    widget.setAttribute('data-sitekey', RECAPTCHA_V2_SITE_KEY);
+  }
+>>>>>>> Stashed changes
 
   const emailEl = document.getElementById('auth_email');
   const passEl  = document.getElementById('auth_pass');

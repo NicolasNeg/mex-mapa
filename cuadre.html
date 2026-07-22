@@ -779,36 +779,29 @@
            dropdown vive aquí y se abre vía mex:cuadre:more / header desktop. -->
       <div class="cuadre-tools-bar">
         <div class="cuadre-tools-bar__group">
-          <button type="button" class="cuadre-hdr-btn" id="btnCuadreResumenFlota" onclick="abrirResumenFlota(true)" title="Resumen flota" aria-label="Resumen flota">
-            <span class="material-icons">pie_chart</span>
-          </button>
           <div id="btnMasControlesWrapper" class="more-controls-wrapper">
-            <button type="button" class="cuadre-hdr-btn" onclick="toggleMoreControls(event)" title="Más controles" aria-label="Más controles">
+            <button type="button" class="cuadre-hdr-btn" onclick="toggleMoreControls(event)" title="Más controles" aria-label="Más controles" aria-controls="moreControlsDropdown" aria-expanded="false">
               <span class="material-icons">tune</span>
             </button>
-            <div id="moreControlsDropdown" class="more-controls-dropdown cuadre-more-menu">
-              <div class="mc-section-registros">
-                <div class="mc-section-label"><span class="material-icons">manage_search</span> Registros / Movimientos</div>
-                <div class="mc-item" onclick="abrirRegistrosMovimientos(); toggleMoreControls();">
-                  <span class="material-icons">fact_check</span> Auditoría operativa
+            <div id="moreControlsDropdown" class="more-controls-dropdown cuadre-more-menu" role="menu" aria-label="Más controles de Cuadre">
+              <button type="button" id="mcResumenFlota" class="mc-item mc-item--primary" role="menuitem" onclick="abrirResumenFlota()">
+                <span class="material-icons">monitoring</span> Resumen de flota
+              </button>
+              <div id="mcAdvancedControls" class="mc-advanced-controls">
+                <div class="mc-section-registros">
+                  <button type="button" id="mcHistorialCuadre" class="mc-item" role="menuitem" onclick="irACuadreFlota()">
+                    <span class="material-icons">history</span> Cuadre de Flota
+                    <small id="lblUltimoCuadre">--/-- 00:00 (Nadie)</small>
+                  </button>
                 </div>
-                <div id="mcHistorialCuadre" class="mc-item" onclick="irACuadreFlota(); toggleMoreControls();">
-                  <span class="material-icons">history</span> Cuadre de Flota
-                  <small id="lblUltimoCuadre">--/-- 00:00 (Nadie)</small>
-                </div>
+                <button type="button" id="mcInsertarExterno" class="mc-item" role="menuitem" style="display:none;" onclick="abrirModalInsertarExterno()"><span class="material-icons">directions_car</span> Insertar unidad externa</button>
+                <button type="button" id="mcExportFlota" class="mc-item" role="menuitem" onclick="exportarFlotaCuadre()">
+                  <span class="material-icons">download</span> Exportar flota
+                </button>
+                <button type="button" id="mcPdfReservas" class="mc-item" role="menuitem" onclick="abrirModalPDFReservas()"><span class="material-icons">receipt_long</span> Análisis de reservas</button>
+                <button type="button" id="mcPrediccionCuadre" class="mc-item" role="menuitem" onclick="abrirPrediccionCuadre()"><span class="material-icons">query_stats</span> Cuadre de predicciones</button>
               </div>
-              <div id="mcInsertarExterno" class="mc-item" style="display:none;" onclick="abrirModalInsertarExterno(); toggleMoreControls();"><span class="material-icons" style="color:#8b5cf6;">directions_car</span> Insertar unidad externa</div>
-              <div id="mcExportFlota" class="mc-item" onclick="exportarFlotaCuadre()">
-                <span class="material-icons" style="color:#0ea5e9;">download</span> Exportar flota
-              </div>
-              <div id="mcPdfReservas" class="mc-item" onclick="abrirModalPDFReservas(); toggleMoreControls();"><span class="material-icons" style="color: #0284c7;">receipt_long</span> Analisis de reservas</div>
-              <div id="mcPrediccionCuadre" class="mc-item" onclick="abrirPrediccionCuadre(); toggleMoreControls();"><span class="material-icons" style="color: #0b74b8;">query_stats</span> Cuadre de predicciones</div>
             </div>
-          </div>
-          <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;">
-            <button type="button" class="cuadre-hdr-btn" onclick="toggleAdminControls()" title="Controles admin" aria-label="Controles admin">
-              <span class="material-icons">admin_panel_settings</span>
-            </button>
           </div>
         </div>
       </div>
@@ -835,10 +828,10 @@
                 </button>
               </div>
               <div class="cuadre-view-switch" role="tablist" aria-label="Vista de flota">
-                <button type="button" id="tabFlotaNormal" class="cuadre-view-btn is-active" onclick="cambiarTabFlota('NORMAL')" title="Flota Regular" aria-label="Flota Regular">
+                <button type="button" id="tabFlotaNormal" class="cuadre-view-btn is-active" role="tab" aria-selected="true" onclick="cambiarTabFlota('NORMAL')" title="Flota Regular" aria-label="Flota Regular">
                   <span class="material-symbols-outlined" aria-hidden="true">directions_car</span>
                 </button>
-                <button type="button" id="tabFlotaAdmins" class="cuadre-view-btn" onclick="cambiarTabFlota('ADMINS')" title="Cuadre Admins" aria-label="Cuadre Admins">
+                <button type="button" id="tabFlotaAdmins" class="cuadre-view-btn" role="tab" aria-selected="false" onclick="cambiarTabFlota('ADMINS')" title="Cuadre Admins" aria-label="Cuadre Admins">
                   <span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span>
                 </button>
               </div>
@@ -1154,6 +1147,76 @@
     <!-- ── /fleet-modal ─────────────────────────────────────── -->
 
   </div><!-- /#cuadreApp -->
+
+  <!-- Resumen nativo de Cuadre: evita descargar e importar mapa.html. -->
+  <div id="modal-resumen-flota" class="modal-overlay" role="dialog" aria-modal="true"
+    aria-labelledby="resv2-title" aria-hidden="true"
+    onclick="if (event.target === this) cerrarResumenFlota()">
+    <div class="resv2-wrapper">
+      <section class="resv2-card" tabindex="-1">
+        <header class="resv2-hero">
+          <div class="resv2-hero-content">
+            <div class="resv2-heading-row">
+              <div class="resv2-heading-copy">
+                <p class="resv2-context">
+                  <span id="resv2-company-name" data-company-name>Empresa</span>
+                  <span aria-hidden="true">/</span>
+                  <strong id="resv2-branch">---</strong>
+                </p>
+                <h2 class="resv2-title" id="resv2-title">Resumen de flota</h2>
+                <p class="resv2-date">
+                  <span id="fecha-full-resumen"></span>
+                  <span aria-hidden="true">·</span>
+                  <span id="reloj-big-resumen"></span>
+                </p>
+              </div>
+              <div class="resv2-header-actions">
+                <div class="resv2-tab-switch" role="tablist" aria-label="Ubicación de la flota">
+                  <button type="button" id="btn-patio-res" class="resv2-tab active" role="tab"
+                    aria-selected="true" onclick="cambiarVistaResumen('patio')">En patio</button>
+                  <button type="button" id="btn-fuera-res" class="resv2-tab" role="tab"
+                    aria-selected="false" onclick="cambiarVistaResumen('fuera')">Fuera</button>
+                </div>
+                <button type="button" class="resv2-close" onclick="cerrarResumenFlota()"
+                  title="Cerrar" aria-label="Cerrar resumen de flota">
+                  <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="resv2-metrics" id="resv2-metrics-row" aria-label="Totales de flota">
+          <div class="resv2-metric">
+            <span class="resv2-metric-label">Total flota</span>
+            <strong class="resv2-metric-val" id="total-val-resumen">0</strong>
+          </div>
+          <div class="resv2-metric resv2-metric--patio">
+            <span class="resv2-metric-label">En patio</span>
+            <strong class="resv2-metric-val" id="resv2-patio-val">0</strong>
+          </div>
+          <div class="resv2-metric resv2-metric--fuera">
+            <span class="resv2-metric-label">Fuera</span>
+            <strong class="resv2-metric-val" id="resv2-fuera-val">0</strong>
+          </div>
+        </div>
+
+        <div id="main-grid-resumen" class="resv2-grid" aria-live="polite"></div>
+
+        <footer class="resv2-footer">
+          <div class="resv2-footer-total">
+            <span class="resv2-footer-label">Vista actual</span>
+            <strong id="resv2-footer-num">0</strong>
+            <span class="resv2-footer-unit">vehículos</span>
+          </div>
+          <div class="resv2-footer-sync">
+            <span class="material-symbols-outlined" aria-hidden="true">sync</span>
+            <span id="resv2-sync-time">--:--</span>
+          </div>
+        </footer>
+      </section>
+    </div>
+  </div>
 
   <script src="/js/views/legacy-shell-bridge.js"></script>
   <script type="module" src="/js/views/mapa.js"></script>
