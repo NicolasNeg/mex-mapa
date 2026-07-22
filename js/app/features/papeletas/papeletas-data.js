@@ -1,4 +1,5 @@
-import { db, COL } from '/js/core/database.js';
+import { db, COL, ejecutarEliminacion } from '/js/core/database.js';
+import { reportProgrammerError } from '/js/core/observability.js';
 import {
   STATUS,
   createEmptyChecklist,
@@ -37,6 +38,176 @@ function _userMeta(user = {}) {
       || window._auth?.currentUser?.displayName
       || '',
   };
+}
+
+/**
+ * Vocabulario de ubicación post-entrega según tipoNegocio.
+ * arrendadora → ARRENDADA; resto (flotilla, default) → RENTADA.
+ * estadoFlota canónico sigue siendo EN RENTA.
+ */
+export function ubicacionRentaLabel(tipoNegocio) {
+  const tipo = String(
+    tipoNegocio
+    || window._empresaActual?.tipoNegocio
+    || window.MEX_CONFIG?.empresa?.tipoNegocio
+    || ''
+  ).toLowerCase().trim();
+  return tipo === 'arrendadora' ? 'ARRENDADA' : 'RENTADA';
+}
+
+async function _resolvePlazaActualMva(mva, fallbackPlaza = '') {
+  const mvaStr = String(mva || '').toUpperCase().trim();
+  if (!mvaStr) return String(fallbackPlaza || '').toUpperCase().trim();
+  try {
+    const snap = await db.collection(COL.INDEX).where('mva', '==', mvaStr).limit(1).get();
+    if (!snap.empty) {
+      const p = String(snap.docs[0].data()?.plazaActual || '').toUpperCase().trim();
+      if (p) return p;
+    }
+  } catch (_) { /* best-effort */ }
+  return String(fallbackPlaza || '').toUpperCase().trim();
+}
+
+/**
+ * Marca index_unidades: estadoFlota EN RENTA + ubicacion RENTADA|ARRENDADA.
+ * No toca master Unidades catalog — solo índice operativo.
+ */
+async function _marcarIndexRentada(mva, ubicacionLabel) {
+  const mvaStr = String(mva || '').toUpperCase().trim();
+  if (!mvaStr) return false;
+  const snap = await db.collection(COL.INDEX).where('mva', '==', mvaStr).limit(1).get();
+  if (snap.empty) return false;
+  const label = String(ubicacionLabel || 'RENTADA').toUpperCase();
+  await snap.docs[0].ref.set({
+    estadoFlota: 'EN RENTA',
+    estado: 'EN RENTA',
+    ubicacion: label,
+  }, { merge: true });
+  return true;
+}
+
+async function _persistSideEffectsMeta(papeletaId, meta) {
+  if (!papeletaId) return;
+  try {
+    await _col().doc(papeletaId).update({
+      entregaSideEffects: {
+        ...meta,
+        updatedAtMs: Date.now(),
+      },
+      actualizadoAt: _fv(),
+    });
+  } catch (e) {
+    console.warn('[papeletas] sideEffects meta:', e?.message);
+  }
+}
+
+/**
+ * Side-effects post-entrega (fuera del TX de status):
+ * 1) sacar MVA del cuadre (ejecutarEliminacion + motivo RENTA)
+ * 2) marcar index EN RENTA + ubicacion RENTADA|ARRENDADA
+ *
+ * Fallos NO deshacen entregada — quedan marcados para retry.
+ * @returns {{ ok: boolean, cuadreRemoved: boolean, rentadaMarked: boolean, ubicacionLabel: string, error?: string }}
+ */
+export async function applyEntregaSideEffects(papeleta, { user, plazaId, km } = {}) {
+  const meta = _userMeta(user);
+  const mva = String(papeleta?.mva || '').toUpperCase().trim();
+  const ubicacionLabel = ubicacionRentaLabel();
+  const prev = (papeleta?.entregaSideEffects && typeof papeleta.entregaSideEffects === 'object')
+    ? papeleta.entregaSideEffects
+    : {};
+
+  let cuadreRemoved = prev.cuadreRemoved === true;
+  let rentadaMarked = prev.rentadaMarked === true;
+  let lastError = '';
+
+  if (!mva) {
+    lastError = 'Sin MVA en papeleta';
+    await _persistSideEffectsMeta(papeleta?.id, {
+      status: 'pending',
+      cuadreRemoved,
+      rentadaMarked,
+      ubicacionLabel,
+      lastError,
+      pendingRetry: true,
+    });
+    return { ok: false, cuadreRemoved, rentadaMarked, ubicacionLabel, error: lastError };
+  }
+
+  if (!cuadreRemoved) {
+    try {
+      const plaza = await _resolvePlazaActualMva(
+        mva,
+        plazaId || papeleta.ultimaPlazaId || papeleta.entregadaPlazaId || papeleta.plazaId || ''
+      );
+      const kmVal = km ?? papeleta?.salida?.km ?? null;
+      const retiro = kmVal != null && kmVal !== ''
+        ? { km: kmVal, motivo: 'RENTA' }
+        : { motivo: 'RENTA' };
+      await ejecutarEliminacion(
+        [mva],
+        meta.nombre || meta.uid || 'Sistema',
+        plaza,
+        retiro
+      );
+      cuadreRemoved = true;
+    } catch (e) {
+      lastError = e?.message || String(e);
+      console.warn('[papeletas] cuadre remove:', lastError);
+      reportProgrammerError({
+        kind: 'papeletas.entrega.cuadre',
+        scope: 'papeletas',
+        message: `No se pudo sacar ${mva} del cuadre tras entrega`,
+        code: e?.code || 'CUADRE_REMOVE_FAIL',
+        stack: e?.stack || '',
+        source: `papeleta:${papeleta?.id || ''}`,
+      }).catch(() => {});
+    }
+  }
+
+  if (!rentadaMarked) {
+    try {
+      rentadaMarked = await _marcarIndexRentada(mva, ubicacionLabel);
+      if (!rentadaMarked && !lastError) {
+        lastError = 'MVA no encontrado en index_unidades';
+      }
+    } catch (e) {
+      lastError = e?.message || String(e);
+      console.warn('[papeletas] marcar RENTADA:', lastError);
+      reportProgrammerError({
+        kind: 'papeletas.entrega.rentada',
+        scope: 'papeletas',
+        message: `No se pudo marcar ${mva} como ${ubicacionLabel}`,
+        code: e?.code || 'RENTADA_MARK_FAIL',
+        stack: e?.stack || '',
+        source: `papeleta:${papeleta?.id || ''}`,
+      }).catch(() => {});
+    }
+  }
+
+  const ok = cuadreRemoved && rentadaMarked;
+  await _persistSideEffectsMeta(papeleta?.id, {
+    status: ok ? 'ok' : (cuadreRemoved || rentadaMarked ? 'partial' : 'pending'),
+    cuadreRemoved,
+    rentadaMarked,
+    ubicacionLabel,
+    lastError: ok ? '' : lastError,
+    pendingRetry: !ok,
+  });
+
+  return { ok, cuadreRemoved, rentadaMarked, ubicacionLabel, error: ok ? undefined : lastError };
+}
+
+/** Reintenta side-effects si la entrega ya quedó locked pero cuadre/RENTADA falló. */
+export async function retryEntregaSideEffects(id, { user, plazaId, km } = {}) {
+  const papeleta = await getPapeleta(id);
+  if (!papeleta) throw new Error('Papeleta no encontrada');
+  if (papeleta.status !== STATUS.ENTREGADA && !papeleta.entregaFinalizedAt) {
+    const err = new Error('Solo se reintentan side-effects de papeletas entregadas');
+    err.code = 'NOT_ENTREGADA';
+    throw err;
+  }
+  return applyEntregaSideEffects(papeleta, { user, plazaId, km });
 }
 
 /** Fields that must not change once salida is locked (post-entregada). */
@@ -348,7 +519,12 @@ export async function asignarContrato(id, contrato, { user, plazaId } = {}) {
 
 /**
  * Atomic + idempotent delivery. Single entry point — do not split status/firma/pdf across modules.
- * @returns {{ ok: true, alreadyFinalized: boolean, papeleta: object }}
+ *
+ * Side-effects (cuadre out + RENTADA/ARRENDADA) corren **después** del TX.
+ * Si fallan: la salida permanece entregada/locked; quedan en `entregaSideEffects.pendingRetry`
+ * y se reintentan en llamadas idempotentes o vía `retryEntregaSideEffects`.
+ *
+ * @returns {{ ok: true, alreadyFinalized: boolean, papeleta: object, sideEffects?: object }}
  */
 export async function finalizeDelivery(id, {
   quienEntrega,
@@ -431,11 +607,41 @@ export async function finalizeDelivery(id, {
     });
   });
 
-  if (alreadyFinalized) {
-    return { ok: true, alreadyFinalized: true, papeleta: cached };
+  // Post-TX side-effects: delivery already won — never unlock on failure.
+  let papeleta = alreadyFinalized ? cached : await getPapeleta(id);
+  if (!papeleta?.id) papeleta = await getPapeleta(id);
+
+  const se = papeleta?.entregaSideEffects;
+  const needsSideEffects = !se || se.pendingRetry === true || se.status !== 'ok';
+  let sideEffects;
+  if (needsSideEffects && papeleta) {
+    try {
+      sideEffects = await applyEntregaSideEffects(papeleta, {
+        user,
+        plazaId: plazaId || papeleta.ultimaPlazaId || papeleta.plazaId || '',
+        km: km ?? papeleta.salida?.km,
+      });
+      papeleta = await getPapeleta(id) || papeleta;
+    } catch (e) {
+      console.warn('[papeletas] side-effects:', e?.message);
+      reportProgrammerError({
+        kind: 'papeletas.entrega.sideEffects',
+        scope: 'papeletas',
+        message: e?.message || 'Side-effects post-entrega fallaron',
+        code: e?.code || 'SIDE_EFFECTS_FAIL',
+        stack: e?.stack || '',
+        source: `papeleta:${id}`,
+      }).catch(() => {});
+      sideEffects = { ok: false, error: e?.message || String(e) };
+    }
   }
-  const papeleta = await getPapeleta(id);
-  return { ok: true, alreadyFinalized: false, papeleta };
+
+  return {
+    ok: true,
+    alreadyFinalized,
+    papeleta,
+    sideEffects,
+  };
 }
 
 /**

@@ -8,47 +8,58 @@ const { pathToFileURL } = require('url');
     pathToFileURL(path.join(__dirname, '..', 'domain', 'papeleta.model.js')).href
   );
 
-  // ZONAS_V1 intact (12); extras additive
+  // ZONAS_V1 intact (12); extras additive (tablero, interior, herramienta, refaccion)
   assert.strictEqual(mod.ZONAS_V1.length, 12);
   assert.strictEqual(mod.ZONAS_V1[0].id, 'trasera_cajuela');
   assert.strictEqual(mod.ZONAS_V1[11].id, 'cofre');
   assert.ok(mod.ZONAS_ALL.some((z) => z.id === 'tablero_kilometraje'));
   assert.ok(mod.ZONAS_ALL.some((z) => z.id === 'interior'));
-  assert.strictEqual(mod.ZONAS_ALL.length, 14);
+  assert.ok(mod.ZONAS_ALL.some((z) => z.id === 'herramienta'));
+  assert.ok(mod.ZONAS_ALL.some((z) => z.id === 'refaccion'));
+  assert.strictEqual(mod.ZONAS_ALL.length, 16);
   assert.deepStrictEqual([...mod.ZONAS_CORE], [
     'frente_defensa',
-    'trasera_cajuela',
+    'parabrisas',
     'lateral_izq',
     'lateral_der',
-    'tablero_kilometraje',
+    'trasera_cajuela',
     'interior',
+    'herramienta',
   ]);
+  assert.strictEqual(mod.ZONAS_CORE.length, 7);
+  assert.strictEqual(mod.ZONA_TABLERO_ID, 'tablero_kilometraje');
+  assert.strictEqual(mod.ZONA_CORE_LABELS.herramienta, 'Herramienta');
   assert.deepStrictEqual(mod.CHECKLIST_KEYS.slice(0, 3), ['placas', 'catalizador', 'tapon_gas']);
 
   const zonas = mod.createEmptyZonas();
   assert.ok(zonas.tablero_kilometraje);
   assert.ok(zonas.interior);
+  assert.ok(zonas.herramienta);
   assert.strictEqual(mod.coreZonasHaveFoto(zonas), false);
   assert.strictEqual(mod.allZonasHaveFoto(zonas), false);
+  assert.strictEqual(mod.tableroHaveFoto({ zonas }), false);
 
   for (const id of mod.ZONAS_CORE) {
     zonas[id] = { estado: 'ok', nota: '', fotoPath: `p/${id}`, capturedAt: null };
   }
   assert.strictEqual(mod.coreZonasHaveFoto(zonas), true);
+  // Tablero is hard but NOT part of the 7/7 core counter
+  assert.strictEqual(mod.tableroHaveFoto({ zonas }), false);
 
   for (const z of mod.ZONAS_V1) {
     zonas[z.id] = { estado: 'ok', nota: '', fotoPath: `p/${z.id}`, capturedAt: null };
   }
   assert.strictEqual(mod.allZonasHaveFoto(zonas), true);
 
-  // Legacy fotoTableroPath fallback
+  // Legacy fotoTableroPath fallback (tablero slot, not core)
   const zonasNoTablero = {
     ...zonas,
     tablero_kilometraje: { estado: 'ok', nota: '', fotoPath: '', capturedAt: null },
   };
-  assert.strictEqual(mod.coreZonasHaveFoto(zonasNoTablero), false);
+  assert.strictEqual(mod.coreZonasHaveFoto(zonasNoTablero), true);
+  assert.strictEqual(mod.tableroHaveFoto({ zonas: zonasNoTablero }), false);
   assert.strictEqual(
-    mod.coreZonasHaveFoto(zonasNoTablero, { fotoTableroPath: 'legacy/tablero.jpg' }),
+    mod.tableroHaveFoto({ zonas: zonasNoTablero, fotoTableroPath: 'legacy/tablero.jpg' }),
     true
   );
   assert.strictEqual(
@@ -57,6 +68,17 @@ const { pathToFileURL } = require('url');
     }),
     'legacy/tablero.jpg'
   );
+  zonas.tablero_kilometraje = { estado: 'ok', nota: '', fotoPath: 'p/tablero', capturedAt: null };
+  assert.strictEqual(mod.tableroHaveFoto({ zonas }), true);
+
+  // Tapetes 0–9: 0 válido (= no tiene); multi-dígito / vacío no
+  assert.strictEqual(mod.isValidTapeteDigit(0), true);
+  assert.strictEqual(mod.isValidTapeteDigit('0'), true);
+  assert.strictEqual(mod.isValidTapeteDigit(9), true);
+  assert.strictEqual(mod.isValidTapeteDigit(''), false);
+  assert.strictEqual(mod.isValidTapeteDigit(null), false);
+  assert.strictEqual(mod.isValidTapeteDigit(10), false);
+  assert.strictEqual(mod.isValidTapeteDigit('12'), false);
 
   // Checklist keys alone incomplete without llantas/tapetes
   const cl = mod.createEmptyChecklist();
@@ -84,7 +106,7 @@ const { pathToFileURL } = require('url');
       traseraDer: 'M',
       marcarTodas: true,
     },
-    tapetes: { usoRudo: 2, alfombra: 4 },
+    tapetes: { usoRudo: 0, alfombra: 4 }, // 0 = no tiene — válido
   };
   assert.strictEqual(mod.isChecklistComplete(p), true);
 
@@ -107,11 +129,24 @@ const { pathToFileURL } = require('url');
   // missing core photo → hard
   const zonasMissing = {
     ...zonas,
-    interior: { estado: 'ok', nota: '', fotoPath: '', capturedAt: null },
+    herramienta: { estado: 'ok', nota: '', fotoPath: '', capturedAt: null },
   };
   gate = mod.puedeEntregar({ ...p, zonas: zonasMissing }, { firma: firmaOk });
   assert.strictEqual(gate.ok, false);
   assert.ok(gate.hard.includes('core_photos'));
+
+  // missing tablero → hard (separate from core_photos)
+  const zonasSinTablero = {
+    ...zonas,
+    tablero_kilometraje: { estado: 'ok', nota: '', fotoPath: '', capturedAt: null },
+  };
+  gate = mod.puedeEntregar(
+    { ...p, zonas: zonasSinTablero, fotoTableroPath: '' },
+    { firma: firmaOk }
+  );
+  assert.strictEqual(gate.ok, false);
+  assert.ok(gate.hard.includes('tablero_photo'));
+  assert.ok(!gate.hard.includes('core_photos'));
 
   // terminal / cancelada
   gate = mod.puedeEntregar({ ...p, status: 'entregada' }, { firma: firmaOk });
