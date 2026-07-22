@@ -71,4 +71,8 @@ Reglas de sanitización:
 
 Referencia: Traslados (`js/app/views/traslados.js`), Unidades (`js/app/views/unidades.js`). Spec: `docs/superpowers/specs/2026-07-22-spa-list-table-routes-design.md`.
 
-**Excepciones:** legacy HTML standalone; expedientes pesados en otra ruta (ej. `/app/cuadre/u/{mva}`) si el dominio ya lo exige.
+**Excepciones:**
+
+- Legacy HTML standalone.
+- Expedientes pesados en otra ruta (ej. `/app/cuadre/u/{mva}`) si el dominio ya lo exige.
+- **Módulos de captura en patio (Papeletas y similares):** no usan tabla densa como superficie primaria. Imitan hoja + lápiz: **una sola vista de llenado** + sheets/overlays, autocomplete y diagrama táctil. Spec: `docs/superpowers/specs/2026-07-22-papeletas-app-hoja-lapiz-design.md`.
