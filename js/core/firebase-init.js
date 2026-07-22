@@ -131,8 +131,17 @@
       return null;
     }
     const siteKey = String(window.MEX_APPCHECK_SITE_KEY || '').trim();
+    const v2SiteKey = String(window.MEX_RECAPTCHA_V2_SITE_KEY || '').trim();
     if (!siteKey) {
-      console.warn('[firebase-init] App Check omitido: define window.MEX_APPCHECK_SITE_KEY (site key v3 pública). Ver docs/app-check.md');
+      console.info('[firebase-init] App Check omitido: sin MEX_APPCHECK_SITE_KEY (v3). Login v2 no afecta. Ver docs/app-check.md');
+      return null;
+    }
+    // Misma clave v2 en App Check → ReCaptchaV3Provider falla con appCheck/recaptcha-error en bucle.
+    if (v2SiteKey && siteKey === v2SiteKey) {
+      console.warn(
+        '[firebase-init] App Check omitido: MEX_APPCHECK_SITE_KEY es la misma que MEX_RECAPTCHA_V2_SITE_KEY. ' +
+        'App Check necesita una site key reCAPTCHA v3 distinta (Firebase Console → App Check).'
+      );
       return null;
     }
     if (typeof firebase.appCheck !== 'function' || !firebase.appCheck) {

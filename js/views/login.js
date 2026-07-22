@@ -13,8 +13,9 @@
 import { auth, db, COL, functions } from '/js/core/database.js';
 
 // reCAPTCHA v2 checkbox ("No soy un robot"). Site key pública — no secretos aquí.
+// No usar MEX_APPCHECK_SITE_KEY aquí: App Check es v3 y debe ser otra clave.
 const RECAPTCHA_V2_SITE_KEY = String(
-  window.MEX_RECAPTCHA_V2_SITE_KEY || window.MEX_APPCHECK_SITE_KEY || ''
+  window.MEX_RECAPTCHA_V2_SITE_KEY || ''
 ).trim();
 
 /** Respuestas de servidor que no deben bloquear si el secreto aún no está configurado. */

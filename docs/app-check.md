@@ -18,13 +18,24 @@ Default actual: **reCAPTCHA v3** para la site key de App Check de **mapGestion**
 Archivo: `js/core/firebase-config.js` → `window.MEX_APPCHECK_SITE_KEY`
 
 ```js
-window.MEX_APPCHECK_SITE_KEY = '<SITE_KEY_PUBLICA>';
+window.MEX_APPCHECK_SITE_KEY = '<SITE_KEY_V3_PUBLICA>';
 ```
 
-Origen de la clave:
+**No reutilices la site key del login (reCAPTCHA v2 checkbox).** Son productos distintos:
+
+| Uso | Tipo | Variable |
+|---|---|---|
+| Login «No soy un robot» | reCAPTCHA **v2** Checkbox | `MEX_RECAPTCHA_V2_SITE_KEY` |
+| Firebase App Check | reCAPTCHA **v3** | `MEX_APPCHECK_SITE_KEY` |
+
+Si ambas variables apuntan a la misma clave, `firebase-init.js` **omite App Check** a propósito. Si activas App Check con una clave v2, el SDK lanza en bucle `AppCheck: ReCAPTCHA error (appCheck/recaptcha-error)` y Auth puede fallar al pedir el token.
+
+Con `MEX_APPCHECK_SITE_KEY` vacío (default), la app funciona sin App Check mientras enforcement esté en observación.
+
+Origen de la clave v3:
 
 1. [Firebase Console](https://console.firebase.google.com/) → proyecto → **App Check**
-2. App web **mapGestion** → proveedor **reCAPTCHA** (v3)
+2. App web **mapGestion** → proveedor **reCAPTCHA** (v3) — registra un sitio **v3**, no el checkbox v2
 3. Copiar solo la **Site key** (pública). Nunca pegues API keys de Google Cloud ni secretos de servidor en el cliente.
 
 También puedes definir `window.MEX_APPCHECK_SITE_KEY` en un script **antes** de cargar `firebase-config.js`.
