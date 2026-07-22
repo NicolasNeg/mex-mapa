@@ -2993,3 +2993,117 @@ body.dark-theme .pap-sec-chip.is-active {
 body.dark-theme .pap-unit-hero {
   border-color: #334155;
 }
+
+/* -- Cámara guiada v3: landscape + chips + sheet ------------ */
+.pap-camflow__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(0,0,0,.55);
+  max-height: 30vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.pap-camflow__chips[hidden] { display: none !important; }
+.pap-camflow__chip {
+  border: 1px solid rgba(255,255,255,.28);
+  background: rgba(15,23,42,.65);
+  color: #f8fafc;
+  border-radius: 9999px;
+  padding: 6px 10px;
+  font: 600 11px/1.2 Inter, sans-serif;
+  cursor: pointer;
+}
+.pap-camflow__chip.is-on { background: #3b82f6; border-color: #3b82f6; }
+.pap-camflow__chip.is-done { border-color: #22c55e; }
+.pap-camflow__chip.is-opt { opacity: 0.75; font-weight: 500; }
+.pap-camflow__thumb-spin {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: 3px solid rgba(255,255,255,.25);
+  border-top-color: #fff;
+  animation: pap-cam-spin .7s linear infinite;
+  z-index: 4;
+}
+.pap-camflow__thumb-spin[hidden] { display: none !important; }
+@keyframes pap-cam-spin { to { transform: rotate(360deg); } }
+.pap-camflow__sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0,0,0,.55);
+  padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+.pap-camflow__sheet[hidden] { display: none !important; }
+.pap-camflow__sheet-panel {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pap-camflow__sheet-panel h3 { margin: 0; font-size: 18px; }
+.pap-camflow__sheet-panel p { margin: 0; color: #64748b; font-size: 14px; }
+.pap-camflow__sheet-btn {
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font: 600 15px Inter, sans-serif;
+  cursor: pointer;
+}
+.pap-camflow__sheet-btn--primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .pap-camflow {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      \"bar bar\"
+      \"stage dock\"
+      \"chips chips\";
+    height: 100dvh;
+    height: 100vh;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .pap-camflow__bar { grid-area: bar; }
+  .pap-camflow__stage {
+    grid-area: stage;
+    min-height: 0;
+  }
+  .pap-camflow__video,
+  .pap-camflow__shot {
+    object-fit: contain;
+    width: 100%;
+    height: 100%;
+  }
+  .pap-camflow__dock {
+    grid-area: dock;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    padding: 8px 12px;
+    width: 96px;
+  }
+  .pap-camflow__chips {
+    grid-area: chips;
+    max-height: 22vh;
+  }
+  .pap-camflow__hint { display: none; }
+}

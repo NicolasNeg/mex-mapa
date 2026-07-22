@@ -1,17 +1,23 @@
 /**
- * Guided fullscreen in-app camera for papeletas zone photos.
- * Primary: getUserMedia + capture. Fallback: <input capture> / gallery.
+ * Guided fullscreen in-app camera for papeletas zone photos (v3).
+ * - Jump chips (no forced skip chain)
+ * - Optimistic advance after capture (upload in background)
+ * - Post-7 sheet: Daño específico | Continuar
+ * - Landscape-stable chrome
  */
 
 /**
- * @typedef {{ id: string, label: string }} CameraZone
+ * @typedef {{ id: string, label: string, optional?: boolean }} CameraZone
  * @typedef {{
  *   zones: CameraZone[],
  *   startIndex?: number,
  *   hasFoto?: (zonaId: string) => boolean,
+ *   hardZoneIds?: string[],
  *   onCapture: (zona: CameraZone, index: number, file: File) => Promise<void>|void,
  *   onSkip?: (zona: CameraZone, index: number) => void,
  *   onMarkDamage?: (zona: CameraZone, index: number) => void,
+ *   onDamageExtra?: () => void,
+ *   onComplete?: () => void,
  *   onClose?: () => void,
  * }} GuidedCameraOpts
  */
@@ -31,6 +37,12 @@ export function openGuidedCamera(opts) {
   const zones = Array.isArray(opts.zones) ? opts.zones : [];
   if (!zones.length) throw new Error('Sin zonas para fotografiar');
 
+  const hardIds = new Set(
+    Array.isArray(opts.hardZoneIds) && opts.hardZoneIds.length
+      ? opts.hardZoneIds
+      : zones.filter((z) => !z.optional).map((z) => z.id)
+  );
+
   let idx = Math.max(0, Math.min(zones.length - 1, Number(opts.startIndex) || 0));
   let stream = null;
   let busy = false;
@@ -38,6 +50,7 @@ export function openGuidedCamera(opts) {
   let toastTimer = null;
   let closed = false;
   let starting = false;
+  let postSheetShown = false;
 
   const root = document.createElement('div');
   root.className = 'pap-camflow';
@@ -53,13 +66,15 @@ export function openGuidedCamera(opts) {
         <strong data-cam-title></strong>
         <span data-cam-sub></span>
       </div>
-      <button type="button" class="pap-camflow__icon" data-cam="dano" aria-label="Marcar daño">
-        <span class="material-symbols-outlined">report</span>
+      <button type="button" class="pap-camflow__icon" data-cam="chips" aria-label="Zonas" title="Ir a zona">
+        <span class="material-symbols-outlined">grid_view</span>
       </button>
     </div>
+    <div class="pap-camflow__chips" data-cam-chips hidden role="tablist" aria-label="Zonas"></div>
     <div class="pap-camflow__stage">
       <video class="pap-camflow__video" playsinline webkit-playsinline muted autoplay></video>
       <img class="pap-camflow__shot" alt="" hidden/>
+      <div class="pap-camflow__thumb-spin" data-cam-spin hidden aria-hidden="true"></div>
       <div class="pap-camflow__fallback" hidden>
         <p>No se pudo abrir la cámara en este dispositivo.</p>
         <label class="pap-camflow__pill">
@@ -70,7 +85,7 @@ export function openGuidedCamera(opts) {
       <div class="pap-camflow__toast" data-cam-toast hidden>Foto tomada</div>
     </div>
     <div class="pap-camflow__dock">
-      <button type="button" class="pap-camflow__sec" data-cam="skip">Saltar</button>
+      <button type="button" class="pap-camflow__sec" data-cam="dano">Daño</button>
       <button type="button" class="pap-camflow__shutter" data-cam="shutter" aria-label="Tomar foto">
         <span></span>
       </button>
@@ -80,6 +95,14 @@ export function openGuidedCamera(opts) {
       </label>
     </div>
     <div class="pap-camflow__hint" data-cam-hint></div>
+    <div class="pap-camflow__sheet" data-cam-sheet hidden>
+      <div class="pap-camflow__sheet-panel">
+        <h3>Core completo</h3>
+        <p>Las fotos obligatorias están listas. ¿Capturar daño específico o continuar?</p>
+        <button type="button" class="pap-camflow__sheet-btn" data-cam="sheet-damage">Daño específico</button>
+        <button type="button" class="pap-camflow__sheet-btn pap-camflow__sheet-btn--primary" data-cam="sheet-continue">Continuar</button>
+      </div>
+    </div>
   `;
   document.body.appendChild(root);
   document.body.classList.add('pap-camflow-open');
@@ -91,8 +114,10 @@ export function openGuidedCamera(opts) {
   const titleEl = root.querySelector('[data-cam-title]');
   const subEl = root.querySelector('[data-cam-sub]');
   const hintEl = root.querySelector('[data-cam-hint]');
+  const chipsEl = root.querySelector('[data-cam-chips]');
+  const sheetEl = root.querySelector('[data-cam-sheet]');
+  const spinEl = root.querySelector('[data-cam-spin]');
 
-  // iOS Safari needs these as properties, not only attributes.
   video.setAttribute('playsinline', '');
   video.setAttribute('webkit-playsinline', '');
   video.muted = true;
@@ -103,38 +128,68 @@ export function openGuidedCamera(opts) {
     return zones[idx];
   }
 
+  function hasFoto(id) {
+    return typeof opts.hasFoto === 'function' ? !!opts.hasFoto(id) : false;
+  }
+
+  function hardDoneCount() {
+    let n = 0;
+    for (const z of zones) {
+      if (hardIds.has(z.id) && hasFoto(z.id)) n += 1;
+    }
+    return n;
+  }
+
+  function hardTotal() {
+    let n = 0;
+    for (const z of zones) if (hardIds.has(z.id)) n += 1;
+    return n || zones.length;
+  }
+
+  function allHardDone() {
+    return [...hardIds].every((id) => hasFoto(id));
+  }
+
   function hasLiveStream() {
     return !!(stream && stream.getTracks().some((t) => t.readyState === 'live'));
   }
 
   function setFallbackVisible(show) {
-    // Only hard-error when there is truly no usable stream.
     fallback.hidden = !show;
-    if (show) {
-      video.classList.add('is-obscured');
-    } else {
+    if (show) video.classList.add('is-obscured');
+    else {
       video.classList.remove('is-obscured');
       video.hidden = false;
     }
   }
 
+  function paintChips() {
+    chipsEl.innerHTML = zones.map((z, i) => {
+      const done = hasFoto(z.id);
+      const hard = hardIds.has(z.id);
+      return `<button type="button" class="pap-camflow__chip ${i === idx ? 'is-on' : ''} ${done ? 'is-done' : ''} ${hard ? '' : 'is-opt'}"
+        data-cam-jump="${i}" role="tab">${_esc(z.label)}${done ? ' ✓' : ''}</button>`;
+    }).join('');
+  }
+
   function refreshChrome() {
     const z = zone();
-    const n = idx + 1;
-    const total = zones.length;
-    const done = typeof opts.hasFoto === 'function' ? opts.hasFoto(z.id) : false;
-    titleEl.textContent = `${n}/${total} · ${z.label}`;
-    subEl.textContent = done ? 'Ya hay foto · puedes repetir' : 'Fotografía esta parte';
+    const done = hasFoto(z.id);
+    const hd = hardDoneCount();
+    const ht = hardTotal();
+    titleEl.textContent = `${z.label}`;
+    subEl.textContent = `Core ${hd}/${ht}${done ? ' · ya capturada' : ''}`;
     hintEl.textContent = done
-      ? 'Toca el obturador para retomar, o Saltar para seguir.'
-      : 'Mantente en cámara: captura y avanza automático.';
+      ? 'Toca una zona arriba para saltar, o el obturador para retomar.'
+      : 'Captura y avanza al instante. Usa la cuadrícula para saltar.';
+    paintChips();
   }
 
   function showToast(msg = 'Foto tomada') {
     toastEl.textContent = msg;
     toastEl.hidden = false;
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { toastEl.hidden = true; }, 900);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, 700);
   }
 
   function showPreview(url) {
@@ -176,12 +231,8 @@ export function openGuidedCamera(opts) {
         clearTimeout(timer);
         resolve(ok);
       };
-      const onMeta = () => {
-        if (el.videoWidth > 0) finish(true);
-      };
-      const onPlaying = () => {
-        if (el.videoWidth > 0) finish(true);
-      };
+      const onMeta = () => { if (el.videoWidth > 0) finish(true); };
+      const onPlaying = () => { if (el.videoWidth > 0) finish(true); };
       el.addEventListener('loadedmetadata', onMeta);
       el.addEventListener('playing', onPlaying);
       const timer = setTimeout(() => finish(el.videoWidth > 0), timeoutMs);
@@ -207,7 +258,6 @@ export function openGuidedCamera(opts) {
     stream = mediaStream;
     video.srcObject = mediaStream;
     video.hidden = false;
-    // play() may reject on some WebViews; stream can still paint after metadata.
     await video.play().catch(() => {});
     const painted = await waitForVideoReady(video);
     return painted || hasLiveStream();
@@ -237,7 +287,6 @@ export function openGuidedCamera(opts) {
         return false;
       }
       if (ok || hasLiveStream()) {
-        // Live preview even if first frame is still settling — never hard-error.
         setFallbackVisible(false);
         video.hidden = false;
         return true;
@@ -278,33 +327,78 @@ export function openGuidedCamera(opts) {
     for (let step = 1; step <= total; step += 1) {
       const i = (from + step) % total;
       const z = zones[i];
-      const done = typeof opts.hasFoto === 'function' ? opts.hasFoto(z.id) : false;
-      if (!done) return i;
+      if (hardIds.has(z.id) && !hasFoto(z.id)) return i;
     }
-    return Math.min(from + 1, total - 1);
+    for (let step = 1; step <= total; step += 1) {
+      const i = (from + step) % total;
+      if (!hasFoto(zones[i].id)) return i;
+    }
+    return from;
   }
 
-  async function handleFile(file) {
+  function maybeShowPostSheet() {
+    if (postSheetShown || !allHardDone()) return false;
+    postSheetShown = true;
+    sheetEl.hidden = false;
+    return true;
+  }
+
+  async function maybePromptRefaccion(capturedZone) {
+    if (capturedZone?.id !== 'herramienta') return;
+    if (typeof opts.onDamageExtra !== 'function') return;
+    // Soft prompt: non-blocking via sheet-like confirm using native confirm is avoided —
+    // use post toast + chip for refacción if present in zones.
+    const refIdx = zones.findIndex((z) => z.id === 'refaccion');
+    if (refIdx < 0) return;
+    showToast('Opcional: foto de refacción');
+  }
+
+  /**
+   * Advance UI immediately; upload in background with spinner on thumb.
+   */
+  function handleFile(file) {
     if (!file || busy || closed) return;
+    const capturedZone = zone();
+    const capturedIdx = idx;
     busy = true;
     root.classList.add('is-busy');
-    try {
-      const preview = URL.createObjectURL(file);
-      showPreview(preview);
-      showToast('Foto tomada');
-      await opts.onCapture(zone(), idx, file);
-      const next = nextPendingIndex(idx);
-      await new Promise((r) => setTimeout(r, 450));
-      idx = next;
-      showPreview('');
-      refreshChrome();
-    } catch (e) {
-      showToast(e?.message || 'Error al guardar');
-      showPreview('');
-    } finally {
-      busy = false;
-      root.classList.remove('is-busy');
-    }
+    spinEl.hidden = false;
+
+    const preview = URL.createObjectURL(file);
+    showPreview(preview);
+    showToast('Foto tomada');
+
+    // Optimistic: treat as done for navigation (caller should update hasFoto via onCapture)
+    const next = nextPendingIndex(capturedIdx);
+
+    // Advance UI synchronously after brief flash
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (closed) return;
+        showPreview('');
+        spinEl.hidden = true;
+        maybePromptRefaccion(capturedZone);
+        if (allHardDone() || (hardIds.has(capturedZone.id) && hardDoneCount() + (hasFoto(capturedZone.id) ? 0 : 1) >= hardTotal())) {
+          // hasFoto may not yet reflect optimistic — check after onCapture settles
+        }
+        idx = next;
+        refreshChrome();
+        busy = false;
+        root.classList.remove('is-busy');
+      }, 120);
+    });
+
+    Promise.resolve(opts.onCapture(capturedZone, capturedIdx, file))
+      .then(() => {
+        if (closed) return;
+        refreshChrome();
+        if (allHardDone()) maybeShowPostSheet();
+      })
+      .catch((e) => {
+        if (closed) return;
+        showToast(e?.message || 'Error al guardar');
+        refreshChrome();
+      });
   }
 
   async function onShutter() {
@@ -315,17 +409,16 @@ export function openGuidedCamera(opts) {
     }
     const file = await captureFromVideo();
     if (!file) {
-      // Frame not ready yet — wait briefly then retry once before system camera.
       await waitForVideoReady(video, 1500);
       const retry = await captureFromVideo();
       if (!retry) {
         root.querySelector('[data-cam-file-capture]')?.click();
         return;
       }
-      await handleFile(retry);
+      handleFile(retry);
       return;
     }
-    await handleFile(file);
+    handleFile(file);
   }
 
   function close() {
@@ -342,24 +435,53 @@ export function openGuidedCamera(opts) {
   }
 
   function onClick(e) {
+    const jump = e.target.closest('[data-cam-jump]');
+    if (jump) {
+      const i = Number(jump.getAttribute('data-cam-jump'));
+      if (Number.isFinite(i)) {
+        idx = Math.max(0, Math.min(zones.length - 1, i));
+        chipsEl.hidden = true;
+        showPreview('');
+        refreshChrome();
+      }
+      return;
+    }
+
     const btn = e.target.closest('[data-cam]');
     if (!btn) return;
     const act = btn.getAttribute('data-cam');
     if (act === 'close') close();
     if (act === 'shutter') onShutter();
-    if (act === 'skip') {
-      if (typeof opts.onSkip === 'function') opts.onSkip(zone(), idx);
-      idx = Math.min(idx + 1, zones.length - 1);
-      showPreview('');
-      refreshChrome();
+    if (act === 'chips') {
+      chipsEl.hidden = !chipsEl.hidden;
+      paintChips();
     }
-    if (act === 'dano' && typeof opts.onMarkDamage === 'function') {
-      opts.onMarkDamage(zone(), idx);
+    if (act === 'dano') {
+      if (typeof opts.onMarkDamage === 'function') opts.onMarkDamage(zone(), idx);
+      else if (typeof opts.onDamageExtra === 'function') opts.onDamageExtra();
+    }
+    if (act === 'sheet-damage') {
+      sheetEl.hidden = true;
+      if (typeof opts.onDamageExtra === 'function') opts.onDamageExtra();
+      else if (typeof opts.onMarkDamage === 'function') opts.onMarkDamage(zone(), idx);
+    }
+    if (act === 'sheet-continue') {
+      sheetEl.hidden = true;
+      if (typeof opts.onComplete === 'function') opts.onComplete();
+      close();
     }
   }
 
   function onKey(e) {
     if (e.key === 'Escape') close();
+  }
+
+  function _esc(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   root.addEventListener('click', onClick);
@@ -376,6 +498,8 @@ export function openGuidedCamera(opts) {
   });
 
   refreshChrome();
+  // Show chips by default on open for jump UX
+  chipsEl.hidden = false;
   startStream();
 
   return {

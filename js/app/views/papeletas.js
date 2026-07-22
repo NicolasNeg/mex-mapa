@@ -2992,24 +2992,40 @@ function _openGuidedCamera() {
     id,
     label: ZONA_CORE_LABELS[id] || id,
   }));
-  const pending = coreZones.findIndex((z) => !String(_detail.zonas?.[z.id]?.fotoPath || '').trim());
+  // Slot opcional post-herramienta
+  coreZones.push({ id: 'refaccion', label: 'Refacción (opc.)', optional: true });
+  const pending = coreZones.findIndex((z) =>
+    z.id !== 'refaccion' && !String(_detail.zonas?.[z.id]?.fotoPath || '').trim()
+  );
   const startIndex = pending >= 0 ? pending : 0;
   _cameraApi = openGuidedCamera({
     zones: coreZones,
+    hardZoneIds: [...ZONAS_CORE],
     startIndex,
     hasFoto: (zonaId) => !!String(_detail?.zonas?.[zonaId]?.fotoPath || '').trim(),
     onCapture: async (zona, index, file) => {
       const zonas = { ...(_detail.zonas || {}) };
       const cur = { ...(zonas[zona.id] || { estado: 'ok', nota: '', fotoPath: '' }) };
-      cur.fotoPath = await uploadZonaFoto(_detail.id, zona.id, file);
+      // Optimistic local path marker so hasFoto advances before upload finishes
+      cur.fotoPath = cur.fotoPath || `pending:${zona.id}`;
       cur.capturedAt = Date.now();
+      zonas[zona.id] = cur;
+      if (_detail) _detail.zonas = zonas;
+      cur.fotoPath = await uploadZonaFoto(_detail.id, zona.id, file);
       zonas[zona.id] = cur;
       await actualizarPapeleta(_detail.id, { zonas }, { user: _user(), knownRevision: _detail.revision });
       if (_detail) _detail.zonas = zonas;
     },
     onSkip: (_zona, index) => { _zonaIdx = index; },
     onMarkDamage: async (zona) => {
-      await _mexAlert('Daño', `Marca el daño en el paso Diagrama. Zona: ${zona.label}`);
+      _gotoMobileScreen('diagrama');
+      await _mexAlert('Daño', `Marca el daño en el diagrama. Zona: ${zona.label}`);
+    },
+    onDamageExtra: () => {
+      _gotoMobileScreen('diagrama');
+    },
+    onComplete: () => {
+      _gotoMobileScreen('resumen');
     },
     onClose: () => {
       _cameraApi = null;
