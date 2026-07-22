@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v746';
+const CACHE_NAME = 'mapa-v748';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -48,6 +48,7 @@ const CRITICAL_ASSETS = [
   '/js/core/firebase-init.js',
   '/js/core/database.js',
   '/js/core/dialogs.js',
+  '/js/core/hist-move-popover.js',
   '/js/core/feature-gates.js',
   '/js/core/notifications.js',
   '/js/core/observability.js',

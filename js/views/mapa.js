@@ -8390,10 +8390,22 @@ async function umCrearUsuario() {
 
 
 let _logsData = [];
+let _logsMovePopoverReady = false;
+
+function _ensureLogsMovePopover() {
+  if (_logsMovePopoverReady) return;
+  const modal = document.getElementById('logs-modal');
+  if (!modal) return;
+  _logsMovePopoverReady = true;
+  import('/js/core/hist-move-popover.js')
+    .then(({ bindHistMovePopover }) => bindHistMovePopover(modal, { esc: escapeHtml }))
+    .catch((err) => console.warn('[mapa] popover movimientos', err));
+}
 
 function abrirLogs() {
   toggleAdminSidebar(false);
   document.getElementById('logs-modal').classList.add('active');
+  _ensureLogsMovePopover();
 
   const tbody = document.getElementById('logs-table-body');
   tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Extrayendo historial de la base de datos...</td></tr>`;
@@ -8488,16 +8500,24 @@ function _renderLogsTabla() {
   }
 
   const _tipoBadgeClass = { MOVE: 'st-MOVE', SWAP: 'st-SWAP', ADD: 'st-ADD', EDIT: 'st-EDIT', DEL: 'st-DELETE', DELETE: 'st-DELETE', BAJA: 'st-DELETE' };
-  tbody.innerHTML = filtered.map(l => `
-    <tr>
+  tbody.innerHTML = filtered.map(l => {
+    const det = String(l.detalles || '');
+    const tipoUp = String(l.tipo || '').toUpperCase();
+    const animTypes = ['MOVE', 'SWAP', 'ADD', 'DEL', 'EDIT', 'DELETE'];
+    const moveAttrs = (/(?:→|->)/.test(det) && animTypes.includes(tipoUp))
+      ? ` data-detalles="${escapeHtml(det)}" data-mva="${escapeHtml(l.mva || '')}" data-tipo="${escapeHtml(tipoUp)}"`
+      : '';
+    return `
+    <tr${moveAttrs}>
       <td style="font-size:11px; color:#64748b; font-weight:800;">${l.fecha}</td>
       <td><span class="badge ${_tipoBadgeClass[l.tipo] || 'st-MOVE'}">${l.tipo}</span></td>
       <td style="font-weight:900; color:var(--mex-blue); font-size:14px;">${l.mva}</td>
       <td style="font-size:12px; font-weight:700;">${l.detalles}</td>
       <td style="font-size:11px; font-weight:800;">${_logExactLocationHtml(l)}</td>
       <td style="font-size:11px; font-weight:800;">${l.usuario}</td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
+  _ensureLogsMovePopover();
 }
 
 function _limpiarFiltrosLogs() {

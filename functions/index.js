@@ -3469,3 +3469,229 @@ exports.limpiarFotosReportesPapeletas = functions
     logger.info("limpiarFotosReportesPapeletas done", { cleaned });
     return null;
   });
+
+// ═══════════════════════════════════════════════════════════
+//  WEBAUTHN LOGIN (passkey) — Face ID / Touch ID / Windows Hello para
+//  iniciar sesión sin contraseña.
+//
+//  A diferencia del checado de turnos (que confía en el resultado del
+//  navegador sin verificarlo en servidor, porque el peor caso es un
+//  registro de asistencia incorrecto), AQUÍ sí verificamos la firma
+//  criptográfica en el servidor con @simplewebauthn/server, porque el
+//  resultado es una sesión real de Firebase Auth.
+//
+//  rpID/origin fijos al dominio de producción: una passkey registrada
+//  en un dominio no sirve en otro (mex-mapa-bjx.web.app ≠
+//  app.mapgestion.com para WebAuthn), así que login con passkey solo
+//  funciona probando directamente sobre ese dominio.
+// ═══════════════════════════════════════════════════════════
+const {
+  generateRegistrationOptions: webauthnGenRegOptions,
+  verifyRegistrationResponse: webauthnVerifyReg,
+  generateAuthenticationOptions: webauthnGenAuthOptions,
+  verifyAuthenticationResponse: webauthnVerifyAuth,
+} = require("@simplewebauthn/server");
+
+const WEBAUTHN_RP_NAME = "MapGestion";
+const WEBAUTHN_RP_ID = "app.mapgestion.com";
+const WEBAUTHN_ORIGIN = `https://${WEBAUTHN_RP_ID}`;
+const WEBAUTHN_REG_CHALLENGES_COL = "webauthn_register_challenges";
+const WEBAUTHN_LOGIN_CHALLENGES_COL = "webauthn_login_challenges";
+const WEBAUTHN_CHALLENGE_TTL_MS = 5 * 60 * 1000;
+
+function _webauthnU8ToB64(u8) {
+  return Buffer.from(u8).toString("base64");
+}
+
+function _webauthnB64ToU8(b64) {
+  return new Uint8Array(Buffer.from(String(b64 || ""), "base64"));
+}
+
+/** Lee las credenciales guardadas de un doc de usuario, listas para la librería. */
+function _webauthnCredentialsFromUserDoc(data = {}) {
+  const arr = Array.isArray(data.webauthnLoginCredentials) ? data.webauthnLoginCredentials : [];
+  return arr
+    .filter((c) => c && c.credentialId && c.publicKey)
+    .map((c) => ({
+      id: c.credentialId,
+      publicKey: _webauthnB64ToU8(c.publicKey),
+      counter: Number(c.counter || 0),
+      transports: Array.isArray(c.transports) && c.transports.length ? c.transports : ["internal"],
+    }));
+}
+
+/** PASO 1 de registro: usuario YA logueado pide opciones para enrolar una passkey. */
+exports.webauthnRegisterOptions = functions.region(REGION).https.onCall(async (data, context) => {
+  const uid = context.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Debes iniciar sesión primero.");
+  const email = normalizeLower(context.auth.token?.email || data?.email || "");
+  if (!email) throw new HttpsError("invalid-argument", "No se pudo determinar tu correo.");
+
+  const ref = await resolveUserProfileDocRefByEmail(email, context.auth);
+  const snap = await ref.get();
+  const userData = snap.data() || {};
+  const existing = _webauthnCredentialsFromUserDoc(userData);
+
+  const options = await webauthnGenRegOptions({
+    rpName: WEBAUTHN_RP_NAME,
+    rpID: WEBAUTHN_RP_ID,
+    userName: email,
+    userDisplayName: normalizeString(userData.nombre || userData.nombreCompleto || email),
+    attestationType: "none",
+    excludeCredentials: existing.map((c) => ({ id: c.id, transports: c.transports })),
+    authenticatorSelection: {
+      authenticatorAttachment: "platform",
+      userVerification: "required",
+      residentKey: "preferred",
+    },
+  });
+
+  await db.collection(WEBAUTHN_REG_CHALLENGES_COL).doc(uid).set({
+    challenge: options.challenge,
+    docRefPath: ref.path,
+    email,
+    createdAt: Date.now(),
+  });
+
+  return options;
+});
+
+/** PASO 2 de registro: verifica la respuesta del navegador y guarda la credencial. */
+exports.webauthnRegisterVerify = functions.region(REGION).https.onCall(async (data, context) => {
+  const uid = context.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Debes iniciar sesión primero.");
+  const response = data?.response;
+  const deviceLabel = normalizeString(data?.deviceLabel || "Este dispositivo").slice(0, 60);
+  if (!response) throw new HttpsError("invalid-argument", "Falta la respuesta del navegador.");
+
+  const chalRef = db.collection(WEBAUTHN_REG_CHALLENGES_COL).doc(uid);
+  const chalSnap = await chalRef.get();
+  if (!chalSnap.exists) throw new HttpsError("failed-precondition", "No hay un registro en curso. Intenta de nuevo.");
+  const chal = chalSnap.data();
+  await chalRef.delete();
+  if (Date.now() - Number(chal.createdAt || 0) > WEBAUTHN_CHALLENGE_TTL_MS) {
+    throw new HttpsError("deadline-exceeded", "El registro tardó demasiado. Intenta de nuevo.");
+  }
+
+  let verification;
+  try {
+    verification = await webauthnVerifyReg({
+      response,
+      expectedChallenge: chal.challenge,
+      expectedOrigin: WEBAUTHN_ORIGIN,
+      expectedRPID: WEBAUTHN_RP_ID,
+    });
+  } catch (e) {
+    logger.warn("[webauthnRegisterVerify] verificación fallida", e?.message);
+    throw new HttpsError("invalid-argument", "No se pudo verificar el registro.");
+  }
+  if (!verification.verified || !verification.registrationInfo) {
+    throw new HttpsError("invalid-argument", "No se pudo verificar el registro.");
+  }
+
+  const { credential } = verification.registrationInfo;
+  const fv = admin.firestore.FieldValue;
+  await db.doc(chal.docRefPath).set({
+    webauthnLoginCredentials: fv.arrayUnion({
+      credentialId: credential.id,
+      publicKey: _webauthnU8ToB64(credential.publicKey),
+      counter: credential.counter,
+      transports: credential.transports && credential.transports.length ? credential.transports : ["internal"],
+      deviceLabel,
+      createdAt: Date.now(),
+    }),
+  }, { merge: true });
+
+  return { ok: true };
+});
+
+/** PASO 1 de login: sin sesión, pide opciones de autenticación para un correo conocido. */
+exports.webauthnLoginOptions = functions.region(REGION).https.onCall(async (data) => {
+  const email = normalizeLower(data?.email || "");
+  if (!email) throw new HttpsError("invalid-argument", "Correo requerido.");
+
+  const ref = await resolveUserProfileDocRefByEmail(email, null);
+  const snap = await ref.get();
+  const creds = snap.exists ? _webauthnCredentialsFromUserDoc(snap.data()) : [];
+  if (!creds.length) {
+    // Mismo mensaje sin importar si el correo existe o no tiene passkey.
+    throw new HttpsError("not-found", "No hay una passkey configurada para este correo.");
+  }
+
+  const options = await webauthnGenAuthOptions({
+    rpID: WEBAUTHN_RP_ID,
+    userVerification: "required",
+    allowCredentials: creds.map((c) => ({ id: c.id, transports: c.transports })),
+  });
+
+  const sessionRef = db.collection(WEBAUTHN_LOGIN_CHALLENGES_COL).doc();
+  await sessionRef.set({
+    challenge: options.challenge,
+    docRefPath: ref.path,
+    email,
+    createdAt: Date.now(),
+  });
+
+  return { options, sessionId: sessionRef.id };
+});
+
+/** PASO 2 de login: verifica la aserción y devuelve un custom token de Firebase Auth. */
+exports.webauthnLoginVerify = functions.region(REGION).https.onCall(async (data) => {
+  const sessionId = normalizeString(data?.sessionId || "");
+  const response = data?.response;
+  if (!sessionId || !response) throw new HttpsError("invalid-argument", "Solicitud incompleta.");
+
+  const chalRef = db.collection(WEBAUTHN_LOGIN_CHALLENGES_COL).doc(sessionId);
+  const chalSnap = await chalRef.get();
+  if (!chalSnap.exists) throw new HttpsError("failed-precondition", "La sesión de verificación expiró. Intenta de nuevo.");
+  const chal = chalSnap.data();
+  await chalRef.delete();
+  if (Date.now() - Number(chal.createdAt || 0) > WEBAUTHN_CHALLENGE_TTL_MS) {
+    throw new HttpsError("deadline-exceeded", "La verificación tardó demasiado. Intenta de nuevo.");
+  }
+
+  const ref = db.doc(chal.docRefPath);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Usuario no encontrado.");
+  const userData = snap.data() || {};
+  const storedCreds = Array.isArray(userData.webauthnLoginCredentials) ? userData.webauthnLoginCredentials : [];
+  const creds = _webauthnCredentialsFromUserDoc(userData);
+  const matching = creds.find((c) => c.id === response.id);
+  if (!matching) throw new HttpsError("invalid-argument", "Credencial no reconocida.");
+
+  let verification;
+  try {
+    verification = await webauthnVerifyAuth({
+      response,
+      expectedChallenge: chal.challenge,
+      expectedOrigin: WEBAUTHN_ORIGIN,
+      expectedRPID: WEBAUTHN_RP_ID,
+      credential: matching,
+      requireUserVerification: true,
+    });
+  } catch (e) {
+    logger.warn("[webauthnLoginVerify] verificación fallida", e?.message);
+    throw new HttpsError("permission-denied", "No se pudo verificar tu identidad.");
+  }
+  if (!verification.verified) {
+    throw new HttpsError("permission-denied", "No se pudo verificar tu identidad.");
+  }
+
+  // Actualiza el contador de esa credencial (previene ataques de repetición);
+  // las demás credenciales del arreglo quedan intactas.
+  const updatedCreds = storedCreds.map((c) => (c.credentialId === matching.id
+    ? { ...c, counter: verification.authenticationInfo.newCounter }
+    : c));
+  await ref.update({ webauthnLoginCredentials: updatedCreds });
+
+  let authUser;
+  try {
+    authUser = await admin.auth().getUserByEmail(chal.email);
+  } catch (e) {
+    logger.error("[webauthnLoginVerify] usuario Auth no encontrado", { email: chal.email, err: e?.message });
+    throw new HttpsError("not-found", "No se encontró la cuenta de este correo.");
+  }
+
+  const token = await admin.auth().createCustomToken(authUser.uid);
+  return { token };
+});

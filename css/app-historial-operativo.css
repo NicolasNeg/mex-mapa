@@ -205,91 +205,6 @@
 .hist-op-loading .spin,
 .hist-op-loading .material-icons { animation: hist-op-spin 1s linear infinite; }
 
-/* ── Popover cajón-a-cajón (hover en PC) ───────────────────── */
-.hist-move-pop {
-  position: fixed;
-  z-index: 9999;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
-  padding: 14px 16px 10px;
-  pointer-events: none;
-  font-family: 'Inter', sans-serif;
-}
-
-.hmp-track {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 200px;
-  height: 56px;
-}
-
-.hmp-box {
-  width: 76px;
-  height: 52px;
-  flex-shrink: 0;
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--text);
-}
-.hmp-box span { padding: 0 4px; text-align: center; word-break: break-all; }
-.hmp-box-limbo { border-style: dashed; background: var(--surface); color: var(--text-muted); }
-
-.hmp-arrow { color: var(--text-muted); font-size: 20px; }
-
-/* Unidad que se desliza de origen (left:8) a destino (+124px).
-   Geometría fija: cajones de 76px, unidad de 60px centrada sobre cada uno. */
-.hmp-unit {
-  position: absolute;
-  left: 8px;
-  top: 6px;
-  width: 60px;
-  height: 40px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 900;
-  color: #fff;
-  background: #3b82f6;
-  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4);
-}
-
-/* SWAP/MOVE — color azul por defecto (arriba) */
-
-/* DEL — unidad roja que sale del patio y se desvanece */
-.hmp-del .hmp-unit {
-  background: #ef4444;
-  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
-}
-.hmp-del .hmp-dest { border-color: #fca5a5; }
-
-/* ADD — unidad verde que entra al patio */
-.hmp-add .hmp-unit {
-  background: #22c55e;
-  box-shadow: 0 4px 10px rgba(34, 197, 94, 0.4);
-}
-
-.hmp-caption {
-  margin-top: 8px;
-  text-align: center;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
 /* Obsidian redesign - historial de cambios */
 .hist-op-root {
   background: var(--bg);
@@ -365,12 +280,8 @@
   align-items: center;
 }
 
-#hist-op-panel-estado .hist-op-filters {
+#hist-op-panel-cambios .hist-op-filters {
   grid-template-columns: minmax(260px, 1fr) auto auto auto auto;
-}
-
-#hist-op-panel-movimientos .hist-op-filters {
-  grid-template-columns: minmax(220px, 1fr) auto auto auto auto auto auto auto;
 }
 
 .hist-op-filters input[type="text"],
@@ -521,66 +432,10 @@
 }
 .hist-op-state-meta .material-icons { font-size: 14px; }
 
-
-.hist-move-pop {
-  --hist-move-duration: 1700ms;
-  --hist-move-distance: 152px;
-  border-radius: 8px;
-  border-color: var(--border);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, .18);
-}
-.hmp-track { width: 228px; height: 64px; }
-.hmp-box { border-radius: 8px; font-size: 11px; }
-.hmp-unit { animation: hmp-move-a var(--hist-move-duration) cubic-bezier(.4, 0, .2, 1) forwards; }
-.hmp-unit-b {
-  left: auto;
-  right: 8px;
-  background: #5b21b6;
-  box-shadow: 0 4px 10px rgba(91, 33, 182, .32);
-  animation: hmp-swap-b var(--hist-move-duration) cubic-bezier(.4, 0, .2, 1) forwards;
-}
-.hmp-swap .hmp-unit-a { background: #0b74b8; animation-name: hmp-swap-a; }
-.hmp-add .hmp-unit { left: 8px; background: #16a34a; animation-name: hmp-add-in; }
-.hmp-del .hmp-unit { background: #dc2626; animation-name: hmp-del-out; }
-.hmp-caption { display: flex; align-items: center; justify-content: center; gap: 5px; }
-.hmp-caption .material-icons { font-size: 14px; }
-
-@media (hover: none), (pointer: coarse) {
-  .hist-move-pop { display: none !important; }
-}
-
-@keyframes hmp-move-a {
-  0%, 16% { transform: translateX(0); opacity: 1; }
-  76%, 100% { transform: translateX(var(--hist-move-distance)); opacity: 1; }
-}
-@keyframes hmp-swap-a {
-  0%, 16% { transform: translateX(0); }
-  76%, 100% { transform: translateX(var(--hist-move-distance)); }
-}
-@keyframes hmp-swap-b {
-  0%, 16% { transform: translateX(0); }
-  76%, 100% { transform: translateX(calc(var(--hist-move-distance) * -1)); }
-}
-@keyframes hmp-add-in {
-  0%, 16% { transform: translateX(0) scale(.78); opacity: .45; }
-  24% { opacity: 1; }
-  76%, 100% { transform: translateX(var(--hist-move-distance)) scale(1); opacity: 1; }
-}
-@keyframes hmp-del-out {
-  0%, 16% { transform: translateX(0) scale(1); opacity: 1; }
-  76%, 90% { transform: translateX(var(--hist-move-distance)) scale(1); opacity: 1; }
-  100% { transform: translateX(var(--hist-move-distance)) scale(.7); opacity: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hist-move-pop .hmp-unit { animation-duration: 1ms; }
-}
-
 @media (max-width: 900px) {
   .hist-op-header { align-items: flex-start; flex-direction: column; }
   .hist-op-filters,
-  #hist-op-panel-estado .hist-op-filters,
-  #hist-op-panel-movimientos .hist-op-filters,
+  #hist-op-panel-cambios .hist-op-filters,
   #hist-op-panel-gestion .hist-op-filters { grid-template-columns: 1fr 1fr; }
   .hist-op-counter { grid-column: 1 / -1; margin-left: 0; }
   .hist-op-state-card { grid-template-columns: 38px minmax(0, 1fr); }
