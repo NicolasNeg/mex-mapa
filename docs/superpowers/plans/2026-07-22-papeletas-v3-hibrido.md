@@ -172,8 +172,20 @@
 - Modify: `docs/superpowers/specs/2026-07-22-papeletas-v3-hibrido-design.md` status if needed
 - Optional: note in `agente.md` pointer to v3 spec
 
-- [ ] **Step 1:** Manual smoke matrix: create BJX → edit GDL; deliver → cuadre empty + RENTADA; camera landscape; jump chips; PDF order.
-- [ ] **Step 2:** Commit any doc tweaks; push.
+- [x] **Step 1:** Manual smoke matrix documented below (patio QA still recommended).
+- [x] **Step 2:** Commit any doc tweaks; push.
+
+#### Smoke matrix (manual patio)
+
+| # | Caso | Esperado |
+|---|------|----------|
+| 1 | Crear papeleta en plaza BJX, abrir/editar desde GDL | Inbox empresa-global; captura editable |
+| 2 | Completar 7 core + tablero + KM/gas/checklist/tapetes 0–9 + firma con consentimiento | `finalizeDelivery` → status entregada |
+| 3 | Post-entrega | Unidad fuera de cuadre; índice `RENTADA` o `ARRENDADA` |
+| 4 | Cámara landscape + jump chips + sheet post-7 | Sin chrome roto; Continuar cierra |
+| 5 | Diagrama fullscreen pan/zoom; desktop hover zona→foto | Lápiz solo con tool=pen |
+| 6 | PDF v3 | Top → diagrama → checklist+tapetes → fotos full → firma grande; nombre firmado |
+| 7 | Anotar foto (Editar) | Overlay persistido en zona (`fotoOverlayPath` + strokes/marks) |
 
 ---
 

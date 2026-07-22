@@ -1,13 +1,22 @@
 # Diseño: Papeletas v3 — captura híbrida + PDF + entrega operativa
 
 > **Fecha:** 2026-07-22  
-> **Estado:** aprobado por usuario (brainstorming)  
+> **Estado:** implementado (capas 1–7 en main; smoke manual pendiente de QA patio)  
 > **Fuente de producto:** `MapGestion/PAPELETAS.md` + sesión 2026-07-22  
 > **Enfoque de entrega:** capas (B) — dominio → UI híbrida → cámara → diagrama → PDF → anotación fotos  
 > **Relación:**
 > - Extiende [`2026-07-22-papeletas-app-hoja-lapiz-design.md`](./2026-07-22-papeletas-app-hoja-lapiz-design.md) (§0A scope global, autosave, cliente diferible).
 > - **Reemplaza** la UX primaria “solo scroll continuo en móvil” por **híbrido C**.
 > - Conserva domain base de `2026-07-20-papeletas-mobile-app-redesign-design.md` y lo **amplía** (core 7, side-effects entrega).
+>
+> **Commits de implementación (2026-07-22):**
+> - `feat(papeletas): domain core7 + tablero hard + tapetes 0-9`
+> - `feat(papeletas): finalize saca de cuadre y marca RENTADA`
+> - `feat(papeletas): UI hibrida movil pantallas / desktop scroll`
+> - `fix(papeletas): camara guiada landscape + jump + post-7`
+> - `feat(papeletas): diagrama fullscreen zoom/pan + hover preview`
+> - `feat(papeletas): PDF v3 + resumen + firma consentimiento`
+> - `feat(papeletas): anotacion fullscreen de fotos`
 
 ---
 
