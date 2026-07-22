@@ -12,7 +12,6 @@ import {
 import { registrarAsistenciaDesdeCheckin, hoy } from '/js/app/features/turnos/horarios-data.js';
 import { formatDuration, turnoInicioDate } from '/js/app/features/turnos/turnos-view-model.js';
 import { runChecadoGate, showChecadoExito } from '/js/app/features/turnos/checado-gate.js';
-import { dataUrlToBlob } from '/js/app/features/turnos/camera.js';
 import { normalizarDescriptor } from '/js/app/features/turnos/face-verify.js';
 import { registrarHechoTurno } from '/js/app/features/turnos/turnos-audit.js';
 
@@ -71,26 +70,6 @@ export async function guardarFaceDescriptor(user, embedding) {
   return true;
 }
 
-/** Sube la firma digital (PNG) a Cloudinary. Falla silenciosamente → null. */
-async function uploadChecadaFirma(firmaDataURL, { uid, tipo }) {
-  if (!firmaDataURL || !uid) return null;
-  const blob = dataUrlToBlob(firmaDataURL);
-  if (!blob) return null;
-  try {
-    const { uploadMedia } = await import('/js/core/media-upload.js');
-    const result = await uploadMedia({
-      folder: `turnos/firmas/${uid}`,
-      file: blob,
-      publicId: `${tipo}_${Date.now()}`,
-      resourceType: 'image',
-    });
-    return result.url;
-  } catch (e) {
-    console.warn('[turnos-mutations] firma upload:', e?.code || e?.message);
-    return null;
-  }
-}
-
 /** Carga el perfil fresco (faceDescriptor, checadoPinHash, webauthnCredentialId). */
 async function loadFreshUserRecord(user) {
   try {
@@ -121,7 +100,6 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
       user: { ...user, ...freshUser },
       docId,
       plazaId: plaza,
-      signature: true,
     });
     if (gate?.cancelled) {
       const err = new Error('Cancelado');
@@ -138,7 +116,6 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
     }
 
     metodo = gate.metodo;
-    const firmaUrl = await uploadChecadaFirma(gate.firmaDataURL, { uid: firebaseUid, tipo: 'inicio' });
     meta = {
       lat: gate.lat,
       lon: gate.lon,
@@ -148,7 +125,6 @@ export async function iniciarTurno(user, plazaId, opts = {}) {
       faceSimilarity: gate.faceSimilarity,
       viveza: gate.viveza,
       antiSpoof: gate.antiSpoof,
-      firmaUrl,
       geoWarn: !!gate.geoWarn,
       distanciaPlazaM: gate.distanciaPlazaM,
     };

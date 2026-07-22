@@ -1,9 +1,13 @@
 // ═══════════════════════════════════════════════════════════
 //  checado-gate.js — wizard modal INICIAR / CERRAR TURNO
-//  Verificación de identidad SIN foto: biometría nativa del
-//  dispositivo (Face ID / Touch ID / Windows Hello) → reconocimiento
-//  facial en la app (Human.js, sin selfie) → PIN de 6 dígitos como
-//  respaldo universal. Geo soft-warn + firma digital en inicio.
+//  Verificación de identidad SIN foto ni firma dibujada:
+//  1. Biometría nativa del dispositivo (Face ID/Touch ID/Windows Hello)
+//     si el navegador la soporta — se intenta primero.
+//  2. Reconocimiento facial en la app (Human.js, sin selfie) — metodo
+//     por default cuando el dispositivo no tiene biometria nativa.
+//  3. PIN de 6 dígitos — respaldo universal, siempre disponible.
+//  Verificada la identidad: geo soft-warn → confirmar (reemplaza la
+//  firma dibujada) → autoriza entrada/salida.
 // ═══════════════════════════════════════════════════════════
 
 import {
@@ -54,6 +58,12 @@ const FACE_ICON = {
   error: 'error',
 };
 
+const METODO_LABEL = {
+  webauthn: 'Verificado con biometría del dispositivo',
+  face: 'Verificado por reconocimiento facial',
+  pin: 'Verificado con PIN',
+};
+
 function ensureGateCss() {
   if (document.querySelector('link[data-turnos-css]')) return;
   const l = document.createElement('link');
@@ -71,7 +81,6 @@ function ensureGateCss() {
 export function runChecadoGate(opts = {}) {
   ensureGateCss();
   const mode = opts.mode === 'cierre' ? 'cierre' : 'inicio';
-  const requireSigna = opts.signature !== false && mode === 'inicio';
   const user = opts.user || {};
   const docId = String(opts.docId || user.id || '').trim();
   const plazaId = String(opts.plazaId || '').toUpperCase().trim();
@@ -92,7 +101,6 @@ export function runChecadoGate(opts = {}) {
       faceSimilarity: null,
       viveza: null,
       antiSpoof: null,
-      firmaDataURL: null,
       geoWarn: false,
       distanciaPlazaM: null,
       enrolled: false,
@@ -134,13 +142,12 @@ export function runChecadoGate(opts = {}) {
       const action = btn.dataset.gateAction;
       if (action === 'cancel') cancel();
       else if (action === 'setup-webauthn') void setupWebauthn();
-      else if (action === 'setup-face') showFaceStep({ enrolar: true });
-      else if (action === 'setup-pin') showPinStep({ enrolar: true });
+      else if (action === 'skip-to-face') showFaceStep();
       else if (action === 'use-pin') showPinStep({ enrolar: !pinConfigurado });
       else if (action === 'retry-webauthn') void tryWebauthn();
+      else if (action === 'face-enrol-start') void startEnrolarFace();
       else if (action === 'geo-continue') proceedAfterVerificacion();
-      else if (action === 'firma-clear') limpiarFirma();
-      else if (action === 'firma-confirm') void confirmarFirma();
+      else if (action === 'confirmar-autorizar') void finalizeGate();
     });
     overlay.addEventListener('submit', (e) => {
       const form = e.target.closest('[data-gate-form="pin"]');
@@ -162,42 +169,34 @@ export function runChecadoGate(opts = {}) {
       }).catch(() => {});
 
       const nativaDisponible = await biometriaNativaDisponible().catch(() => false);
-      const tieneAlgunMetodo = (nativaDisponible && webauthnCredentialId) || faceDescriptor || pinConfigurado;
-
-      if (!tieneAlgunMetodo) {
-        showEnrolarIntro(nativaDisponible);
-        return;
-      }
 
       if (nativaDisponible && webauthnCredentialId) {
         void tryWebauthn();
-      } else if (faceDescriptor) {
-        showFaceStep();
+      } else if (nativaDisponible) {
+        showWebauthnOffer();
       } else {
-        showPinStep();
+        // Sin biometría nativa disponible: reconocimiento facial por default.
+        showFaceStep();
       }
     }
 
-    // ── Paso: elegir método (primera vez, nada enrolado) ──
-    function showEnrolarIntro(nativaDisponible) {
-      showStep('enrolar-intro');
-      const btnNativa = $('#tuGateEnrolNativa');
-      if (btnNativa) btnNativa.hidden = !nativaDisponible;
+    // ── Método: biometría nativa (Face ID / Touch ID / Windows Hello) ──
+    function showWebauthnOffer() {
+      showStep('webauthn-offer');
     }
 
     async function setupWebauthn() {
       try {
         webauthnCredentialId = await enrolarBiometriaNativa(docId, user.nombre || user.nombreCompleto || docId);
         result.metodo = 'webauthn';
-        result.faceVerified = true; // "identidad confirmada" generico, no exclusivo de face
+        result.faceVerified = true;
         proceedAfterVerificacion();
       } catch (e) {
         console.warn('[checado-gate] enrolar webauthn:', e);
-        showPinStep({ enrolar: true });
+        showFaceStep();
       }
     }
 
-    // ── Método: biometría nativa (Face ID / Touch ID / Windows Hello) ──
     async function tryWebauthn() {
       showStep('webauthn');
       const chip = $('#tuGateWaChip');
@@ -214,16 +213,16 @@ export function runChecadoGate(opts = {}) {
       if (retry) retry.hidden = false;
     }
 
-    // ── Método: reconocimiento facial (sin foto) ──────────
-    function showFaceStep({ enrolar = false } = {}) {
+    // ── Método: reconocimiento facial (sin foto, default sin WebAuthn) ──
+    function showFaceStep() {
       showStep('face');
       const video = $('#tuGateVideo');
       const enrolarUi = $('#tuGateFaceEnrolIntro');
       const scanUi = $('#tuGateFaceScan');
-      if (enrolar || !faceDescriptor) {
+      if (!faceDescriptor) {
         if (enrolarUi) enrolarUi.hidden = false;
         if (scanUi) scanUi.hidden = true;
-        void solicitarCamara().then((stream) => iniciarPreview(video, stream)).catch(() => {
+        void solicitarCamara().catch(() => {
           setFaceEstado('error');
           showPinStep({ enrolar: !pinConfigurado });
         });
@@ -240,16 +239,19 @@ export function runChecadoGate(opts = {}) {
       }
     }
 
-    overlay?.addEventListener('click', (e) => {
-      if (e.target.closest('[data-gate-action="face-enrol-start"]')) void startEnrolarFace();
-    });
-
     async function startEnrolarFace() {
       const enrolarUi = $('#tuGateFaceEnrolIntro');
       const scanUi = $('#tuGateFaceScan');
       if (enrolarUi) enrolarUi.hidden = true;
       if (scanUi) scanUi.hidden = false;
       const video = $('#tuGateVideo');
+      const stream = await solicitarCamara().catch(() => null);
+      if (!stream) {
+        setFaceEstado('error');
+        showPinStep({ enrolar: !pinConfigurado });
+        return;
+      }
+      iniciarPreview(video, stream);
       setFaceEstado('cargando');
       try {
         await cargarMotor();
@@ -400,7 +402,7 @@ export function runChecadoGate(opts = {}) {
       proceedAfterVerificacion();
     }
 
-    // ── Tras verificar identidad (cualquier método): geo → firma ──
+    // ── Tras verificar identidad (cualquier método): geo → confirmar ──
     async function proceedAfterVerificacion() {
       detenerGateFacial();
       detenerCamara();
@@ -427,71 +429,17 @@ export function runChecadoGate(opts = {}) {
         if (dir) dir.textContent = result.direccion || `${result.lat?.toFixed(5)}, ${result.lon?.toFixed(5)}`;
         return;
       }
-      if (requireSigna) showFirma();
-      else void finalizeGate();
+      showConfirmar();
     }
 
-    // ── Firma digital (canvas) ─────────────────────────────
-    let firmaCtx = null;
-    let firmaDibujo = false;
-    let firmaTieneTrazo = false;
-
-    function showFirma() {
-      showStep('firma');
-      const canvas = $('#tuGateFirmaCanvas');
-      if (!canvas) { void finalizeGate(); return; }
-      const rect = canvas.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(300, rect.width) * dpr;
-      canvas.height = Math.max(150, rect.height) * dpr;
-      firmaCtx = canvas.getContext('2d');
-      firmaCtx.scale(dpr, dpr);
-      firmaCtx.lineWidth = 2.5;
-      firmaCtx.lineCap = 'round';
-      firmaCtx.lineJoin = 'round';
-      const dark = document.body.classList.contains('dark-theme');
-      firmaCtx.strokeStyle = dark ? '#f8fafc' : '#0f172a';
-      firmaTieneTrazo = false;
-      _setFirmaConfirm(false);
-
-      const pos = (ev) => {
-        const r = canvas.getBoundingClientRect();
-        const p = ev.touches ? ev.touches[0] : ev;
-        return { x: p.clientX - r.left, y: p.clientY - r.top };
-      };
-      const start = (ev) => { ev.preventDefault(); firmaDibujo = true; const { x, y } = pos(ev); firmaCtx.beginPath(); firmaCtx.moveTo(x, y); };
-      const move = (ev) => {
-        if (!firmaDibujo) return;
-        ev.preventDefault();
-        const { x, y } = pos(ev);
-        firmaCtx.lineTo(x, y); firmaCtx.stroke();
-        firmaTieneTrazo = true; _setFirmaConfirm(true);
-      };
-      const end = () => { firmaDibujo = false; };
-
-      canvas.onmousedown = start; canvas.onmousemove = move;
-      window.addEventListener('mouseup', end);
-      canvas.ontouchstart = start; canvas.ontouchmove = move; canvas.ontouchend = end;
-    }
-
-    function _setFirmaConfirm(enabled) {
-      const btn = $('#tuGateFirmaConfirm');
-      if (btn) btn.disabled = !enabled;
-    }
-
-    function limpiarFirma() {
-      const canvas = $('#tuGateFirmaCanvas');
-      if (canvas && firmaCtx) firmaCtx.clearRect(0, 0, canvas.width, canvas.height);
-      firmaTieneTrazo = false;
-      _setFirmaConfirm(false);
-    }
-
-    async function confirmarFirma() {
-      const canvas = $('#tuGateFirmaCanvas');
-      if (!firmaTieneTrazo || !canvas) return;
-      try { result.firmaDataURL = canvas.toDataURL('image/png'); }
-      catch (e) { console.warn('[checado-gate] firma:', e); }
-      await finalizeGate();
+    // ── Confirmar (reemplaza la firma dibujada): tap explicito antes
+    // de autorizar entrada/salida ──────────────────────────────────
+    function showConfirmar() {
+      showStep('confirmar');
+      const metodoTxt = $('#tuGateConfirmMetodo');
+      if (metodoTxt) metodoTxt.textContent = METODO_LABEL[result.metodo] || 'Identidad verificada';
+      const accionTxt = $('#tuGateConfirmAccion');
+      if (accionTxt) accionTxt.textContent = mode === 'cierre' ? 'cerrar' : 'iniciar';
     }
 
     async function finalizeGate() {
@@ -512,7 +460,7 @@ export function runChecadoGate(opts = {}) {
 export function showChecadoExito(info = {}) {
   ensureGateCss();
   const esInicio = info.mode !== 'cierre';
-  const metodoLabel = { webauthn: 'Verificado con biometría del dispositivo', face: 'Verificado por reconocimiento facial', pin: 'Verificado con PIN' }[info.metodo] || 'Identidad verificada';
+  const metodoLabel = METODO_LABEL[info.metodo] || 'Identidad verificada';
   const overlay = document.createElement('div');
   overlay.className = 'tu-gate tu-gate--exito';
   overlay.setAttribute('role', 'dialog');
@@ -560,19 +508,16 @@ function _shellHtml(mode) {
     <p>Preparando verificación…</p>
   </div>
 
-  <div data-gate-step="enrolar-intro" class="tu-gate__body tu-gate__body--center" hidden>
-    <span class="material-symbols-outlined tu-gate__warn-icon" style="color:#3b82f6">verified_user</span>
-    <h3>Configura tu verificación</h3>
-    <p class="tu-gate__hint">La usarás cada vez que inicies o cierres turno. Elige una:</p>
+  <div data-gate-step="webauthn-offer" class="tu-gate__body tu-gate__body--center" hidden>
+    <span class="material-symbols-outlined tu-gate__warn-icon" style="color:#3b82f6">fingerprint</span>
+    <h3>Activa la verificación rápida</h3>
+    <p class="tu-gate__hint">Este dispositivo soporta Face ID / Touch ID / Windows Hello para checar sin cámara.</p>
     <div class="tu-gate__row" style="flex-direction:column;gap:10px;width:100%;max-width:320px;margin:12px auto 0;">
-      <button type="button" id="tuGateEnrolNativa" class="tu-btn tu-btn--primary tu-btn--full" data-gate-action="setup-webauthn" hidden>
-        <span class="material-symbols-outlined">fingerprint</span> Face ID / Touch ID del equipo
+      <button type="button" class="tu-btn tu-btn--primary tu-btn--full" data-gate-action="setup-webauthn">
+        <span class="material-symbols-outlined">fingerprint</span> Activar
       </button>
-      <button type="button" class="tu-btn tu-btn--ghost tu-btn--full" data-gate-action="setup-face">
-        <span class="material-symbols-outlined">face</span> Reconocimiento facial
-      </button>
-      <button type="button" class="tu-btn tu-btn--ghost tu-btn--full" data-gate-action="setup-pin">
-        <span class="material-symbols-outlined">pin</span> PIN de ${PIN_LENGTH} dígitos
+      <button type="button" class="tu-btn tu-btn--ghost tu-btn--full" data-gate-action="skip-to-face">
+        <span class="material-symbols-outlined">face</span> Usar reconocimiento facial
       </button>
     </div>
   </div>
@@ -582,7 +527,8 @@ function _shellHtml(mode) {
     <p id="tuGateWaChip">Confirma con Face ID, Touch ID o Windows Hello…</p>
     <div class="tu-gate__row">
       <button type="button" id="tuGateWaRetry" class="tu-btn tu-btn--ghost" data-gate-action="retry-webauthn" hidden>Reintentar</button>
-      <button type="button" class="tu-btn tu-btn--ghost" data-gate-action="use-pin">Usar PIN en su lugar</button>
+      <button type="button" class="tu-btn tu-btn--ghost" data-gate-action="skip-to-face">Usar rostro</button>
+      <button type="button" class="tu-btn tu-btn--ghost" data-gate-action="use-pin">Usar PIN</button>
     </div>
   </div>
 
@@ -629,16 +575,14 @@ function _shellHtml(mode) {
     </form>
   </div>
 
-  <div data-gate-step="firma" class="tu-gate__body tu-gate__body--firma" hidden>
-    <h3 class="tu-gate__firma-title">Firma para confirmar</h3>
-    <p class="tu-gate__hint">Dibuja tu firma con el dedo o el mouse.</p>
-    <div class="tu-gate-firma">
-      <canvas id="tuGateFirmaCanvas" class="tu-gate-firma__canvas"></canvas>
-      <span class="tu-gate-firma__line"></span>
-    </div>
+  <div data-gate-step="confirmar" class="tu-gate__body tu-gate__body--center" hidden>
+    <span class="material-symbols-outlined tu-gate__warn-icon" style="color:#10b981">check_circle</span>
+    <h3>Identidad verificada</h3>
+    <p id="tuGateConfirmMetodo" class="tu-gate__hint"></p>
+    <p class="tu-gate__hint">¿Confirmas <strong id="tuGateConfirmAccion"></strong> turno?</p>
     <div class="tu-gate__row">
-      <button type="button" class="tu-btn tu-btn--ghost" data-gate-action="firma-clear">Limpiar</button>
-      <button type="button" id="tuGateFirmaConfirm" class="tu-btn tu-btn--primary" data-gate-action="firma-confirm" disabled>Confirmar</button>
+      <button type="button" class="tu-btn tu-btn--ghost" data-gate-action="cancel">Cancelar</button>
+      <button type="button" class="tu-btn tu-btn--primary" data-gate-action="confirmar-autorizar">Confirmar</button>
     </div>
   </div>
 
