@@ -213,7 +213,8 @@ const ROUTE_TABLE = {
     loader: () => import('/js/app/views/reportes-danos.js'),
     navRoute: '/app/reportes-danos',
     feature: 'papeletas',
-    permission: 'view_papeletas',
+    // AUXILIAR blocked; same gate as nav (create_reporte_dano = VENTAS+)
+    permission: 'create_reporte_dano',
   },
   // Detail: /app/papeletas/p/:uid — resolved via _routeForPath prefix match
 };

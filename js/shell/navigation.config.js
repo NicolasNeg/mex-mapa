@@ -140,7 +140,8 @@ export const NAV_GROUPS = [
         route: '/app/reportes-danos',
         roles: '*',
         feature: 'papeletas',
-        permission: 'view_papeletas',
+        // AUXILIAR no crea/ve reportes; VENTAS+ vía create_reporte_dano
+        permission: 'create_reporte_dano',
       },
       {
         id: 'papeletas',

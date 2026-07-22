@@ -71,7 +71,8 @@ function _user() {
 }
 
 function _canView() {
-  return window.mexPerms?.canDo?.('view_papeletas') !== false;
+  // Same gate as sidebar/router: AUXILIAR lacks create_reporte_dano
+  return window.mexPerms?.canDo?.('create_reporte_dano') === true;
 }
 
 function _canCreate() {
