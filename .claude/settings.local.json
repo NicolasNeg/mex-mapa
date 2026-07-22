@@ -224,7 +224,11 @@
       "Bash(grep -rnP \"registrarLog\\\\w*\\\\\\(\\\\s*[\\\\`'\\\\\"][\\\\x{1F300}-\\\\x{1FAFF}\\\\x{2600}-\\\\x{27BF}]|_registrarLog\\\\\\(\\\\s*[\\\\`'\\\\\"][\\\\x{1F300}-\\\\x{1FAFF}\\\\x{2600}-\\\\x{27BF}]\" --include=\"*.js\" api/ js/app/features/ js/views/)",
       "Bash(grep -n \"badge st-\\\\${estadoClass}\\\\|<td>\\\\${u.modelo}\\\\|class=\\\\\"td-modelo\\\\\"\" js/views/mapa.js)",
       "Bash(powershell -Command \"Get-ChildItem -Path C:\\\\Users\\\\Pc -Directory -Recurse -Depth 4 -Filter '*MapGestion*' -ErrorAction SilentlyContinue | Select-Object FullName\" 2>/dev/null)",
-      "Bash(xargs -n1 basename)"
+      "Bash(xargs -n1 basename)",
+      "Bash(npm audit *)",
+      "Read(//c/Users/Pc/Documents/mis documentos/MYPROYECT/**)",
+      "Bash(npm config *)",
+      "Bash(npm install *)"
     ]
   }
 }
