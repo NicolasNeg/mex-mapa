@@ -548,10 +548,10 @@ function _syncLegacyCuadreHeader(id) {
   const isAdmins = doc.documentElement?.dataset?.cuadreView === 'admins';
   _shell.setHeaderTitle?.(isAdmins ? 'Cuadre de admins' : 'Cuadre');
 
-  // Mobile: el footer ya tiene Controles — no duplicar tune/car en el header del shell
-  const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  if (isMobile) {
-    const mobileSig = `cuadre:mobile-clear:${isAdmins ? 'admins' : 'normal'}`;
+  // Mobile/tablet: el footer ya tiene Controles — no duplicar tune en el header del shell
+  const isCompactCuadre = window.matchMedia('(max-width: 1024px)').matches;
+  if (isCompactCuadre) {
+    const mobileSig = `cuadre:compact-clear:${isAdmins ? 'admins' : 'normal'}`;
     if (_unitsHeaderSig === mobileSig) return;
     _unitsHeaderSig = mobileSig;
     _shell.setHeaderActions?.('');

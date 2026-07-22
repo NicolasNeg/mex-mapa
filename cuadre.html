@@ -538,49 +538,55 @@
       }
     }
 
-    #fleet-modal .main-grid-flota {
-      display: flex !important;
-      flex-direction: row !important;
-      align-items: stretch !important;
-      gap: 0 !important;
-      overflow: hidden !important;
+    @media (min-width: 1025px) {
+      #fleet-modal .main-grid-flota {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: stretch !important;
+        gap: 0 !important;
+        overflow: hidden !important;
+      }
+
+      #fleet-modal .col-form-overlay {
+        display: none !important;
+      }
+
+      #fleet-modal .col-form {
+        position: relative !important;
+        top: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        left: auto !important;
+        height: auto !important;
+        flex: 0 0 0 !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        opacity: 0;
+        pointer-events: none;
+        border-left: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        transition: flex-basis .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1), opacity .2s ease, border-color .2s ease !important;
+      }
+
+      #fleet-modal .main-grid-flota.unit-panel-open .col-form,
+      #fleet-modal .col-form.active {
+        flex: 0 0 min(400px, 34vw) !important;
+        width: min(400px, 34vw) !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        border-left: 1px solid var(--cuadre-border) !important;
+        box-shadow: -12px 0 32px rgba(19, 27, 46, .08) !important;
+      }
     }
 
-    #fleet-modal .col-form-overlay {
-      display: none !important;
-    }
-
-    #fleet-modal .col-form {
-      position: relative !important;
-      top: auto !important;
-      right: auto !important;
-      height: auto !important;
-      flex: 0 0 0 !important;
-      width: 0 !important;
-      min-width: 0 !important;
-      max-width: none !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      overflow: hidden !important;
-      opacity: 0;
-      pointer-events: none;
-      border-left: 0 !important;
-      box-shadow: none !important;
-      transition: flex-basis .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1), opacity .2s ease, border-color .2s ease !important;
-    }
-
-    #fleet-modal .main-grid-flota.unit-panel-open .col-form,
-    #fleet-modal .col-form.active {
-      flex: 0 0 min(400px, 34vw) !important;
-      width: min(400px, 34vw) !important;
-      opacity: 1 !important;
-      pointer-events: auto !important;
-      overflow-x: hidden !important;
-      overflow-y: auto !important;
-      border-left: 1px solid var(--cuadre-border) !important;
-      box-shadow: -12px 0 32px rgba(19, 27, 46, .08) !important;
-    }
-
+    /* Estilos del gestor (desktop + mobile comparten tipografía/campos) */
     #fleet-modal .col-form > div:first-child {
       position: sticky !important;
       top: 0 !important;
@@ -691,6 +697,10 @@
     #fleet-modal .btn-del { background: #fff1f1 !important; color: #a61b1b !important; border: 1px solid #f2b8b5 !important; }
 
     @media (max-width: 1024px) {
+      #fleet-modal .main-grid-flota {
+        flex-direction: column !important;
+      }
+
       #fleet-modal .col-form-overlay {
         display: block !important;
         position: fixed !important;
@@ -708,26 +718,61 @@
         visibility: visible !important;
         pointer-events: auto !important;
       }
+
       #fleet-modal .col-form {
         position: fixed !important;
         left: 0 !important;
         right: 0 !important;
         top: auto !important;
-        bottom: -105% !important;
+        bottom: -110% !important;
         width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
         flex: none !important;
-        height: 88vh !important;
-        max-height: 88dvh !important;
+        height: auto !important;
+        max-height: min(88dvh, calc(100dvh - 48px)) !important;
         z-index: 10000 !important;
+        padding: 0 0 calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+        margin: 0 !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        opacity: 0 !important;
+        pointer-events: none !important;
         border-left: 0 !important;
         border-radius: 18px 18px 0 0 !important;
         box-shadow: 0 -12px 40px rgba(15, 23, 42, .18) !important;
-        transition: bottom .32s cubic-bezier(.4,0,.2,1) !important;
+        transition: bottom .32s cubic-bezier(.4,0,.2,1), opacity .24s ease !important;
       }
-      #fleet-modal .col-form.active {
+
+      #fleet-modal .col-form.active,
+      #fleet-modal .main-grid-flota.unit-panel-open .col-form {
         bottom: 0 !important;
         width: 100% !important;
         flex: none !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+      }
+
+      html.shell-embedded #fleet-modal .col-form.active,
+      html.shell-embedded #fleet-modal .main-grid-flota.unit-panel-open .col-form {
+        bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+        max-height: min(82dvh, calc(100dvh - 120px - env(safe-area-inset-bottom, 0px))) !important;
+      }
+
+      html.shell-embedded #fleet-modal .col-form-overlay.active {
+        bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+
+      #fleet-modal .col-form .grid-2 {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+      }
+
+      #fleet-modal .col-form .field input,
+      #fleet-modal .col-form .field select {
+        min-height: 44px !important;
+        font-size: 16px !important;
       }
     }
 
