@@ -2906,3 +2906,90 @@ body.dark-theme .pap-sec-chip.is-active {
   border-color: #3b82f6;
   color: #fff;
 }
+
+/* -- v3 híbrido: móvil pantallas / desktop scroll ----------- */
+.pap-capture-sec.is-hidden-screen { display: none !important; }
+.pap-capture-scroll--stack {
+  scroll-snap-type: none;
+  padding-bottom: 24px;
+}
+.pap-editor-shell--mobile .pap-capture-scroll--stack {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.pap-sec-chips--mobile {
+  gap: 6px;
+}
+.pap-sec-chips--mobile .pap-sec-chip {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11px;
+  padding: 8px 6px;
+}
+
+.pap-unit-hero {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 120px;
+  margin-bottom: 12px;
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+  border: 1px solid var(--pap-border, #e2e8f0);
+}
+.pap-unit-hero--full { min-height: 220px; margin-bottom: 0; border-radius: 0; border: 0; }
+.pap-unit-hero__bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.55;
+}
+.pap-unit-hero.has-img .pap-unit-hero__bg { opacity: 0.72; }
+.pap-unit-hero__overlay {
+  position: relative;
+  z-index: 1;
+  padding: 20px 16px 16px;
+  color: #f8fafc;
+  text-shadow: 0 1px 2px rgba(0,0,0,.45);
+  background: linear-gradient(180deg, transparent 20%, rgba(15,23,42,.72) 100%);
+  min-height: inherit;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.pap-unit-hero__eco {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.pap-unit-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 13px;
+  opacity: 0.95;
+}
+.pap-hero-screen { display: flex; flex-direction: column; gap: 0; }
+.pap-hero-fields { border-radius: 16px 16px 0 0; margin-top: -12px; position: relative; z-index: 2; }
+.pap-hero-fields__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.pap-hero-fields__head h2 { margin: 0; }
+.pap-editor-shell--hero .pap-editor-top { margin-bottom: 0; }
+
+@media (min-width: 900px) {
+  .pap-editor-shell--desktop .pap-unit-hero { min-height: 160px; }
+  .pap-capture-sec.is-hidden-screen { display: block !important; } /* desktop siempre scroll */
+}
+
+body.dark-theme .pap-unit-hero {
+  border-color: #334155;
+}

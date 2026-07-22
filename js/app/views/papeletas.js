@@ -105,10 +105,65 @@ let _cameraApi = null;
 let _saveState = 'idle'; // idle | saving | saved | conflict
 /** Local draft for regreso comparison — never mutates salida.danosMarcados */
 let _entradaCompareDraft = [];
+/** v3 híbrido: pantalla activa en móvil (datos|diagrama|fotos|resumen|firma) */
+let _mobileScreen = 'datos';
+/** Unidad elegida en buscador — hero confirma antes de crear */
+let _pendingUnit = null;
+let _heroEditing = false;
+let _mqMobile = null;
 
 const LIST_ROUTE = '/app/papeletas';
 const VENTAS_ROUTE = '/app/reportes-danos';
 const DETAIL_PREFIX = '/app/papeletas/p/';
+const MOBILE_BP = 900;
+
+/** Stack móvil v3: ids de pantalla → secciones desktop equivalentes */
+const MOBILE_SCREENS = Object.freeze([
+  { id: 'datos', label: 'Datos', secs: ['datos', 'km_gas', 'checklist'] },
+  { id: 'diagrama', label: 'Diagrama', secs: ['danos'] },
+  { id: 'fotos', label: 'Fotos', secs: ['fotos'] },
+  { id: 'resumen', label: 'Resumen', secs: ['entregar'] },
+  { id: 'firma', label: 'Firma', secs: ['firma'] },
+]);
+
+function _isMobileCapture() {
+  try {
+    return window.matchMedia(`(max-width: ${MOBILE_BP - 1}px)`).matches;
+  } catch {
+    return false;
+  }
+}
+
+/** Imagen del modelo desde catálogo Admin → Modelos (mismo patrón que cuadre ventas). */
+function _modelImageUrl(modelo) {
+  const name = String(modelo || '').trim().toUpperCase();
+  if (!name || name === 'S/M') return '';
+  const catalog = window.MEX_CONFIG?.listas?.modelos || [];
+  let best = null;
+  for (const item of catalog) {
+    if (!item || typeof item !== 'object') continue;
+    const itemName = String(item.nombre || '').trim().toUpperCase();
+    if (!itemName) continue;
+    if (itemName === name) { best = item; break; }
+    if (!best && (name.includes(itemName) || itemName.includes(name.split(' ')[0]))) best = item;
+  }
+  if (!best) return '';
+  return String(best.imagenURL || best.imagen || best.image || best.foto || '').trim();
+}
+
+function _screenForSec(secId) {
+  const hit = MOBILE_SCREENS.find((s) => s.secs.includes(secId));
+  return hit?.id || 'datos';
+}
+
+function _gotoMobileScreen(id) {
+  const next = MOBILE_SCREENS.some((s) => s.id === id) ? id : 'datos';
+  _mobileScreen = next;
+  const firstSec = MOBILE_SCREENS.find((s) => s.id === next)?.secs?.[0] || 'datos';
+  _activeCaptureSec = firstSec;
+  if (_isMobileCapture()) _render();
+  else _jumpToSec(firstSec);
+}
 
 const FILTER_LABELS = Object.freeze({
   activas: 'En curso',
@@ -298,18 +353,29 @@ function _captureChipsHtml(p) {
   const gate = _deliveryGate(p, { firma: p.salida?.firma || null });
   const softSet = new Set(gate.soft || []);
   const hardSet = new Set(gate.hard || []);
-  const warnFor = (id) => {
-    if (id === 'km_gas' && (hardSet.has('km') || hardSet.has('gas') || hardSet.has('km_justification'))) return true;
+  const mobile = _isMobileCapture();
+  const warnForSec = (id) => {
+    if (id === 'km_gas' && (hardSet.has('km') || hardSet.has('gas') || hardSet.has('km_justification') || hardSet.has('tablero_photo'))) return true;
     if (id === 'checklist' && hardSet.has('checklist')) return true;
     if (id === 'fotos' && hardSet.has('core_photos')) return true;
     if (id === 'firma' && hardSet.has('firma')) return true;
     if (id === 'entregar' && softSet.has('cliente')) return true;
     return false;
   };
+  const warnForScreen = (screen) => (screen.secs || []).some((sec) => warnForSec(sec));
+  if (mobile) {
+    return `
+      <nav class="pap-sec-chips pap-sec-chips--mobile" role="tablist" aria-label="Pantallas">
+        ${MOBILE_SCREENS.map((s) => `
+          <button type="button" class="pap-sec-chip ${_mobileScreen === s.id ? 'is-active' : ''} ${warnForScreen(s) ? 'is-warn' : ''}"
+            data-act="jump-screen" data-screen="${s.id}" role="tab">${_esc(s.label)}</button>
+        `).join('')}
+      </nav>`;
+  }
   return `
     <nav class="pap-sec-chips" role="tablist" aria-label="Secciones">
       ${CAPTURE_SECS.map((s) => `
-        <button type="button" class="pap-sec-chip ${_activeCaptureSec === s.id ? 'is-active' : ''} ${warnFor(s.id) ? 'is-warn' : ''}"
+        <button type="button" class="pap-sec-chip ${_activeCaptureSec === s.id ? 'is-active' : ''} ${warnForSec(s.id) ? 'is-warn' : ''}"
           data-act="jump-sec" data-sec="${s.id}" role="tab">${_esc(s.label)}</button>
       `).join('')}
     </nav>`;
@@ -345,6 +411,11 @@ function _firstHardSec(p) {
 function _jumpToSec(secId) {
   const id = String(secId || 'datos');
   _activeCaptureSec = id;
+  _mobileScreen = _screenForSec(id);
+  if (_isMobileCapture()) {
+    _render();
+    return;
+  }
   const el = _container?.querySelector(`#pap-sec-${id}`);
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   _container?.querySelectorAll('.pap-sec-chip').forEach((btn) => {
@@ -353,6 +424,7 @@ function _jumpToSec(secId) {
 }
 
 function _bindCaptureScrollSpy() {
+  if (_isMobileCapture()) return;
   const scroller = _container?.querySelector('#papCaptureScroll');
   if (!scroller || scroller.dataset.spyBound === '1') return;
   scroller.dataset.spyBound = '1';
@@ -1044,6 +1116,10 @@ function _deliveryGate(p, opts = {}) {
   return puedeEntregar(p, opts);
 }
 
+function _onMobileBpChange() {
+  if (_mode === 'detail' && _detail && puedeEditar(_detail.status)) _render();
+}
+
 export async function mount(ctx) {
   _cleanup();
   _container = ctx.container;
@@ -1057,6 +1133,17 @@ export async function mount(ctx) {
   _zonaIdx = 0;
   _showNueva = false;
   _casoWarning = '';
+  _pendingUnit = null;
+  _heroEditing = false;
+  _mobileScreen = 'datos';
+
+  try {
+    if (_mqMobile) _mqMobile.removeEventListener?.('change', _onMobileBpChange);
+  } catch (_) { /* ignore */ }
+  try {
+    _mqMobile = window.matchMedia(`(max-width: ${MOBILE_BP - 1}px)`);
+    _mqMobile.addEventListener?.('change', _onMobileBpChange);
+  } catch (_) { _mqMobile = null; }
 
   // Canonical detail: /app/papeletas/p/:uid — rewrite legacy /app/papeletas/:uid
   const legacyId = _isLegacyDetailPath() ? _pathId() : '';
@@ -1436,30 +1523,31 @@ function _renderDetail() {
       </main>`;
   }
 
+  const mobile = _isMobileCapture();
   return `
-    <main class="pap-editor-shell pap-editor-shell--sheet">
+    <main class="pap-editor-shell pap-editor-shell--sheet ${mobile ? 'pap-editor-shell--mobile' : 'pap-editor-shell--desktop'}">
       ${_captureHeaderHtml(p)}
       ${_captureChipsHtml(p)}
-      <div class="pap-capture-scroll" id="papCaptureScroll">
-        <section class="pap-capture-sec" id="pap-sec-datos" data-sec="datos">
+      <div class="pap-capture-scroll ${mobile ? 'pap-capture-scroll--stack' : ''}" id="papCaptureScroll">
+        <section class="pap-capture-sec ${mobile && _mobileScreen !== 'datos' ? 'is-hidden-screen' : ''}" id="pap-sec-datos" data-sec="datos" data-screen="datos">
           ${_panelConfirmarDatos(p, editable)}
         </section>
-        <section class="pap-capture-sec" id="pap-sec-km_gas" data-sec="km_gas">
+        <section class="pap-capture-sec ${mobile && _mobileScreen !== 'datos' ? 'is-hidden-screen' : ''}" id="pap-sec-km_gas" data-sec="km_gas" data-screen="datos">
           ${_panelKmGas(p, editable)}
         </section>
-        <section class="pap-capture-sec" id="pap-sec-checklist" data-sec="checklist">
+        <section class="pap-capture-sec ${mobile && _mobileScreen !== 'datos' ? 'is-hidden-screen' : ''}" id="pap-sec-checklist" data-sec="checklist" data-screen="datos">
           ${_panelChecklistStep(p, editable)}
         </section>
-        <section class="pap-capture-sec" id="pap-sec-danos" data-sec="danos">
+        <section class="pap-capture-sec ${mobile && _mobileScreen !== 'diagrama' ? 'is-hidden-screen' : ''}" id="pap-sec-danos" data-sec="danos" data-screen="diagrama">
           ${_panelDanos(p, editable)}
         </section>
-        <section class="pap-capture-sec" id="pap-sec-fotos" data-sec="fotos">
+        <section class="pap-capture-sec ${mobile && _mobileScreen !== 'fotos' ? 'is-hidden-screen' : ''}" id="pap-sec-fotos" data-sec="fotos" data-screen="fotos">
           ${_panelZonas(p, editable)}
         </section>
-        <section class="pap-capture-sec" id="pap-sec-entregar" data-sec="entregar">
+        <section class="pap-capture-sec ${mobile && _mobileScreen !== 'resumen' ? 'is-hidden-screen' : ''}" id="pap-sec-entregar" data-sec="entregar" data-screen="resumen">
           ${_panelResumen(p)}
         </section>
-        <section class="pap-capture-sec" id="pap-sec-firma" data-sec="firma">
+        <section class="pap-capture-sec ${mobile && _mobileScreen !== 'firma' ? 'is-hidden-screen' : ''}" id="pap-sec-firma" data-sec="firma" data-screen="firma">
           ${_panelFirma(p)}
         </section>
       </div>
@@ -1911,12 +1999,68 @@ function _panelFirma(p) {
 }
 
 function _unitIdentityHtml(p) {
+  const img = _modelImageUrl(p.modelo);
   return `
+    <div class="pap-unit-hero ${img ? 'has-img' : ''}">
+      <div class="pap-unit-hero__bg" ${img ? `style="background-image:url('${_esc(img)}')"` : ''} aria-hidden="true"></div>
+      <div class="pap-unit-hero__overlay">
+        <div class="pap-unit-hero__eco">${_esc(p.mva || '—')}</div>
+        <div class="pap-unit-hero__meta">
+          <span>${_esc(p.modelo || '—')}</span>
+          <span>${_esc(p.placas || 'Sin placas')}</span>
+          ${p.color ? `<span>${_esc(p.color)}</span>` : ''}
+          ${p.vin ? `<span class="pap-td-mono">${_esc(p.vin)}</span>` : ''}
+        </div>
+      </div>
+    </div>
     <div class="pap-identity">
       <div class="pap-identity__cell"><span>Económico</span><strong>${_esc(p.mva || '—')}</strong></div>
       <div class="pap-identity__cell"><span>Modelo</span><strong>${_esc(p.modelo || '—')}</strong></div>
       <div class="pap-identity__cell"><span>Placas</span><strong>${_esc(p.placas || '—')}</strong></div>
       <div class="pap-identity__cell"><span>Color</span><strong>${_esc(p.color || '—')}</strong></div>
+    </div>
+  `;
+}
+
+function _heroPendingHtml(u) {
+  if (!u) return '';
+  const img = _modelImageUrl(u.modelo);
+  const edit = _heroEditing;
+  return `
+    <div class="pap-hero-screen">
+      <div class="pap-unit-hero pap-unit-hero--full ${img ? 'has-img' : ''}">
+        <div class="pap-unit-hero__bg" ${img ? `style="background-image:url('${_esc(img)}')"` : ''} aria-hidden="true"></div>
+        <div class="pap-unit-hero__overlay">
+          <div class="pap-unit-hero__eco">${_esc(u.mva || '—')}</div>
+          <div class="pap-unit-hero__meta">
+            <span>${_esc(u.modelo || '—')}</span>
+            <span>${_esc(u.placas || 'Sin placas')}</span>
+            ${u.color ? `<span>${_esc(u.color)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="pap-panel pap-panel--app pap-hero-fields">
+        <div class="pap-hero-fields__head">
+          <h2>Confirmar unidad</h2>
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny" data-act="hero-toggle-edit">
+            ${edit ? 'Listo' : 'Editar'}
+          </button>
+        </div>
+        <p class="pap-hint">Correcciones solo en esta papeleta (no tocan el master Unidades).</p>
+        <div class="pap-fields-2">
+          <div class="pap-field"><label>Económico</label><input data-hero-field="mva" value="${_esc(u.mva || '')}" ${edit ? '' : 'readonly'}/></div>
+          <div class="pap-field"><label>Modelo</label><input data-hero-field="modelo" value="${_esc(u.modelo || '')}" ${edit ? '' : 'readonly'}/></div>
+          <div class="pap-field"><label>Placas</label><input data-hero-field="placas" value="${_esc(u.placas || '')}" ${edit ? '' : 'readonly'}/></div>
+          <div class="pap-field"><label>Color</label><input data-hero-field="color" value="${_esc(u.color || '')}" ${edit ? '' : 'readonly'}/></div>
+          <div class="pap-field pap-field--full"><label>VIN</label><input data-hero-field="vin" value="${_esc(u.vin || '')}" ${edit ? '' : 'readonly'}/></div>
+        </div>
+        <div class="pap-actions">
+          <button type="button" class="pap-btn pap-btn--ghost" data-act="hero-cancel">Otra unidad</button>
+          <button type="button" class="pap-btn pap-btn--primary" data-act="hero-confirm" ${_busy ? 'disabled' : ''}>
+            Abrir papeleta
+          </button>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -2030,7 +2174,13 @@ function _paintUnitHits() {
   if (!host) return;
   host.innerHTML = _renderUnitHitsHtml();
   host.querySelectorAll('[data-act="pick-unit"]').forEach((btn) => {
-    btn.addEventListener('click', () => _crearDesdeUnidad(btn.dataset.id));
+    btn.addEventListener('click', () => {
+      const unit = _unitHits.find((u) => u.id === btn.dataset.id);
+      if (!unit) return;
+      _pendingUnit = { ...unit };
+      _heroEditing = false;
+      _render();
+    });
   });
 }
 
@@ -2084,6 +2234,25 @@ function _scheduleUnitAutocomplete(raw) {
 }
 
 function _renderNuevaScreen() {
+  if (_pendingUnit) {
+    return `
+      <main class="pap-editor-shell pap-editor-shell--hero">
+        <header class="pap-editor-top pap-sheet-head">
+          <div>
+            <nav class="pap-breadcrumb" aria-label="Ruta">
+              <button type="button" data-act="back">Papeletas</button>
+              <span>/</span>
+              <strong>Nueva</strong>
+            </nav>
+            <h1>Unidad</h1>
+          </div>
+          <div class="pap-actions-bar">
+            <button type="button" class="pap-btn pap-btn--ghost" data-act="hero-cancel">Volver a buscar</button>
+          </div>
+        </header>
+        ${_heroPendingHtml(_pendingUnit)}
+      </main>`;
+  }
   return `
     <main class="pap-editor-shell">
       <header class="pap-editor-top pap-sheet-head">
@@ -2094,8 +2263,8 @@ function _renderNuevaScreen() {
             <strong>Nueva</strong>
           </nav>
           <p class="pap-kicker">HOJA DE INSPECCIÓN</p>
-          <h1>Nueva papeleta</h1>
-          <p class="pap-editor-sub">Busca la unidad — MVA, placas o modelo. Los datos se rellenan solos.</p>
+          <h1>Buscar unidad</h1>
+          <p class="pap-editor-sub">Económico, placas o modelo — catálogo empresa-global.</p>
         </div>
         <div class="pap-actions-bar">
           <button type="button" class="pap-btn pap-btn--ghost" data-act="back">Volver</button>
@@ -2191,9 +2360,27 @@ function _bind() {
   root.querySelectorAll('[data-act="jump-sec"]').forEach((btn) => {
     btn.addEventListener('click', () => _jumpToSec(btn.dataset.sec));
   });
+  root.querySelectorAll('[data-act="jump-screen"]').forEach((btn) => {
+    btn.addEventListener('click', () => _gotoMobileScreen(btn.dataset.screen));
+  });
+  root.querySelector('[data-act="hero-toggle-edit"]')?.addEventListener('click', () => {
+    _heroEditing = !_heroEditing;
+    _render();
+  });
+  root.querySelector('[data-act="hero-cancel"]')?.addEventListener('click', () => {
+    _pendingUnit = null;
+    _heroEditing = false;
+    _render();
+    queueMicrotask(() => _container?.querySelector('#papUnitQ')?.focus());
+  });
+  root.querySelector('[data-act="hero-confirm"]')?.addEventListener('click', () => {
+    void _confirmHeroUnit();
+  });
   root.querySelector('[data-act="next-gap"]')?.addEventListener('click', () => {
     if (!_detail) return;
-    _jumpToSec(_firstHardSec(_detail));
+    const sec = _firstHardSec(_detail);
+    if (_isMobileCapture()) _gotoMobileScreen(_screenForSec(sec));
+    else _jumpToSec(sec);
   });
   root.querySelector('[data-act="capture-entregar"]')?.addEventListener('click', () => {
     void _captureEntregar();
@@ -3241,25 +3428,50 @@ async function _cerrar(id) {
   }
 }
 
-async function _crearDesdeUnidad(unitId) {
-  const unit = _unitHits.find((u) => u.id === unitId);
-  if (!unit) return;
+async function _confirmHeroUnit() {
+  if (!_pendingUnit) return;
+  const patched = { ..._pendingUnit };
+  _container?.querySelectorAll('[data-hero-field]').forEach((inp) => {
+    const key = inp.getAttribute('data-hero-field');
+    if (!key) return;
+    patched[key] = String(inp.value || '').trim();
+  });
+  const hadLocalEdits = ['mva', 'modelo', 'placas', 'color', 'vin'].some(
+    (k) => String(patched[k] || '') !== String(_pendingUnit[k] || '')
+  );
   _busy = true;
+  _render();
   try {
-    const openCount = await countReportesAbiertosUnidad(unit.id);
+    const openCount = await countReportesAbiertosUnidad(patched.id);
     if (openCount > 0) {
       _casoWarning = 'Hay caso Ventas abierto para esta unidad. Puedes crear la papeleta; el aviso permanece visible.';
     } else {
       _casoWarning = '';
     }
     const plaza = String(getCurrentPlaza() || '').toUpperCase();
-    const { id } = await crearPapeleta({ unidad: unit, plazaId: plaza, user: _user() });
-    _trackPapeleta('papeleta_unit_selected', { papeletaId: id, unidadId: unit.id, mva: unit.mva });
+    const { id } = await crearPapeleta({ unidad: patched, plazaId: plaza, user: _user() });
+    if (hadLocalEdits) {
+      try {
+        await actualizarPapeleta(id, {
+          mva: String(patched.mva || '').toUpperCase(),
+          modelo: String(patched.modelo || ''),
+          placas: String(patched.placas || '').toUpperCase(),
+          color: String(patched.color || ''),
+          vin: String(patched.vin || '').toUpperCase(),
+          correccionesSoloPapeleta: true,
+        }, { user: _user() });
+      } catch (_) { /* create already has snapshot; patch best-effort */ }
+    }
+    _trackPapeleta('papeleta_unit_selected', { papeletaId: id, unidadId: patched.id, mva: patched.mva });
+    _pendingUnit = null;
+    _heroEditing = false;
     _showNueva = false;
+    _mobileScreen = 'datos';
     _openDetail(id);
   } catch (e) {
     if (e.code === 'ACTIVE_EXISTS' && e.existing?.id) {
       await _mexAlert('Papeleta activa', 'Ya existe una papeleta activa. Se abrirá la existente.');
+      _pendingUnit = null;
       _showNueva = false;
       _openDetail(e.existing.id);
     } else {
@@ -3267,5 +3479,14 @@ async function _crearDesdeUnidad(unitId) {
     }
   } finally {
     _busy = false;
+    if (_mode === 'nueva') _render();
   }
+}
+
+async function _crearDesdeUnidad(unitId) {
+  const unit = _unitHits.find((u) => u.id === unitId);
+  if (!unit) return;
+  _pendingUnit = { ...unit };
+  _heroEditing = false;
+  _render();
 }
