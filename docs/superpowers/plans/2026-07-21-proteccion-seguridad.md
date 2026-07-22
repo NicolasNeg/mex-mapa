@@ -93,9 +93,9 @@ Salida: la matriz de ataques por rol, plaza, estado y ownership pasa en los emul
 Objetivo: distinguir trafico de instancias registradas antes de imponer enforcement.
 
 - [ ] Crear un proyecto staging real. Hoy los alias `staging` y `production` apuntan al mismo proyecto.
-- [ ] Registrar todas las apps web en App Check con reCAPTCHA Enterprise.
-- [ ] Cargar `firebase-app-check-compat` en cada entry point antes de usar Firestore, Storage o Functions.
-- [ ] Inicializar App Check desde una configuracion publica separada; debug tokens solo en localhost/CI y nunca en Git.
+- [x] Registrar todas las apps web en App Check con reCAPTCHA Enterprise.
+- [x] Cargar `firebase-app-check-compat` en cada entry point antes de usar Firestore, Storage o Functions.
+- [x] Inicializar App Check desde una configuracion publica separada; debug tokens solo en localhost/CI y nunca en Git. Ver `docs/app-check.md`.
 - [ ] Desplegar primero sin enforcement y observar metricas de trafico valido, invalido y ausente.
 - [ ] Corregir clientes legacy, Service Workers y flujos de recuperacion detectados en metricas.
 - [ ] Habilitar enforcement gradualmente: callables de bajo riesgo, Storage y finalmente Firestore.

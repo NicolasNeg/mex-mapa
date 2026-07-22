@@ -91,6 +91,82 @@
     firebase.initializeApp(cfg);
   }
 
+  // ── App Check (reCAPTCHA) — antes de Auth / Firestore / Functions ──
+  // Requiere firebase-app-check-compat.js y window.MEX_APPCHECK_SITE_KEY.
+  // Docs: /docs/app-check.md
+  function _isLocalhost() {
+    const host = String(location.hostname || '').toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+  }
+
+  function _resolveAppCheckDebugToken() {
+    // Prioridad: window.MEX_APPCHECK_DEBUG_TOKEN → localStorage → auto localhost
+    if (typeof window.MEX_APPCHECK_DEBUG_TOKEN !== 'undefined' && window.MEX_APPCHECK_DEBUG_TOKEN !== null) {
+      return window.MEX_APPCHECK_DEBUG_TOKEN;
+    }
+    try {
+      const ls = _lsGet('mex.appcheck.debug');
+      if (ls === '1' || ls === 'true') return true;
+      if (ls && String(ls).trim().length > 8) return String(ls).trim();
+    } catch (_) { /* ignore */ }
+    // En localhost usar debug provider (no añadir localhost a dominios reCAPTCHA).
+    if (_isLocalhost()) return true;
+    return null;
+  }
+
+  function _initAppCheck() {
+    if (window.__mexAppCheck) return window.__mexAppCheck;
+    const siteKey = String(window.MEX_APPCHECK_SITE_KEY || '').trim();
+    if (!siteKey) {
+      console.warn('[firebase-init] App Check omitido: define window.MEX_APPCHECK_SITE_KEY (site key pública). Ver docs/app-check.md');
+      return null;
+    }
+    if (typeof firebase.appCheck !== 'function' || !firebase.appCheck) {
+      console.warn('[firebase-init] App Check omitido: carga firebase-app-check-compat.js antes de firebase-init.js');
+      return null;
+    }
+
+    const debugToken = _resolveAppCheckDebugToken();
+    if (debugToken !== null && debugToken !== undefined) {
+      // Debe asignarse ANTES de activate() — ver Firebase App Check debug provider.
+      self.FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+      if (_isDebugMode() || _isLocalhost()) {
+        console.info('[firebase-init] App Check debug token habilitado. Si ves un UUID en consola, regístralo en Firebase Console → App Check → Manage debug tokens.');
+      }
+    }
+
+    const providerName = String(window.MEX_APPCHECK_PROVIDER || 'enterprise').trim().toLowerCase();
+    const useEnterprise = providerName !== 'v3' && providerName !== 'recaptcha-v3';
+    let provider;
+    try {
+      if (useEnterprise) {
+        provider = new firebase.appCheck.ReCaptchaEnterpriseProvider(siteKey);
+      } else {
+        provider = new firebase.appCheck.ReCaptchaV3Provider(siteKey);
+      }
+    } catch (err) {
+      console.error('[firebase-init] No se pudo crear provider App Check:', err);
+      return null;
+    }
+
+    try {
+      const appCheck = firebase.appCheck();
+      appCheck.activate(provider, /* isTokenAutoRefreshEnabled */ true);
+      window.__mexAppCheck = appCheck;
+      window._appCheck = appCheck;
+      console.log(
+        '[firebase-init] ✅ App Check activo:',
+        useEnterprise ? 'ReCaptchaEnterpriseProvider' : 'ReCaptchaV3Provider'
+      );
+      return appCheck;
+    } catch (err) {
+      console.error('[firebase-init] App Check activate falló:', err);
+      return null;
+    }
+  }
+
+  _initAppCheck();
+
   // ── Instancias globales ───────────────────────────────────
   const db        = _configureFirestoreTransport(firebase.firestore());
   const auth      = (typeof firebase.auth === 'function') ? firebase.auth() : null;

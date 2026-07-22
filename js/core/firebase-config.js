@@ -1,6 +1,7 @@
 // ─── Firebase Web SDK — configuración cliente (pública por diseño) ───
 // No incluir service accounts, tokens de servidor ni secretos.
 // Same-origin; ver docs/security-client-config-audit.md
+// App Check: ver docs/app-check.md
 (function (g) {
   'use strict';
   if (g.FIREBASE_CONFIG && String(g.FIREBASE_CONFIG.projectId || '').trim()) return;
@@ -12,4 +13,17 @@
     messagingSenderId: '35913204070',
     appId: '1:35913204070:web:8d2c2fa94376449dbd08a7'
   };
+
+  // ── App Check (reCAPTCHA) — solo site key PÚBLICA ─────────────────
+  // Firebase Console → App Check → app web "mapGestion" → proveedor
+  // reCAPTCHA Enterprise → copiar Site key aquí.
+  // NO pegues API keys de Google Cloud ni secretos de servidor.
+  // Override opcional antes de cargar este archivo: window.MEX_APPCHECK_SITE_KEY
+  if (g.MEX_APPCHECK_SITE_KEY == null || String(g.MEX_APPCHECK_SITE_KEY).trim() === '') {
+    g.MEX_APPCHECK_SITE_KEY = '6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j';
+  }
+  // 'enterprise' → ReCaptchaEnterpriseProvider | 'v3' → ReCaptchaV3Provider
+  if (g.MEX_APPCHECK_PROVIDER == null || String(g.MEX_APPCHECK_PROVIDER).trim() === '') {
+    g.MEX_APPCHECK_PROVIDER = 'enterprise';
+  }
 })(typeof globalThis !== 'undefined' ? globalThis : window);

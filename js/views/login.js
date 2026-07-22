@@ -12,9 +12,24 @@
 
 import { auth, db, COL, functions } from '/js/core/database.js';
 
-const RECAPTCHA_SITE_KEY = '6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j';
+// Site key pública (App Check / reCAPTCHA). Fuente: window.MEX_APPCHECK_SITE_KEY en firebase-config.js
+const RECAPTCHA_SITE_KEY = String(window.MEX_APPCHECK_SITE_KEY || '').trim();
 const RECAPTCHA_ACTION_EMAIL = 'LOGIN_EMAIL';
 const RECAPTCHA_ACTION_GOOGLE = 'LOGIN_GOOGLE';
+
+/**
+ * Asegura token App Check antes de Auth (SDK compat).
+ * No bloquea el login si App Check no está cargado o falla (enforcement aún no activo).
+ */
+async function ensureAppCheckToken() {
+  try {
+    if (typeof firebase?.appCheck !== 'function') return;
+    if (!window.__mexAppCheck && !window._appCheck) return;
+    await firebase.appCheck().getToken(/* forceRefresh */ false);
+  } catch (e) {
+    console.warn('[login] App Check getToken:', e?.message || e);
+  }
+}
 
 /** Respuestas que no deben bloquear el inicio de sesión si el servicio está mal configurado o caído. */
 const SOFT_RECAPTCHA_CODES = new Set([
@@ -259,6 +274,8 @@ window.loginManual = async function () {
       : firebase.auth.Auth.Persistence.SESSION;
     await firebase.auth().setPersistence(persistence);
 
+    await ensureAppCheckToken();
+
     const gate = await tryVerifyRecaptchaForLogin(RECAPTCHA_ACTION_EMAIL);
     if (gate.blocked) {
       btn.disabled = false;
@@ -305,6 +322,8 @@ window.loginConGoogle = async function () {
       ? firebase.auth.Auth.Persistence.LOCAL
       : firebase.auth.Auth.Persistence.SESSION;
     await firebase.auth().setPersistence(persistence);
+
+    await ensureAppCheckToken();
 
     const gate = await tryVerifyRecaptchaForLogin(RECAPTCHA_ACTION_GOOGLE);
     if (gate.blocked) {
