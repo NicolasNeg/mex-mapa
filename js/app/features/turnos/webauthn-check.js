@@ -83,17 +83,27 @@ export async function enrolarBiometriaNativa(docId, userLabel) {
 export async function verificarBiometriaNativa(credentialIds) {
   const ids = (Array.isArray(credentialIds) ? credentialIds : [credentialIds]).filter(Boolean);
   if (!ids.length) return false;
+  const publicKey = {
+    challenge: crypto.getRandomValues(new Uint8Array(32)),
+    allowCredentials: ids.map(id => ({ id: _b64urlToBytes(id), type: 'public-key', transports: ['internal'] })),
+    userVerification: 'required',
+    timeout: 60000,
+  };
   try {
-    const assertion = await navigator.credentials.get({
-      publicKey: {
-        challenge: crypto.getRandomValues(new Uint8Array(32)),
-        allowCredentials: ids.map(id => ({ id: _b64urlToBytes(id), type: 'public-key', transports: ['internal'] })),
-        userVerification: 'required',
-        timeout: 60000,
-      },
-    });
+    // mediation:'silent' -> si este dispositivo no tiene ninguna de las
+    // credenciales, falla sin mostrar NINGUN aviso nativo (ni QR ni "no
+    // matching passkeys"). Si SI la tiene, Face ID/Touch ID igual se pide
+    // (userVerification:'required' no depende de mediation).
+    const assertion = await navigator.credentials.get({ publicKey, mediation: 'silent' });
     return Boolean(assertion);
   } catch (_) {
-    return false;
+    // Algunos navegadores no soportan mediation:'silent' para WebAuthn y
+    // rechazan la llamada entera -> reintenta sin mediation antes de rendirse.
+    try {
+      const assertion = await navigator.credentials.get({ publicKey });
+      return Boolean(assertion);
+    } catch (_e) {
+      return false;
+    }
   }
 }
