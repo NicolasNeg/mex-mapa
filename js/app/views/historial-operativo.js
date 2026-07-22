@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════════════════
 //  /js/app/views/historial-operativo.js
-//  Historial de cambios — vista SPA (/app/historial-operativo).
+//  Historial operativo — vista SPA (/app/historial-operativo).
 //
-//  Panel principal: logs COL.LOGS (IN / BAJA / EDIT)
-//  Pestaña Gestión: bitacora_gestion (platform_full_access + ver ubi)
-//  Movimientos de patio viven en Cuadre / historial de actividad (no duplicados aquí).
+//  Tab 1: Movimientos (historial_patio — MOVE/SWAP/ADD/EDIT/DEL + popover)
+//  Tab 2: Cambios (COL.LOGS: IN / BAJA / EDIT)
+//  Tab 3: Gestión (bitacora_gestion, solo acceso total)
 // ═══════════════════════════════════════════════════════════
 
 import { normalizeHistorialLog, stripEmoji } from '/domain/historial-log.model.js';
@@ -16,6 +16,7 @@ import {
   exportMatrixXls,
   exportMatrixPdf,
 } from '/js/core/export-menu.js';
+import { bindHistMovePopover, unbindHistMovePopover } from '/js/core/hist-move-popover.js';
 
 let _container  = null;
 let _state      = null;
@@ -27,14 +28,22 @@ const PAGE_SIZES = [25, 50, 100];
 // ── Estado interno ───────────────────────────────────────────
 function _makeState(access = {}) {
   return {
-    tab:          'cambios',   // 'cambios' | 'gestion'
+    tab:          'movimientos',   // 'movimientos' | 'cambios' | 'gestion'
+    movimientos:  [],
     estado:       [],
     gestion:      [],
+    loadingMov:   false,
     loadingEst:   false,
     loadingGes:   false,
     errorGes:     '',
     canGestion:   access.canGestion === true,
     canVerUbi:    access.canVerUbi === true,
+    qMov:         '',
+    tipoMov:      '',
+    fechaMov:     '',
+    usuarioMov:   '',
+    pageMov:      1,
+    pageSizeMov:  50,
     qEst:         '',
     tipoEst:      'TODOS',
     pageEst:      1,
@@ -50,12 +59,21 @@ function _makeState(access = {}) {
 function _ensureCss() {
   if (_cssInjected) return;
   _cssInjected = true;
-  if (document.querySelector('link[data-app-historial-operativo-css], link[data-hist-op-css]')) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = '/css/app-historial-operativo.css?v=20260721a';
-  link.setAttribute('data-hist-op-css', '1');
-  document.head.appendChild(link);
+  if (!document.querySelector('link[data-app-historial-operativo-css], link[data-hist-op-css]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/css/app-historial-operativo.css?v=20260722a';
+    link.setAttribute('data-hist-op-css', '1');
+    document.head.appendChild(link);
+  }
+  // Animaciones del popover cajón→cajón viven en registros-movimientos.
+  if (!document.querySelector('link[data-lmapa-rm-css], link[data-hist-move-css]')) {
+    const rm = document.createElement('link');
+    rm.rel = 'stylesheet';
+    rm.href = '/css/app-registros-movimientos.css?v=20260722a';
+    rm.setAttribute('data-hist-move-css', '1');
+    document.head.appendChild(rm);
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -123,6 +141,16 @@ function _pagerHtml(prefix, page, pageSize, total) {
         <button type="button" class="hist-op-btn-page" data-page-action="next-${prefix}" ${safePage >= totalPages ? 'disabled' : ''}>Siguiente</button>
       </div>
     </div>`;
+}
+
+function _filteredMovimientos() {
+  const qv = _state.qMov.toLowerCase();
+  let rows = _state.movimientos;
+  if (qv) rows = rows.filter(r => [r.mva, r.usuario, r.detalles, r.tipo].some(v => (v || '').toLowerCase().includes(qv)));
+  if (_state.tipoMov) rows = rows.filter(r => _normalizeTipo(r.tipo) === _state.tipoMov);
+  if (_state.fechaMov) rows = rows.filter(r => _tsADia(r.timestamp) === _state.fechaMov);
+  if (_state.usuarioMov) rows = rows.filter(r => r.usuario === _state.usuarioMov);
+  return rows;
 }
 
 function _normalizeEstadoRow(log) {
@@ -428,23 +456,47 @@ function _gestionLocationHtml(row) {
 }
 
 function _renderShell() {
-  const tabsHtml = _state.canGestion ? `
+  _container.innerHTML = `
+    <div class="hist-op-root">
       <div class="hist-op-tabs">
+        <button id="hist-op-tab-mov" class="hist-op-tab ${_state.tab === 'movimientos' ? 'active' : ''}"
+          data-tab="movimientos">
+          <span class="material-icons">swap_horiz</span> Movimientos
+        </button>
         <button id="hist-op-tab-cambios" class="hist-op-tab ${_state.tab === 'cambios' ? 'active' : ''}"
           data-tab="cambios">
           <span class="material-icons">history</span> Cambios
         </button>
-        <button id="hist-op-tab-ges" class="hist-op-tab ${_state.tab === 'gestion' ? 'active' : ''}"
+        ${_state.canGestion ? `<button id="hist-op-tab-ges" class="hist-op-tab ${_state.tab === 'gestion' ? 'active' : ''}"
           data-tab="gestion">
           <span class="material-icons">admin_panel_settings</span> Gestión
-        </button>
-      </div>` : '';
+        </button>` : ''}
+      </div>
 
-  _container.innerHTML = `
-    <div class="hist-op-root">
-      ${tabsHtml}
+      <div id="hist-op-panel-movimientos" class="hist-op-panel ${_state.tab === 'movimientos' ? '' : 'hidden'}">
+        <div class="hist-op-filters">
+          <input id="hist-op-qMov" type="text" placeholder="Buscar MVA, usuario o movimiento" value="${esc(_state.qMov)}">
+          <input id="hist-op-fechaMov" type="date" value="${esc(_state.fechaMov)}">
+          <select id="hist-op-tipoMov">
+            ${['','MOVE','SWAP','ADD','EDIT','DEL'].map(t =>
+              `<option value="${t}" ${_state.tipoMov===t?'selected':''}>${t || 'Todos los tipos'}</option>`).join('')}
+          </select>
+          <select id="hist-op-usuarioMov">
+            <option value="">Todos los usuarios</option>
+          </select>
+          <button id="hist-op-limpiarMov" class="hist-op-btn-clear" type="button">Limpiar</button>
+          <button id="hist-op-exportMov" class="hist-op-btn-export" type="button" title="Exportar PDF / XLS / CSV">
+            <span class="material-icons">download</span> Exportar
+          </button>
+          <button id="hist-op-recargarMov" class="hist-op-btn-refresh" type="button">
+            <span class="material-icons">sync</span>
+          </button>
+          <span id="hist-op-contadorMov" class="hist-op-counter"></span>
+        </div>
+        <div id="hist-op-tablaMov" class="hist-op-table-wrap"></div>
+      </div>
 
-      <div id="hist-op-panel-cambios" class="hist-op-panel ${_state.canGestion && _state.tab !== 'cambios' ? 'hidden' : ''}">
+      <div id="hist-op-panel-cambios" class="hist-op-panel ${_state.tab === 'cambios' ? '' : 'hidden'}">
         <div class="hist-op-filters">
           <input id="hist-op-qEst" type="text" placeholder="Buscar unidad, autor o cambio" value="${esc(_state.qEst)}">
           <select id="hist-op-tipoEst">
@@ -481,6 +533,59 @@ function _renderShell() {
       </div>` : ''}
     </div>
   `;
+}
+
+function _bindMovePopover() {
+  const wrap = q('tablaMov');
+  if (!wrap) return;
+  bindHistMovePopover(wrap, { esc });
+}
+
+function _renderMovimientos() {
+  const wrap = q('tablaMov');
+  if (!wrap) return;
+
+  if (_state.loadingMov) {
+    wrap.innerHTML = `<div class="hist-op-loading"><span class="material-icons spin">sync</span> Cargando movimientos…</div>`;
+    return;
+  }
+
+  const rows = _filteredMovimientos();
+  const ctr = q('contadorMov');
+  if (ctr) ctr.textContent = `${rows.length} de ${_state.movimientos.length} registros`;
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / _state.pageSizeMov) || 1);
+  if (_state.pageMov > totalPages) _state.pageMov = totalPages;
+  if (_state.pageMov < 1) _state.pageMov = 1;
+  const start = (_state.pageMov - 1) * _state.pageSizeMov;
+  const pageRows = rows.slice(start, start + _state.pageSizeMov);
+
+  if (!rows.length) {
+    wrap.innerHTML = `${_pagerHtml('Mov', _state.pageMov, _state.pageSizeMov, 0)}
+      <div class="hist-op-empty">No hay registros que coincidan.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    ${_pagerHtml('Mov', _state.pageMov, _state.pageSizeMov, rows.length)}
+    <div class="hist-op-table-scroll">
+      <table class="hist-op-table hist-op-table--dense">
+        <thead><tr>
+          <th>FECHA</th><th>TIPO</th><th>MVA</th><th>MOVIMIENTO</th><th>USUARIO</th>
+        </tr></thead>
+        <tbody>
+          ${pageRows.map(r => `
+            <tr data-detalles="${esc(r.detalles)}" data-mva="${esc(r.mva)}" data-tipo="${esc(r.tipo)}">
+              <td class="hist-op-cell-date">${esc(r.fecha)}</td>
+              <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}"><span class="material-icons">${_tipoIcon(r.tipo)}</span>${esc(_tipoLabel(r.tipo))}</span></td>
+              <td class="hist-op-cell-mva">${esc(r.mva)}</td>
+              <td>${esc(_cleanAuditText(r.detalles))}</td>
+              <td>${esc(_cleanAuditText(r.usuario))}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  _bindMovePopover();
 }
 
 function _renderEstado() {
@@ -594,16 +699,22 @@ function _renderGestion() {
 }
 
 function _exportMatrix(kind) {
+  const isMov = kind === 'mov';
   const isGes = kind === 'ges';
-  const rows = isGes ? _filteredGestion() : _filteredEstado();
+  const rows = isMov ? _filteredMovimientos() : isGes ? _filteredGestion() : _filteredEstado();
   if (!rows.length) return null;
-  const headers = isGes
-    ? ['Fecha', 'Tipo', 'Acción', 'Referencia', 'Detalles', 'Autor', 'Ubicación', 'Mapa']
-    : [
-      'Fecha', 'Tipo', 'Unidad', 'Cambio', 'Estado anterior', 'Estado nuevo',
-      'Ubicación anterior', 'Ubicación nueva', 'Km', 'Motivo de salida', 'Notas nuevas', 'Autor'
-    ];
+  const headers = isMov
+    ? ['Fecha', 'Tipo', 'MVA', 'Movimiento', 'Usuario']
+    : isGes
+      ? ['Fecha', 'Tipo', 'Acción', 'Referencia', 'Detalles', 'Autor', 'Ubicación', 'Mapa']
+      : [
+        'Fecha', 'Tipo', 'Unidad', 'Cambio', 'Estado anterior', 'Estado nuevo',
+        'Ubicación anterior', 'Ubicación nueva', 'Km', 'Motivo de salida', 'Notas nuevas', 'Autor'
+      ];
   const body = rows.map((r) => {
+    if (isMov) {
+      return [r.fecha, _tipoLabel(r.tipo), r.mva, _cleanAuditText(r.detalles), _cleanAuditText(r.usuario)];
+    }
     if (isGes) {
       const context = _gestionContext(r);
       return [
@@ -635,7 +746,7 @@ function _exportMatrix(kind) {
   return {
     headers,
     body,
-    title: isGes ? 'Historial de gestión' : 'Historial de cambios',
+    title: isMov ? 'Historial de movimientos' : isGes ? 'Historial de gestión' : 'Historial de cambios',
     count: rows.length,
   };
 }
@@ -665,6 +776,29 @@ async function _exportKind(kind) {
 }
 
 // ── Carga de datos ───────────────────────────────────────────
+async function _loadMovimientos() {
+  if (_state.loadingMov) return;
+  _state.loadingMov = true;
+  _renderMovimientos();
+  try {
+    const logs = await window.api.obtenerHistorialLogs();
+    _state.movimientos = Array.isArray(logs) ? logs : [];
+    const sel = q('usuarioMov');
+    if (sel) {
+      const usuarios = [...new Set(_state.movimientos.map(l => l.usuario).filter(Boolean))].sort();
+      sel.innerHTML = `<option value="">Todos los usuarios</option>` +
+        usuarios.map(u => `<option value="${esc(u)}">${esc(u)}</option>`).join('');
+      if (_state.usuarioMov) sel.value = _state.usuarioMov;
+    }
+  } catch (e) {
+    console.error('[historial-op] movimientos', e);
+    _state.movimientos = [];
+  } finally {
+    _state.loadingMov = false;
+    _renderMovimientos();
+  }
+}
+
 async function _loadEstado() {
   if (_state.loadingEst) return;
   _state.loadingEst = true;
@@ -720,13 +854,25 @@ function _bindEvents() {
       if (tabBtn.dataset.tab === 'gestion' && !_state.canGestion) return;
       _state.tab = tabBtn.dataset.tab;
       _container.querySelectorAll('.hist-op-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === _state.tab));
+      q('panel-movimientos')?.classList.toggle('hidden', _state.tab !== 'movimientos');
       q('panel-cambios')?.classList.toggle('hidden', _state.tab !== 'cambios');
       q('panel-gestion')?.classList.toggle('hidden', _state.tab !== 'gestion');
+      if (_state.tab === 'movimientos' && !_state.movimientos.length && !_state.loadingMov) _loadMovimientos();
       if (_state.tab === 'cambios' && !_state.estado.length && !_state.loadingEst) _loadEstado();
       if (_state.tab === 'gestion' && !_state.gestion.length && !_state.loadingGes) _loadGestion();
       return;
     }
 
+    if (e.target.closest('#hist-op-limpiarMov')) {
+      _state.qMov = ''; _state.tipoMov = ''; _state.fechaMov = ''; _state.usuarioMov = '';
+      _state.pageMov = 1;
+      const qi = q('qMov'); if (qi) qi.value = '';
+      const ti = q('tipoMov'); if (ti) ti.value = '';
+      const fi = q('fechaMov'); if (fi) fi.value = '';
+      const ui = q('usuarioMov'); if (ui) ui.value = '';
+      _renderMovimientos();
+      return;
+    }
     if (e.target.closest('#hist-op-limpiarGes')) {
       _state.qGes = ''; _state.tipoGes = 'TODOS'; _state.pageGes = 1;
       const qi = q('qGes'); if (qi) qi.value = '';
@@ -734,14 +880,18 @@ function _bindEvents() {
       _renderGestion();
       return;
     }
+    if (e.target.closest('#hist-op-exportMov')) { void _exportKind('mov'); return; }
     if (e.target.closest('#hist-op-exportEst')) { void _exportKind('est'); return; }
     if (e.target.closest('#hist-op-exportGes')) { void _exportKind('ges'); return; }
+    if (e.target.closest('#hist-op-recargarMov')) { _state.movimientos = []; _state.pageMov = 1; _loadMovimientos(); return; }
     if (e.target.closest('#hist-op-recargarEst')) { _state.estado = []; _state.pageEst = 1; _loadEstado(); return; }
     if (e.target.closest('#hist-op-recargarGes')) { _state.gestion = []; _state.pageGes = 1; _loadGestion(); return; }
 
     const pageBtn = e.target.closest('[data-page-action]');
     if (pageBtn) {
       const act = pageBtn.dataset.pageAction;
+      if (act === 'prev-Mov') { _state.pageMov = Math.max(1, _state.pageMov - 1); _renderMovimientos(); return; }
+      if (act === 'next-Mov') { _state.pageMov += 1; _renderMovimientos(); return; }
       if (act === 'prev-Est') { _state.pageEst = Math.max(1, _state.pageEst - 1); _renderEstado(); return; }
       if (act === 'next-Est') { _state.pageEst += 1; _renderEstado(); return; }
       if (act === 'prev-Ges') { _state.pageGes = Math.max(1, _state.pageGes - 1); _renderGestion(); return; }
@@ -751,14 +901,24 @@ function _bindEvents() {
 
   _container.addEventListener('input', e => {
     if (!_state) return;
+    if (e.target.id === 'hist-op-qMov') { _state.qMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
     if (e.target.id === 'hist-op-qEst') { _state.qEst = e.target.value; _state.pageEst = 1; _renderEstado(); return; }
     if (e.target.id === 'hist-op-qGes') { _state.qGes = e.target.value; _state.pageGes = 1; _renderGestion(); return; }
   }, sig);
 
   _container.addEventListener('change', e => {
     if (!_state) return;
+    if (e.target.id === 'hist-op-tipoMov') { _state.tipoMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
+    if (e.target.id === 'hist-op-fechaMov') { _state.fechaMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
+    if (e.target.id === 'hist-op-usuarioMov') { _state.usuarioMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
     if (e.target.id === 'hist-op-tipoEst') { _state.tipoEst = e.target.value; _state.pageEst = 1; _renderEstado(); return; }
     if (e.target.id === 'hist-op-tipoGes') { _state.tipoGes = e.target.value; _state.pageGes = 1; _renderGestion(); return; }
+    if (e.target.id === 'hist-op-pageSizeMov') {
+      _state.pageSizeMov = Number(e.target.value) || 50;
+      _state.pageMov = 1;
+      _renderMovimientos();
+      return;
+    }
     if (e.target.id === 'hist-op-pageSizeEst') {
       _state.pageSizeEst = Number(e.target.value) || 50;
       _state.pageEst = 1;
@@ -782,13 +942,13 @@ export function mount(ctx) {
   _state = _makeState(_resolveAccess(ctx));
   _renderShell();
   _bindEvents();
-  _loadEstado();
-  if (_state.canGestion) _loadGestion();
+  _loadMovimientos();
 }
 
 export function unmount() {
   _abortCtrl?.abort();
   _abortCtrl = null;
+  unbindHistMovePopover();
   if (_container) _container.innerHTML = '';
   _container = null;
   _state     = null;

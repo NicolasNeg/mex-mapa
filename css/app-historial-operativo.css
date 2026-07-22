@@ -284,6 +284,10 @@
   grid-template-columns: minmax(260px, 1fr) auto auto auto auto;
 }
 
+#hist-op-panel-movimientos .hist-op-filters {
+  grid-template-columns: minmax(220px, 1fr) auto auto auto auto auto auto auto;
+}
+
 .hist-op-filters input[type="text"],
 .hist-op-filters input[type="date"],
 .hist-op-filters select {
@@ -435,6 +439,7 @@
 @media (max-width: 900px) {
   .hist-op-header { align-items: flex-start; flex-direction: column; }
   .hist-op-filters,
+  #hist-op-panel-movimientos .hist-op-filters,
   #hist-op-panel-cambios .hist-op-filters,
   #hist-op-panel-gestion .hist-op-filters { grid-template-columns: 1fr 1fr; }
   .hist-op-counter { grid-column: 1 / -1; margin-left: 0; }
