@@ -125,6 +125,14 @@
     return Number.isFinite(n) && n >= 0 ? n : 5;
   }
 
+  function _esUnidadExterna(u = {}) {
+    if (String(u.tipo || '').toLowerCase() === 'externo') return true;
+    const blob = [u.estado, u.ubicacion, u.categoria, u.categ]
+      .map(v => String(v || '').toUpperCase())
+      .join(' ');
+    return blob.includes('EXTERNO');
+  }
+
   async function _cerrarInboxMisionCuadre(userDocId, missionId, extra = {}) {
     const uid = String(userDocId || '').trim();
     const mid = String(missionId || '').trim().toUpperCase();
@@ -852,6 +860,10 @@
             unidades = parsed.unidades;
           }
         } catch (_) {}
+      }
+      unidades = (Array.isArray(unidades) ? unidades : []).filter(u => !_esUnidadExterna(u));
+      if (!unidades.length) {
+        return { exito: false, error: 'No hay unidades de patio para el cuadre' };
       }
       const missionPayload = {
         missionId,

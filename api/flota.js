@@ -62,14 +62,11 @@
     async obtenerDatosFlotaConsola(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
       const ORDEN = { "LISTO":1,"SUCIO":2,"MANTENIMIENTO":3,"RESGUARDO":4,"TRASLADO":5,"NO ARRENDABLE":6,"RETENIDA":92,"VENTA":93 };
-      const [cuadre, externos] = await Promise.all([
-        db.collection(COL.CUADRE).where('plaza', '==', plazaUp).get(),
-        db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).get()
-      ]);
-      const lista = [
-        ...cuadre.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() })).filter(u => u.mva),
-        ...externos.docs.map(d => ({ id: d.id, fila: d.id, ...d.data(), ubicacion: "EXTERNO" })).filter(u => u.mva)
-      ].filter(u => _matchesPlaza(u, plazaUp));
+      // Solo CUADRE: las unidades EXTERNAS no entran al cuadre de flota ni a esta consola.
+      const cuadre = await db.collection(COL.CUADRE).where('plaza', '==', plazaUp).get();
+      const lista = cuadre.docs
+        .map(d => ({ id: d.id, fila: d.id, ...d.data() }))
+        .filter(u => u.mva && _matchesPlaza(u, plazaUp));
       lista.forEach(u => { u.orden = ORDEN[(u.estado || "").toUpperCase()] || 99; });
       lista.sort((a, b) => (a.orden - b.orden) || (a.mva || "").localeCompare(b.mva || ""));
       return lista;

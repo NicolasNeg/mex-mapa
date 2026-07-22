@@ -352,14 +352,7 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
         margin: 0 0 8px auto;
       }
       @media print {
-        body * { visibility: hidden !important; }
-        #reporte-pdf-container, #reporte-pdf-container * { visibility: visible !important; }
-        #reporte-pdf-container {
-          position: fixed !important;
-          inset: 0 !important;
-          display: block !important;
-          overflow: visible !important;
-        }
+        #reporte-pdf-container { display: block !important; }
       }
     </style>
     <div class="cuadre-pdf">
@@ -431,81 +424,58 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
 }
 
 /**
- * Inyecta el HTML en un contenedor oculto y dispara window.print() (el CSS
- * @media print de arriba oculta todo lo demas). Funciona igual en una pagina
- * legacy standalone o en una vista SPA nativa (no en un iframe embebido).
+ * Abre un documento autocontenido e imprime. Evita el bug de
+ * `body * { visibility:hidden }` sobre el shell SPA (PDF en blanco).
  */
 export function abrirReporteImpresion(htmlContenido, { onError } = {}) {
-  let container = document.getElementById('reporte-pdf-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'reporte-pdf-container';
-    container.style.display = 'none';
-    document.body.appendChild(container);
+  const signedTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
+  let printWindow = null;
+  try {
+    printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=800');
+  } catch (_) {
+    printWindow = null;
+  }
+  if (!printWindow) {
+    console.error('No se pudo abrir la ventana de impresión (popup bloqueado).');
+    if (typeof onError === 'function') onError(new Error('popup-blocked'));
+    return;
   }
 
-  const originalScrollX = window.scrollX || window.pageXOffset || 0;
-  const originalScrollY = window.scrollY || window.pageYOffset || 0;
-  const originalBodyOverflow = document.body.style.overflow;
-  const originalHtmlOverflow = document.documentElement.style.overflow;
-  const originalTitle = document.title;
-  const signedTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
-  document.title = signedTitle;
-  let cleaned = false;
-  let fallbackTimer = null;
-  let mediaQueryList = null;
-  let mediaQueryHandler = null;
-
-  const cleanup = () => {
-    if (cleaned) return;
-    cleaned = true;
-    if (fallbackTimer) {
-      clearTimeout(fallbackTimer);
-      fallbackTimer = null;
-    }
-    if (mediaQueryList && mediaQueryHandler) {
-      if (typeof mediaQueryList.removeEventListener === 'function') {
-        mediaQueryList.removeEventListener('change', mediaQueryHandler);
-      } else if (typeof mediaQueryList.removeListener === 'function') {
-        mediaQueryList.removeListener(mediaQueryHandler);
+  const docHtml = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${String(signedTitle).replace(/</g, '')}</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #fff; color: #111; }
+    body { font-family: Inter, Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="reporte-pdf-container">${htmlContenido}</div>
+  <script>
+    (function () {
+      function cleanup() {
+        try { window.close(); } catch (e) {}
       }
-    }
-    container.innerHTML = '';
-    container.style.display = 'none';
-    document.body.style.overflow = originalBodyOverflow;
-    document.documentElement.style.overflow = originalHtmlOverflow;
-    document.title = originalTitle;
-    window.requestAnimationFrame(() => {
-      window.scrollTo(originalScrollX, originalScrollY);
-    });
-  };
-
-  window.addEventListener('afterprint', cleanup, { once: true });
-  container.innerHTML = htmlContenido;
-  container.style.display = 'block';
-  document.body.style.overflow = 'hidden';
-  document.documentElement.style.overflow = 'hidden';
+      window.addEventListener('afterprint', cleanup);
+      setTimeout(function () {
+        try { window.focus(); window.print(); } catch (e) { cleanup(); }
+      }, 120);
+      setTimeout(cleanup, 60000);
+    })();
+  <\/script>
+</body>
+</html>`;
 
   try {
-    mediaQueryList = window.matchMedia('print');
-    mediaQueryHandler = event => {
-      if (!event.matches) cleanup();
-    };
-    if (typeof mediaQueryList.addEventListener === 'function') {
-      mediaQueryList.addEventListener('change', mediaQueryHandler);
-    } else if (typeof mediaQueryList.addListener === 'function') {
-      mediaQueryList.addListener(mediaQueryHandler);
-    }
-  } catch (_) {}
-
-  setTimeout(() => {
-    try {
-      window.print();
-      fallbackTimer = setTimeout(cleanup, 12000);
-    } catch (error) {
-      cleanup();
-      console.error('No se pudo abrir la impresión:', error);
-      if (typeof onError === 'function') onError(error);
-    }
-  }, 80);
+    printWindow.document.open();
+    printWindow.document.write(docHtml);
+    printWindow.document.close();
+  } catch (error) {
+    console.error('No se pudo abrir la impresión:', error);
+    try { printWindow.close(); } catch (_) {}
+    if (typeof onError === 'function') onError(error);
+  }
 }

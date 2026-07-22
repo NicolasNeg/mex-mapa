@@ -2209,16 +2209,14 @@ const API_FUNCTIONS = {
 
   async obtenerDatosFlotaConsola(plaza) {
     const plazaUp = _normalizePlazaId(plaza);
-    // [F1.4] Filtrar por plaza en la query cuando sea posible
+    // Solo CUADRE: las unidades EXTERNAS no entran al cuadre de flota.
     const ORDEN = { "LISTO":1,"SUCIO":2,"MANTENIMIENTO":3,"RESGUARDO":4,"TRASLADO":5,"NO ARRENDABLE":6,"RETENIDA":92,"VENTA":93 };
-    const [cuadre, externos] = await Promise.all([
-      plazaUp ? db.collection(COL.CUADRE).where('plaza','==',plazaUp).get() : db.collection(COL.CUADRE).get(),
-      plazaUp ? db.collection(COL.EXTERNOS).where('plaza','==',plazaUp).get() : db.collection(COL.EXTERNOS).get(),
-    ]);
-    const lista = [
-      ...cuadre.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() })).filter(u => u.mva),
-      ...externos.docs.map(d => ({ id: d.id, fila: d.id, ...d.data(), ubicacion: "EXTERNO" })).filter(u => u.mva)
-    ].filter(u => _matchesPlaza(u, plazaUp));
+    const cuadre = plazaUp
+      ? await db.collection(COL.CUADRE).where('plaza','==',plazaUp).get()
+      : await db.collection(COL.CUADRE).get();
+    const lista = cuadre.docs
+      .map(d => ({ id: d.id, fila: d.id, ...d.data() }))
+      .filter(u => u.mva && _matchesPlaza(u, plazaUp));
     lista.forEach(u => { u.orden = ORDEN[(u.estado || "").toUpperCase()] || 99; });
     lista.sort((a, b) => (a.orden - b.orden) || (a.mva || "").localeCompare(b.mva || ""));
     return lista;
@@ -3040,6 +3038,16 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
           unidades = parsed.unidades;
         }
       } catch (_) {}
+    }
+    unidades = (Array.isArray(unidades) ? unidades : []).filter(u => {
+      if (String(u?.tipo || '').toLowerCase() === 'externo') return false;
+      const blob = [u?.estado, u?.ubicacion, u?.categoria, u?.categ]
+        .map(v => String(v || '').toUpperCase())
+        .join(' ');
+      return !blob.includes('EXTERNO');
+    });
+    if (!unidades.length) {
+      return { exito: false, error: 'No hay unidades de patio para el cuadre' };
     }
     const missionPayload = {
       missionId,

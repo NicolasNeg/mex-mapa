@@ -1084,6 +1084,7 @@ body.dark-theme .cf-step > div,
 body.dark-theme .cf-search,
 body.dark-theme .cf-row,
 body.dark-theme .cf-card-main,
+body.dark-theme .cfv-cell,
 body.dark-theme .cf-sign,
 body.dark-theme .cf-modal {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -1221,4 +1222,132 @@ body.dark-theme .cf-modal {
 .cf.is-fullscreen-sign .cf-sign-pad,
 .cf.is-fullscreen-sign .cf-sign-pad canvas {
   height: min(52dvh, 420px);
+}
+
+/* Ventas: grid 4×4 con imagen + status + campos editables */
+.cfv-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.cfv-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--cf-border);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  position: relative;
+  min-width: 0;
+}
+
+.cfv-cell.is-ok {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.cfv-cell.is-missing {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.cfv-cell.is-extra {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.cfv-cell-status {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.cfv-cell.is-ok .cfv-cell-status {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.cfv-cell.is-missing .cfv-cell-status {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.cfv-cell.is-extra .cfv-cell-status {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.cfv-cell-img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--cf-bg);
+}
+
+.cfv-cell-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.cfv-cell-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cfv-cell-id strong {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cfv-cell-id span {
+  font-size: 12px;
+  color: var(--cf-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cfv-cell-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.cfv-cell-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: auto;
+}
+
+@media (max-width: 1024px) {
+  .cfv-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .cfv-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

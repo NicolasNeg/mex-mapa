@@ -10,12 +10,14 @@ import {
   obtenerDatosFlotaConsola,
   procesarAuditoriaDesdeAdmin
 } from '/js/core/database.js';
+import { generarHtmlAuditoriaCuadrePdf, abrirReporteImpresion } from '/js/core/cuadre-pdf.js';
 
 let _ctr = null;
 let _navigate = null;
 let _s = null;
 let _sig = { canvas: null, ctx: null, drawing: false, hasInk: false, dataUrl: '' };
 let _swipe = null;
+let _redirectTimer = null;
 
 // Niveles de gasolina desde las listas globales (Panel Admin → Gasolinas).
 function _gasCatalog() {
@@ -43,7 +45,7 @@ export async function mount({ container, navigate }) {
     mission: null,
     units: [],
     localByMva: new Map(),
-    view: 'card',
+    view: 'grid',
     search: '',
     currentIndex: 0,
     showExtra: false,
@@ -57,6 +59,7 @@ export async function mount({ container, navigate }) {
 }
 
 export function unmount() {
+  if (_redirectTimer) { clearTimeout(_redirectTimer); _redirectTimer = null; }
   _ctr = null;
   _navigate = null;
   _s = null;
@@ -141,11 +144,13 @@ async function _load() {
 }
 
 function _buildAuditUnits(units = [], localByMva = new Map()) {
-  return (Array.isArray(units) ? units : []).map(unit => {
+  return (Array.isArray(units) ? units : [])
+    .filter(unit => !_esUnidadExterna(unit))
+    .map(unit => {
     const mva = _normMva(unit.mva);
     const local = localByMva.get(mva) || {};
     const modelo = String(unit.modelo || local.modelo || 'S/M').trim() || 'S/M';
-    const gas = String(local.gasolina ?? unit.gasolina ?? unit.gas ?? 'N/A').toUpperCase().trim() || 'N/A';
+    const gas = String(unit.gasolinaCorregida ?? unit.gasolina ?? local.gasolina ?? unit.gas ?? 'N/A').toUpperCase().trim() || 'N/A';
     const categoria = _modelCategoria(modelo, local.categoria || unit.categoria);
     return {
       ...unit,
@@ -158,13 +163,21 @@ function _buildAuditUnits(units = [], localByMva = new Map()) {
       gasolinaSistema: gas,
       gasolinaCorregida: gas,
       gasolina: gas,
-      km: local.km ?? unit.km ?? '',
+      km: unit.km ?? local.km ?? '',
       // El auxiliar ya audito estas unidades (Presente/Faltante/Sobrante);
       // Ventas revisa lo ya marcado en vez de repetir el cuadre desde cero.
       status: ['OK', 'FALTANTE', 'EXTRA'].includes(unit.status) ? unit.status : 'PENDIENTE',
       notas: unit.notas || ''
     };
   });
+}
+
+function _esUnidadExterna(u = {}) {
+  if (String(u.tipo || '').toLowerCase() === 'externo') return true;
+  const blob = [u.estado, u.ubicacion, u.categoria, u.categ]
+    .map(v => String(v || '').toUpperCase())
+    .join(' ');
+  return blob.includes('EXTERNO');
 }
 
 function _paint() {
@@ -218,16 +231,6 @@ function _reviewStepHtml(summary) {
         <span class="material-symbols-outlined">search</span>
         <input data-search value="${esc(_s.search)}" placeholder="Buscar MVA, placas o modelo" aria-label="Buscar unidades">
       </label>
-      <div class="cf-view-toggle" role="tablist" aria-label="Vista">
-        <button type="button" role="tab" aria-selected="${_s.view === 'card'}" class="${_s.view === 'card' ? 'active' : ''}" data-action="view-card">
-          <span class="material-symbols-outlined">style</span>
-          Tarjeta
-        </button>
-        <button type="button" role="tab" aria-selected="${_s.view === 'list'}" class="${_s.view === 'list' ? 'active' : ''}" data-action="view-list">
-          <span class="material-symbols-outlined">view_list</span>
-          Lista
-        </button>
-      </div>
       <button type="button" class="cf-btn secondary" data-action="open-extra">
         <span class="material-symbols-outlined">add</span>
         Sobrante
@@ -282,9 +285,37 @@ function _signStepHtml(summary) {
 }
 
 function _mainHtml() {
-  const visible = _visibleUnits();
-  if (_s.view === 'list') return _listHtml(visible);
-  return _cardHtml(_currentUnit(visible), visible.length);
+  return _gridHtml(_visibleUnits());
+}
+
+function _gridHtml(units) {
+  if (!units.length) {
+    return `<div class="cf-empty"><span class="material-symbols-outlined">search_off</span><strong>Sin coincidencias</strong><p>Busca por MVA, placas o modelo.</p></div>`;
+  }
+  return `
+    <div class="cfv-grid" role="list">
+      ${units.map(unit => {
+        const imgUrl = _modelImageUrl(unit.modelo);
+        return `
+          <article class="cfv-cell ${_statusClass(unit.status)}" role="listitem">
+            <div class="cfv-cell-status">${_statusLabel(unit.status)}</div>
+            <div class="cfv-cell-img">
+              <img src="${esc(imgUrl || '/img/default_car.png')}" alt="${esc(unit.modelo)}" loading="lazy" onerror="this.src='/img/default_car.png'">
+            </div>
+            <div class="cfv-cell-id">
+              <strong>${esc(unit.mva)}</strong>
+              <span>${esc(unit.modelo)} · ${esc(unit.placas)}</span>
+            </div>
+            <div class="cfv-cell-fields">${_unitFields(unit)}</div>
+            <div class="cfv-cell-actions">
+              <button type="button" class="cf-icon-btn bad" data-action="mark-missing" data-mva="${esc(unit.mva)}" title="Faltante"><span class="material-symbols-outlined">close</span></button>
+              <button type="button" class="cf-icon-btn ok" data-action="mark-ok" data-mva="${esc(unit.mva)}" title="Presente"><span class="material-symbols-outlined">check</span></button>
+            </div>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 // Repinta solo la zona de unidades (busqueda): conserva el foco del input.
@@ -328,9 +359,9 @@ function _completedHtml() {
       <div class="cf-state-card success">
         <span class="material-symbols-outlined">task_alt</span>
         <h1>Cuadre cerrado</h1>
-        <p>El cuadre quedó cerrado. La plaza ya está lista para una nueva misión de patio.</p>
+        <p>El cuadre quedó cerrado. Redirigiendo al historial…</p>
         <div class="cf-state-actions">
-          <button type="button" class="cf-btn primary" data-action="go-map"><span class="material-symbols-outlined">map</span>Volver al mapa</button>
+          <button type="button" class="cf-btn primary" data-action="go-historial"><span class="material-symbols-outlined">history</span>Ir al historial</button>
         </div>
       </div>
     </section>
@@ -548,6 +579,7 @@ async function _onClick(event) {
 
   if (action === 'reload') { await _load(); return; }
   if (action === 'go-map') { _navigate?.('/app/mapa'); return; }
+  if (action === 'go-historial') { _navigate?.('/app/cuadre/flota?tab=historial'); return; }
   if (action === 'go-step') {
     const step = actionEl.dataset.step;
     if (step === 'sign') {
@@ -564,8 +596,6 @@ async function _onClick(event) {
     }
     return;
   }
-  if (action === 'view-card') { _captureVisibleInputs(); _s.view = 'card'; _paint(); return; }
-  if (action === 'view-list') { _captureVisibleInputs(); _s.view = 'list'; _paint(); return; }
   if (action === 'open-extra') { _s.showExtra = true; _paint(); return; }
   if (action === 'close-extra') { _s.showExtra = false; _paint(); return; }
   if (action === 'save-extra') { _saveExtra(); return; }
@@ -668,10 +698,25 @@ async function _submit() {
     const payload = _s.units.map(unit => ({ ...unit }));
     const res = await procesarAuditoriaDesdeAdmin(payload, signedName, stats, _s.plaza, meta);
     if (!(res === 'EXITO' || (res && res.exito))) throw new Error('Respuesta invalida al cerrar el cuadre.');
+    const pdfMeta = {
+      ...meta,
+      plaza: _s.plaza,
+      cerradoPor: signedName,
+      cerradoEn: new Date().toLocaleString('es-MX')
+    };
+    abrirReporteImpresion(
+      generarHtmlAuditoriaCuadrePdf(payload, stats, pdfMeta, { plaza: _s.plaza, actorName: signedName }),
+      { onError: () => _toast('No se pudo abrir el generador de PDF.', 'error') }
+    );
     _s.busy = false;
     _s.completed = true;
     _paint();
     _toast('Cuadre firmado y cerrado.', 'success');
+    if (_redirectTimer) clearTimeout(_redirectTimer);
+    _redirectTimer = setTimeout(() => {
+      _redirectTimer = null;
+      _navigate?.('/app/cuadre/flota?tab=historial');
+    }, 3000);
   } catch (err) {
     console.error('[cuadrarflota-ventas] cerrar', err);
     _s.busy = false;

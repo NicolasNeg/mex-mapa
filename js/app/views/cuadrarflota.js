@@ -19,6 +19,7 @@ let _offs = [];
 let _s = null;
 let _sig = { canvas: null, ctx: null, drawing: false, hasInk: false, dataUrl: '' };
 let _swipe = null;
+let _redirectTimer = null;
 
 // Niveles de gasolina desde las listas globales (Panel Admin → Gasolinas).
 // Fallback minimo solo si la config aun no cargo.
@@ -68,6 +69,7 @@ export async function mount({ container, navigate }) {
 }
 
 export function unmount() {
+  if (_redirectTimer) { clearTimeout(_redirectTimer); _redirectTimer = null; }
   _offs.forEach(fn => { try { fn(); } catch (_) {} });
   _offs = [];
   _ctr = null;
@@ -228,7 +230,9 @@ function _missionAssignedToMe(meta = {}, identities = _identityTokens()) {
 }
 
 function _buildAuditUnits(units = [], localByMva = new Map()) {
-  return (Array.isArray(units) ? units : []).map(unit => {
+  return (Array.isArray(units) ? units : [])
+    .filter(unit => !_esUnidadExterna(unit))
+    .map(unit => {
     const mva = _normMva(unit.mva);
     const local = localByMva.get(mva) || {};
     const modelo = String(unit.modelo || local.modelo || 'S/M').trim() || 'S/M';
@@ -250,6 +254,14 @@ function _buildAuditUnits(units = [], localByMva = new Map()) {
       notas: unit.notas || ''
     };
   });
+}
+
+function _esUnidadExterna(u = {}) {
+  if (String(u.tipo || '').toLowerCase() === 'externo') return true;
+  const blob = [u.estado, u.ubicacion, u.categoria, u.categ]
+    .map(v => String(v || '').toUpperCase())
+    .join(' ');
+  return blob.includes('EXTERNO');
 }
 
 function _paint() {
@@ -412,7 +424,7 @@ function _completedHtml() {
       <div class="cf-state-card success">
         <span class="material-symbols-outlined">task_alt</span>
         <h1>Reporte enviado</h1>
-        <p>Ventas ya puede revisar la auditoria cruzada y cerrar el cuadre. La mision seguira visible hasta que el cierre quede completado.</p>
+        <p>Ventas ya puede revisar la auditoria cruzada y cerrar el cuadre. Redirigiendo al dashboard…</p>
         <div class="cf-state-actions">
           <button type="button" class="cf-btn secondary" data-action="reload"><span class="material-symbols-outlined">sync</span>Ver estado</button>
           <button type="button" class="cf-btn primary" data-action="go-map"><span class="material-symbols-outlined">map</span>Volver al mapa</button>
@@ -759,6 +771,11 @@ async function _submit() {
     _s.step = 'sent';
     _paint();
     _toast('Reporte enviado a Ventas.', 'success');
+    if (_redirectTimer) clearTimeout(_redirectTimer);
+    _redirectTimer = setTimeout(() => {
+      _redirectTimer = null;
+      _navigate?.('/app/dashboard');
+    }, 2000);
   } catch (err) {
     console.error('[cuadrarflota] enviar', err);
     _s.busy = false;
