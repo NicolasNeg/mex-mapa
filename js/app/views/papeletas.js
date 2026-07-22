@@ -6,6 +6,7 @@ import { getState, getCurrentPlaza } from '/js/app/app-state.js';
 import {
   ZONAS_V1,
   ZONAS_CORE,
+  ZONA_CORE_LABELS,
   CHECKLIST_KEYS,
   CHECKLIST_LABELS,
   LLANTA_KEYS,
@@ -443,8 +444,8 @@ async function _saveCheckCapture() {
   }
   const tapetesUsoRudoRaw = _container.querySelector('#papTapetesRudo')?.value ?? '';
   const tapetesAlfombraRaw = _container.querySelector('#papTapetesAlfombra')?.value ?? '';
-  const tapetesUsoRudo = tapetesUsoRudoRaw === '' ? null : Number(String(tapetesUsoRudoRaw).replace(/\D+/g, ''));
-  const tapetesAlfombra = tapetesAlfombraRaw === '' ? null : Number(String(tapetesAlfombraRaw).replace(/\D+/g, ''));
+  const tapetesUsoRudo = tapetesUsoRudoRaw === '' ? null : Number(String(tapetesUsoRudoRaw).replace(/\D+/g, '').slice(0, 1));
+  const tapetesAlfombra = tapetesAlfombraRaw === '' ? null : Number(String(tapetesAlfombraRaw).replace(/\D+/g, '').slice(0, 1));
   const notasInteriores = _container.querySelector('[data-field="notasInteriores"]')?.value?.trim() || '';
 
   if (!isChecklistComplete({
@@ -453,7 +454,7 @@ async function _saveCheckCapture() {
     tapetesUsoRudo,
     tapetesAlfombra,
   })) {
-    await _mexAlert('Checklist incompleto', 'Marca todos los accesorios, las 4 llantas y ambos contadores de tapetes.');
+    await _mexAlert('Checklist incompleto', 'Marca todos los accesorios, las 4 llantas y tapetes (0–9; 0 = no tiene).');
     return false;
   }
 
@@ -830,16 +831,16 @@ function _tapetesHtml(p, editable) {
   const t = _tapetes(p);
   return `
     <section class="pap-tapetes" aria-label="Tapetes">
-      <h3 class="pap-subhead">Tapetes</h3>
+      <h3 class="pap-subhead">Tapetes <span class="pap-hint">(0 = no tiene · máx 1 dígito)</span></h3>
       <div class="pap-fields-2">
         <div class="pap-field">
           <label>Tapetes uso rudo</label>
-          <input id="papTapetesRudo" type="text" inputmode="numeric" pattern="[0-9]*"
+          <input id="papTapetesRudo" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1"
             value="${_esc(t.usoRudo ?? '')}" ${editable ? '' : 'disabled'} autocomplete="off" placeholder="0"/>
         </div>
         <div class="pap-field">
           <label>Tapetes alfombra</label>
-          <input id="papTapetesAlfombra" type="text" inputmode="numeric" pattern="[0-9]*"
+          <input id="papTapetesAlfombra" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1"
             value="${_esc(t.alfombra ?? '')}" ${editable ? '' : 'disabled'} autocomplete="off" placeholder="0"/>
         </div>
       </div>
@@ -1036,8 +1037,7 @@ function _fotosCount(p) {
 }
 
 function _coreFotosCount(p) {
-  return ZONAS_CORE.filter((id) => String(p?.zonas?.[id]?.fotoPath || '').trim()
-    || (id === 'tablero_kilometraje' && String(p?.fotoTableroPath || p?.salida?.fotoTableroPath || '').trim())).length;
+  return ZONAS_CORE.filter((id) => String(p?.zonas?.[id]?.fotoPath || '').trim()).length;
 }
 
 function _deliveryGate(p, opts = {}) {
@@ -1305,7 +1305,7 @@ function _cardHtml(it) {
       <div class="pap-card__mid">${_esc(it.modelo || '—')} · ${_esc(it.placas || 'Sin placas')}${plaza ? ` · ${_esc(plaza)}` : ''}</div>
       <div class="pap-card__bot">
         <span>${_esc(it.clienteNombre || it.contrato || 'Sin cliente')}</span>
-        <span>Core ${core}/6${reporte ? ' · reporte' : ''}</span>
+        <span>Core ${core}/7${reporte ? ' · reporte' : ''}</span>
         <span>${updated || '—'}</span>
       </div>
     </button>
@@ -1326,7 +1326,7 @@ function _rowHtml(it) {
       </td>
       <td>${_esc(it.plazaId || '—')}</td>
       <td>${_esc(it.clienteNombre || '—')}</td>
-      <td class="pap-td-mono">${core}/6</td>
+      <td class="pap-td-mono">${core}/7</td>
       <td class="pap-td-date">${updated ? _esc(updated) : '<span class="pap-muted">—</span>'}</td>
       <td>${reporte ? '<span class="pap-flag pap-flag--warn">Sí</span>' : '<span class="pap-muted">—</span>'}</td>
       <td><span class="pap-chip pap-chip--${_esc(it.status)}">${_esc(short)}</span></td>
@@ -1774,12 +1774,12 @@ function _panelZonas(p, editable) {
   return `
     <div class="pap-panel pap-panel--app pap-panel--zona">
       <h2>Fotos core</h2>
-      <p class="pap-hint">Obligatorias: 6 zonas core (${coreCount}/6). El resto es opcional (${n}/12 inspección).</p>
+      <p class="pap-hint">Obligatorias: 7 zonas core (${coreCount}/7). Tablero aparte (KM). El resto es opcional (${n}/12 inspección).</p>
       ${editable ? `
         <div class="pap-cam-cta">
           <button type="button" class="pap-btn pap-btn--primary pap-btn--block pap-btn--cam" data-act="open-camera" ${_busy ? 'disabled' : ''}>
             <span class="material-symbols-outlined">photo_camera</span>
-            Cámara guiada · core ${coreCount}/6
+            Cámara guiada · core ${coreCount}/7
           </button>
         </div>
       ` : ''}
@@ -1798,7 +1798,7 @@ function _panelZonas(p, editable) {
           </button>
           <div class="pap-progress">
             <strong>${_esc(z.label)}</strong>
-            <span>${_zonaIdx + 1}/12 · core ${coreCount}/6</span>
+            <span>${_zonaIdx + 1}/12 · core ${coreCount}/7</span>
           </div>
           <button type="button" class="pap-icon-btn" data-act="zona-next" ${_zonaIdx >= 11 ? 'disabled' : ''} aria-label="Siguiente">
             <span class="material-symbols-outlined">chevron_right</span>
@@ -1840,7 +1840,8 @@ function _panelResumen(p) {
     km: 'Kilometraje',
     gas: 'Gasolina',
     checklist: 'Checklist / llantas / tapetes',
-    core_photos: 'Fotos core (6)',
+    core_photos: 'Fotos core (7)',
+    tablero_photo: 'Foto de tablero',
     firma: 'Firma',
     pending_writes: 'Guardado pendiente',
     km_justification: 'Justificación de KM',
@@ -1850,7 +1851,7 @@ function _panelResumen(p) {
     <div class="pap-panel">
       <h2>Listo para entregar</h2>
       <ul class="pap-checklist-status">
-        <li class="${coreOk ? 'is-ok' : ''}">Fotos core: ${coreOk ? '6/6' : `${_coreFotosCount(p)}/6`}</li>
+        <li class="${coreOk ? 'is-ok' : ''}">Fotos core: ${coreOk ? '7/7' : `${_coreFotosCount(p)}/7`}</li>
         <li class="${checkOk ? 'is-ok' : ''}">Accesorios: ${checkOk ? 'completos' : 'faltan por marcar'}</li>
         <li>Estado: ${_esc(STATUS_LABELS[p.status] || p.status)}</li>
       </ul>
@@ -2270,8 +2271,8 @@ function _bind() {
     const el = root.querySelector(sel);
     if (!el || el.disabled) return;
     el.addEventListener('input', () => {
-      const digits = String(el.value || '').replace(/\D+/g, '');
-      if (el.value !== digits) el.value = digits;
+      const digit = String(el.value || '').replace(/\D+/g, '').slice(0, 1);
+      if (el.value !== digit) el.value = digit;
     });
   });
   const syncLlantas = (source) => {
@@ -2800,11 +2801,10 @@ async function _persistZonaFoto(zonaIdx, file, opts = {}) {
 function _openGuidedCamera() {
   if (!_detail || !puedeEditar(_detail.status)) return;
   _closeGuidedCamera();
-  const coreZones = ZONAS_CORE.map((id) => {
-    const fromAll = [...ZONAS_V1, { id: 'tablero_kilometraje', label: 'Tablero / kilometraje' }, { id: 'interior', label: 'Interior' }]
-      .find((z) => z.id === id);
-    return { id, label: fromAll?.label || id };
-  });
+  const coreZones = ZONAS_CORE.map((id) => ({
+    id,
+    label: ZONA_CORE_LABELS[id] || id,
+  }));
   const pending = coreZones.findIndex((z) => !String(_detail.zonas?.[z.id]?.fotoPath || '').trim());
   const startIndex = pending >= 0 ? pending : 0;
   _cameraApi = openGuidedCamera({
@@ -2888,8 +2888,8 @@ async function _saveCheck() {
   }
   const tapetesUsoRudoRaw = _container.querySelector('#papTapetesRudo')?.value ?? '';
   const tapetesAlfombraRaw = _container.querySelector('#papTapetesAlfombra')?.value ?? '';
-  const tapetesUsoRudo = tapetesUsoRudoRaw === '' ? null : Number(String(tapetesUsoRudoRaw).replace(/\D+/g, ''));
-  const tapetesAlfombra = tapetesAlfombraRaw === '' ? null : Number(String(tapetesAlfombraRaw).replace(/\D+/g, ''));
+  const tapetesUsoRudo = tapetesUsoRudoRaw === '' ? null : Number(String(tapetesUsoRudoRaw).replace(/\D+/g, '').slice(0, 1));
+  const tapetesAlfombra = tapetesAlfombraRaw === '' ? null : Number(String(tapetesAlfombraRaw).replace(/\D+/g, '').slice(0, 1));
   const notasInteriores = _container.querySelector('[data-field="notasInteriores"]')?.value?.trim() || '';
 
   if (!isChecklistComplete({
@@ -2898,7 +2898,7 @@ async function _saveCheck() {
     tapetesUsoRudo,
     tapetesAlfombra,
   })) {
-    await _mexAlert('Checklist incompleto', 'Marca todos los accesorios, las 4 llantas y ambos contadores de tapetes.');
+    await _mexAlert('Checklist incompleto', 'Marca todos los accesorios, las 4 llantas y tapetes (0–9; 0 = no tiene).');
     return;
   }
 

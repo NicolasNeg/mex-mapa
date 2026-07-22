@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 //  domain/papeleta.model.js — pure business logic (no Firebase)
-//  Cache-bust: 2026-07-22-global-scope-v1
+//  Cache-bust: 2026-07-22-core7-v3
 // ═══════════════════════════════════════════════════════════
 
 /** @typedef {'borrador'|'lista'|'entregada'|'en_retorno'|'cerrada_historial'|'cancelada'} PapeletaStatus */
@@ -203,36 +203,44 @@ export const ZONAS_V1 = Object.freeze([
   { orden: 12, id: 'cofre',            label: 'Cofre',                       vista: 'front' },
 ]);
 
-/** Additive zones (template v2) — tablero backs KM claim; interior is core. */
+/** Additive zones — tablero backs KM; interior/herramienta are core photos (v3). */
 export const ZONAS_EXTRA = Object.freeze([
   { orden: 13, id: 'tablero_kilometraje', label: 'Tablero / kilometraje', vista: 'interior' },
   { orden: 14, id: 'interior',            label: 'Interior',              vista: 'interior' },
+  { orden: 15, id: 'herramienta',         label: 'Herramienta',           vista: 'interior' },
+  { orden: 16, id: 'refaccion',           label: 'Refacción',             vista: 'interior' },
 ]);
 
-/** All zone defs for createEmptyZonas (14). */
+/** All zone defs for createEmptyZonas. */
 export const ZONAS_ALL = Object.freeze([...ZONAS_V1, ...ZONAS_EXTRA]);
 
 /**
- * Canonical core walkaround order (6). Delivery hard-gate uses these ids only.
- * Product labels: frente, trasera, lateral_izquierdo, lateral_derecho, tablero_kilometraje, interior.
+ * Canonical core walkaround (7). Delivery hard-gate for `core_photos`.
+ * Tablero is hard separately (`tablero_photo`) — captured in KM step, not counted in 7/7.
+ * Order matches product: frontal, parabrisas, lat izq/der, trasera, interior, herramienta.
  */
 export const ZONAS_CORE = Object.freeze([
   'frente_defensa',
-  'trasera_cajuela',
+  'parabrisas',
   'lateral_izq',
   'lateral_der',
-  'tablero_kilometraje',
+  'trasera_cajuela',
   'interior',
+  'herramienta',
 ]);
 
 export const ZONA_CORE_LABELS = Object.freeze({
-  frente_defensa: 'Frente',
-  trasera_cajuela: 'Trasera',
+  frente_defensa: 'Frontal',
+  parabrisas: 'Parabrisas',
   lateral_izq: 'Lateral izquierdo',
   lateral_der: 'Lateral derecho',
-  tablero_kilometraje: 'Tablero / kilometraje',
+  trasera_cajuela: 'Defensa trasera',
   interior: 'Interior',
+  herramienta: 'Herramienta',
 });
+
+/** Hard photo that is NOT part of the 7-core counter. */
+export const ZONA_TABLERO_ID = 'tablero_kilometraje';
 
 export const CHECKLIST_KEYS = Object.freeze([
   'placas', 'catalizador', 'tapon_gas', 'gato', 'herramienta',
@@ -351,17 +359,33 @@ export function createEmptyTapetes() {
   return { usoRudo: null, alfombra: null };
 }
 
+/**
+ * Tapetes: un solo dígito 0–9. 0 = no tiene.
+ * @param {unknown} v
+ */
+export function isValidTapeteDigit(v) {
+  if (v == null || v === '') return false;
+  const s = String(v).trim();
+  if (!/^[0-9]$/.test(s)) return false;
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 && n <= 9;
+}
+
 /** @param {object} p */
 export function normalizeTapetes(p = {}) {
   const nested = (p && typeof p.tapetes === 'object' && p.tapetes) || {};
   const uso = nested.usoRudo ?? p?.tapetesUsoRudo ?? p?.salida?.tapetesUsoRudo;
   const alf = nested.alfombra ?? p?.tapetesAlfombra ?? p?.salida?.tapetesAlfombra;
-  const toNum = (v) => {
+  const toDigit = (v) => {
     if (v == null || v === '') return null;
-    const n = Number(String(v).replace(/\D+/g, ''));
-    return Number.isFinite(n) ? n : null;
+    const s = String(v).replace(/\D+/g, '');
+    if (!s) return null;
+    // Solo primer dígito (máx 1 carácter numérico 0–9)
+    const d = s.slice(0, 1);
+    const n = Number(d);
+    return Number.isFinite(n) && n >= 0 && n <= 9 ? n : null;
   };
-  return { usoRudo: toNum(uso), alfombra: toNum(alf) };
+  return { usoRudo: toDigit(uso), alfombra: toDigit(alf) };
 }
 
 export function createEmptyChecklist() {
@@ -407,15 +431,18 @@ export function resolveZonaFotoPath(zonas = {}, zonaId, papeleta = null) {
  * @param {{ papeleta?: object, fotoTableroPath?: string }} [opts]
  */
 export function coreZonasHaveFoto(zonas = {}, opts = {}) {
-  const papeleta = opts.papeleta || null;
-  const fallbackTablero = String(opts.fotoTableroPath || '').trim();
-  return ZONAS_CORE.every((id) => {
-    if (id === 'tablero_kilometraje') {
-      const p = resolveZonaFotoPath(zonas, id, papeleta) || fallbackTablero;
-      return p.length > 0;
-    }
-    return String(zonas?.[id]?.fotoPath || '').trim().length > 0;
-  });
+  void opts;
+  return ZONAS_CORE.every((id) => String(zonas?.[id]?.fotoPath || '').trim().length > 0);
+}
+
+/**
+ * Tablero es hard aparte del contador 7/7 core (captura en paso KM).
+ * @param {object|null} papeleta
+ * @param {object} [zonas]
+ */
+export function tableroHaveFoto(papeleta = null, zonas = null) {
+  const z = zonas || papeleta?.zonas || {};
+  return resolveZonaFotoPath(z, ZONA_TABLERO_ID, papeleta).length > 0;
 }
 
 /** Keys-only checklist helper (llantas/tapetes not included). */
@@ -424,7 +451,7 @@ export function checklistCompleto(checklist = {}) {
 }
 
 /**
- * Full checklist gate: keys + 4 llantas + tapetes counts defined.
+ * Full checklist gate: keys + 4 llantas + tapetes 0–9 (0 = no tiene).
  * @param {object} papeleta
  */
 export function isChecklistComplete(papeleta = {}) {
@@ -435,7 +462,7 @@ export function isChecklistComplete(papeleta = {}) {
   const llantas = normalizeMarcasLlantas(papeleta);
   const llantasOk = LLANTA_KEYS.every((k) => String(llantas[k] || '').trim().length > 0);
   const tapetes = normalizeTapetes(papeleta);
-  const tapetesOk = tapetes.usoRudo != null && tapetes.alfombra != null;
+  const tapetesOk = isValidTapeteDigit(tapetes.usoRudo) && isValidTapeteDigit(tapetes.alfombra);
   return keysOk && llantasOk && tapetesOk;
 }
 
@@ -633,6 +660,7 @@ export function puedeEntregar(papeletaOrStatus, optsOrZonas = {}, checklistMaybe
   if (!isGasSet(papeleta.salida?.gas)) hard.push('gas');
   if (!isChecklistComplete(papeleta)) hard.push('checklist');
   if (!coreZonasHaveFoto(papeleta.zonas, { papeleta })) hard.push('core_photos');
+  if (!tableroHaveFoto(papeleta)) hard.push('tablero_photo');
   if (!isValidFirma(firma)) hard.push('firma');
   if (opts.pendingWrites) hard.push('pending_writes');
   const just = opts.kmJustification ?? papeleta.salida?.kmJustificacion ?? '';
@@ -675,6 +703,7 @@ export function computeStatusAfterSave({ status, zonas, checklist, papeleta } = 
   const gasOk = isGasSet(merged.salida?.gas);
   if (
     coreZonasHaveFoto(merged.zonas, { papeleta: merged })
+    && tableroHaveFoto(merged)
     && isChecklistComplete(merged)
     && kmOk
     && gasOk
