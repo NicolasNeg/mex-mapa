@@ -3348,3 +3348,114 @@ body.dark-theme .pap-unit-hero {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* ?? Photo annotate fullscreen ?? */
+body.pap-annotate-open { overflow: hidden; }
+.pap-annotate {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  flex-direction: column;
+  background: #0b1220;
+  color: #f8fafc;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.pap-annotate__bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+.pap-annotate__title {
+  flex: 1 1 auto;
+  font-size: 14px;
+  font-weight: 700;
+}
+.pap-annotate__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.pap-annotate__stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background: #020617;
+}
+.pap-annotate__bg,
+.pap-annotate__canvas {
+  position: absolute;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  touch-action: none;
+  user-select: none;
+}
+.pap-annotate__canvas { z-index: 2; cursor: crosshair; }
+.pap-annotate__legend {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+}
+.pap-annotate-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+}
+.pap-annotate-sheet__panel {
+  width: min(420px, 100%);
+  background: #fff;
+  color: #0f172a;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pap-annotate-sheet__panel h3 { margin: 0; font-size: 16px; }
+.pap-annotate-sheet__panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pap-annotate-sheet__panel select,
+.pap-annotate-sheet__panel input {
+  min-height: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0 10px;
+  font: 500 14px Inter, sans-serif;
+}
+.pap-annotate-sheet__acts {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.pap-cam__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}

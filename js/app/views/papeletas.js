@@ -46,6 +46,7 @@ import {
 import {
   uploadZonaFoto,
   uploadZonaDetalle,
+  uploadZonaOverlay,
   uploadFirma,
   uploadReporteFoto,
   uploadDamageFoto,
@@ -68,6 +69,7 @@ import {
 import { buscarUnidad } from '/js/app/features/unidades/unidades-data.js';
 import { mountDiagram } from '/js/app/features/papeletas/papeletas-diagram.js';
 import { openGuidedCamera } from '/js/app/features/papeletas/papeletas-camera.js';
+import { openPhotoAnnotator } from '/js/app/features/papeletas/papeletas-photo-annotate.js';
 
 let _container = null;
 let _navigate = null;
@@ -1912,7 +1914,19 @@ function _panelZonas(p, editable) {
             ? `<img class="pap-cam__preview" data-zona-preview alt="Foto zona" style="display:block"/>`
             : `<div class="pap-cam__empty">Sin foto</div>`}
           <input type="hidden" data-zona-estado value="${_esc(data.estado || 'ok')}"/>
-          ${editable ? `
+          ${editable && data.fotoPath ? `
+            <div class="pap-cam__row">
+              <button type="button" class="pap-btn pap-btn--ghost pap-btn--tiny" data-act="annotate-zona" ${_busy ? 'disabled' : ''}>
+                <span class="material-symbols-outlined">ink_highlighter</span>
+                Editar
+              </button>
+              <label class="pap-cam__btn pap-cam__btn--ghost">
+                <input type="file" accept="image/*" data-zona-foto data-autosave="1" hidden/>
+                <span class="material-symbols-outlined">cameraswitch</span>
+                Retomar
+              </label>
+            </div>
+          ` : editable ? `
             <label class="pap-cam__btn pap-cam__btn--ghost">
               <input type="file" accept="image/*" data-zona-foto data-autosave="1" hidden/>
               <span class="material-symbols-outlined">upload</span>
@@ -2503,6 +2517,9 @@ function _bind() {
   });
   root.querySelectorAll('[data-act="open-camera"]').forEach((btn) => {
     btn.addEventListener('click', () => _openGuidedCamera());
+  });
+  root.querySelector('[data-act="annotate-zona"]')?.addEventListener('click', () => {
+    void _annotateCurrentZona();
   });
   root.querySelector('[data-act="goto-resumen"]')?.addEventListener('click', () => {
     _jumpToSec('entregar');
@@ -3121,6 +3138,54 @@ async function _saveZona() {
     await _mexAlert('Error', e.message || String(e));
   } finally {
     _busy = false; _render();
+  }
+}
+
+async function _annotateCurrentZona() {
+  if (!_detail || !puedeEditar(_detail.status)) return;
+  const z = ZONAS_V1[_zonaIdx] || ZONAS_V1[0];
+  const cur = _detail.zonas?.[z.id] || {};
+  const path = String(cur.fotoPath || '').trim();
+  if (!path || path.startsWith('pending:')) {
+    await _mexAlert('Foto', 'Captura o sube la foto antes de anotar.');
+    return;
+  }
+  let url = _fotoCache.get(path) || '';
+  try {
+    if (!url) {
+      url = await getDownloadUrl(path);
+      _fotoCache.set(path, url);
+    }
+  } catch (e) {
+    await _mexAlert('Foto', e.message || 'No se pudo cargar la foto');
+    return;
+  }
+  try {
+    await openPhotoAnnotator({
+      photoUrl: url,
+      photoPath: path,
+      title: `Anotar · ${z.label}`,
+      strokes: Array.isArray(cur.fotoOverlayStrokes) ? cur.fotoOverlayStrokes : [],
+      marks: Array.isArray(cur.fotoOverlayMarks) ? cur.fotoOverlayMarks : [],
+      onSave: async ({ overlayBlob, strokes, marks }) => {
+        if (!overlayBlob) throw new Error('Overlay vacío');
+        const overlayPath = await uploadZonaOverlay(_detail.id, z.id, overlayBlob);
+        const zonas = { ...(_detail.zonas || {}) };
+        zonas[z.id] = {
+          ...(zonas[z.id] || {}),
+          fotoOverlayPath: overlayPath,
+          fotoOverlayStrokes: strokes,
+          fotoOverlayMarks: marks,
+          fotoOverlayAt: new Date().toISOString(),
+        };
+        await actualizarPapeleta(_detail.id, { zonas }, { user: _user() });
+        if (_detail) _detail.zonas = zonas;
+      },
+    }).promise;
+  } catch (e) {
+    await _mexAlert('Anotar', e.message || String(e));
+  } finally {
+    _render();
   }
 }
 

@@ -84,6 +84,18 @@ export async function uploadZonaDetalle(papeletaId, zonaId, file) {
   return result.url;
 }
 
+/** Transparent PNG overlay (strokes/marks) for a zone photo. */
+export async function uploadZonaOverlay(papeletaId, zonaId, blob) {
+  if (!blob) throw new Error('Overlay requerido');
+  const result = await _uploadToCloudinary(
+    `papeletas/${papeletaId}/zonas`,
+    blob,
+    `${zonaId}_overlay_${Date.now()}`,
+    'image'
+  );
+  return result.url;
+}
+
 export async function uploadDamageFoto(papeletaId, damageId, file) {
   const blob = await compressImageFile(file);
   const safe = String(damageId || 'd').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
