@@ -1295,7 +1295,11 @@ function _render() {
   _hydrateFotos();
 
   const post = _detail ? _isPostEntrega(_detail.status) : false;
-  if (_mode === 'detail' && _detail && !post && _step6Phase !== 'exito') {
+  const onResumen = _step6Phase === 'resumen' || _mobileScreen === 'resumen';
+  if (_mode === 'detail' && _detail && onResumen) {
+    _destroyDiagram();
+    _mountReadonlyDiagrams(_detail);
+  } else if (_mode === 'detail' && _detail && !post && _step6Phase !== 'exito') {
     _destroyReadonlyDiagrams();
     _mountDiagramIfNeeded(_detail, puedeEditar(_detail.status));
   } else if (_mode === 'detail' && _detail && post && (_wizardStep === 'salida' || _wizardStep === 'entrada')) {
@@ -1933,6 +1937,7 @@ function _panelResumen(p) {
   const gate = _deliveryGate(p, { firma: p.salida?.firma || null });
   const coreOk = coreZonasHaveFoto(p.zonas, { papeleta: p });
   const checkOk = isChecklistComplete(p);
+  const tapetes = normalizeTapetes(p);
   const hardWithoutFirma = (gate.hard || []).filter((h) => h !== 'firma');
   const canAskFirma = puedeEditar(p.status) && hardWithoutFirma.length === 0;
   const HARD_LABELS = {
@@ -1946,31 +1951,66 @@ function _panelResumen(p) {
     km_justification: 'Justificación de KM',
     status: 'Estado no elegible',
   };
+  const mid = Math.ceil(CHECKLIST_KEYS.length / 2);
+  const leftKeys = CHECKLIST_KEYS.slice(0, mid);
+  const rightKeys = CHECKLIST_KEYS.slice(mid);
+  const chkCell = (k) => {
+    if (!k) return '<div class="pap-resumen-chk__cell"></div>';
+    const v = p.checklist?.[k] || '';
+    const mark = v === 'ok' ? '✓' : v === 'faltante' ? 'X' : v === 'na' ? 'N/A' : '—';
+    return `<div class="pap-resumen-chk__cell"><span>${_esc(CHECKLIST_LABELS[k] || k)}</span><b>${mark}</b></div>`;
+  };
+  const coreThumbs = ZONAS_CORE.map((id) => {
+    const path = String(p.zonas?.[id]?.fotoPath || '').trim();
+    const url = path && !path.startsWith('pending:') ? (_fotoCache.get(path) || '') : '';
+    if (path && !url) getDownloadUrl(path).then((u) => { _fotoCache.set(path, u); }).catch(() => {});
+    return `<div class="pap-resumen-ph ${path ? 'is-ok' : ''}" title="${_esc(ZONA_CORE_LABELS[id] || id)}">
+      ${url ? `<img src="${_esc(url)}" alt=""/>` : `<span>${_esc((ZONA_CORE_LABELS[id] || id).slice(0, 3))}</span>`}
+    </div>`;
+  }).join('');
   return `
-    <div class="pap-panel">
-      <h2>Listo para entregar</h2>
+    <div class="pap-panel pap-panel--resumen">
+      <h2>Resumen · espejo PDF</h2>
+      <div class="pap-resumen-top">
+        <div class="pap-resumen-unit">
+          <div><span>MVA</span><strong>${_esc(p.mva || '—')}</strong></div>
+          <div><span>Modelo</span><strong>${_esc(p.modelo || '—')}</strong></div>
+          <div><span>Placas</span><strong>${_esc(p.placas || '—')}</strong></div>
+          <div><span>Cliente</span><strong>${_esc(p.clienteNombre || 'Sin cliente')}</strong></div>
+          <div><span>Contrato</span><strong>${_esc(p.contrato || '—')}</strong></div>
+          <div><span>Plaza</span><strong>${_esc(p.plazaId || '—')}</strong></div>
+        </div>
+        <div class="pap-fields-2">
+          <div class="pap-field"><label>KM salida</label><input value="${_esc(p.salida?.km ?? _pendingSalida.km ?? '—')}" disabled/></div>
+          <div class="pap-field"><label>Gas salida</label><input value="${_esc(p.salida?.gas ?? _pendingSalida.gas ?? '—')}" disabled/></div>
+        </div>
+      </div>
+      <div class="pap-resumen-diagram">${_diagramReadonlyHtml(p, { compact: true })}</div>
+      <h3>Checklist + tapetes</h3>
+      <div class="pap-resumen-chk">
+        ${leftKeys.map((k, i) => `${chkCell(k)}${chkCell(rightKeys[i])}`).join('')}
+        <div class="pap-resumen-chk__cell"><span>Tapetes uso rudo</span><b>${_esc(tapetes.usoRudo ?? '—')}</b></div>
+        <div class="pap-resumen-chk__cell"><span>Tapetes alfombra</span><b>${_esc(tapetes.alfombra ?? '—')}</b></div>
+      </div>
+      <h3>Fotos core ${coreOk ? '7/7' : `${_coreFotosCount(p)}/7`}</h3>
+      <div class="pap-resumen-photos">${coreThumbs}</div>
       <ul class="pap-checklist-status">
-        <li class="${coreOk ? 'is-ok' : ''}">Fotos core: ${coreOk ? '7/7' : `${_coreFotosCount(p)}/7`}</li>
-        <li class="${checkOk ? 'is-ok' : ''}">Accesorios: ${checkOk ? 'completos' : 'faltan por marcar'}</li>
+        <li class="${coreOk ? 'is-ok' : ''}">Fotos core</li>
+        <li class="${checkOk ? 'is-ok' : ''}">Checklist / llantas / tapetes</li>
         <li>Estado: ${_esc(STATUS_LABELS[p.status] || p.status)}</li>
       </ul>
       ${hardWithoutFirma.length ? `
         <p class="pap-hint">Falta: ${hardWithoutFirma.map((h) => HARD_LABELS[h] || h).join(', ')}</p>
       ` : '<p class="pap-ready">Listo para pedir firma</p>'}
       ${(gate.soft || []).includes('faltantes') ? '<p class="pap-hint">Hay ítems marcados como faltante (se pedirá confirmación).</p>' : ''}
-      <p class="pap-entregar-a">Entregar a: <b>${_esc(p.clienteNombre || 'Sin cliente')}</b></p>
-      <div class="pap-fields-2">
-        <div class="pap-field"><label>KM salida</label><input value="${_esc(p.salida?.km ?? _pendingSalida.km ?? '—')}" disabled/></div>
-        <div class="pap-field"><label>Gas salida</label><input value="${_esc(p.salida?.gas ?? _pendingSalida.gas ?? '—')}" disabled/></div>
-      </div>
       <div class="pap-actions pap-actions--sticky">
         ${canAskFirma ? `
           <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="start-entregar" ${_busy ? 'disabled' : ''}>
-            Pedir firma y entregar
+            Entregar · firmar
           </button>
         ` : ''}
         ${p.status === 'entregada' || p.status === 'en_retorno' || p.status === 'cerrada_historial' ? `
-          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="pdf" title="Exportar PDF / XLS / CSV">Exportar</button>
+          <button type="button" class="pap-btn pap-btn--ghost pap-btn--block" data-act="pdf" title="Exportar PDF / XLS / CSV">Exportar PDF</button>
         ` : ''}
         ${p.status === 'entregada' ? `
           <button type="button" class="pap-btn pap-btn--primary pap-btn--block" data-act="goto-entrada">Registrar regreso</button>
@@ -1983,9 +2023,18 @@ function _panelResumen(p) {
 function _panelFirma(p) {
   const firma = p.salida?.firma || {};
   return `
-    <div class="pap-panel pap-panel--app">
+    <div class="pap-panel pap-panel--app pap-panel--firma-fs">
       <h2>Firma de entrega</h2>
-      <p class="pap-hint">Firma en el pad. Se rechazan trazos vacíos o de un solo punto.</p>
+      <div class="pap-firma-rules" role="list">
+        <div class="pap-firma-rules__chip" role="listitem">Suciedad excesiva = cobro</div>
+        <div class="pap-firma-rules__chip" role="listitem">Olor a cigarro = cobro</div>
+        <div class="pap-firma-rules__chip" role="listitem">Daños no marcados = responsabilidad</div>
+        <div class="pap-firma-rules__chip" role="listitem">Combustible según nivel registrado</div>
+      </div>
+      <label class="pap-consent">
+        <input type="checkbox" id="papConsent" />
+        <span>Recibo la unidad con las características especificadas en este documento y acepto.</span>
+      </label>
       <div class="pap-fields-2">
         <div class="pap-field">
           <label>Nombre quien firma</label>
@@ -2000,7 +2049,7 @@ function _panelFirma(p) {
           </select>
         </div>
       </div>
-      <canvas class="pap-sig" id="papSig" width="480" height="180"></canvas>
+      <canvas class="pap-sig" id="papSig" width="480" height="220"></canvas>
       <div class="pap-actions">
         <button type="button" class="pap-btn pap-btn--ghost" data-act="sig-clear">Limpiar</button>
         <button type="button" class="pap-btn pap-btn--primary" data-act="sig-confirm" ${_busy ? 'disabled' : ''}>Confirmar entrega</button>
@@ -3141,7 +3190,7 @@ async function _ensureListaAntesDeEntregar() {
   const gate = _deliveryGate(_detail, { firma: { imagePath: 'pending' } });
   const hard = (gate.hard || []).filter((h) => h !== 'firma');
   if (hard.length) {
-    await _mexAlert('Falta completar', 'Completa KM, gas, checklist y las 6 fotos core antes de entregar.');
+    await _mexAlert('Falta completar', 'Completa KM, gas, checklist, foto de tablero y las 7 fotos core antes de entregar.');
     return false;
   }
   await actualizarPapeleta(_detail.id, {}, { user: _user(), knownRevision: _detail.revision });
@@ -3242,6 +3291,11 @@ async function _confirmFirma() {
   if (!_detail) return;
   const canvas = _container?.querySelector('#papSig');
   if (!canvas) return;
+  const consent = _container?.querySelector('#papConsent');
+  if (consent && !consent.checked) {
+    await _mexAlert('Consentimiento', 'Debes aceptar el recibo de la unidad antes de confirmar.');
+    return;
+  }
   if (!_sigHasInk) {
     await _mexAlert('Firma', 'Firma el pad antes de confirmar la entrega.');
     return;
@@ -3289,7 +3343,8 @@ async function _confirmFirma() {
       signerRole,
       signedAt: new Date().toISOString(),
       capturedBy: _user().uid || '',
-      consentTextVersion: 'v1',
+      consentTextVersion: 'v3-recibo-caracteristicas',
+      consentAccepted: true,
     };
     const result = await finalizeDelivery(papeletaId, {
       quienEntrega: _user().nombre,
