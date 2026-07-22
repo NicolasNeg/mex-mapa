@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="es" data-page-title="Iniciar sesión">
+﻿<!DOCTYPE html>
+<html lang="es" data-page-title="Iniciar sesi├│n">
 
 <head>
   <meta charset="UTF-8">
@@ -7,14 +7,14 @@
   <meta name="theme-color" content="#0f172a">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="description" content="Acceso a la plataforma de gestión operativa de flota.">
+  <meta name="description" content="Acceso a la plataforma de gesti├│n operativa de flota.">
   <meta name="robots" content="noindex, nofollow">
 
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/img/logo.png" type="image/png">
   <link rel="apple-touch-icon" href="/img/logo.png">
 
-  <!-- Inter (fuente única del sistema) + Material Icons -->
+  <!-- Inter (fuente ├║nica del sistema) + Material Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -26,40 +26,32 @@
   <link rel="prefetch" href="/app" as="document">
   <link rel="modulepreload" href="/js/app/main.js">
 
-  <!-- Firebase compat SDK (sin App Check en login: gate = reCAPTCHA v2 checkbox) -->
+  <!-- Firebase compat SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 
-<<<<<<< Updated upstream
   <!-- Login gate = reCAPTCHA v2 checkbox (No soy un robot). App Check v3 se omite en /login.
        Site key: window.MEX_RECAPTCHA_V2_SITE_KEY (firebase-config.js). Docs: /docs/app-check.md -->
   <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
-=======
-  <!-- reCAPTCHA v2 checkbox (“No soy un robot”). Site key: MEX_RECAPTCHA_V2_SITE_KEY -->
-  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
->>>>>>> Stashed changes
 
   <!-- Firebase core -->
   <script src="/js/core/firebase-config.js"></script>
-  <script>
-    // Evita que firebase-init active App Check v3 en esta página.
-    window.MEX_APPCHECK_DISABLED = true;
-  </script>
   <script src="/js/core/firebase-init.js"></script>
   <script src="/js/core/app-bootstrap.js"></script>
   <script src="/js/core/feature-gates.js"></script>
   <script src="/js/core/dialogs.js"></script>
 
-  <title>Iniciar sesión</title>
+  <title>Iniciar sesi├│n</title>
 
   <style>
-    /* ═══════════════════════════════════════════════════════════
-       LOGIN — foto full-bg + tarjeta flotante (Armenta Rent A Car)
-       Desktop: tarjeta a la derecha · Mobile: wordmark + tarjeta centrada
-    ═══════════════════════════════════════════════════════════ */
+    /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+       LOGIN ÔÇö foto full-bg + tarjeta flotante (Armenta Rent A Car)
+       Desktop: tarjeta a la derecha ┬À Mobile: wordmark + tarjeta centrada
+    ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
     *,
     *::before,
     *::after {
@@ -105,7 +97,7 @@
       padding: 32px clamp(24px, 6vw, 96px);
     }
 
-    /* ── Wordmark (visible sólo en mobile, sobre la foto) ── */
+    /* ÔöÇÔöÇ Wordmark (visible s├│lo en mobile, sobre la foto) ÔöÇÔöÇ */
     .brand-wordmark {
       display: none;
       align-items: center;
@@ -138,7 +130,7 @@
       opacity: 0.92;
     }
 
-    /* ── Tarjeta ── */
+    /* ÔöÇÔöÇ Tarjeta ÔöÇÔöÇ */
     .login-card {
       width: 100%;
       max-width: 480px;
@@ -149,7 +141,7 @@
       animation: cardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
-    /* ── Brand lockup arriba-izquierda (desktop) ── */
+    /* ÔöÇÔöÇ Brand lockup arriba-izquierda (desktop) ÔöÇÔöÇ */
     .login-topbar {
       position: fixed;
       top: clamp(20px, 3vw, 40px);
@@ -166,7 +158,7 @@
     .login-topbar .brand-name { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
     .login-topbar .tb-sub { font-size: 14px; font-weight: 500; opacity: 0.9; }
 
-    /* ── Subtítulo del card ── */
+    /* ÔöÇÔöÇ Subt├¡tulo del card ÔöÇÔöÇ */
     .form-sub {
       margin: 0 0 26px;
       text-align: center;
@@ -174,7 +166,7 @@
       color: var(--muted);
     }
 
-    /* ── Strip de features con iconos ── */
+    /* ÔöÇÔöÇ Strip de features con iconos ÔöÇÔöÇ */
     .login-feats {
       display: flex;
       justify-content: center;
@@ -295,19 +287,13 @@
       margin: 10px 2px 16px;
     }
 
-<<<<<<< Updated upstream
     .login-recaptcha-wrap {
-=======
-    /* reCAPTCHA v2 checkbox — centrado y responsive */
-    .login-recaptcha {
->>>>>>> Stashed changes
       display: flex;
       justify-content: center;
       margin: 0 0 18px;
       min-height: 78px;
     }
 
-<<<<<<< Updated upstream
     .login-recaptcha-wrap .g-recaptcha {
       transform-origin: center top;
     }
@@ -317,16 +303,6 @@
       text-align: center;
       font-size: 12px;
       color: var(--muted);
-=======
-    .login-recaptcha .g-recaptcha {
-      transform-origin: center center;
-    }
-
-    @media (max-width: 400px) {
-      .login-recaptcha .g-recaptcha {
-        transform: scale(0.92);
-      }
->>>>>>> Stashed changes
     }
 
     .remember {
@@ -463,7 +439,7 @@
       }
     }
 
-    /* ── Vista Request Access (reemplaza al login con slide) ── */
+    /* ÔöÇÔöÇ Vista Request Access (reemplaza al login con slide) ÔöÇÔöÇ */
     .login-card {
       transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease,
         box-shadow 0.15s;
@@ -539,7 +515,7 @@
       text-decoration: underline;
     }
 
-    /* ── Mobile ───────────────────────────────────────────── */
+    /* ÔöÇÔöÇ Mobile ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
     @media (max-width: 860px) {
       .login-shell {
         align-items: center;
@@ -601,7 +577,7 @@
     </span>
     <span class="tb-text">
       <strong class="brand-name">Armenta</strong>
-      <span class="tb-sub">Rent A Car · Panel operativo</span>
+      <span class="tb-sub">Rent A Car ┬À Panel operativo</span>
     </span>
   </header>
 
@@ -637,7 +613,7 @@
       </span>
 
       <h1 class="form-title">Login</h1>
-      <p class="form-sub">Accede a tu panel de gestión de flota</p>
+      <p class="form-sub">Accede a tu panel de gesti├│n de flota</p>
 
       <div class="field">
         <div class="field-pill">
@@ -662,22 +638,10 @@
         <button type="button" class="link-forgot" onclick="olvidePassword()">Forgot password?</button>
       </div>
 
-<<<<<<< Updated upstream
-      <div class="login-recaptcha-wrap" aria-label="Verificación anti-bot">
+      <div class="login-recaptcha-wrap" aria-label="Verificaci├│n anti-bot">
         <div id="login-recaptcha"></div>
       </div>
-      <p id="login-recaptcha-hint" class="login-recaptcha-hint" hidden>Marca «No soy un robot» para continuar.</p>
-=======
-      <div class="login-recaptcha" aria-label="Verificación reCAPTCHA">
-        <div
-          id="login-recaptcha"
-          class="g-recaptcha"
-          data-sitekey="6Lf1714tAAAAAK3wyyOhB8nCk6JRh7uwIFlR6ufC"
-          data-theme="light"
-          data-size="normal"
-        ></div>
-      </div>
->>>>>>> Stashed changes
+      <p id="login-recaptcha-hint" class="login-recaptcha-hint" hidden>Marca ┬½No soy un robot┬╗ para continuar.</p>
 
       <button onclick="loginManual()" id="btnLoginManual" class="btn-primary">LOGIN</button>
 
@@ -705,16 +669,16 @@
 
   </div>
 
-  <!-- ── Vista: Request Access (reemplaza al login con slide) ─────── -->
+  <!-- ÔöÇÔöÇ Vista: Request Access (reemplaza al login con slide) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ -->
   <div id="modal-solicitud" class="request-view">
     <section class="request-card">
       <h1 class="request-title">Request Access</h1>
-      <p class="request-sub">Únete a la red · ingresa tu código de invitación</p>
+      <p class="request-sub">├Ünete a la red ┬À ingresa tu c├│digo de invitaci├│n</p>
       <form class="request-form" id="inv-reg-form">
         <div class="field">
           <div class="field-pill">
             <span class="material-icons pill-icon">confirmation_number</span>
-            <input id="reg_codigo" placeholder="Código de invitación" required autocomplete="off"
+            <input id="reg_codigo" placeholder="C├│digo de invitaci├│n" required autocomplete="off"
               style="text-transform:uppercase;letter-spacing:2px;">
           </div>
         </div>
@@ -733,20 +697,20 @@
         <div class="field">
           <div class="field-pill">
             <span class="material-icons pill-icon">call</span>
-            <input id="reg_tel" type="tel" placeholder="Teléfono (opcional)" autocomplete="tel">
+            <input id="reg_tel" type="tel" placeholder="Tel├®fono (opcional)" autocomplete="tel">
           </div>
         </div>
         <div class="field">
           <div class="field-pill">
             <span class="material-icons pill-icon">lock</span>
-            <input id="reg_pass" type="password" placeholder="Contraseña (6+)" required autocomplete="new-password">
+            <input id="reg_pass" type="password" placeholder="Contrase├▒a (6+)" required autocomplete="new-password">
             <span class="material-icons pill-toggle" onclick="togglePassword('reg_pass', this)">visibility</span>
           </div>
         </div>
         <div class="field">
           <div class="field-pill">
             <span class="material-icons pill-icon">lock</span>
-            <input id="reg_pass2" type="password" placeholder="Confirmar contraseña" required autocomplete="new-password">
+            <input id="reg_pass2" type="password" placeholder="Confirmar contrase├▒a" required autocomplete="new-password">
             <span class="material-icons pill-toggle" onclick="togglePassword('reg_pass2', this)">visibility</span>
           </div>
         </div>
@@ -757,7 +721,7 @@
     </section>
   </div>
 
-  <!-- ── Controlador de la vista (ES6 module) ──────────────── -->
+  <!-- ÔöÇÔöÇ Controlador de la vista (ES6 module) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ -->
   <script type="module" src="/js/views/login.js"></script>
 
 </body>

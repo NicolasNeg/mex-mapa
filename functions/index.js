@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+﻿const admin = require("firebase-admin");
 const crypto = require("crypto");
 const logger = require("firebase-functions/logger");
 const functions = require("firebase-functions/v1");
@@ -170,7 +170,7 @@ function isDocumentPath(path = "") {
 function requireCollectionPath(path, label = "collectionPath") {
   const normalized = normalizeFirestorePath(path);
   if (!isCollectionPath(normalized)) {
-    throw new HttpsError("invalid-argument", `${label} debe apuntar a una colección válida.`);
+    throw new HttpsError("invalid-argument", `${label} debe apuntar a una colecci├│n v├ílida.`);
   }
   return normalized;
 }
@@ -178,7 +178,7 @@ function requireCollectionPath(path, label = "collectionPath") {
 function requireDocumentPath(path, label = "docPath") {
   const normalized = normalizeFirestorePath(path);
   if (!isDocumentPath(normalized)) {
-    throw new HttpsError("invalid-argument", `${label} debe apuntar a un documento válido.`);
+    throw new HttpsError("invalid-argument", `${label} debe apuntar a un documento v├ílido.`);
   }
   return normalized;
 }
@@ -284,7 +284,7 @@ function buildDocumentPreview(data = {}) {
         : String(raw ?? "");
       return `${key}: ${value.slice(0, 64)}`;
     })
-    .join(" · ");
+    .join(" ┬À ");
 }
 
 function snapshotDateLabel(value) {
@@ -427,7 +427,7 @@ function preferredAccessRequestCollections(preferred = "") {
 async function resolveAccessRequestDoc(docId, preferredCollection = "") {
   const normalizedId = normalizeLower(docId);
   if (!normalizedId) {
-    throw new HttpsError("invalid-argument", "Solicitud inválida.");
+    throw new HttpsError("invalid-argument", "Solicitud inv├ílida.");
   }
   for (const collectionName of preferredAccessRequestCollections(preferredCollection)) {
     const snap = await db.collection(collectionName).doc(normalizedId).get();
@@ -446,7 +446,7 @@ async function resolveAccessRequestDoc(docId, preferredCollection = "") {
 async function resolveUserProfileDocRefByEmail(email, authUser = null) {
   const normalizedEmail = normalizeLower(email);
   if (!normalizedEmail) {
-    throw new HttpsError("invalid-argument", "Correo inválido.");
+    throw new HttpsError("invalid-argument", "Correo inv├ílido.");
   }
   const direct = await db.collection(USERS_COL).doc(normalizedEmail).get();
   if (direct.exists) return direct.ref;
@@ -695,7 +695,7 @@ function assertProfileMatchesAuth(profile, auth) {
 }
 
 async function findUserProfileFromAuth(auth) {
-  if (!auth?.uid) throw new HttpsError("unauthenticated", "Sesión requerida.");
+  if (!auth?.uid) throw new HttpsError("unauthenticated", "Sesi├│n requerida.");
   const email = normalizeLower(auth.token?.email);
   if (email) {
     const direct = await db.collection(USERS_COL).doc(email).get();
@@ -831,7 +831,7 @@ async function resolveCuadreReviewRecipients(plaza, actorName = "", security = {
     return isOperationalAdmin(role, security, data);
   }).map(doc => doc.id);
 
-  // Priorizar al admin que inició la misión; mantener al resto de admins de plaza.
+  // Priorizar al admin que inici├│ la misi├│n; mantener al resto de admins de plaza.
   const iniciadorDocId = normalizeString(
     settings.adminIniciadorDocId
     || settings.creadorDocId
@@ -1127,7 +1127,7 @@ function safeParseArray(rawValue) {
 
 function isCriticalAlert(data = {}) {
   const type = normalizeUpper(data.tipo);
-  return type === "URGENTE" || type === "CRITICA" || type === "CRÍTICA" || type === "ALTA";
+  return type === "URGENTE" || type === "CRITICA" || type === "CR├ìTICA" || type === "ALTA";
 }
 
 exports.onPatioHistoryCreated = functions.region(REGION).firestore.document("historial_patio/{histId}").onCreate(async (snap, context) => {
@@ -1208,7 +1208,7 @@ exports.onCriticalAlertCreated = functions.region(REGION).firestore.document("al
     const recipients = await resolveAlertRecipients(data);
     const eventId = `alert_${context.params.alertId}`;
     const actorName = normalizeString(data.autor || data.actor || "Sistema");
-    const title = normalizeString(data.titulo || "Alerta crítica");
+    const title = normalizeString(data.titulo || "Alerta cr├¡tica");
     const body = normalizeString(data.mensaje || "Revisa la alerta en la plataforma.").slice(0, 180);
     const deepLink = "/mapa?notif=alerts";
     await writeOpsEvent(eventId, {
@@ -1264,8 +1264,8 @@ exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`$
     const shouldNotifyReview = nextState === "REVISION" && (previousState !== "REVISION" || reviewChanged);
     if (!shouldNotifyMission && !shouldNotifyReview) return;
 
-    const adminName = normalizeString(after.adminIniciador || "Operación");
-    const actorName = normalizeString(after.ultimoEditor || adminName || "Operación");
+    const adminName = normalizeString(after.adminIniciador || "Operaci├│n");
+    const actorName = normalizeString(after.ultimoEditor || adminName || "Operaci├│n");
     const security = await loadSecurityConfig();
     const recipients = shouldNotifyMission
       ? await resolveCuadreRecipients(plazaId, adminName, after)
@@ -1275,11 +1275,11 @@ exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`$
       : "cuadre.review_ready";
     const eventId = `cuadre_${eventType.replace(/\./g, "_")}_${plazaId}_${timestampToMillis(after.ultimaModificacion) || nowMillis()}`;
     const title = shouldNotifyMission
-      ? (previousState === "PROCESO" ? `Misión de cuadre actualizada en ${plazaId}` : `Nueva misión de cuadre en ${plazaId}`)
-      : `Auditoría lista para revisar en ${plazaId}`;
+      ? (previousState === "PROCESO" ? `Misi├│n de cuadre actualizada en ${plazaId}` : `Nueva misi├│n de cuadre en ${plazaId}`)
+      : `Auditor├¡a lista para revisar en ${plazaId}`;
     const body = shouldNotifyMission
-      ? (adminName ? `${adminName} te envió la misión del cuadre.` : "Ya tienes una nueva misión de cuadre asignada.")
-      : `${actorName || "Patio"} terminó la auditoría y ya puedes finalizar el cuadre.`;
+      ? (adminName ? `${adminName} te envi├│ la misi├│n del cuadre.` : "Ya tienes una nueva misi├│n de cuadre asignada.")
+      : `${actorName || "Patio"} termin├│ la auditor├¡a y ya puedes finalizar el cuadre.`;
     const missionId = normalizeString(after.cuadreMissionId || "");
     const deepLink = shouldNotifyMission
       ? `/app/cuadrarflota?plaza=${encodeURIComponent(plazaId)}${missionId ? `&missionId=${encodeURIComponent(missionId)}` : ""}&source=push`
@@ -1521,7 +1521,7 @@ async function queryOverview() {
 async function queryDbCollections(rawParams = {}) {
   const parentPath = normalizeFirestorePath(rawParams.parentPath || "");
   if (parentPath && !isDocumentPath(parentPath)) {
-    throw new HttpsError("invalid-argument", "parentPath debe apuntar a un documento o venir vacío.");
+    throw new HttpsError("invalid-argument", "parentPath debe apuntar a un documento o venir vac├¡o.");
   }
   const collections = parentPath
     ? await db.doc(parentPath).listCollections()
@@ -1792,9 +1792,9 @@ async function runCleanupDeviceTokensJob(params = {}) {
 async function runSendTestNotificationJob(params = {}) {
   const target = normalizeString(params.targetUser || params.targetEmail || "");
   const title = normalizeString(params.title || "Prueba de notificacion");
-  const body = normalizeString(params.body || "Esta es una notificación de prueba enviada desde la consola.");
+  const body = normalizeString(params.body || "Esta es una notificaci├│n de prueba enviada desde la consola.");
   const recipients = await resolveUserDocIdsByHandle(target);
-  if (!recipients.length) throw new HttpsError("not-found", "No se encontró el usuario destino.");
+  if (!recipients.length) throw new HttpsError("not-found", "No se encontr├│ el usuario destino.");
   const eventId = `test_${nowMillis()}_${Math.floor(Math.random() * 1000)}`;
   const deepLink = "/mapa?notif=inbox";
   await writeOpsEvent(eventId, {
@@ -1907,12 +1907,12 @@ exports.runProgrammerJob = functions.region(REGION).https.onCall(async (data, co
   }
 });
 
-// ══════════════════════════════════════════════════════════════
-//  enviarCorreoSolicitud — HTTPS callable
-//  Envía un correo de confirmación al solicitante de acceso.
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+//  enviarCorreoSolicitud ÔÇö HTTPS callable
+//  Env├¡a un correo de confirmaci├│n al solicitante de acceso.
 //  Credenciales SMTP via Firebase config:
 //    firebase functions:config:set mail.user="..." mail.pass="..."
-// ══════════════════════════════════════════════════════════════
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 exports.enviarCorreoSolicitud = functions
   .region(REGION)
   .https.onCall(async (data) => {
@@ -1926,8 +1926,8 @@ exports.enviarCorreoSolicitud = functions
     const mailPass = (functions.config().mail || {}).pass || "";
 
     if (!mailUser || !mailPass) {
-      // Si no hay config de correo, solo loguear — no bloquear el flujo
-      logger.warn("[enviarCorreoSolicitud] Sin config mail.user/mail.pass — correo omitido.");
+      // Si no hay config de correo, solo loguear ÔÇö no bloquear el flujo
+      logger.warn("[enviarCorreoSolicitud] Sin config mail.user/mail.pass ÔÇö correo omitido.");
       return { ok: true, sent: false, reason: "no_mail_config" };
     }
 
@@ -1940,26 +1940,26 @@ exports.enviarCorreoSolicitud = functions
       <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;background:#f8fafc;border-radius:16px;overflow:hidden;">
         <div style="background:linear-gradient(135deg,#0b2548,#1a53a0);padding:32px 36px;">
           <h1 style="color:#fff;margin:0;font-size:22px;font-weight:900;">MapGestion</h1>
-          <p style="color:rgba(255,255,255,0.7);margin:6px 0 0;font-size:13px;">Sistema de Administración de Flota</p>
+          <p style="color:rgba(255,255,255,0.7);margin:6px 0 0;font-size:13px;">Sistema de Administraci├│n de Flota</p>
         </div>
         <div style="padding:32px 36px;background:#fff;">
           <h2 style="color:#0f172a;font-size:18px;font-weight:800;margin:0 0 8px;">Solicitud recibida</h2>
           <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px;">
             Hola <strong>${nombre}</strong>, recibimos tu solicitud de acceso al sistema.<br>
-            Un administrador revisará tu solicitud y te notificará sobre la decisión.
+            Un administrador revisar├í tu solicitud y te notificar├í sobre la decisi├│n.
           </p>
           <div style="background:#f1f5f9;border-radius:12px;padding:18px 20px;margin-bottom:24px;">
             <div style="font-size:12px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Datos de tu solicitud</div>
             <div style="font-size:13px;color:#334155;"><strong>Nombre:</strong> ${nombre}</div>
             <div style="font-size:13px;color:#334155;margin-top:6px;"><strong>Correo:</strong> ${email}</div>
-            <div style="font-size:13px;color:#334155;margin-top:6px;"><strong>Puesto solicitado:</strong> ${puesto || "—"}</div>
+            <div style="font-size:13px;color:#334155;margin-top:6px;"><strong>Puesto solicitado:</strong> ${puesto || "ÔÇö"}</div>
           </div>
           <p style="color:#94a3b8;font-size:12px;margin:0;">
             Si no solicitaste acceso, ignora este correo.
           </p>
         </div>
         <div style="padding:16px 36px;background:#f8fafc;border-top:1px solid #e2e8f0;">
-          <p style="color:#cbd5e1;font-size:11px;margin:0;text-align:center;">MapGestion · Sistema MEX Mapa</p>
+          <p style="color:#cbd5e1;font-size:11px;margin:0;text-align:center;">MapGestion ┬À Sistema MEX Mapa</p>
         </div>
       </div>
     `;
@@ -1967,7 +1967,7 @@ exports.enviarCorreoSolicitud = functions
     await transporter.sendMail({
       from: `"MapGestion" <${mailUser}>`,
       to: email,
-      subject: "Solicitud de acceso recibida — MapGestion",
+      subject: "Solicitud de acceso recibida ÔÇö MapGestion",
       html,
     });
 
@@ -1975,9 +1975,8 @@ exports.enviarCorreoSolicitud = functions
     return { ok: true, sent: true };
   });
 
-// ══════════════════════════════════════════════════════════════
-//  verifyRecaptchaLogin — HTTPS callable (sin auth)
-<<<<<<< Updated upstream
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+//  verifyRecaptchaLogin ÔÇö HTTPS callable (sin auth)
 //
 //  Preferido en login: reCAPTCHA v2 checkbox (provider: "v2").
 //  Secreto de servidor (NUNCA en cliente):
@@ -1987,44 +1986,19 @@ exports.enviarCorreoSolicitud = functions
 //  Legacy: reCAPTCHA Enterprise (provider omitido / "enterprise"):
 //    firebase functions:config:set recaptcha.api_key="TU_API_KEY"
 //    firebase functions:config:set recaptcha.min_score="0.35"
-=======
-//  Valida token reCAPTCHA v2 (checkbox “No soy un robot”) vía siteverify.
-//
-//  Secreto (NO en cliente). Configurar UNO de:
-//    firebase functions:secrets:set RECAPTCHA_SECRET_KEY
-//    firebase functions:secrets:set RECAPTCHA_V2_SECRET
-//    firebase functions:config:set recaptcha.secret_key="TU_SECRET"
-//  Luego redeploy functions. Sin secreto → code recaptcha_config_missing
-//  (cliente soft-fail: sigue exigiendo casilla marcada).
->>>>>>> Stashed changes
-// ══════════════════════════════════════════════════════════════
-function getRecaptchaV2Secret() {
-  const cfg = (typeof functions.config === "function" ? (functions.config().recaptcha || {}) : {}) || {};
-  return normalizeString(
-    process.env.RECAPTCHA_SECRET_KEY ||
-    process.env.RECAPTCHA_V2_SECRET ||
-    cfg.secret_key ||
-    cfg.secret ||
-    ""
-  );
-}
-
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data) => {
   try {
     const token = normalizeString(data?.token);
-<<<<<<< Updated upstream
     const provider = normalizeString(data?.provider || data?.version || "v2").toLowerCase();
 
-=======
->>>>>>> Stashed changes
     if (!token) {
       return { ok: false, code: "token_required", message: "Token reCAPTCHA requerido." };
     }
 
-<<<<<<< Updated upstream
     const cfg = functions.config().recaptcha || {};
 
-    // ── v2 checkbox → Google siteverify ─────────────────────────
+    // ÔöÇÔöÇ v2 checkbox ÔåÆ Google siteverify ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     if (provider === "v2" || provider === "checkbox") {
       const secret = normalizeString(cfg.v2_secret || process.env.RECAPTCHA_V2_SECRET);
       if (!secret) {
@@ -2062,24 +2036,24 @@ exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data
         return {
           ok: false,
           code: "recaptcha_api_error",
-          message: "Verificación de seguridad no disponible.",
+          message: "Verificaci├│n de seguridad no disponible.",
           status: res.status,
         };
       }
 
       if (!assessment.success) {
-        logger.info("[verifyRecaptchaLogin] v2 token inválido", assessment["error-codes"]);
+        logger.info("[verifyRecaptchaLogin] v2 token inv├ílido", assessment["error-codes"]);
         return {
           ok: false,
           code: "token_invalid",
-          message: "Verificación de seguridad fallida. Marca «No soy un robot» de nuevo.",
+          message: "Verificaci├│n de seguridad fallida. Marca ┬½No soy un robot┬╗ de nuevo.",
         };
       }
 
       return { ok: true, provider: "v2" };
     }
 
-    // ── Legacy Enterprise assessment ────────────────────────────
+    // ÔöÇÔöÇ Legacy Enterprise assessment ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     const expectedAction = normalizeString(data?.action || "LOGIN_EMAIL");
     const siteKey = "6Lf1714tAAAAAK3wyyOhB8nCk6JRh7uwIFlR6ufC";
     const projectId = "mex-mapa-bjx";
@@ -2087,68 +2061,67 @@ exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data
     const apiKey = normalizeString(cfg.api_key || process.env.RECAPTCHA_ENTERPRISE_API_KEY);
     if (!apiKey) {
       logger.error("[verifyRecaptchaLogin] Falta recaptcha.api_key en functions config");
-=======
-    const secret = getRecaptchaV2Secret();
-    if (!secret) {
-      logger.error(
-        "[verifyRecaptchaLogin] Falta secreto v2. Configura RECAPTCHA_SECRET_KEY o RECAPTCHA_V2_SECRET " +
-        "(firebase functions:secrets:set …) o recaptcha.secret_key en functions config."
-      );
->>>>>>> Stashed changes
       return {
         ok: false,
         code: "recaptcha_config_missing",
-        message: "Servidor sin secreto reCAPTCHA v2. Un administrador debe configurar RECAPTCHA_SECRET_KEY.",
+        message: "Servidor sin clave reCAPTCHA Enterprise. Un administrador debe configurar recaptcha.api_key.",
       };
     }
 
-    const body = new URLSearchParams();
-    body.set("secret", secret);
-    body.set("response", token);
+    const url = `https://recaptchaenterprise.googleapis.com/v1/projects/${projectId}/assessments?key=${encodeURIComponent(apiKey)}`;
+    const body = {
+      event: {
+        token,
+        expectedAction,
+        siteKey,
+      },
+    };
 
     let res;
     try {
-      res = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: body.toString(),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
     } catch (e) {
-      logger.error("[verifyRecaptchaLogin] siteverify fetch error", e);
+      logger.error("[verifyRecaptchaLogin] fetch error", e);
       return {
         ok: false,
         code: "recaptcha_unavailable",
-        message: "No se pudo contactar reCAPTCHA.",
+        message: "No se pudo contactar reCAPTCHA Enterprise.",
       };
     }
 
-    const result = await res.json().catch(() => ({}));
+    const assessment = await res.json().catch(() => ({}));
     if (!res.ok) {
-      logger.warn("[verifyRecaptchaLogin] siteverify HTTP error", res.status, result);
+      logger.warn("[verifyRecaptchaLogin] API error", res.status, assessment);
       return {
         ok: false,
         code: "recaptcha_api_error",
-        message: "Verificación de seguridad no disponible.",
+        message: "Verificaci├│n de seguridad no disponible.",
         status: res.status,
       };
     }
 
-    if (!result.success) {
-      logger.info("[verifyRecaptchaLogin] token inválido", result["error-codes"]);
+    const tp = assessment.tokenProperties || {};
+    const risk = assessment.riskAnalysis || {};
+
+    if (!tp.valid) {
+      logger.info("[verifyRecaptchaLogin] token inv├ílido", tp.invalidReason);
       return {
         ok: false,
         code: "token_invalid",
-        message: "Verificación de seguridad fallida. Marca de nuevo «No soy un robot».",
+        message: "Verificaci├│n de seguridad fallida. Intenta de nuevo.",
       };
     }
 
-<<<<<<< Updated upstream
     if (expectedAction && tp.action && normalizeString(tp.action) !== normalizeString(expectedAction)) {
-      logger.info("[verifyRecaptchaLogin] acción no coincide", tp.action, expectedAction);
+      logger.info("[verifyRecaptchaLogin] acci├│n no coincide", tp.action, expectedAction);
       return {
         ok: false,
         code: "action_mismatch",
-        message: "Verificación de seguridad no coincide.",
+        message: "Verificaci├│n de seguridad no coincide.",
       };
     }
 
@@ -2161,20 +2134,17 @@ exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data
       return {
         ok: false,
         code: "score_low",
-        message: "No se pudo validar el acceso automático. Intenta de nuevo.",
+        message: "No se pudo validar el acceso autom├ítico. Intenta de nuevo.",
       };
     }
 
     return { ok: true, score: Number.isFinite(score) ? score : null, provider: "enterprise" };
-=======
-    return { ok: true, version: "v2" };
->>>>>>> Stashed changes
   } catch (e) {
     logger.error("[verifyRecaptchaLogin] unexpected", e);
     return {
       ok: false,
       code: "unexpected_error",
-      message: "Error en verificación de seguridad.",
+      message: "Error en verificaci├│n de seguridad.",
     };
   }
 });
@@ -2215,7 +2185,7 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
     const payload = sanitizePlainObject(data || {});
     const action = normalizeLower(payload.action || payload.accion);
     if (action !== "approve" && action !== "reject") {
-      throw new HttpsError("invalid-argument", "Acción inválida.");
+      throw new HttpsError("invalid-argument", "Acci├│n inv├ílida.");
     }
 
     const solicitud = await resolveAccessRequestDoc(
@@ -2341,7 +2311,7 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
         fecha: nowIso(),
         timestamp: nowMillis(),
         tipo: "SOLICITUD_APROBADA",
-        accion: `Aprobó la solicitud de acceso de ${nombre}`,
+        accion: `Aprob├│ la solicitud de acceso de ${nombre}`,
         autor: actorName,
         userDocId: profile.id,
         userEmail: actorEmail,
@@ -2431,7 +2401,7 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
       fecha: nowIso(),
       timestamp: nowMillis(),
       tipo: "SOLICITUD_RECHAZADA",
-      accion: `Rechazó la solicitud de acceso de ${nombre}`,
+      accion: `Rechaz├│ la solicitud de acceso de ${nombre}`,
       autor: actorName,
       userDocId: profile.id,
       userEmail: actorEmail,
@@ -2458,30 +2428,30 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
   }
 });
 
-// ══════════════════════════════════════════════════════════════
-//  MEX API — REST pública con API Keys
-//  Fase 1: gestión de keys + endpoints GET (unidades, historial, mapa)
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+//  MEX API ÔÇö REST p├║blica con API Keys
+//  Fase 1: gesti├│n de keys + endpoints GET (unidades, historial, mapa)
 //
 //  Flujo:
-//    1. Cliente externo envía header X-API-Key: mex_live_<hex>
+//    1. Cliente externo env├¡a header X-API-Key: mex_live_<hex>
 //    2. Se valida la key contra Firestore (por lookupId + hash SHA-256)
-//    3. Se verifica rate limit (por día y por minuto)
-//    4. Se verifica permiso específico del endpoint
+//    3. Se verifica rate limit (por d├¡a y por minuto)
+//    4. Se verifica permiso espec├¡fico del endpoint
 //    5. Se ejecuta la query y se devuelve JSON
 //    6. Se registra la llamada en api_key_logs (async)
 //
 //  Seguridad: la key en texto plano NUNCA se almacena en Firestore,
 //  solo su hash SHA-256. El texto plano solo se muestra al crear la key.
-// ══════════════════════════════════════════════════════════════
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 
 const API_KEYS_COL   = "api_keys";
 const API_KEY_USAGE_COL = "api_key_usage";
 const API_KEY_LOGS_COL  = "api_key_logs";
 const MEX_KEY_LIVE_PREFIX = "mex_live_";
 const MEX_KEY_TEST_PREFIX = "mex_test_";
-const MEX_KEY_LOOKUP_LEN  = 10; // chars usados como ID de búsqueda rápida
+const MEX_KEY_LOOKUP_LEN  = 10; // chars usados como ID de b├║squeda r├ípida
 
-// ─── Helpers de criptografía ─────────────────────────────────
+// ÔöÇÔöÇÔöÇ Helpers de criptograf├¡a ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 function sha256hex(str) {
   return crypto.createHash("sha256").update(String(str), "utf8").digest("hex");
@@ -2502,7 +2472,7 @@ function generateMexApiKey(isTest = false) {
   return prefix + crypto.randomBytes(24).toString("hex"); // 48 hex chars
 }
 
-// ─── Validación de API key ────────────────────────────────────
+// ÔöÇÔöÇÔöÇ Validaci├│n de API key ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 async function resolveApiKey(rawKey) {
   if (!rawKey || typeof rawKey !== "string") return null;
@@ -2514,7 +2484,7 @@ async function resolveApiKey(rawKey) {
   if (!lookupId) return null;
   const hash = sha256hex(rawKey);
 
-  // Búsqueda por lookupId (índice automático de Firestore), luego verificar hash
+  // B├║squeda por lookupId (├¡ndice autom├ítico de Firestore), luego verificar hash
   const snap = await db.collection(API_KEYS_COL)
     .where("lookupId", "==", lookupId)
     .limit(5)
@@ -2532,7 +2502,7 @@ async function resolveApiKey(rawKey) {
   return null;
 }
 
-// ─── Rate limiting ────────────────────────────────────────────
+// ÔöÇÔöÇÔöÇ Rate limiting ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 async function checkAndIncrementRateLimit(keyDocId, limites) {
   const dailyLimit  = Math.max(1, Number(limites?.llamadasPorDia)    || 5000);
@@ -2564,7 +2534,7 @@ async function checkAndIncrementRateLimit(keyDocId, limites) {
   });
 }
 
-// ─── Errores tipados para routes ──────────────────────────────
+// ÔöÇÔöÇÔöÇ Errores tipados para routes ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 class ApiPermissionError extends Error {
   constructor(msg) { super(msg); this.apiCode = "permission_denied"; }
@@ -2594,12 +2564,12 @@ function requireApiPlazaScope(keyDoc, plaza) {
   }
 }
 
-// ─── Handlers por endpoint ────────────────────────────────────
+// ÔöÇÔöÇÔöÇ Handlers por endpoint ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 async function apiHandleGetUnidades(req, keyDoc) {
   requireApiPermiso(keyDoc, "unidades", "leer");
   const plaza = normalizePlaza(req.query.plaza || "");
-  if (!plaza) throw new ApiInvalidArgError("Parámetro 'plaza' requerido.");
+  if (!plaza) throw new ApiInvalidArgError("Par├ímetro 'plaza' requerido.");
   requireApiPlazaScope(keyDoc, plaza);
 
   const estado    = normalizeUpper(req.query.estado    || "");
@@ -2632,7 +2602,7 @@ async function apiHandleGetUnidad(mva, keyDoc) {
 async function apiHandleGetHistorial(req, keyDoc) {
   requireApiPermiso(keyDoc, "historial", "leer");
   const plaza = normalizePlaza(req.query.plaza || "");
-  if (!plaza) throw new ApiInvalidArgError("Parámetro 'plaza' requerido.");
+  if (!plaza) throw new ApiInvalidArgError("Par├ímetro 'plaza' requerido.");
   requireApiPlazaScope(keyDoc, plaza);
   const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 50), 200);
 
@@ -2653,12 +2623,12 @@ async function apiHandleGetMapa(plaza, keyDoc) {
   const snap = await db.collection("mapa_config").doc(plazaKey)
     .collection("estructura")
     .get();
-  if (snap.empty) throw new ApiNotFoundError(`Sin configuración de mapa para: ${plaza}`);
+  if (snap.empty) throw new ApiNotFoundError(`Sin configuraci├│n de mapa para: ${plaza}`);
   const data = snap.docs.map(d => serializeFirestoreValue({ id: d.id, ...d.data() }));
   return { ok: true, data, meta: { plaza: plazaKey, total: data.length, timestamp: nowIso() } };
 }
 
-// ─── Logger async (fire-and-forget) ──────────────────────────
+// ÔöÇÔöÇÔöÇ Logger async (fire-and-forget) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 function apiLogCall(keyDoc, endpoint, statusCode, latencyMs, req) {
   db.collection(API_KEY_LOGS_COL).add({
@@ -2673,10 +2643,10 @@ function apiLogCall(keyDoc, endpoint, statusCode, latencyMs, req) {
   }).catch(err => logger.warn("[mexApi] Error escribiendo log:", err.message));
 }
 
-// ─── FUNCIÓN PRINCIPAL HTTP ───────────────────────────────────
+// ÔöÇÔöÇÔöÇ FUNCI├ôN PRINCIPAL HTTP ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 exports.mexApi = functions.region(REGION).https.onRequest(async (req, res) => {
-  // CORS — permite llamadas desde cualquier origen
+  // CORS ÔÇö permite llamadas desde cualquier origen
   res.set("Access-Control-Allow-Origin",  "*");
   res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.set("Access-Control-Allow-Headers", "X-API-Key, Content-Type");
@@ -2706,7 +2676,7 @@ exports.mexApi = functions.region(REGION).https.onRequest(async (req, res) => {
     return apiErr(500, "server_error", "Error interno.");
   }
   if (!keyDoc) {
-    return apiErr(401, "invalid_key", "API key inválida o revocada.");
+    return apiErr(401, "invalid_key", "API key inv├ílida o revocada.");
   }
 
   // 3. Rate limit
@@ -2715,14 +2685,14 @@ exports.mexApi = functions.region(REGION).https.onRequest(async (req, res) => {
     rl = await checkAndIncrementRateLimit(keyDoc._docId, keyDoc.limites);
   } catch (err) {
     logger.error("[mexApi] Error en rate limit:", err.message);
-    return apiErr(500, "server_error", "Error interno al verificar límite.");
+    return apiErr(500, "server_error", "Error interno al verificar l├¡mite.");
   }
   if (!rl.allowed) {
     res.set("Retry-After", "60");
-    return apiErr(429, rl.reason, `Límite excedido. Máx: ${rl.limit} llamadas.`);
+    return apiErr(429, rl.reason, `L├¡mite excedido. M├íx: ${rl.limit} llamadas.`);
   }
 
-  // 4. Routing  — /v1/<recurso>[/<id>]
+  // 4. Routing  ÔÇö /v1/<recurso>[/<id>]
   const segments   = normalizeString(req.path).replace(/^\//, "").split("/").filter(Boolean);
   const version    = segments[0] || "";
   const resource   = segments[1] || "";
@@ -2730,7 +2700,7 @@ exports.mexApi = functions.region(REGION).https.onRequest(async (req, res) => {
   const endpoint   = `${method} /${segments.join("/")}`;
 
   if (version !== "v1") {
-    return apiErr(404, "not_found", "Versión no soportada. Usa /v1/...");
+    return apiErr(404, "not_found", "Versi├│n no soportada. Usa /v1/...");
   }
 
   let result;
@@ -2776,11 +2746,11 @@ exports.mexApi = functions.region(REGION).https.onRequest(async (req, res) => {
   res.status(200).json(result);
 });
 
-// ══════════════════════════════════════════════════════════════
-//  crearApiKey — HTTPS callable (solo PROGRAMADOR)
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+//  crearApiKey ÔÇö HTTPS callable (solo PROGRAMADOR)
 //  Genera y almacena una nueva API key. La key en texto plano
-//  se devuelve UNA SOLA VEZ — después es irrecuperable.
-// ══════════════════════════════════════════════════════════════
+//  se devuelve UNA SOLA VEZ ÔÇö despu├®s es irrecuperable.
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 
 exports.crearApiKey = functions.region(REGION).https.onCall(async (data, context) => {
   const actor = await requireProgrammerAuth(context);
@@ -2837,14 +2807,14 @@ exports.crearApiKey = functions.region(REGION).https.onCall(async (data, context
   });
 
   logger.info("[crearApiKey] Creada key:", docRef.id, "nombre:", nombre);
-  // La key en texto plano se devuelve UNA sola vez aquí
+  // La key en texto plano se devuelve UNA sola vez aqu├¡
   return { ok: true, keyId: docRef.id, key: rawKey, nombre, isTest };
 });
 
-// ══════════════════════════════════════════════════════════════
-//  revocarApiKey — HTTPS callable (solo PROGRAMADOR)
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+//  revocarApiKey ÔÇö HTTPS callable (solo PROGRAMADOR)
 //  Cambia el status de una key a REVOCADA, SUSPENDIDA o ACTIVA.
-// ══════════════════════════════════════════════════════════════
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 
 exports.revocarApiKey = functions.region(REGION).https.onCall(async (data, context) => {
   const actor = await requireProgrammerAuth(context);
@@ -2876,10 +2846,10 @@ exports.revocarApiKey = functions.region(REGION).https.onCall(async (data, conte
   return { ok: true, keyId, status: nuevoStatus };
 });
 
-// ══════════════════════════════════════════════════════════════
-//  listarApiKeys — HTTPS callable (solo PROGRAMADOR)
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+//  listarApiKeys ÔÇö HTTPS callable (solo PROGRAMADOR)
 //  Lista todas las API keys SIN exponer el keyHash.
-// ══════════════════════════════════════════════════════════════
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 
 exports.listarApiKeys = functions.region(REGION).https.onCall(async (_data, context) => {
   await requireProgrammerAuth(context);
@@ -2898,11 +2868,11 @@ exports.listarApiKeys = functions.region(REGION).https.onCall(async (_data, cont
 });
 
 
-// ══════════════════════════════════════════════════════════════
-//  INVITACIONES — registro single-tenant por código de invitación.
-//  Un código pre-asigna plaza + rol, es de un solo uso y expira.
-//  El registro es automático (sin aprobación manual).
-// ══════════════════════════════════════════════════════════════
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+//  INVITACIONES ÔÇö registro single-tenant por c├│digo de invitaci├│n.
+//  Un c├│digo pre-asigna plaza + rol, es de un solo uso y expira.
+//  El registro es autom├ítico (sin aprobaci├│n manual).
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 const INVITACIONES_COL = "invitaciones";
 const _INV_ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin O,0,I,1
 const _INV_DIA_MS = 24 * 60 * 60 * 1000;
@@ -2933,7 +2903,7 @@ exports.generarInvitacion = functions.region(REGION).https.onCall(async (data, c
     ref = db.collection(INVITACIONES_COL).doc(codigo);
     exists = (await ref.get()).exists;
   } while (exists && ++tries < 5);
-  if (exists) throw new HttpsError("internal", "No se pudo generar un código único.");
+  if (exists) throw new HttpsError("internal", "No se pudo generar un c├│digo ├║nico.");
   const expiraEnMs = ahora + dias * _INV_DIA_MS;
   await ref.set({
     codigo, plaza, rol,
@@ -2952,19 +2922,19 @@ exports.registrarConInvitacion = functions.region(REGION).https.onCall(async (da
   const telefono = normalizeString(data?.telefono || "");
   const password = normalizeString(data?.password || "");
   if (!codigo || !nombre || !email) throw new HttpsError("invalid-argument", "Datos incompletos.");
-  if (password.length < 6) throw new HttpsError("invalid-argument", "La contraseña debe tener 6+ caracteres.");
+  if (password.length < 6) throw new HttpsError("invalid-argument", "La contrase├▒a debe tener 6+ caracteres.");
 
   const ref = db.collection(INVITACIONES_COL).doc(codigo);
   const ahora = Date.now();
 
-  // Validar + reservar el código en transacción (un solo uso).
+  // Validar + reservar el c├│digo en transacci├│n (un solo uso).
   const inv = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    if (!snap.exists) throw new HttpsError("not-found", "Código de invitación inválido.");
+    if (!snap.exists) throw new HttpsError("not-found", "C├│digo de invitaci├│n inv├ílido.");
     const d = snap.data();
-    if (d.revocada) throw new HttpsError("failed-precondition", "El código fue revocado.");
-    if (d.usadaPor) throw new HttpsError("failed-precondition", "El código ya fue usado.");
-    if (ahora > d.expiraEnMs) throw new HttpsError("failed-precondition", "El código expiró.");
+    if (d.revocada) throw new HttpsError("failed-precondition", "El c├│digo fue revocado.");
+    if (d.usadaPor) throw new HttpsError("failed-precondition", "El c├│digo ya fue usado.");
+    if (ahora > d.expiraEnMs) throw new HttpsError("failed-precondition", "El c├│digo expir├│.");
     tx.update(ref, { usadaPor: email, usadaEnMs: ahora });
     return d;
   });
@@ -2977,7 +2947,7 @@ exports.registrarConInvitacion = functions.region(REGION).https.onCall(async (da
     authUser = await admin.auth().createUser({ email, password, displayName: nombre });
   }
 
-  // Crear perfil — registro automático, sin aprobación.
+  // Crear perfil ÔÇö registro autom├ítico, sin aprobaci├│n.
   const userRef = await resolveUserProfileDocRefByEmail(email, authUser);
   await userRef.set({
     nombre, email, authUid: authUser.uid, telefono,
@@ -3001,23 +2971,23 @@ exports.revocarInvitacion = functions.region(REGION).https.onCall(async (data, c
     throw new HttpsError("permission-denied", "No autorizado.");
   }
   const codigo = normalizeUpper(data?.codigo || "");
-  if (!codigo) throw new HttpsError("invalid-argument", "Código requerido.");
+  if (!codigo) throw new HttpsError("invalid-argument", "C├│digo requerido.");
   await db.collection(INVITACIONES_COL).doc(codigo).update({ revocada: true });
   return { ok: true };
 });
 
-// ─── Reporte actividad diaria desde imagen (Gemini) ───────────
+// ÔöÇÔöÇÔöÇ Reporte actividad diaria desde imagen (Gemini) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 const GEMINI_MAX_IMAGE_BYTES = 900 * 1024;
-const GEMINI_ACTIVITY_PROMPT = `Eres un extractor de datos de capturas del sistema Optima (rent a car México).
+const GEMINI_ACTIVITY_PROMPT = `Eres un extractor de datos de capturas del sistema Optima (rent a car M├®xico).
 Analiza la imagen y extrae SOLO filas visibles de:
 - reservas / reservaciones / salidas
 - regresos / contratos por cerrar / llegadas
 - vencidos / posibles llegadas (si aparecen)
 
-Responde ÚNICAMENTE con JSON válido (sin markdown) con esta forma exacta:
+Responde ├ÜNICAMENTE con JSON v├ílido (sin markdown) con esta forma exacta:
 {
-  "fechaBase": "YYYY-MM-DD o vacío",
+  "fechaBase": "YYYY-MM-DD o vac├¡o",
   "reservas": [{"numero":"","fecha":"YYYY-MM-DD HH:mm:ss","clase":"XXXX","cliente":"","pago":false,"frecuente":false}],
   "regresos": [{"numero":"","fecha":"YYYY-MM-DD HH:mm:ss","clase":"XXXX","cliente":"","pago":false,"frecuente":false}],
   "vencidos": [{"numero":"","fecha":"YYYY-MM-DD HH:mm:ss","clase":"XXXX","cliente":"","pago":false,"frecuente":false}]
@@ -3025,10 +2995,10 @@ Responde ÚNICAMENTE con JSON válido (sin markdown) con esta forma exacta:
 
 Reglas:
 - No inventes contratos. Si no se lee, omite la fila.
-- "clase" suele ser un código de 4 letras (ej. ECAR, ICAR).
+- "clase" suele ser un c├│digo de 4 letras (ej. ECAR, ICAR).
 - "numero" es el contrato.
 - "pago" true si dice CON PAGO; "frecuente" true si dice CLIENTE FRECUENTE.
-- Si una sección no aparece, usa [].`;
+- Si una secci├│n no aparece, usa [].`;
 
 function _geminiApiKey() {
   const cfg = functions.config().gemini || {};
@@ -3072,7 +3042,7 @@ function _normalizeActivityList(list, tipo) {
 
 function _parseGeminiJson(text) {
   let raw = normalizeString(text);
-  if (!raw) throw new Error("Respuesta vacía de Gemini");
+  if (!raw) throw new Error("Respuesta vac├¡a de Gemini");
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fenced) raw = fenced[1].trim();
   const start = raw.indexOf("{");
@@ -3084,7 +3054,7 @@ function _parseGeminiJson(text) {
 async function _callGeminiActivityImage({ base64, mimeType }) {
   const apiKey = _geminiApiKey();
   if (!apiKey) {
-    throw new HttpsError("failed-precondition", "Gemini no está configurado en el servidor.");
+    throw new HttpsError("failed-precondition", "Gemini no est├í configurado en el servidor.");
   }
   const model = _geminiModel();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
@@ -3141,10 +3111,10 @@ exports.generarReporteActividadDesdeImagen = functions
     try {
       decodedLen = Buffer.from(base64, "base64").length;
     } catch (_) {
-      throw new HttpsError("invalid-argument", "Imagen inválida.");
+      throw new HttpsError("invalid-argument", "Imagen inv├ílida.");
     }
     if (!decodedLen || decodedLen > GEMINI_MAX_IMAGE_BYTES) {
-      throw new HttpsError("invalid-argument", "La imagen es demasiado grande. Usa una captura más ligera.");
+      throw new HttpsError("invalid-argument", "La imagen es demasiado grande. Usa una captura m├ís ligera.");
     }
 
     let parsed;
@@ -3183,13 +3153,13 @@ exports.generarReporteActividadDesdeImagen = functions
     };
   });
 
-// ══════════════════════════════════════════════════════════════
-//  Cloudinary — signed uploads (API_SECRET never on client)
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+//  Cloudinary ÔÇö signed uploads (API_SECRET never on client)
 //  Env / secrets:
 //    CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
 //  Optional legacy config:
-//    firebase functions:config:set cloudinary.cloud_name=… api_key=… api_secret=…
-// ══════════════════════════════════════════════════════════════
+//    firebase functions:config:set cloudinary.cloud_name=ÔÇª api_key=ÔÇª api_secret=ÔÇª
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 
 function getCloudinaryEnv() {
   const cfg = (typeof functions.config === "function" ? (functions.config().cloudinary || {}) : {}) || {};
@@ -3239,7 +3209,7 @@ function sanitizeCloudinaryFolder(folder) {
     .replace(/\/+/g, "/")
     .replace(/^\/+|\/+$/g, "");
 
-  // Collapse accidental doubles: mapgestion/prod/mapgestion/prod/…
+  // Collapse accidental doubles: mapgestion/prod/mapgestion/prod/ÔÇª
   for (const prefix of CLOUDINARY_ALLOWED_FOLDER_PREFIXES) {
     const base = prefix.replace(/\/$/, "");
     const doubled = `${base}/${base}/`;
@@ -3280,7 +3250,7 @@ function extractCloudinaryPublicId(ref) {
   const raw = normalizeString(ref);
   if (!raw) return "";
   if (!/^https?:\/\//i.test(raw)) {
-    // Firebase path → not cloudinary
+    // Firebase path ÔåÆ not cloudinary
     if (
       raw.startsWith("papeletas")
       || raw.startsWith("profile_")
@@ -3405,7 +3375,7 @@ exports.getCloudinaryUploadSignature = functions
     };
   });
 
-/** Callable: destroyCloudinaryMedia — auth required, best-effort cleanup. */
+/** Callable: destroyCloudinaryMedia ÔÇö auth required, best-effort cleanup. */
 exports.destroyCloudinaryMedia = functions
   .region(REGION)
   .runWith({ secrets: CLOUDINARY_SECRETS, timeoutSeconds: 30 })

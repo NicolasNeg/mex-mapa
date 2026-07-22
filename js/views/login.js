@@ -1,33 +1,24 @@
-// ═══════════════════════════════════════════════════════════
-//  js/views/login.js  —  ES6 Module
+﻿// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+//  js/views/login.js  ÔÇö  ES6 Module
 //  Controlador de la vista /login
 //
 //  Responsabilidades:
-//   1. Detectar si ya hay sesión activa → redirigir a /app/dashboard
-//   2. Manejar login con email/contraseña
+//   1. Detectar si ya hay sesi├│n activa ÔåÆ redirigir a /app/dashboard
+//   2. Manejar login con email/contrase├▒a
 //   3. Manejar login con Google
 //   4. Enviar solicitudes de acceso
-//   5. Toggle de contraseña visible/oculta
-// ═══════════════════════════════════════════════════════════
+//   5. Toggle de contrase├▒a visible/oculta
+// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 
 import { auth, db, COL, functions } from '/js/core/database.js';
 
-<<<<<<< Updated upstream
-// reCAPTCHA v2 checkbox ("No soy un robot"). Site key pública — no secretos aquí.
-// No usar MEX_APPCHECK_SITE_KEY aquí: App Check es v3 y debe ser otra clave.
+// reCAPTCHA v2 checkbox ("No soy un robot"). Site key p├║blica ÔÇö no secretos aqu├¡.
+// No usar MEX_APPCHECK_SITE_KEY aqu├¡: App Check es v3 y debe ser otra clave.
 const RECAPTCHA_V2_SITE_KEY = String(
   window.MEX_RECAPTCHA_V2_SITE_KEY || ''
 ).trim();
 
-/** Respuestas de servidor que no deben bloquear si el secreto aún no está configurado. */
-=======
-// Site key pública reCAPTCHA v2 (checkbox). Fuente: window.MEX_RECAPTCHA_V2_SITE_KEY
-const RECAPTCHA_V2_SITE_KEY = String(
-  window.MEX_RECAPTCHA_V2_SITE_KEY || '6Lf1714tAAAAAK3wyyOhB8nCk6JRh7uwIFlR6ufC'
-).trim();
-
-/** Respuestas del servidor que no bloquean login si el secreto aún no está configurado. */
->>>>>>> Stashed changes
+/** Respuestas de servidor que no deben bloquear si el secreto a├║n no est├í configurado. */
 const SOFT_RECAPTCHA_CODES = new Set([
   'recaptcha_config_missing',
   'recaptcha_unavailable',
@@ -69,7 +60,7 @@ function _waitForGrecaptcha(timeoutMs = 20000) {
         resolve(window.grecaptcha);
       } else if (Date.now() - start > timeoutMs) {
         clearInterval(id);
-        reject(new Error('reCAPTCHA no cargó. Revisa la red o bloqueadores.'));
+        reject(new Error('reCAPTCHA no carg├│. Revisa la red o bloqueadores.'));
       }
     }, 50);
   });
@@ -77,7 +68,7 @@ function _waitForGrecaptcha(timeoutMs = 20000) {
 
 /**
  * Renderiza el checkbox v2 en #login-recaptcha (render=explicit).
- * Idempotente: solo un widget por página.
+ * Idempotente: solo un widget por p├ígina.
  */
 async function ensureRecaptchaWidget() {
   if (_recaptchaWidgetId != null) return _recaptchaWidgetId;
@@ -87,7 +78,7 @@ async function ensureRecaptchaWidget() {
     const container = document.getElementById('login-recaptcha');
     if (!container) throw new Error('Falta el contenedor #login-recaptcha.');
     if (!RECAPTCHA_V2_SITE_KEY) {
-      throw new Error('Falta window.MEX_RECAPTCHA_V2_SITE_KEY (site key v2 pública).');
+      throw new Error('Falta window.MEX_RECAPTCHA_V2_SITE_KEY (site key v2 p├║blica).');
     }
 
     const grecaptcha = await _waitForGrecaptcha();
@@ -99,7 +90,7 @@ async function ensureRecaptchaWidget() {
     // Evitar doble render si dos llamadas corrieron en paralelo.
     if (_recaptchaWidgetId != null) return _recaptchaWidgetId;
     if (container.childElementCount > 0) {
-      // Ya renderizado por otra vía.
+      // Ya renderizado por otra v├¡a.
       _recaptchaWidgetId = 0;
       return _recaptchaWidgetId;
     }
@@ -156,7 +147,7 @@ async function requireRecaptchaGate() {
     console.error('[login] no se pudo montar reCAPTCHA:', e?.message || e);
     return {
       blocked: true,
-      message: 'No se pudo cargar la verificación «No soy un robot». Recarga la página.',
+      message: 'No se pudo cargar la verificaci├│n ┬½No soy un robot┬╗. Recarga la p├ígina.',
     };
   }
 
@@ -165,7 +156,7 @@ async function requireRecaptchaGate() {
     _setRecaptchaHint(true);
     return {
       blocked: true,
-      message: 'Marca «No soy un robot» antes de iniciar sesión.',
+      message: 'Marca ┬½No soy un robot┬╗ antes de iniciar sesi├│n.',
     };
   }
 
@@ -197,75 +188,9 @@ async function requireRecaptchaGate() {
   }
 }
 
-// Destino post-login — fuente única de verdad.
-// Cambiar aquí si se mueve el entry point del App Shell.
+// Destino post-login ÔÇö fuente ├║nica de verdad.
+// Cambiar aqu├¡ si se mueve el entry point del App Shell.
 const POST_LOGIN_ROUTE = '/app/dashboard';
-
-function _getRecaptchaV2Response() {
-  try {
-    if (typeof window.grecaptcha?.getResponse === 'function') {
-      return String(window.grecaptcha.getResponse() || '').trim();
-    }
-  } catch (e) {
-    console.warn('[login] grecaptcha.getResponse:', e?.message || e);
-  }
-  return '';
-}
-
-function _resetRecaptchaV2() {
-  try {
-    if (typeof window.grecaptcha?.reset === 'function') {
-      window.grecaptcha.reset();
-    }
-  } catch (e) {
-    console.warn('[login] grecaptcha.reset:', e?.message || e);
-  }
-}
-
-/**
- * Exige casilla “No soy un robot” marcada (token no vacío).
- * Opcionalmente verifica en servidor (verifyRecaptchaLogin).
- * Si el secreto del servidor no está configurado → soft-fail (no bloquea),
- * pero la casilla del cliente SÍ es obligatoria.
- */
-async function tryVerifyRecaptchaForLogin() {
-  const token = _getRecaptchaV2Response();
-  if (!token) {
-    return {
-      blocked: true,
-      message: 'Marca la casilla «No soy un robot» para continuar.',
-    };
-  }
-
-  if (!functions || typeof functions.httpsCallable !== 'function') {
-    console.warn('[login] Firebase Functions no disponible; se omite verificación servidor (casilla OK).');
-    return { blocked: false, token };
-  }
-
-  const callable = functions.httpsCallable('verifyRecaptchaLogin');
-  let data;
-  try {
-    const res = await callable({ token, version: 'v2' });
-    data = res?.data || {};
-  } catch (err) {
-    const code = err?.code || '';
-    const details = err?.details;
-    console.warn('[login] verifyRecaptchaLogin callable error (no bloquea login):', code, details || err?.message || err);
-    return { blocked: false, token };
-  }
-
-  if (data.ok) {
-    return { blocked: false, token };
-  }
-  if (data.code && SOFT_RECAPTCHA_CODES.has(data.code)) {
-    console.warn('[login] reCAPTCHA soft-fail (casilla OK, secreto/servidor pendiente):', data.code);
-    return { blocked: false, token };
-  }
-  return {
-    blocked: true,
-    message: data.message || 'No pudimos validar seguridad, intenta de nuevo.',
-  };
-}
 
 /**
  * Resuelve el documento del usuario SOLO por docId (sin query/list).
@@ -287,7 +212,7 @@ async function resolveUsuarioRecordForAuthUser(user) {
       const code = String(e?.code || '');
       if (code === 'permission-denied') {
         lastPermissionDenied = e;
-        continue;
+        continue; // probar siguiente formato de docId
       }
       throw e;
     }
@@ -318,6 +243,14 @@ function _resetManualLoginButton() {
   btn.innerText = 'LOGIN';
 }
 
+function upper(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function unique(values = []) {
+  return Array.from(new Set((values || []).map(upper).filter(Boolean)));
+}
+
 function _mexAlert(titulo, texto, tipo = 'info') {
   if (typeof window.mexAlert === 'function') return window.mexAlert(titulo, texto, tipo);
   console.warn('[login] mexAlert no disponible:', titulo, texto);
@@ -325,11 +258,11 @@ function _mexAlert(titulo, texto, tipo = 'info') {
 }
 
 
-// ── Mostrar errores pasados desde /mapa ───────────────────
+// ÔöÇÔöÇ Mostrar errores pasados desde /mapa ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 const _pendingError = sessionStorage.getItem('login_error');
 if (_pendingError) {
   sessionStorage.removeItem('login_error');
-  // Esperar a que el DOM esté listo
+  // Esperar a que el DOM est├® listo
   document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('login-error');
     const msg = document.getElementById('login-error-msg');
@@ -337,7 +270,7 @@ if (_pendingError) {
   }, { once: true });
 }
 
-// ── Redirección si ya tiene sesión ────────────────────────
+// ÔöÇÔöÇ Redirecci├│n si ya tiene sesi├│n ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 auth.onAuthStateChanged(async (user) => {
   if (!user) return;
 
@@ -352,8 +285,8 @@ auth.onAuthStateChanged(async (user) => {
       const isAuthorized = record.autorizado !== false && record.accesoSistema !== false;
       if (!isActive || !isAuthorized) {
         _showError(status === 'RECHAZADO'
-          ? 'Tu solicitud fue rechazada. Contacta a administración si necesitas aclaración.'
-          : 'Tu cuenta no está activa. Contacta a un administrador.');
+          ? 'Tu solicitud fue rechazada. Contacta a administraci├│n si necesitas aclaraci├│n.'
+          : 'Tu cuenta no est├í activa. Contacta a un administrador.');
         await auth.signOut();
         _resetManualLoginButton();
         return;
@@ -366,134 +299,107 @@ auth.onAuthStateChanged(async (user) => {
           force: true
         });
       }
-      // Sesión válida → App Shell como destino principal post-login (Fase 6)
+      // Sesi├│n v├ílida ÔåÆ App Shell como destino principal post-login (Fase 6)
       console.log('[login] post-login redirect:', POST_LOGIN_ROUTE);
       window.location.href = POST_LOGIN_ROUTE;
     } else {
-      _showError('Tu cuenta de acceso aún no está habilitada en el sistema.');
+      _showError('Tu cuenta de acceso a├║n no est├í habilitada en el sistema.');
       await auth.signOut();
       _resetManualLoginButton();
     }
   } catch (e) {
-    console.error('[login.js] Error validando sesión:', e);
+    console.error('[login.js] Error validando sesi├│n:', e);
     const code = String(e?.code || '');
     if (code === 'permission-denied') {
-      _showError('No se pudo cargar tu perfil. Verifica conexión o contacta a administración.');
+      _showError('No se pudo cargar tu perfil. Verifica conexi├│n o contacta a administraci├│n.');
     } else {
-      _showError('Error de conexión. Intenta de nuevo.');
+      _showError('Error de conexi├│n. Intenta de nuevo.');
     }
     _resetManualLoginButton();
   }
 });
 
-// ── Login con correo y contraseña ─────────────────────────
+// ÔöÇÔöÇ Login con correo y contrase├▒a ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 window.loginManual = async function () {
   const email    = document.getElementById('auth_email').value.trim();
   const pass     = document.getElementById('auth_pass').value.trim();
   const remember = document.getElementById('auth_remember')?.checked ?? true;
   const btn      = document.getElementById('btnLoginManual');
 
-  if (!email || !pass) { _showError('Ingresa correo y contraseña.'); return; }
+  if (!email || !pass) { _showError('Ingresa correo y contrase├▒a.'); return; }
 
   btn.disabled = true;
-  btn.innerText = 'VERIFYING…';
+  btn.innerText = 'VERIFYINGÔÇª';
   _hideError();
 
   try {
-    const gate = await tryVerifyRecaptchaForLogin();
-    if (gate.blocked) {
-      btn.disabled = false;
-      btn.innerText = 'LOGIN';
-      _resetRecaptchaV2();
-      _showError(gate.message || 'Marca la casilla «No soy un robot» para continuar.');
-      return;
-    }
-
     const persistence = remember
       ? firebase.auth.Auth.Persistence.LOCAL
       : firebase.auth.Auth.Persistence.SESSION;
     await firebase.auth().setPersistence(persistence);
 
-<<<<<<< Updated upstream
     const gate = await requireRecaptchaGate();
     if (gate.blocked) {
       btn.disabled = false;
       btn.innerText = 'LOGIN';
-      _showError(gate.message || 'Marca «No soy un robot» antes de iniciar sesión.');
+      _showError(gate.message || 'Marca ┬½No soy un robot┬╗ antes de iniciar sesi├│n.');
       return;
     }
 
-=======
->>>>>>> Stashed changes
     await firebase.auth().signInWithEmailAndPassword(email, pass);
-    // onAuthStateChanged redirige automáticamente
+    // onAuthStateChanged redirige autom├íticamente
   } catch (err) {
     resetRecaptcha();
     btn.disabled = false;
     btn.innerText = 'LOGIN';
-    _resetRecaptchaV2();
-    const genericAuthMsg = 'No pudimos iniciar sesión. Verifica tus datos o confirma que tu cuenta ya fue autorizada.';
+    const genericAuthMsg = 'No pudimos iniciar sesi├│n. Verifica tus datos o confirma que tu cuenta ya fue autorizada.';
     const MSGS = {
       'auth/wrong-password': genericAuthMsg,
       'auth/invalid-credential': genericAuthMsg,
       'auth/invalid-login-credentials': genericAuthMsg,
       'auth/user-not-found': genericAuthMsg,
-      'auth/invalid-email': 'Formato de correo inválido.',
+      'auth/invalid-email': 'Formato de correo inv├ílido.',
       'auth/too-many-requests': 'Demasiados intentos. Espera un poco.',
-      'auth/user-disabled': 'Tu cuenta no está activa. Contacta a un administrador.',
+      'auth/user-disabled': 'Tu cuenta no est├í activa. Contacta a un administrador.',
     };
     const code = err?.code || '';
     if (String(code).startsWith('auth/')) {
-      _showError(MSGS[code] || 'Error al iniciar sesión.');
+      _showError(MSGS[code] || 'Error al iniciar sesi├│n.');
     } else {
-      _showError(err?.message || 'Verificación de seguridad fallida.');
+      _showError(err?.message || 'Verificaci├│n de seguridad fallida.');
     }
   }
 };
 
-// ── Login con Google ──────────────────────────────────────
+// ÔöÇÔöÇ Login con Google ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 window.loginConGoogle = async function () {
   const provider = new firebase.auth.GoogleAuthProvider();
   const btn = document.getElementById('btnGoogleLogin');
-  const googleBtnHtml = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt=""> Sign in with Google';
   btn.disabled = true;
   btn.innerHTML = '<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite">sync</span> VERIFICANDO...';
   _hideError();
 
   try {
-    const gate = await tryVerifyRecaptchaForLogin();
-    if (gate.blocked) {
-      btn.disabled = false;
-      btn.innerHTML = googleBtnHtml;
-      _resetRecaptchaV2();
-      _showError(gate.message || 'Marca la casilla «No soy un robot» para continuar.');
-      return;
-    }
-
     const remember = document.getElementById('auth_remember')?.checked ?? true;
     const persistence = remember
       ? firebase.auth.Auth.Persistence.LOCAL
       : firebase.auth.Auth.Persistence.SESSION;
     await firebase.auth().setPersistence(persistence);
 
-<<<<<<< Updated upstream
     const gate = await requireRecaptchaGate();
     if (gate.blocked) {
       btn.disabled = false;
       btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> Sign in with Google';
-      _showError(gate.message || 'Marca «No soy un robot» antes de iniciar sesión.');
+      _showError(gate.message || 'Marca ┬½No soy un robot┬╗ antes de iniciar sesi├│n.');
       return;
     }
 
-=======
->>>>>>> Stashed changes
     btn.innerHTML = '<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite">sync</span> CONECTANDO...';
     await firebase.auth().signInWithPopup(provider);
   } catch (err) {
     resetRecaptcha();
     btn.disabled = false;
-    btn.innerHTML = googleBtnHtml;
-    _resetRecaptchaV2();
+    btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> Sign in with Google';
     if (err.code === 'auth/popup-closed-by-user') return;
     const code = err?.code || '';
     if (String(code).startsWith('auth/')) {
@@ -505,7 +411,7 @@ window.loginConGoogle = async function () {
 };
 
 
-// ── Registro con código de invitación ─────────────────────
+// ÔöÇÔöÇ Registro con c├│digo de invitaci├│n ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 // Vista Request Access: se alterna con una clase en <body> (CSS hace el slide).
 window.abrirModalSolicitud = () => {
   document.body.classList.add('show-request');
@@ -526,10 +432,10 @@ function _wireRegistroInvitacion() {
     const pass  = document.getElementById('reg_pass').value;
     const pass2 = document.getElementById('reg_pass2')?.value;
     if (pass2 != null && pass !== pass2) {
-      if (err) { err.textContent = 'Las contraseñas no coinciden.'; err.style.display = 'block'; }
+      if (err) { err.textContent = 'Las contrase├▒as no coinciden.'; err.style.display = 'block'; }
       return;
     }
-    btn.disabled = true; btn.textContent = 'Enviando…';
+    btn.disabled = true; btn.textContent = 'EnviandoÔÇª';
     const payload = {
       codigo: document.getElementById('reg_codigo').value.trim().toUpperCase(),
       nombre: document.getElementById('reg_nombre').value.trim(),
@@ -548,7 +454,7 @@ function _wireRegistroInvitacion() {
   });
 }
 
-// ── Helpers UI ────────────────────────────────────────────
+// ÔöÇÔöÇ Helpers UI ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 window.togglePassword = function (inputId, iconEl) {
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -563,19 +469,19 @@ window.togglePassword = function (inputId, iconEl) {
   }
 };
 
-// ── Recuperar contraseña ──────────────────────────────────
+// ÔöÇÔöÇ Recuperar contrase├▒a ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 window.olvidePassword = async function () {
   const typed = document.getElementById('auth_email')?.value.trim() || '';
   const email = window.mexPrompt
-    ? await window.mexPrompt('Recuperar contraseña', 'Escribe tu correo y te enviaremos un enlace para restablecerla.', 'correo@empresa.com', 'email', typed)
-    : window.prompt('Escribe tu correo para recuperar la contraseña:', typed);
+    ? await window.mexPrompt('Recuperar contrase├▒a', 'Escribe tu correo y te enviaremos un enlace para restablecerla.', 'correo@empresa.com', 'email', typed)
+    : window.prompt('Escribe tu correo para recuperar la contrase├▒a:', typed);
   const dest = email?.toString().trim();
   if (!dest) return;
   try {
     await firebase.auth().sendPasswordResetEmail(dest);
-    (window.mexAlert || window.alert)('Listo', 'Revisa tu correo para restablecer la contraseña.', 'success');
+    (window.mexAlert || window.alert)('Listo', 'Revisa tu correo para restablecer la contrase├▒a.', 'success');
   } catch (err) {
-    (window.mexAlert || window.alert)('No se pudo enviar', 'Verifica que la dirección sea correcta e intenta de nuevo.', 'error');
+    (window.mexAlert || window.alert)('No se pudo enviar', 'Verifica que la direcci├│n sea correcta e intenta de nuevo.', 'error');
   }
 };
 
@@ -592,10 +498,10 @@ function _hideError() {
   if (el) el.style.display = 'none';
 }
 
-// ── Branding de empresa en el login ───────────────────────
+// ÔöÇÔöÇ Branding de empresa en el login ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 // La plantilla nace con un login simple (markup por defecto) y se rellena con
 // logo + nombre + eslogan en cuanto llega la config. configuracion/empresa es de
-// lectura pública (ver firestore.rules). Se cachea para no mostrar login sin imágenes.
+// lectura p├║blica (ver firestore.rules). Se cachea para no mostrar login sin im├ígenes.
 const _BRANDING_CACHE_KEY = 'mex_login_branding';
 
 function _applyBranding(cfg) {
@@ -634,19 +540,11 @@ function _initBranding() {
 document.addEventListener('DOMContentLoaded', () => {
   _initBranding();
 
-<<<<<<< Updated upstream
   // Montar checkbox v2 lo antes posible (no bloquear el resto de la UI).
   ensureRecaptchaWidget().catch((e) => {
-    console.error('[login] render reCAPTCHA v2 falló:', e?.message || e);
+    console.error('[login] render reCAPTCHA v2 fall├│:', e?.message || e);
     _setRecaptchaHint(true);
   });
-=======
-  // Sync site key from config if the widget attribute was stale.
-  const widget = document.getElementById('login-recaptcha');
-  if (widget && RECAPTCHA_V2_SITE_KEY) {
-    widget.setAttribute('data-sitekey', RECAPTCHA_V2_SITE_KEY);
-  }
->>>>>>> Stashed changes
 
   const emailEl = document.getElementById('auth_email');
   const passEl  = document.getElementById('auth_pass');

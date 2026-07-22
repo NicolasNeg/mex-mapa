@@ -225,13 +225,11 @@
       "Bash(grep -n \"badge st-\\\\${estadoClass}\\\\|<td>\\\\${u.modelo}\\\\|class=\\\\\"td-modelo\\\\\"\" js/views/mapa.js)",
       "Bash(powershell -Command \"Get-ChildItem -Path C:\\\\Users\\\\Pc -Directory -Recurse -Depth 4 -Filter '*MapGestion*' -ErrorAction SilentlyContinue | Select-Object FullName\" 2>/dev/null)",
       "Bash(xargs -n1 basename)",
-<<<<<<< Updated upstream
       "Bash(npm audit *)",
       "Read(//c/Users/Pc/Documents/mis documentos/MYPROYECT/**)",
       "Bash(npm config *)",
-=======
->>>>>>> Stashed changes
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(xargs grep -l \"generateRegistrationOptions\\\\|verifyAuthenticationResponse\")"
     ]
   }
 }
