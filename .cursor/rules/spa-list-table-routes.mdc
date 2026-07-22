@@ -19,3 +19,5 @@ Al crear o rediseñar un listado operativo en `/app/*`:
 Referencias: `js/app/views/traslados.js`, `js/app/views/unidades.js`.
 
 **Excepción — captura patio (Papeletas):** no tabla como primaria. Una sola vista de llenado (hoja+lápiz) + sheets; ver `docs/superpowers/specs/2026-07-22-papeletas-app-hoja-lapiz-design.md`.
+
+**Excepción — alcance Papeletas:** globales por **empresa**, no por plaza (crear en BJX, entregar en GDL). `plazaId` = procedencia/auditoría, no filtro de bandeja.

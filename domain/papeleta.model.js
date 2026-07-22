@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 //  domain/papeleta.model.js — pure business logic (no Firebase)
-//  Cache-bust: 2026-07-20-mobile-redesign-v1
+//  Cache-bust: 2026-07-22-global-scope-v1
 // ═══════════════════════════════════════════════════════════
 
 /** @typedef {'borrador'|'lista'|'entregada'|'en_retorno'|'cerrada_historial'|'cancelada'} PapeletaStatus */
@@ -22,6 +22,170 @@ const TERMINAL_STATUSES = new Set([
   STATUS.CERRADA_HISTORIAL,
   STATUS.CANCELADA,
 ]);
+
+/**
+ * Alcance de visibilidad / operación.
+ * Las papeletas son **globales por empresa**, no por plaza.
+ * Ejemplo: crear en BJX, que el auto llegue a GDL y allá completar / entregar.
+ * `plazaId` en el doc es sello de procedencia (origen), no filtro de bandeja.
+ */
+export const PAPELETA_SCOPE = Object.freeze({
+  kind: 'empresa',
+  plazaFieldMeaning: 'provenance', // plazaId = dónde se creó / último sello, NO scope de query
+});
+
+/** Statuses donde la salida (KM, checklist, diagramas, fotos salida, firma) ya no se edita. */
+const SALIDA_LOCKED_STATUSES = new Set([
+  STATUS.ENTREGADA,
+  STATUS.EN_RETORNO,
+  STATUS.CERRADA_HISTORIAL,
+  STATUS.CANCELADA,
+]);
+
+/**
+ * Formatea fecha/hora local del dispositivo (lugar) para auditoría legible.
+ * @param {Date|number|string} [when]
+ * @param {string} [timeZone] IANA opcional (si se conoce zona de la plaza)
+ */
+export function formatLocalStamp(when = new Date(), timeZone = '') {
+  const d = when instanceof Date ? when : new Date(when);
+  if (Number.isNaN(d.getTime())) return '';
+  try {
+    const opts = {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    };
+    if (timeZone) opts.timeZone = timeZone;
+    return new Intl.DateTimeFormat('sv-SE', opts).format(d).replace(' ', 'T');
+  } catch {
+    return d.toISOString();
+  }
+}
+
+/**
+ * Sello de evento (crear / editar / entregar / regreso).
+ * Captura: uid, nombre de usuario, plaza del lugar, fecha local del dispositivo.
+ * Pure — no toca Firebase.
+ *
+ * @param {{ user?: object, plazaId?: string, now?: Date|number, timeZone?: string, action?: string }} opts
+ */
+export function buildEventStamp(opts = {}) {
+  const user = opts.user || {};
+  const now = opts.now instanceof Date ? opts.now : new Date(opts.now || Date.now());
+  const uid = String(
+    user.uid
+    || user.id
+    || ''
+  ).trim();
+  const nombre = String(
+    user.nombre
+    || user.nombreCompleto
+    || user.displayName
+    || user.name
+    || ''
+  ).trim();
+  const plazaId = String(opts.plazaId || '').trim().toUpperCase();
+  return {
+    uid,
+    nombre,
+    plazaId,
+    atMs: now.getTime(),
+    atLocal: formatLocalStamp(now, opts.timeZone || ''),
+    action: String(opts.action || '').trim() || undefined,
+  };
+}
+
+/**
+ * Campos de procedencia al crear (pure merge helper).
+ * plazaId = plaza origen; ultimaPlazaId arranca igual.
+ */
+export function buildCreateProvenance({ user, plazaId, now, timeZone } = {}) {
+  const stamp = buildEventStamp({ user, plazaId, now, timeZone, action: 'crear' });
+  return {
+    plazaId: stamp.plazaId,
+    plazaOrigenId: stamp.plazaId,
+    ultimaPlazaId: stamp.plazaId,
+    creadoPor: stamp.uid,
+    creadoPorNombre: stamp.nombre,
+    creadoAtLocal: stamp.atLocal,
+  };
+}
+
+/**
+ * Patch de sello en cada autosave / entrega / regreso (pure).
+ */
+export function buildTouchProvenance({ user, plazaId, now, timeZone, action } = {}) {
+  const stamp = buildEventStamp({ user, plazaId, now, timeZone, action });
+  const out = {
+    ultimaPlazaId: stamp.plazaId || undefined,
+    actualizadoPor: stamp.uid,
+    actualizadoPorNombre: stamp.nombre,
+    actualizadoAtLocal: stamp.atLocal,
+  };
+  if (action === 'entregar') {
+    out.entregadaPlazaId = stamp.plazaId;
+    out.entregadaPor = stamp.uid;
+    out.entregadaPorNombre = stamp.nombre;
+    out.entregadaAtLocal = stamp.atLocal;
+  }
+  if (action === 'regreso' || action === 'entrada') {
+    out.entradaPlazaId = stamp.plazaId;
+    out.entradaPor = stamp.uid;
+    out.entradaPorNombre = stamp.nombre;
+    out.entradaAtLocal = stamp.atLocal;
+  }
+  // Drop undefined so callers can Object.assign cleanly
+  for (const k of Object.keys(out)) {
+    if (out[k] === undefined || out[k] === '') delete out[k];
+  }
+  return out;
+}
+
+/**
+ * Bandeja operativa: **todas** las papeletas de la empresa (no filtrar por plaza del usuario).
+ * `preferPlazaId` solo sirve para ordenar “cerca de mí” en UI — nunca para ocultar.
+ * @param {object[]} rows
+ * @param {{ preferPlazaId?: string }} [opts]
+ */
+export function orderInboxGlobal(rows = [], opts = {}) {
+  const prefer = String(opts.preferPlazaId || '').trim().toUpperCase();
+  const list = Array.isArray(rows) ? rows.slice() : [];
+  list.sort((a, b) => {
+    if (prefer) {
+      const ap = String(a.ultimaPlazaId || a.plazaId || '').toUpperCase() === prefer ? 0 : 1;
+      const bp = String(b.ultimaPlazaId || b.plazaId || '').toUpperCase() === prefer ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+    }
+    const at = Number(a.actualizadoAt?.toMillis?.() ?? a.actualizadoAtMs ?? 0);
+    const bt = Number(b.actualizadoAt?.toMillis?.() ?? b.actualizadoAtMs ?? 0);
+    return bt - at;
+  });
+  return list;
+}
+
+/** Cliente o contrato presentes (cualquiera basta para UI “asignado”). */
+export function hasClienteOrContrato(papeleta = {}) {
+  const cliente = String(papeleta.clienteNombre || '').trim();
+  const contrato = String(papeleta.contrato || papeleta.contratoId || '').trim();
+  return !!(cliente || contrato);
+}
+
+/**
+ * Asignar / corregir cliente: permitido mientras no esté cancelada ni cerrada en historial.
+ * También **después de entregada** (Ventas puede completar ficha sin reabrir salida).
+ */
+export function canAssignCliente(status) {
+  return status === STATUS.BORRADOR
+    || status === STATUS.LISTA
+    || status === STATUS.ENTREGADA
+    || status === STATUS.EN_RETORNO;
+}
+
+/** Igual que cliente: contrato opcional al crear; asignable después. */
+export function canAssignContrato(status) {
+  return canAssignCliente(status);
+}
 
 /** Original 12 inspection zones — never remove ids. */
 export const ZONAS_V1 = Object.freeze([
@@ -306,12 +470,21 @@ export function isValidFirma(firma) {
   return path.length > 0;
 }
 
+/**
+ * Edición de **salida** (KM, gas, checklist, zonas, diagrama, fotos salida).
+ * true solo en borrador|lista. Una vez ENTREGADA → false (regla dura).
+ */
 export function puedeEditar(status) {
   return status === STATUS.BORRADOR || status === STATUS.LISTA;
 }
 
+/** Alias explícito: salida mutable ↔ puedeEditar. */
 export function isSalidaMutable(status) {
-  return status === STATUS.BORRADOR || status === STATUS.LISTA;
+  return puedeEditar(status);
+}
+
+export function isSalidaLocked(status) {
+  return SALIDA_LOCKED_STATUSES.has(status);
 }
 
 export function assertSalidaMutable(status) {
@@ -320,6 +493,20 @@ export function assertSalidaMutable(status) {
     err.code = 'SALIDA_IMMUTABLE';
     throw err;
   }
+}
+
+/**
+ * Qué mutaciones admite un status (pure policy matrix).
+ * @returns {{ salida: boolean, cliente: boolean, contrato: boolean, regreso: boolean, cancelar: boolean }}
+ */
+export function mutationPolicy(status) {
+  return {
+    salida: isSalidaMutable(status),
+    cliente: canAssignCliente(status),
+    contrato: canAssignContrato(status),
+    regreso: status === STATUS.ENTREGADA || status === STATUS.EN_RETORNO,
+    cancelar: status === STATUS.BORRADOR || status === STATUS.LISTA,
+  };
 }
 
 export function clampNorm(n) {
@@ -455,7 +642,9 @@ export function puedeEntregar(papeletaOrStatus, optsOrZonas = {}, checklistMaybe
   if (hard.length) return { ok: false, hard, soft: [] };
 
   const soft = [];
-  if (!String(papeleta.clienteNombre || '').trim() && !String(firma?.signerName || '').trim()) {
+  // Cliente/contrato NO bloquean entrega: se pueden asignar después (incluso post-entregada).
+  const hasSigner = !!String(firma?.signerName || '').trim();
+  if (!hasClienteOrContrato(papeleta) && !hasSigner) {
     soft.push('cliente');
   }
   if (hasFaltantes(papeleta.checklist)) soft.push('faltantes');

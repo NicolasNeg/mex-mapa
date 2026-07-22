@@ -8,6 +8,11 @@ import {
   puedeEditar,
   puedeEntregar,
   isSalidaMutable,
+  canAssignCliente,
+  canAssignContrato,
+  buildCreateProvenance,
+  buildTouchProvenance,
+  orderInboxGlobal,
 } from '/domain/papeleta.model.js';
 
 function _fv() {
@@ -48,11 +53,30 @@ const SALIDA_LOCKED_KEYS = new Set([
   'marcaLlantas',
 ]);
 
-export function subscribePapeletasPlaza({ plazaId, onData, onError }) {
-  let q = _col().orderBy('actualizadoAt', 'desc').limit(200);
-  if (plazaId) q = _col().where('plazaId', '==', String(plazaId)).orderBy('actualizadoAt', 'desc').limit(200);
+/**
+ * Inbox empresa-global. `plazaId` / `preferPlazaId` NO filtran filas —
+ * solo reordenan “cerca de mí” vía `orderInboxGlobal`.
+ * @param {{ plazaId?: string, preferPlazaId?: string, onData: Function, onError?: Function }} opts
+ * @deprecated plazaId as filter — ignored for visibility; use preferPlazaId for sort boost
+ */
+export function subscribePapeletasPlaza({ plazaId, preferPlazaId, onData, onError } = {}) {
+  return subscribePapeletasEmpresa({
+    preferPlazaId: preferPlazaId || plazaId || '',
+    onData,
+    onError,
+  });
+}
+
+/**
+ * Suscripción canónica: todas las papeletas recientes de la empresa (colección ya tenant-scoped).
+ */
+export function subscribePapeletasEmpresa({ preferPlazaId = '', onData, onError } = {}) {
+  const q = _col().orderBy('actualizadoAt', 'desc').limit(200);
   return q.onSnapshot(
-    (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (snap) => {
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      onData(orderInboxGlobal(rows, { preferPlazaId }));
+    },
     (err) => {
       console.warn('[papeletas] subscribe:', err?.message);
       if (onError) onError(err);
@@ -126,6 +150,11 @@ export async function crearPapeleta({ unidad, plazaId, user }) {
         throw err;
       }
 
+      const provenance = buildCreateProvenance({
+        user: meta,
+        plazaId: String(plazaId || unidad.plazaId || '').toUpperCase(),
+      });
+
       const doc = {
         unidadId,
         mva: String(unidad.mva || '').toUpperCase(),
@@ -133,9 +162,10 @@ export async function crearPapeleta({ unidad, plazaId, user }) {
         placas: String(unidad.placas || '').toUpperCase(),
         color: String(unidad.color || ''),
         vin: String(unidad.vin || '').toUpperCase(),
-        plazaId: String(plazaId || unidad.plazaId || '').toUpperCase(),
+        ...provenance,
         status: STATUS.BORRADOR,
         clienteNombre: '',
+        contrato: '',
         checklist: createEmptyChecklist(),
         zonas: createEmptyZonas(),
         marcasLlantas: createEmptyMarcasLlantas(),
@@ -154,8 +184,6 @@ export async function crearPapeleta({ unidad, plazaId, user }) {
         activoPorUnidad: true,
         casoVentasId: '',
         pdfUrl: '',
-        creadoPor: meta.uid,
-        creadoPorNombre: meta.nombre,
         actualizadoPor: meta.uid,
         creadoAt: _fv(),
         actualizadoAt: _fv(),
@@ -191,7 +219,7 @@ export async function crearPapeleta({ unidad, plazaId, user }) {
  * @param {object} patch
  * @param {{ user?: object, knownRevision?: number }} [opts]
  */
-export async function actualizarPapeleta(id, patch, { user, knownRevision } = {}) {
+export async function actualizarPapeleta(id, patch, { user, knownRevision, plazaId } = {}) {
   const ref = _col().doc(id);
   const meta = _userMeta(user);
 
@@ -214,6 +242,17 @@ export async function actualizarPapeleta(id, patch, { user, knownRevision } = {}
       }
     } else if (!puedeEditar(current.status)) {
       throw new Error('Papeleta bloqueada (ya entregada)');
+    }
+
+    if (patch.clienteNombre != null && !canAssignCliente(current.status)) {
+      const err = new Error('No se puede asignar cliente en este estado');
+      err.code = 'CLIENTE_LOCKED';
+      throw err;
+    }
+    if (patch.contrato != null && !canAssignContrato(current.status)) {
+      const err = new Error('No se puede asignar contrato en este estado');
+      err.code = 'CONTRATO_LOCKED';
+      throw err;
     }
 
     const remoteRev = Number(current.revision) || 0;
@@ -247,9 +286,15 @@ export async function actualizarPapeleta(id, patch, { user, knownRevision } = {}
       papeleta: mergedForStatus,
     });
 
+    const touch = buildTouchProvenance({
+      user: meta,
+      plazaId: plazaId || current.ultimaPlazaId || current.plazaId,
+      action: 'actualizar',
+    });
+
+    Object.assign(data, touch);
     data.status = status;
     data.revision = remoteRev + 1;
-    data.actualizadoPor = meta.uid;
     data.actualizadoAt = _fv();
     tx.update(ref, data);
   });
@@ -257,14 +302,46 @@ export async function actualizarPapeleta(id, patch, { user, knownRevision } = {}
   return getPapeleta(id);
 }
 
-export async function asignarCliente(id, clienteNombre, { user } = {}) {
+export async function asignarCliente(id, clienteNombre, { user, plazaId } = {}) {
   const meta = _userMeta(user);
   const current = await getPapeleta(id);
   if (!current) throw new Error('Papeleta no encontrada');
+  if (!canAssignCliente(current.status)) {
+    const err = new Error('No se puede asignar cliente en este estado');
+    err.code = 'CLIENTE_LOCKED';
+    throw err;
+  }
+  const touch = buildTouchProvenance({
+    user: meta,
+    plazaId: plazaId || current.ultimaPlazaId || current.plazaId,
+    action: 'asignar_cliente',
+  });
   await _col().doc(id).update({
     clienteNombre: String(clienteNombre || '').trim(),
     revision: (Number(current.revision) || 0) + 1,
-    actualizadoPor: meta.uid,
+    ...touch,
+    actualizadoAt: _fv(),
+  });
+}
+
+export async function asignarContrato(id, contrato, { user, plazaId } = {}) {
+  const meta = _userMeta(user);
+  const current = await getPapeleta(id);
+  if (!current) throw new Error('Papeleta no encontrada');
+  if (!canAssignContrato(current.status)) {
+    const err = new Error('No se puede asignar contrato en este estado');
+    err.code = 'CONTRATO_LOCKED';
+    throw err;
+  }
+  const touch = buildTouchProvenance({
+    user: meta,
+    plazaId: plazaId || current.ultimaPlazaId || current.plazaId,
+    action: 'asignar_contrato',
+  });
+  await _col().doc(id).update({
+    contrato: String(contrato || '').trim(),
+    revision: (Number(current.revision) || 0) + 1,
+    ...touch,
     actualizadoAt: _fv(),
   });
 }
@@ -281,6 +358,7 @@ export async function finalizeDelivery(id, {
   confirmedWarnings = [],
   user,
   pdfUrl = '',
+  plazaId = '',
 } = {}) {
   const meta = _userMeta(user);
   const ref = _col().doc(id);
@@ -334,17 +412,21 @@ export async function finalizeDelivery(id, {
       entregadoPorUid: meta.uid,
     };
 
+    const touch = buildTouchProvenance({
+      user: meta,
+      plazaId: plazaId || current.ultimaPlazaId || current.plazaId,
+      action: 'entregar',
+    });
+
     tx.update(ref, {
       status: STATUS.ENTREGADA,
       salida,
       entregadaAt: _fv(),
-      entregadaPor: meta.uid,
-      entregadaPorNombre: meta.nombre,
       entregaFinalizedAt: _fv(),
       pdfUrl: pdfUrl || current.pdfUrl || '',
       confirmedWarnings: Array.isArray(confirmedWarnings) ? confirmedWarnings.slice() : [],
       revision: (Number(current.revision) || 0) + 1,
-      actualizadoPor: meta.uid,
+      ...touch,
       actualizadoAt: _fv(),
     });
   });

@@ -31,6 +31,80 @@ Hoy el módulo ya tiene dominio sólido (6 pasos, core fotos, daños tipados), p
 
 ---
 
+## 0A. Lógica de negocio pura (alcance GLOBAL) — ley del dominio
+
+> Fuente de verdad en código: `domain/papeleta.model.js` (`PAPELETA_SCOPE`, `mutationPolicy`, `puedeEntregar`, `buildEventStamp`, …).  
+> La UI **no** inventa estas reglas; solo las refleja.
+
+### 0A.1 Excepción de alcance: empresa-global, no por plaza
+
+| Regla | Detalle |
+|-------|---------|
+| **Scope** | Una papeleta pertenece a la **empresa**, no a una plaza. |
+| **Flujo real** | Se puede **crear en BJX** y **completar / entregar en GDL** cuando llega el auto (u otra plaza). |
+| **Bandeja** | Inbox lista **todas** las activas/recientes de la empresa. **Prohibido** filtrar por `plazaId == plazaActual` como default. |
+| **`plazaId` en el doc** | Sello de **procedencia** (plaza de origen al crear). No es llave de partición de datos. |
+| **Sellos adicionales** | `plazaOrigenId`, `ultimaPlazaId`, `entregadaPlazaId`, `entradaPlazaId` — auditoría de dónde se tocó. |
+| **Unicidad** | Sigue siendo **1 papeleta activa por unidad** (`activoPorUnidad` + lock `papeletas_activas/{unidadId}`), sin importar plaza. |
+| **Autocomplete unidad** | Catálogo **empresa** (`mexUnidades`); ranking “plaza actual” solo **prioriza**, nunca oculta unidades de otras plazas. |
+
+**Bug actual a corregir en data/UI:** `subscribePapeletasPlaza({ plazaId })` y el mount de la vista pasan la plaza activa → **dividen** el inbox. Debe pasar a suscripción empresa-global (`orderBy actualizadoAt`, sin `where plazaId`) + `orderInboxGlobal(rows, { preferPlazaId })` solo para orden UX.
+
+### 0A.2 Matriz de mutación (rápida y dura)
+
+| Acción | `borrador` | `lista` | `entregada` | `en_retorno` | `cerrada_historial` / `cancelada` |
+|--------|:---:|:---:|:---:|:---:|:---:|
+| Editar salida (KM, gas, checklist, diagrama, fotos salida, firma previa) | ✓ | ✓ | **✗** | **✗** | **✗** |
+| Asignar / corregir **cliente** | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Asignar / corregir **contrato** | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Entregar (`finalizeDelivery`) | si hard OK | si hard OK | no-op idempotente | ✗ | ✗ |
+| Registrar regreso / entrada | ✗ | ✗ | ✓ | ✓ | ✗ |
+| Cancelar | ✓ | ✓ | ✗ | ✗ | ✗ |
+
+**Regla de oro de edición:**
+
+1. **Antes de `entregada`:** salida editable (autosave + `revision`).
+2. **Desde `entregada` inclusive:** salida **inmutable** (`isSalidaLocked` / `assertSalidaMutable`). Domain + data + (preferible) Firestore rules.
+3. Cliente/contrato **no** forman parte del candado de salida: se pueden completar **después** (patio entregó sin saber el nombre; Ventas asigna luego).
+
+Helpers: `puedeEditar` ≡ `isSalidaMutable`; `mutationPolicy(status)`; `canAssignCliente` / `canAssignContrato`.
+
+### 0A.3 Sellos de auditoría en cada evento
+
+Cada create / autosave / entrega / regreso debe persistir (vía `buildEventStamp` / `buildTouchProvenance`):
+
+| Campo | Origen |
+|-------|--------|
+| `uid` / `*Por` | Usuario autenticado |
+| `*PorNombre` | Nombre del usuario (perfil / displayName) |
+| `plazaId` / `ultimaPlazaId` / `entregadaPlazaId`… | Plaza **del lugar** donde ocurre el gesto (context shell), no “plaza dueña” del expediente |
+| `*AtLocal` | Fecha/hora **local del dispositivo** (`formatLocalStamp`) — “fecha del lugar” |
+| `*At` server | `serverTimestamp` en data layer (autoridad de reloj) |
+
+Al **entregar**, además: `entregadaPor`, `entregadaPorNombre`, `entregadaPlazaId`, `entregadaAt`, `entregadaAtLocal`.
+
+### 0A.4 Cliente y contrato (soft, diferibles)
+
+- Al crear: `clienteNombre: ''`, `contrato: ''` (o ausente) — **válido**.
+- Entregar **sin** cliente ni contrato: permitido; soft warning `cliente` en `puedeEntregar` (sheet de confirmación). Si hay `firma.signerName` o ya hay cliente/contrato → no soft.
+- Post-entrega: `asignarCliente` / patch `contrato` siguen permitidos (`canAssign*`).
+- CRM/contrato “real” (lookup SIPP, etc.) sigue **non-goal**; el campo texto `contrato` sí es de producto.
+
+### 0A.5 Gates de entrega (sin inventar en UI)
+
+- **Hard** (bloquean): `km`, `gas`, `checklist`, `core_photos`, `firma`, `pending_writes`, `km_justification` si aplica. **No** incluyen plaza ni cliente.
+- **Soft** (confirmar): `cliente` (si no hay cliente/contrato/signer), faltantes, fotos de daño, fotos opcionales, daños grandes sin reporte Ventas, etc.
+- Finalize: `finalizeDelivery` único, idempotente si ya `entregada`.
+
+### 0A.6 Qué NO cambia
+
+- Status machine español (`borrador` → … → `cerrada_historial`).
+- `ZONAS_CORE` / unicidad por unidad.
+- PDF firmado (export-signing) al entregar.
+- Reportes de daños = módulo aparte.
+
+---
+
 ## 1. Problema actual (código)
 
 ### 1.1 Qué ya funciona (mantener)
@@ -58,6 +132,7 @@ Hoy el módulo ya tiene dominio sólido (6 pasos, core fotos, daños tipados), p
    - falta “lápiz siempre listo” + tap-hold para tipo de daño (gesto papel).
 5. **Fotos** aún pueden sentirse como tour largo si el orden core no está en el mismo scroll que KM/checklist.
 6. **Archivo monolito** `papeletas.js` (~3k líneas) — difícil iterar UI sin regresiones.
+7. **Inbox filtrado por plaza** (`subscribePapeletasPlaza` + `plazaId` en mount) — **contradice** el alcance global (§0A): una papeleta creada en BJX no aparece en GDL.
 
 ---
 
@@ -65,12 +140,13 @@ Hoy el módulo ya tiene dominio sólido (6 pasos, core fotos, daños tipados), p
 
 1. **Una hoja, un gesto.** La captura de salida es **un scroll vertical continuo** con secciones ancladas; no un carrusel de 6 pantallas.
 2. **El lápiz manda.** Diagrama y checklist viven “arriba del pliegue” en móvil; tablas/admin fuera de la captura.
-3. **Autocomplete before type.** MVA/placas/cliente/chofer (si aplica) sugieren en ≤150 ms desde cache local (`mexUnidades` + plaza).
-4. **Sheets, no páginas.** Cámara, tipo de daño, faltante de checklist = bottom sheet / fullscreen overlay; al cerrar vuelves al **mismo scroll offset**.
-5. **Progreso sin wizard.** Chips de sección sticky (`Datos · KM · Checklist · Daños · Fotos · Firma`) hacen scroll-spy, no `navigate` entre steps.
-6. **Inbox = cola de trabajo**, no spreadsheet. Cards táctiles; desktop también cards (grid), no `pap-table` como default.
-7. **Domain remains law.** UI no inventa `puedeEntregar`; solo refleja `hard`/`soft`.
-8. **Offline-soft.** Draft local + autosave; no finalize offline (igual que spec 07-20 §11).
+3. **Global por empresa.** Inbox y búsqueda de unidad no se parten por plaza; la plaza solo sella auditoría y prioriza ranking.
+4. **Autocomplete before type.** MVA/placas/cliente sugieren en ≤150 ms desde cache local (`mexUnidades` empresa).
+5. **Sheets, no páginas.** Cámara, tipo de daño, faltante de checklist = bottom sheet / fullscreen overlay; al cerrar vuelves al **mismo scroll offset**.
+6. **Progreso sin wizard.** Chips de sección sticky (`Datos · KM · Checklist · Daños · Fotos · Firma`) hacen scroll-spy, no `navigate` entre steps.
+7. **Inbox = cola de trabajo**, no spreadsheet. Cards táctiles; desktop también cards (grid), no `pap-table` como default.
+8. **Domain remains law.** UI no inventa `puedeEntregar` ni el candado post-`entregada`; solo refleja `mutationPolicy` / `hard`/`soft`.
+9. **Offline-soft.** Draft local + autosave; no finalize offline (igual que spec 07-20 §11).
 
 ---
 
@@ -113,9 +189,10 @@ flowchart TB
 ### 4.1 Inbox (`/app/papeletas`)
 
 - **Default:** grid/lista de **cards** (también en desktop ≥900px).
-- Quitar o degradar `pap-table` a “Vista compacta” opcional (oculto por default; feature flag o menú ⋮).
-- Filtros: chips `En curso | Entregadas | Historial` (canceladas/ventas en menú “Más”).
-- Card muestra: MVA, modelo, chip estado, progreso `Core 4/6`, “Falta firma”, tiempo relativo.
+- **Alcance:** suscripción **empresa-global** (sin `where plazaId`). Chip opcional “Cerca de {plaza}” solo reordena (`orderInboxGlobal`).
+- Card muestra: MVA, modelo, chip estado, **plaza origen / última**, progreso `Core 4/6`, cliente o “Sin cliente”, tiempo relativo.
+- Quitar o degradar `pap-table` a “Vista compacta” opcional (oculto por default).
+- Filtros: chips `En curso | Entregadas | Historial` (canceladas en menú “Más”).
 - CTA primario grande **Nueva papeleta**.
 - Deep-link `?mva=` abre picker prefiltrado o la activa de esa unidad.
 
@@ -125,11 +202,12 @@ flowchart TB
 - Fuente: **`window.mexUnidades.buscar`** primero; fallback `buscarUnidad` API si cache frío.
 - Ranking:
   1. Match exacto MVA/placas
-  2. Unidad en plaza actual / patio
+  2. Unidad en plaza actual / patio (**boost**, no filtro)
   3. Prefijo MVA
   4. Modelo contiene
-- Card hit: MVA · placas · modelo · estado flota · badge “Ya hay papeleta activa” → **Abrir** (no crear).
-- Confirmación = create TX (igual dominio actual).
+- Hits de **cualquier plaza** de la empresa son válidos (el auto puede estar en tránsito / otra plaza).
+- Card hit: MVA · placas · modelo · plaza · estado flota · badge “Ya hay papeleta activa” → **Abrir** (no crear).
+- Confirmación = create TX (igual dominio actual) + `buildCreateProvenance` (plaza del lugar + usuario + fecha local).
 - QR: CTA si hardware; si no, “Próximamente” (sin bloquear).
 
 ### 4.3 Captura continua (`/app/papeletas/p/:uid`) — corazón del rediseño
@@ -146,7 +224,7 @@ flowchart TB
 
 | Sección | Contenido | Interacción rápida |
 |---------|-----------|-------------------|
-| Datos | Ficha autofill + cliente | Autocomplete cliente si historial; Corregir → sheet |
+| Datos | Ficha autofill + cliente/contrato opcionales | Soft: asignar después; Corregir → sheet |
 | KM / gas | KM grande, grid gas, foto tablero inline | Soft warn retake si cambia KM post-foto |
 | Checklist | “Todo OK” + excepciones | Tap fila → sheet Presente/Faltante/N/A |
 | Daños | Diagrama full-bleed + lista marcas | Ver §5 |
@@ -213,9 +291,10 @@ flowchart TB
 
 | Campo | Fuente sugerida |
 |-------|-----------------|
-| Cliente | Últimos `clienteNombre` de papeletas plaza + ventas |
-| Firma signer | = cliente si vacío |
-| Notas de daño | snippets recientes por tipo (localStorage plaza) |
+| Cliente | Últimos `clienteNombre` de papeletas empresa + ventas (no solo plaza) |
+| Contrato | Texto libre + últimos usados empresa |
+| Firma signer | = cliente si vacío; si no hay cliente, nombre en firma cuenta como soft OK |
+| Notas de daño | snippets recientes por tipo (localStorage) |
 | Marca llanta | lista corta configurable / últimos usados |
 
 ### 6.3 UX del completer
@@ -250,13 +329,14 @@ flowchart TB
 
 | Archivo | Cambio |
 |---------|--------|
-| `js/app/views/papeletas.js` | Captura continua; inbox cards-only default; delizar wizard step como scroll-spy |
+| `domain/papeleta.model.js` | Scope global, stamps, `mutationPolicy`, soft cliente/contrato (**hecho en dominio**) |
+| `papeletas-data.js` | `subscribePapeletasEmpresa` (sin plaza); stamps en create/update/finalize; `asignarContrato` |
+| `js/app/views/papeletas.js` | Captura continua; inbox global cards; quitar filtro plaza default |
 | `css/app-papeletas.css` | Tokens app móvil; sticky chips; diagram stage; quitar énfasis table |
 | `papeletas-diagram.js` | v3 pointer + persist mount + gesture |
-| `unidades-lookup.js` / thin `papeletas-lookup.js` | Adapter ranking plaza |
+| `unidades-lookup.js` / thin `papeletas-lookup.js` | Adapter ranking con boost plaza, sin ocultar |
 | `papeletas-camera.js` | Sheet-friendly open/close restore scroll |
-| `domain/papeleta.model.js` | Sin cambio de contrato salvo helpers menores de progreso UI |
-| `agente.md` + rule spa-list | Excepción captura |
+| `agente.md` + rule spa-list | Excepción captura + nota scope global |
 
 ### 9.2 Qué no romper
 
@@ -282,11 +362,12 @@ Extraer de `papeletas.js`:
 
 | Fase | Entrega | Riesgo |
 |------|---------|--------|
-| **A** | Inbox cards-only + ocultar tabla default; picker `mexUnidades` | Bajo |
+| **A0** | Data+UI: inbox **global** (quitar filtro plaza); stamps create/entrega; chip plaza en card | Bajo |
+| **A** | Inbox cards-only + ocultar tabla default; picker `mexUnidades` empresa | Bajo |
 | **B** | Captura continua scroll-spy (mismas secciones, sin hop de step) | Medio |
 | **C** | Diagrama v3 (persist mount, gestures, hit slop) | Medio |
 | **D** | FAB “siguiente hueco” + polish cámara sheet + dark patio | Bajo |
-| **E** | Split módulos JS + tests modelo + smoke Playwright captura | Medio |
+| **E** | Split módulos JS + tests modelo (scope/mutation) + smoke Playwright | Medio |
 
 Cada fase: bump SW + commit + push. Deploy hosting cuando A+B sean usables en patio.
 
@@ -296,23 +377,26 @@ Cada fase: bump SW + commit + push. Deploy hosting cuando A+B sean usables en pa
 
 1. Usuario completa salida sin cambiar de “pantalla wizard”; solo scroll + sheets.
 2. Desktop inbox no muestra tabla por defecto.
-3. Autocomplete unidad responde desde cache caliente en <150 ms percibidos.
-4. Marcar daño: tap → sheet → marca visible sin perder posición de scroll.
-5. Diagrama no parpadea/remount en autosave.
-6. `puedeEntregar` hard bloquea Entregar; soft solo advierte.
-7. PDF y lock post-entrega intactos.
-8. Regresión: abrir papeleta entregada = readonly + regreso.
+3. Inbox muestra papeletas de **otras plazas**; crear en plaza A y abrir/entregar en plaza B funciona.
+4. Autocomplete unidad responde desde cache caliente en <150 ms percibidos (hits cross-plaza).
+5. Marcar daño: tap → sheet → marca visible sin perder posición de scroll.
+6. Diagrama no parpadea/remount en autosave.
+7. `puedeEntregar` hard bloquea Entregar; soft solo advierte; cliente/contrato vacíos no son hard.
+8. Post-`entregada`: salida readonly; cliente/contrato aún asignables.
+9. Cada create/entrega guarda usuario nombre + plaza del lugar + fecha local.
+10. PDF y lock post-entrega intactos.
+11. Regresión: abrir papeleta entregada = readonly salida + regreso.
 
 ---
 
 ## 12. Non-goals (esta iteración)
 
-- Offline-first robusto / sync queue
-- CRM contratos completo
+- CRM contratos completo (lookup/SIPP); campo texto `contrato` sí está in-scope
 - WhatsApp/correo automático
 - Reescritura Cloud Functions
 - Unificar Reportes de daños dentro de Papeletas
 - Volver al look “papel industrial” de la HOJA escaneada en captura
+- Particionar papeletas por plaza (anti-requisito)
 
 ---
 
@@ -331,5 +415,7 @@ Recomendación: **solo scroll continuo** — es lo que más se acerca a hoja + l
 - [x] Sin placeholders TBD críticos (QR = próximamente explícito)
 - [x] No contradice dominio 07-20; pivotea UX
 - [x] Excepción clara vs regla tabla+rutas
+- [x] Alcance **global por empresa** documentado + helpers en domain
+- [x] Inmutabilidad post-entregada + cliente/contrato diferibles
 - [x] Archivos y fases concretos
 - [x] Nota Fable 5 / límite API documentada

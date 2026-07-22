@@ -811,8 +811,9 @@ export async function mount(ctx) {
   }
 
   const plaza = String(getCurrentPlaza() || ctx?.state?.currentPlaza || '').toUpperCase();
+  // Inbox empresa-global: preferPlazaId solo reordena, no filtra (BJX→GDL).
   _unsubs.push(subscribePapeletasPlaza({
-    plazaId: plaza,
+    preferPlazaId: plaza,
     onData: (rows) => {
       _items = rows || [];
       if (_mode === 'list') _paintList();
@@ -2763,6 +2764,7 @@ async function _confirmFirma() {
       firma,
       confirmedWarnings,
       user: _user(),
+      plazaId: String(getCurrentPlaza() || '').toUpperCase(),
     });
     if (result.alreadyFinalized) {
       await _mexAlert('Ya entregada', 'Esta papeleta ya estaba finalizada.');
