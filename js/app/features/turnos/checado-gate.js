@@ -29,6 +29,7 @@ import {
   biometriaNativaDisponible,
   enrolarBiometriaNativa,
   verificarBiometriaNativa,
+  credencialesDe,
 } from '/js/app/features/turnos/webauthn-check.js';
 import {
   PIN_LENGTH,
@@ -90,7 +91,7 @@ export function runChecadoGate(opts = {}) {
     let faceLoopId = null;
     let geo = { lat: null, lon: null, accuracy: 0, status: 'pendiente' };
     let faceDescriptor = normalizarDescriptor(user.faceDescriptor);
-    let webauthnCredentialId = String(user.webauthnCredentialId || '').trim();
+    let webauthnCredentialIds = credencialesDe(user);
     let pinConfigurado = tienePinConfigurado(user);
     let result = {
       lat: null,
@@ -170,7 +171,7 @@ export function runChecadoGate(opts = {}) {
 
       const nativaDisponible = await biometriaNativaDisponible().catch(() => false);
 
-      if (nativaDisponible && webauthnCredentialId) {
+      if (nativaDisponible && webauthnCredentialIds.length) {
         void tryWebauthn();
       } else if (nativaDisponible) {
         showWebauthnOffer();
@@ -181,13 +182,16 @@ export function runChecadoGate(opts = {}) {
     }
 
     // ── Método: biometría nativa (Face ID / Touch ID / Windows Hello) ──
+    // Un credential vive SOLO en el dispositivo donde se creó — cada
+    // dispositivo que un colaborador use necesita su propio enrolamiento.
     function showWebauthnOffer() {
       showStep('webauthn-offer');
     }
 
     async function setupWebauthn() {
       try {
-        webauthnCredentialId = await enrolarBiometriaNativa(docId, user.nombre || user.nombreCompleto || docId);
+        const nuevoId = await enrolarBiometriaNativa(docId, user.nombre || user.nombreCompleto || docId);
+        webauthnCredentialIds = [...webauthnCredentialIds, nuevoId];
         result.metodo = 'webauthn';
         result.faceVerified = true;
         proceedAfterVerificacion();
@@ -201,16 +205,18 @@ export function runChecadoGate(opts = {}) {
       showStep('webauthn');
       const chip = $('#tuGateWaChip');
       if (chip) chip.textContent = 'Confirma con Face ID, Touch ID o Windows Hello…';
-      const ok = await verificarBiometriaNativa(webauthnCredentialId);
+      const ok = await verificarBiometriaNativa(webauthnCredentialIds);
       if (ok) {
         result.metodo = 'webauthn';
         result.faceVerified = true;
         proceedAfterVerificacion();
         return;
       }
-      if (chip) chip.textContent = 'No se pudo confirmar. Intenta de nuevo o usa otro método.';
+      // Este dispositivo no tiene ninguna credencial conocida localmente
+      // (p.ej. se enroló en otra PC/teléfono) — ofrece activarla aquí.
+      if (chip) chip.textContent = 'Este dispositivo no tiene la verificación activada.';
       const retry = $('#tuGateWaRetry');
-      if (retry) retry.hidden = false;
+      if (retry) { retry.hidden = false; retry.dataset.gateAction = 'setup-webauthn'; retry.textContent = 'Activar en este dispositivo'; }
     }
 
     // ── Método: reconocimiento facial (sin foto, default sin WebAuthn) ──

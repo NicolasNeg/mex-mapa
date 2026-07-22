@@ -70,7 +70,7 @@ export async function guardarFaceDescriptor(user, embedding) {
   return true;
 }
 
-/** Carga el perfil fresco (faceDescriptor, checadoPinHash, webauthnCredentialId). */
+/** Carga el perfil fresco (faceDescriptor, checadoPinHash, webauthnCredentialIds). */
 async function loadFreshUserRecord(user) {
   try {
     const fresh = await window.__mexLoadCurrentUserRecord?.(window._auth?.currentUser, { force: true });
