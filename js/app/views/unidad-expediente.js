@@ -246,13 +246,18 @@ function _paintBody() {
   const canMap = d.plazaActual && typeof window.__mexCanViewPlaza === 'function' && window.__mexCanViewPlaza(d.plazaActual);
 
   if (actions) {
-    actions.innerHTML = canMap
+    const mapBtn = canMap
       ? '<button type="button" class="uexp-btn ghost" data-action="map"><span class="material-icons">map</span>Mapa</button>'
       : '';
+    const qrBtn = _canManage()
+      ? '<button type="button" class="uexp-btn ghost" data-action="generar-qr"><span class="material-icons">qr_code_2</span>Generar QR</button>'
+      : '';
+    actions.innerHTML = mapBtn + qrBtn;
   }
 
   body.innerHTML = `
     ${_estadosBanner(d)}
+    ${_qrPanelHtml(d)}
 
     <div id="uexp-detail">${renderDetailCardHtml(d, {
       editing: _s.editing && _canManage(),
@@ -334,6 +339,31 @@ function _setEditing(next) {
     window.history.replaceState(null, '', nextUrl);
   }
   _paintBody();
+}
+
+function _qrPanelHtml(d = {}) {
+  const token = String(d.qrToken || '').trim();
+  if (!token) return '';
+  const url = _qrPublicUrl(token);
+  const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
+  return `
+    <section class="uexp-panel uexp-qr-panel">
+      <h2>QR de la unidad</h2>
+      <div class="uexp-qr-body">
+        <img src="${esc(qrImg)}" alt="QR de ${esc(d.mva || '')}" width="220" height="220" loading="lazy">
+        <div class="uexp-qr-info">
+          <label>
+            <span>Enlace público</span>
+            <input type="text" readonly value="${esc(url)}" data-qr-url>
+          </label>
+          <div class="uexp-qr-actions">
+            <button type="button" class="uexp-btn ghost" data-action="copiar-qr-url">Copiar enlace</button>
+            ${_canManage() ? '<button type="button" class="uexp-btn ghost" data-action="generar-qr">Regenerar</button>' : ''}
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
 }
 
 function _extrasPanel(extras) {
@@ -519,6 +549,22 @@ function _onClick(event) {
     }
     return;
   }
+  if (action === 'generar-qr') {
+    if (!_canManage()) return;
+    _generarQr();
+    return;
+  }
+  if (action === 'copiar-qr-url') {
+    const input = _ctr?.querySelector('[data-qr-url]');
+    if (input) {
+      input.select();
+      navigator.clipboard?.writeText(input.value).then(
+        () => _toast('Enlace copiado.', 'success'),
+        () => _toast('No se pudo copiar. Selecciona y copia manualmente.', 'error')
+      );
+    }
+    return;
+  }
   if (action === 'incidencias') {
     _go(`/app/notas?mva=${encodeURIComponent(_s.mva)}`);
     return;
@@ -642,6 +688,30 @@ async function _submitAdjunto(form) {
   }
 }
 
+async function _generarQr() {
+  if (!_s?.data?.detail) return;
+  const mva = _s.data.detail.mva || _s.mva;
+  const yaExiste = Boolean(_s.data.detail.qrToken);
+  const ok = await window.mexConfirm(
+    yaExiste ? 'Regenerar QR' : 'Generar QR',
+    `Vas a ${yaExiste ? 'regenerar' : 'generar'} el código QR para la unidad ${mva}. ${yaExiste ? 'El QR impreso anteriormente dejará de funcionar de inmediato. ' : ''}Verifica que es la unidad correcta antes de imprimir la calca.`
+  );
+  if (!ok) return;
+
+  const token = _genQrToken();
+  try {
+    const res = await actualizarUnidadPlaza({
+      id: _s.data.detail.id || _s.data.detail.fila || _s.mva,
+      qrToken: token
+    });
+    if (res !== 'EXITO') throw new Error(String(res || 'No se pudo generar el QR.'));
+    _toast('QR generado.', 'success');
+    await _load();
+  } catch (err) {
+    _toast(err?.message || 'No se pudo generar el QR.', 'error');
+  }
+}
+
 function _setUrlEdit(on) {
   const path = `${ROUTE_PREFIX}${encodeURIComponent(_s.mva)}`;
   const qs = on ? '?edit=1' : '';
@@ -701,6 +771,18 @@ function _role() {
 function _actor() {
   const gs = getState();
   return String(gs.profile?.nombre || gs.profile?.usuario || gs.profile?.email || window._auth?.currentUser?.email || 'Sistema').trim();
+}
+
+function _genQrToken() {
+  const bytes = new Uint8Array(9);
+  crypto.getRandomValues(bytes);
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function _qrPublicUrl(token) {
+  return `${window.location.origin}/app/qr/${encodeURIComponent(token)}`;
 }
 
 function _fmtTs(value) {

@@ -704,3 +704,59 @@ body.dark-theme .uexp-log-icon.material-symbols-outlined { color: var(--accent) 
 .uni-table tbody tr[data-action="expediente"] {
   cursor: pointer;
 }
+
+.uexp-qr-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.uexp-qr-body img {
+  border: 1px solid var(--uexp-line);
+  border-radius: 8px;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.uexp-qr-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.uexp-qr-info label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--uexp-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.uexp-qr-info input[data-qr-url] {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--uexp-border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--uexp-ink);
+  font: 400 13px/1.4 Inter, sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+.uexp-qr-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .uexp-qr-body {
+    flex-direction: column;
+  }
+}

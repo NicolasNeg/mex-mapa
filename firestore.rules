@@ -708,7 +708,7 @@ service cloud.firestore {
     // dónde está cada unidad sin leer los cuadres de todas las plazas).
     function actualizacionUbicacionIndexValida() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(["plazaActual", "pos", "ubicacion", "km", "kmFecha", "kmFuenteUltima"]);
+        .hasOnly(["plazaActual", "pos", "ubicacion", "km", "kmFecha", "kmFuenteUltima", "qrToken"]);
     }
 
     match /index_unidades/{doc} {
