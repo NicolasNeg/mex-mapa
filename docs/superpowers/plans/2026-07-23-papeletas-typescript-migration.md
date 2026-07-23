@@ -188,13 +188,20 @@ const outRoot = path.join(root, outDir);
 let copied = 0;
 for (const entry of tsconfig.include) {
   if (!entry.endsWith('.ts')) continue; // skip types/globals.d.ts
+  const tsSourcePath = path.join(root, entry);
+  if (!fs.existsSync(tsSourcePath)) {
+    // Not yet converted by this migration -- do NOT check outDir here. tsc's
+    // allowJs pulls in the still-plain .js sibling of any not-yet-converted
+    // entry as a passthrough dependency of whatever .ts file imports it, so a
+    // compiled copy of it DOES exist in outDir even though we never authored
+    // a .ts for it yet. Copying that back would silently overwrite/reformat
+    // an untouched source file. Always gate on the real .ts source existing.
+    console.warn(`[copy-ts-output] skip (not yet converted): ${entry}`);
+    continue;
+  }
   const jsRelPath = entry.replace(/\.ts$/, '.js');
   const src = path.join(outRoot, jsRelPath);
   const dest = path.join(root, jsRelPath);
-  if (!fs.existsSync(src)) {
-    console.warn(`[copy-ts-output] skip (not yet converted): ${jsRelPath}`);
-    continue;
-  }
   fs.copyFileSync(src, dest);
   copied += 1;
   console.log(`[copy-ts-output] ${jsRelPath}`);
