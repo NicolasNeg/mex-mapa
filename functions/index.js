@@ -3383,17 +3383,18 @@ exports.generarYSubirPdf = functions
     let uploadResult;
     try {
       const { cloudinary } = getCloudinarySdk();
+      // Sin "format" en la subida: declarar el asset como pdf es justo lo
+      // que activa el bloqueo 401 "deny or ACL failure" de Cloudinary para
+      // entrega publica de raw+pdf/zip (proteccion anti-abuso de la
+      // cuenta). Sin ese tag el archivo se sube y se sirve sin problema;
+      // la extension/descarga correcta se fuerza abajo con fl_attachment,
+      // que es un flag de ENTREGA (no re-etiqueta el asset subido).
       uploadResult = await new Promise((resolve, reject) => {
-        // resource_type "image" (no "raw"): muchas cuentas Cloudinary
-        // bloquean por defecto la entrega publica de raw+pdf/zip (401
-        // "deny or ACL failure", medida anti-abuso). PDFs como "image"
-        // no cae bajo esa restriccion y se entrega el archivo original.
         const stream = cloudinary.uploader.upload_stream(
           {
-            resource_type: "image",
+            resource_type: "raw",
             folder,
             public_id: sanitizeCloudinaryPublicId(filename) || undefined,
-            format: "pdf",
             use_filename: true,
             unique_filename: false,
           },
@@ -3407,7 +3408,15 @@ exports.generarYSubirPdf = functions
       throw new HttpsError("internal", "No se pudo subir el PDF a Cloudinary.");
     }
 
-    const url = uploadResult.secure_url || uploadResult.url;
+    const { cloudinary } = getCloudinarySdk();
+    const downloadName = `${sanitizeCloudinaryPublicId(filename) || "reporte"}.pdf`;
+    const url = cloudinary.url(uploadResult.public_id, {
+      resource_type: "raw",
+      type: "upload",
+      secure: true,
+      version: uploadResult.version,
+      flags: `attachment:${downloadName}`,
+    });
 
     if (target && docId) {
       try {

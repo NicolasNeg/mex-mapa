@@ -566,9 +566,8 @@ export async function abrirReporteImpresion(htmlContenido, { kind = '', docId = 
 </html>`;
 
   try {
-    const url = await generarYAbrirPdf(docHtml, { kind, docId, onStatus });
-    window.open(url, '_blank', 'noopener,noreferrer');
-    return url;
+    // generarYAbrirPdf ya dispara la descarga del archivo — no se abre pestaña.
+    return await generarYAbrirPdf(docHtml, { kind, docId, onStatus });
   } catch (error) {
     console.error('No se pudo generar el PDF:', error);
     if (typeof onError === 'function') onError(error);

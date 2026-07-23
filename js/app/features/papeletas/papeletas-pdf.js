@@ -351,7 +351,6 @@ ${photosHtml}
 <script>window.onload=function(){setTimeout(function(){window.print()},450)}</script>
 </body></html>`;
 
-  const url = await generarYAbrirPdf(html, { kind: 'papeleta', docId: docId || papeleta.id || '' });
-  window.open(url, '_blank', 'noopener,noreferrer');
-  return url;
+  // generarYAbrirPdf ya dispara la descarga del archivo — no se abre pestaña.
+  return await generarYAbrirPdf(html, { kind: 'papeleta', docId: docId || papeleta.id || '' });
 }

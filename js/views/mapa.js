@@ -3302,6 +3302,23 @@ function _scoreAdminMaestraMatch(unit = {}, term = '') {
   return score;
 }
 
+// configurarPermisosUI() puede correr en cuanto se resuelve el perfil de
+// sesion, antes de que api/_assemble.js termine de fusionar los modulos
+// api/*.js en window.api — cargarMaestra() truena con "no es una funcion"
+// si le toca esa ventana. Espera un poco a que la funcion exista de verdad.
+function _esperarApiListo(nombreFn, timeoutMs = 4000) {
+  if (typeof api?.[nombreFn] === 'function') return Promise.resolve(true);
+  return new Promise(resolve => {
+    const start = Date.now();
+    const tick = () => {
+      if (typeof api?.[nombreFn] === 'function') { resolve(true); return; }
+      if (Date.now() - start > timeoutMs) { resolve(false); return; }
+      setTimeout(tick, 100);
+    };
+    tick();
+  });
+}
+
 async function cargarMaestra(force = false) {
   const cached = !force ? _adminMaestraCacheRead() : null;
   if (cached && cached.length > 0) {
@@ -3310,7 +3327,10 @@ async function cargarMaestra(force = false) {
 
   if (_adminMaestraPromise && !force) return _adminMaestraPromise;
 
-  _adminMaestraPromise = api.obtenerUnidadesPlazas().then(data => {
+  _adminMaestraPromise = _esperarApiListo('obtenerUnidadesPlazas').then(listo => {
+    if (!listo) throw new Error('api.obtenerUnidadesPlazas no disponible (API sin inicializar).');
+    return api.obtenerUnidadesPlazas();
+  }).then(data => {
     _setAdminMaestraRows(data || [], 'remote');
     return DB_MAESTRA;
   }).catch(e => {
