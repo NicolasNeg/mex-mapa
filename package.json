@@ -4,11 +4,13 @@
   "description": "Sistema operativo de patio para gestión de flota vehicular",
   "private": true,
   "scripts": {
+    "build:papeletas": "tsc -p tsconfig.papeletas.json",
+    "watch:papeletas": "tsc -p tsconfig.papeletas.json --watch",
     "bump-sw": "node scripts/bump-sw.js",
-    "deploy": "node scripts/bump-sw.js && firebase deploy --only hosting --project production",
-    "deploy:full": "node scripts/bump-sw.js && firebase deploy --project production",
-    "deploy:staging": "node scripts/bump-sw.js && firebase deploy --only hosting --project staging",
-    "deploy:staging:full": "node scripts/bump-sw.js && firebase deploy --project staging",
+    "deploy": "npm run build:papeletas && node scripts/bump-sw.js && firebase deploy --only hosting --project production",
+    "deploy:full": "npm run build:papeletas && node scripts/bump-sw.js && firebase deploy --project production",
+    "deploy:staging": "npm run build:papeletas && node scripts/bump-sw.js && firebase deploy --only hosting --project staging",
+    "deploy:staging:full": "npm run build:papeletas && node scripts/bump-sw.js && firebase deploy --project staging",
     "deploy:functions": "npm run security:preflight && firebase deploy --only functions --project production",
     "deploy:rules": "npm run test:security:rules && firebase deploy --only firestore:rules,storage --project production",
     "security:audit:credentials": "node scripts/purge-plaintext-passwords.js",
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "typescript": "^7.0.2"
   }
 }

@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "allowJs": true,
+    "checkJs": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "noEmitOnError": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "/*": ["./*"]
+    }
+  },
+  "include": [
+    "types/globals.d.ts",
+    "domain/papeleta.model.ts",
+    "js/app/features/papeletas/papeletas-constants.ts",
+    "js/app/features/papeletas/papeletas-data.ts",
+    "js/app/features/papeletas/papeletas-storage.ts",
+    "js/app/features/papeletas/papeletas-reportes-data.ts",
+    "js/app/features/papeletas/papeletas-camera.ts",
+    "js/app/features/papeletas/papeletas-diagram.ts",
+    "js/app/features/papeletas/papeletas-photo-annotate.ts",
+    "js/app/features/papeletas/papeletas-pdf.ts",
+    "js/app/features/unidades/unidades-data.ts",
+    "js/app/views/papeletas.ts"
+  ]
+}
