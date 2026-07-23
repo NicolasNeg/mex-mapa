@@ -1006,11 +1006,11 @@ function _pathId() {
   const path = _normPath();
   const modern = path.match(/\/app\/papeletas\/p\/([^/]+)$/);
   if (modern) return decodeURIComponent(modern[1] || '');
-  // Legacy deep-link: /app/papeletas/:uid (not ventas / p)
+  // Legacy deep-link: /app/papeletas/:uid (not ventas / p / nueva)
   const legacy = path.match(/\/app\/papeletas\/([^/]+)$/);
   if (!legacy) return '';
   const seg = legacy[1];
-  if (seg === 'ventas' || seg === 'p') return '';
+  if (seg === 'ventas' || seg === 'p' || seg === 'nueva') return '';
   return decodeURIComponent(seg);
 }
 

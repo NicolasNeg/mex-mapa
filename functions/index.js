@@ -3357,13 +3357,16 @@ exports.generarYSubirPdf = functions
     let pdfBuffer;
     try {
       // eslint-disable-next-line global-require
-      const chromium = require("@sparticuz/chromium");
+      const chromiumModule = require("@sparticuz/chromium");
+      // @sparticuz/chromium >=130 es ESM-only; require() desde CommonJS
+      // envuelve la API real en .default.
+      const chromium = chromiumModule.default || chromiumModule;
       // eslint-disable-next-line global-require
       const puppeteer = require("puppeteer-core");
       browser = await puppeteer.launch({
         args: chromium.args,
         executablePath: await chromium.executablePath(),
-        headless: chromium.headless,
+        headless: chromium.headless ?? true,
       });
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: "networkidle0" });
