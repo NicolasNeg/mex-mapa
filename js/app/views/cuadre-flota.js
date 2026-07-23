@@ -389,11 +389,17 @@ async function _onClick(event) {
       _toast('No encontré ese registro de cuadre.', 'error');
       return;
     }
+    if (item.pdfUrl && /^https?:\/\//i.test(item.pdfUrl)) {
+      window.open(item.pdfUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    _toast('Generando PDF…', 'info');
     const payload = _historialCuadrePayload(item);
-    abrirReporteImpresion(
+    const url = await abrirReporteImpresion(
       generarHtmlAuditoriaCuadrePdf(payload.unidades, payload.stats, payload.meta, { plaza: _s.plaza, actorName: _actorName() }),
-      { onError: () => _toast('No se pudo abrir el generador de PDF.', 'error') }
+      { kind: 'cuadre', docId: item.id, onError: () => _toast('No se pudo generar el PDF.', 'error') }
     );
+    if (url) item.pdfUrl = url; // cachea en memoria: el próximo clic ya no regenera
     return;
   }
   if (action === 'go-revision') {

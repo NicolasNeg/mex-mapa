@@ -8,6 +8,7 @@
 import { escapeHtml, formatearFechaDocumento } from '/mapa/features/core/utils.js';
 import { normalizarEstadoPatio } from '/domain/estado.model.js';
 import { exportFooterHtml, buildExportFilename } from '/js/core/export-signing.js';
+import { generarYAbrirPdf } from '/js/core/pdf-export.js';
 
 function _cuadreResumenAuditoria(list = []) {
   const arr = Array.isArray(list) ? list : [];
@@ -424,23 +425,15 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
 }
 
 /**
- * Abre un documento autocontenido e imprime. Evita el bug de
- * `body * { visibility:hidden }` sobre el shell SPA (PDF en blanco).
+ * Genera el PDF server-side (Cloud Function generarYSubirPdf) y lo abre
+ * en pestaña nueva. Ya no depende de window.print() ni de que el usuario
+ * complete el diálogo de impresión nativo — dejaba la pantalla en blanco
+ * cuando el popup se bloqueaba o el render llegaba tarde.
+ * @param {string} htmlContenido fragmento HTML del reporte (sin doctype/head/body)
+ * @param {{ kind?: 'cuadre'|'papeleta', docId?: string, onError?: (e: Error) => void, onStatus?: (s: string) => void }} opts
  */
-export function abrirReporteImpresion(htmlContenido, { onError } = {}) {
+export async function abrirReporteImpresion(htmlContenido, { kind = '', docId = '', onError, onStatus } = {}) {
   const signedTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
-  let printWindow = null;
-  try {
-    printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=800');
-  } catch (_) {
-    printWindow = null;
-  }
-  if (!printWindow) {
-    console.error('No se pudo abrir la ventana de impresión (popup bloqueado).');
-    if (typeof onError === 'function') onError(new Error('popup-blocked'));
-    return;
-  }
-
   const docHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -454,28 +447,16 @@ export function abrirReporteImpresion(htmlContenido, { onError } = {}) {
 </head>
 <body>
   <div id="reporte-pdf-container">${htmlContenido}</div>
-  <script>
-    (function () {
-      function cleanup() {
-        try { window.close(); } catch (e) {}
-      }
-      window.addEventListener('afterprint', cleanup);
-      setTimeout(function () {
-        try { window.focus(); window.print(); } catch (e) { cleanup(); }
-      }, 120);
-      setTimeout(cleanup, 60000);
-    })();
-  <\/script>
 </body>
 </html>`;
 
   try {
-    printWindow.document.open();
-    printWindow.document.write(docHtml);
-    printWindow.document.close();
+    const url = await generarYAbrirPdf(docHtml, { kind, docId, onStatus });
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return url;
   } catch (error) {
-    console.error('No se pudo abrir la impresión:', error);
-    try { printWindow.close(); } catch (_) {}
+    console.error('No se pudo generar el PDF:', error);
     if (typeof onError === 'function') onError(error);
+    return null;
   }
 }

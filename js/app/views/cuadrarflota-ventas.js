@@ -706,7 +706,7 @@ async function _submit() {
     };
     abrirReporteImpresion(
       generarHtmlAuditoriaCuadrePdf(payload, stats, pdfMeta, { plaza: _s.plaza, actorName: signedName }),
-      { onError: () => _toast('No se pudo abrir el generador de PDF.', 'error') }
+      { kind: 'cuadre', docId: res.id, onError: () => _toast('No se pudo generar el PDF de cierre.', 'error') }
     );
     _s.busy = false;
     _s.completed = true;

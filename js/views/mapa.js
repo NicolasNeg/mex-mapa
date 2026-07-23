@@ -14206,7 +14206,7 @@ async function enviarReporteAuditoriaFinal() {
       const res = await api.procesarAuditoriaDesdeAdmin(payload, USER_NAME, stats, _miPlaza(), meta);
       if (res === 'EXITO' || (res && res.exito)) {
         showToast('Cuadre firmado y cerrado.', 'success');
-        abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(payload, stats, meta, { plaza: _miPlaza(), actorName: USER_NAME }), { onError: () => showToast('No se pudo abrir el generador de PDF.', 'error') });
+        abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(payload, stats, meta, { plaza: _miPlaza(), actorName: USER_NAME }), { kind: 'cuadre', docId: res?.id || '', onError: () => showToast('No se pudo generar el PDF de cierre.', 'error') });
         _cuadreResetFlujo();
         window.AUDIT_LIST = [];
         hacerPingNotificaciones();
@@ -14750,11 +14750,17 @@ function verPdfCuadreHistorial(id) {
     showToast('No encontré ese registro de cuadre.', 'error');
     return;
   }
+  if (item.pdfUrl && /^https?:\/\//i.test(item.pdfUrl)) {
+    window.open(item.pdfUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  showToast('Generando PDF…', 'info');
   const payload = _historialCuadrePayload(item);
   const units = Array.isArray(payload.unidades) ? payload.unidades : [];
   const stats = payload.stats || {};
   const meta = payload.meta || {};
-  abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(units, stats, meta, { plaza: _miPlaza(), actorName: USER_NAME }), { onError: () => showToast('No se pudo abrir el generador de PDF.', 'error') });
+  abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(units, stats, meta, { plaza: _miPlaza(), actorName: USER_NAME }), { kind: 'cuadre', docId: id, onError: () => showToast('No se pudo generar el PDF.', 'error') })
+    .then(url => { if (url) item.pdfUrl = url; });
 }
 
 function _historialMisionActivaHtml(mission) {
