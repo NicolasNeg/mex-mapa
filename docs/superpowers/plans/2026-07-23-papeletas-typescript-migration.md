@@ -187,7 +187,8 @@ const outRoot = path.join(root, outDir);
 
 let copied = 0;
 for (const entry of tsconfig.include) {
-  if (!entry.endsWith('.ts')) continue; // skip types/globals.d.ts
+  if (entry.endsWith('.d.ts')) continue; // ambient declarations only, never compiled to a servable .js
+  if (!entry.endsWith('.ts')) continue;
   const tsSourcePath = path.join(root, entry);
   if (!fs.existsSync(tsSourcePath)) {
     // Not yet converted by this migration -- do NOT check outDir here. tsc's
