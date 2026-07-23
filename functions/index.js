@@ -3384,9 +3384,13 @@ exports.generarYSubirPdf = functions
     try {
       const { cloudinary } = getCloudinarySdk();
       uploadResult = await new Promise((resolve, reject) => {
+        // resource_type "image" (no "raw"): muchas cuentas Cloudinary
+        // bloquean por defecto la entrega publica de raw+pdf/zip (401
+        // "deny or ACL failure", medida anti-abuso). PDFs como "image"
+        // no cae bajo esa restriccion y se entrega el archivo original.
         const stream = cloudinary.uploader.upload_stream(
           {
-            resource_type: "raw",
+            resource_type: "image",
             folder,
             public_id: sanitizeCloudinaryPublicId(filename) || undefined,
             format: "pdf",
