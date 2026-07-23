@@ -3408,15 +3408,12 @@ exports.generarYSubirPdf = functions
       throw new HttpsError("internal", "No se pudo subir el PDF a Cloudinary.");
     }
 
-    const { cloudinary } = getCloudinarySdk();
-    const downloadName = `${sanitizeCloudinaryPublicId(filename) || "reporte"}.pdf`;
-    const url = cloudinary.url(uploadResult.public_id, {
-      resource_type: "raw",
-      type: "upload",
-      secure: true,
-      version: uploadResult.version,
-      flags: `attachment:${downloadName}`,
-    });
+    // El nombre/extension de descarga los pone el cliente (fetch + blob +
+    // <a download>), no Cloudinary: fl_attachment con un "." en el nombre
+    // (ej. "archivo.pdf") da 400 "Invalid flag in transformation" — el
+    // parser de transformaciones de Cloudinary usa el punto como
+    // delimitador. Más simple y confiable devolver la URL tal cual.
+    const url = uploadResult.secure_url || uploadResult.url;
 
     if (target && docId) {
       try {

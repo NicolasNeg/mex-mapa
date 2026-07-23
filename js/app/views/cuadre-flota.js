@@ -15,6 +15,7 @@ import {
   iniciarProtocoloDesdeAdmin
 } from '/js/core/database.js';
 import { generarHtmlAuditoriaCuadrePdf, abrirReporteImpresion } from '/js/core/cuadre-pdf.js';
+import { descargarPdf } from '/js/core/pdf-export.js';
 
 let _ctr = null;
 let _navigate = null;
@@ -390,7 +391,8 @@ async function _onClick(event) {
       return;
     }
     if (item.pdfUrl && /^https?:\/\//i.test(item.pdfUrl)) {
-      window.open(item.pdfUrl, '_blank', 'noopener,noreferrer');
+      descargarPdf(item.pdfUrl, `CUADRE_${String(item.fecha || item.id || '').replace(/[^\w]+/g, '_')}.pdf`)
+        .catch(() => _toast('No se pudo descargar el PDF.', 'error'));
       return;
     }
     _toast('Generando PDF…', 'info');

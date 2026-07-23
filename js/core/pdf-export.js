@@ -12,7 +12,7 @@ import { buildExportFilename } from '/js/core/export-signing.js';
  * abre pestaña ni depende de que el navegador respete Content-Disposition
  * al navegar directo a la URL (algunos bloquean esa navegación).
  */
-async function _forceDownload(url, filename) {
+export async function descargarPdf(url, filename) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`No se pudo descargar el PDF (${response.status}).`);
   const blob = await response.blob();
@@ -38,7 +38,7 @@ export async function generarYAbrirPdf(html, { kind = '', docId = '', onStatus }
     const call = functions.httpsCallable('generarYSubirPdf');
     const { data } = await call({ kind, docId, html, filename });
     if (!data?.url) throw new Error('La Function no devolvió una URL.');
-    await _forceDownload(data.url, `${filename}.pdf`);
+    await descargarPdf(data.url, `${filename}.pdf`);
     onStatus?.('listo');
     return data.url;
   } catch (error) {

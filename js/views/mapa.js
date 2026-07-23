@@ -9,6 +9,7 @@ import {
   isMessageMine as isChatMessageMine
 } from '/domain/mensajes-identity.model.js';
 import { generarHtmlAuditoriaCuadrePdf, abrirReporteImpresion } from '/js/core/cuadre-pdf.js';
+import { descargarPdf } from '/js/core/pdf-export.js';
 // Estados flota/patio: preferir window.mexEstados (estado-bridge.js) para no
 // romper si el SW sirve un domain/estado.model.js cacheado sin los exports nuevos.
 const _mexEst = (typeof window !== 'undefined' && window.mexEstados) ? window.mexEstados : {};
@@ -14771,7 +14772,8 @@ function verPdfCuadreHistorial(id) {
     return;
   }
   if (item.pdfUrl && /^https?:\/\//i.test(item.pdfUrl)) {
-    window.open(item.pdfUrl, '_blank', 'noopener,noreferrer');
+    descargarPdf(item.pdfUrl, `CUADRE_${String(item.fecha || item.id || '').replace(/[^\w]+/g, '_')}.pdf`)
+      .catch(() => showToast('No se pudo descargar el PDF.', 'error'));
     return;
   }
   showToast('Generando PDF…', 'info');
