@@ -3316,7 +3316,108 @@ exports.getCloudinaryUploadSignature = functions
     };
   });
 
-/** Callable: destroyCloudinaryMedia ÔÇö auth required, best-effort cleanup. */
+// ─── PDF server-side (Puppeteer → Cloudinary) ─────────────
+// kind es un enum cerrado: el cliente nunca manda un path de Firestore
+// libre, solo elige entre estos dos destinos fijos.
+function _pdfTargetFor(kind) {
+  const k = normalizeString(kind).toLowerCase();
+  if (k === "cuadre") {
+    return { collection: "historial_cuadres", field: "pdfUrl", folder: "mapgestion/prod/reportes_cuadre" };
+  }
+  if (k === "papeleta") {
+    return { collection: "papeletas", field: "pdfUrl", folder: "mapgestion/prod/reportes_papeletas" };
+  }
+  return null;
+}
+
+/**
+ * Callable: generarYSubirPdf - auth required. Renderiza un HTML completo
+ * con Puppeteer, sube el PDF resultante a Cloudinary (resource_type raw),
+ * y si viene { kind, docId } guarda la URL en el doc de Firestore que le
+ * corresponda. Reemplaza el patron window.open + window.print() (nunca
+ * producia un binario real, solo abria el dialogo de impresion nativo).
+ */
+exports.generarYSubirPdf = functions
+  .region(REGION)
+  .runWith({ secrets: CLOUDINARY_SECRETS, timeoutSeconds: 60, memory: "1GB" })
+  .https.onCall(async (data, context) => {
+    await findUserProfileFromAuth(context.auth);
+
+    const html = normalizeString(data?.html);
+    if (!html) throw new HttpsError("invalid-argument", "html requerido.");
+    const filename = normalizeString(data?.filename) || `reporte_${Date.now()}`;
+    const kind = normalizeString(data?.kind);
+    const docId = normalizeString(data?.docId);
+    const target = kind ? _pdfTargetFor(kind) : null;
+    if (kind && !target) {
+      throw new HttpsError("invalid-argument", "kind inválido (usa 'cuadre' o 'papeleta').");
+    }
+
+    let browser = null;
+    let pdfBuffer;
+    try {
+      // eslint-disable-next-line global-require
+      const chromium = require("@sparticuz/chromium");
+      // eslint-disable-next-line global-require
+      const puppeteer = require("puppeteer-core");
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+      });
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: "networkidle0" });
+      pdfBuffer = await page.pdf({ format: "A4", landscape: true, printBackground: true });
+    } catch (error) {
+      logger.error("generarYSubirPdf: render", error);
+      await recordProgrammerError("generarYSubirPdf.render", error, { kind, docId });
+      throw new HttpsError("internal", "No se pudo renderizar el PDF.");
+    } finally {
+      if (browser) { try { await browser.close(); } catch (_) { /* noop */ } }
+    }
+
+    const folder = sanitizeCloudinaryFolder(target?.folder || "mapgestion/prod/reportes_pdf");
+    let uploadResult;
+    try {
+      const { cloudinary } = getCloudinarySdk();
+      uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            resource_type: "raw",
+            folder,
+            public_id: sanitizeCloudinaryPublicId(filename) || undefined,
+            use_filename: true,
+            unique_filename: false,
+          },
+          (err, result) => (err ? reject(err) : resolve(result))
+        );
+        stream.end(pdfBuffer);
+      });
+    } catch (error) {
+      logger.error("generarYSubirPdf: upload", error);
+      await recordProgrammerError("generarYSubirPdf.upload", error, { kind, docId });
+      throw new HttpsError("internal", "No se pudo subir el PDF a Cloudinary.");
+    }
+
+    const url = uploadResult.secure_url || uploadResult.url;
+
+    if (target && docId) {
+      try {
+        await db.collection(target.collection).doc(docId).update({
+          [target.field]: url,
+          pdfGeneradoEn: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (error) {
+        // El PDF ya existe en Cloudinary aunque falle este update - no se pierde el render.
+        logger.warn("generarYSubirPdf: firestore update failed", { kind, docId, err: error?.message });
+        await recordProgrammerError("generarYSubirPdf.firestoreUpdate", error, { kind, docId });
+      }
+    }
+
+    return { url };
+  });
+
+/** Callable: destroyCloudinaryMedia - auth required, best-effort cleanup. */
 exports.destroyCloudinaryMedia = functions
   .region(REGION)
   .runWith({ secrets: CLOUDINARY_SECRETS, timeoutSeconds: 30 })
