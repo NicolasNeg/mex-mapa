@@ -3429,7 +3429,7 @@ async function _confirmFirma() {
         ..._detail,
         status: 'entregada',
         salida: { ...(_detail.salida || {}), firma, firmaPath, km: kmRaw, gas: gasRaw },
-      }, { firmaUrl });
+      }, { firmaUrl, docId: papeletaId });
       _trackPapeleta('papeleta_finalize_success', { papeletaId });
     }
     _pendingSalida = { km: null, gas: null };
@@ -3450,7 +3450,7 @@ async function _doPdf() {
     subtitle: `${p.mva || 'Papeleta'} · PDF / XLS / CSV`,
     onPdf: async () => {
       const firmaUrl = await getDownloadUrl(p.salida?.firmaPath);
-      await openPapeletaPdf(p, { firmaUrl });
+      await openPapeletaPdf(p, { firmaUrl, docId: p.id });
     },
     onXls: () => exportPapeletaXls(p),
     onCsv: () => exportPapeletaCsv(p),

@@ -19,6 +19,7 @@ import {
   resolveZonaFotoPath,
 } from '/domain/papeleta.model.js';
 import { getDownloadUrl } from '/js/app/features/papeletas/papeletas-storage.js';
+import { generarYAbrirPdf } from '/js/core/pdf-export.js';
 import { strokesToDataUrlAsync, DIAGRAM_IMAGE_URL } from '/js/app/features/papeletas/papeletas-diagram.js';
 
 function _esc(s) {
@@ -130,7 +131,7 @@ async function _loadFotoMap(papeleta) {
  * @param {object} papeleta
  * @param {{ firmaUrl?: string, fotoUrls?: Record<string,string> }} opts
  */
-export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null } = {}) {
+export async function openPapeletaPdf(papeleta, { firmaUrl = '', fotoUrls = null, docId = '' } = {}) {
   const fileTitle = buildExportFilename('pdf').replace(/\.pdf$/i, '');
   const id = getExportIdentity();
   const fotos = fotoUrls || await _loadFotoMap(papeleta);
@@ -350,10 +351,7 @@ ${photosHtml}
 <script>window.onload=function(){setTimeout(function(){window.print()},450)}</script>
 </body></html>`;
 
-  const w = window.open('', '_blank');
-  if (!w) throw new Error('Permite ventanas emergentes para generar el PDF');
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  return buildExportFilename('pdf');
+  const url = await generarYAbrirPdf(html, { kind: 'papeleta', docId: docId || papeleta.id || '' });
+  window.open(url, '_blank', 'noopener,noreferrer');
+  return url;
 }
