@@ -36,3 +36,4 @@ build/
 # --- Git worktrees ---
 .worktrees/
 .superpowers/
+.ts-build/

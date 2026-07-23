@@ -4,7 +4,7 @@
 
 **Goal:** Convert the 11 files that make up the Papeletas feature module from `.js` to `.ts` (strict), with `tsc` compiling each `.ts` to a `.js` file at the exact same path the browser already loads today, so no other file in the SPA needs to change.
 
-**Architecture:** No bundler. `tsc -p tsconfig.papeletas.json` reads `.ts` sources and emits `.js` next to them (no `outDir` — default adjacent emit). Files outside the 11 in scope stay plain `.js` and are consumed via `allowJs` (untyped/`any` at the boundary) plus a small `types/globals.d.ts` for the handful of `window.*` globals this module touches. Compiled `.js` is committed to git (same convention as `sw.js`'s generated `CACHE_NAME`), and `npm run build:papeletas` is inserted into every deploy script so it's always regenerated fresh before `firebase deploy`.
+**Architecture:** No bundler. `tsc -p tsconfig.papeletas.json` reads `.ts` sources and emits to a temporary, gitignored `outDir` (`.ts-build/`) — **not** adjacent to source. (Revised after Task 2: emitting adjacent to source with no `outDir` is incompatible with `allowJs: true`, since `tsc` treats every untouched `.js` file pulled in transitively via import — e.g. `domain/papeleta.model.js` before Task 3 converts it, or `database.js`/`dialogs.js`/etc. which never get converted — as needing emission at the exact same path as its own input, which `tsc` refuses with `TS5055: Cannot write file ... because it would overwrite input file`. Confirmed empirically; there is no tsconfig-only fix that keeps `allowJs: true` and in-place emit at the same time.) `npm run build:papeletas` therefore runs `tsc -p tsconfig.papeletas.json` and then `node scripts/copy-ts-output.js`, which copies **only** the compiled output for files actually listed as `.ts` in `tsconfig.papeletas.json`'s `include` (skipping any not yet converted) from `.ts-build/` back to the real served path — it never touches the incidental passthrough copies of untouched `.js` dependencies that also land in `.ts-build/` as a side effect of `allowJs`. Files outside the 11 in scope stay plain `.js` and are consumed via `allowJs` (untyped/`any` at the boundary) plus a small `types/globals.d.ts` for the handful of `window.*` globals this module touches. The real, served `.js` (the copy-back target) is committed to git (same convention as `sw.js`'s generated `CACHE_NAME`); `.ts-build/` itself is gitignored scratch. `npm run build:papeletas` is inserted into every deploy script so it's always regenerated fresh before `firebase deploy`.
 
 **Tech Stack:** TypeScript 5.x (`tsc` only, no Vite/webpack/esbuild), existing Firebase compat SDKs, existing `domain/papeleta.model.js` business logic.
 
@@ -42,7 +42,9 @@
 **Files:**
 - Create: `tsconfig.papeletas.json`
 - Create: `types/globals.d.ts`
+- Create: `scripts/copy-ts-output.js`
 - Modify: `package.json`
+- Modify: `.gitignore`
 
 **Interfaces:**
 - Produces: the `tsc` config every later task compiles against, and the ambient `Window` typings (`window.mexAlert`, `window.mexConfirm`, `window.mexPrompt`, `window.mexPerms`, `window._auth`, `window._db`, `window._empresaActual`, `window.MEX_CONFIG`, `window.__mexCurrentUserRecord`, `window.mexUnidades`, `window.firebase`) that every later task's `.ts` file relies on to compile under `strict: true` without redeclaring these globals itself.
@@ -71,7 +73,7 @@ npm install --save-dev typescript
     "isolatedModules": true,
     "noEmitOnError": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
+    "outDir": "./.ts-build",
     "paths": {
       "/*": ["./*"]
     }
@@ -93,7 +95,9 @@ npm install --save-dev typescript
 }
 ```
 
-> Note: `include` uses glob-style matching, not an exact-file list like `files` — it is **not** an error for an entry to match zero files. Right after this task, only `types/globals.d.ts` exists; the other ten paths are picked up automatically as each later task creates them. No further edits to this file are needed for the rest of the migration.
+> Note: `include` uses glob-style matching, not an exact-file list like `files` — it is **not** an error for an entry to match zero files. Right after this task, only `types/globals.d.ts` exists; the other ten paths are picked up automatically as each later task creates them. No further edits to this file's `include` are needed for the rest of the migration.
+>
+> Note on `outDir`: this does **not** emit adjacent to source. `allowJs: true` means any untouched `.js` file pulled in transitively via an import (e.g. `domain/papeleta.model.js` before Task 3, or `database.js`/`dialogs.js`/etc. which are never converted) becomes part of the compilation and, with no `outDir`, `tsc` would try to write its output to the exact same path as its input and refuse (`TS5055: Cannot write file ... because it would overwrite input file`). Giving `tsc` a separate `outDir` avoids this. Step 4 below adds a copy-back script so the *actually authored* `.ts` files still end up at their real served path — the incidental passthrough copies of untouched dependencies that also land in `.ts-build/` are never copied anywhere and can be ignored.
 
 - [ ] **Step 3: Create `types/globals.d.ts`**
 
@@ -162,12 +166,52 @@ declare global {
 }
 ```
 
-- [ ] **Step 4: Add scripts to `package.json`**
+- [ ] **Step 4: Create `scripts/copy-ts-output.js`**
+
+```js
+// Copies compiled output for each TS-authored file (from tsconfig.papeletas.json's
+// `include`, excluding .d.ts) from the temporary outDir back to its real served path.
+// `allowJs` pulls untouched .js dependencies into the same compilation (needed so
+// this migration's .ts files can read their types), and giving tsc a real outDir
+// avoids TS5055 (emit would overwrite input) -- but that means only the genuinely
+// authored .ts outputs should be copied back, not the incidental passthrough copies
+// of files this migration never touched.
+const fs = require('fs');
+const path = require('path');
+
+const root = path.join(__dirname, '..');
+const tsconfig = JSON.parse(fs.readFileSync(path.join(root, 'tsconfig.papeletas.json'), 'utf8'));
+const outDir = tsconfig.compilerOptions.outDir;
+if (!outDir) throw new Error('tsconfig.papeletas.json must set compilerOptions.outDir');
+const outRoot = path.join(root, outDir);
+
+let copied = 0;
+for (const entry of tsconfig.include) {
+  if (!entry.endsWith('.ts')) continue; // skip types/globals.d.ts
+  const jsRelPath = entry.replace(/\.ts$/, '.js');
+  const src = path.join(outRoot, jsRelPath);
+  const dest = path.join(root, jsRelPath);
+  if (!fs.existsSync(src)) {
+    console.warn(`[copy-ts-output] skip (not yet converted): ${jsRelPath}`);
+    continue;
+  }
+  fs.copyFileSync(src, dest);
+  copied += 1;
+  console.log(`[copy-ts-output] ${jsRelPath}`);
+}
+console.log(`[copy-ts-output] done - ${copied} file(s) copied from ${outDir}`);
+```
+
+- [ ] **Step 5: Add `.ts-build/` to `.gitignore`**
+
+Append a line: `.ts-build/` (the temporary `outDir` is build scratch, not the real served output — that gets copied out and committed by Step 4's script).
+
+- [ ] **Step 6: Add scripts to `package.json`**
 
 In the `"scripts"` block, add:
 
 ```json
-"build:papeletas": "tsc -p tsconfig.papeletas.json",
+"build:papeletas": "tsc -p tsconfig.papeletas.json && node scripts/copy-ts-output.js",
 "watch:papeletas": "tsc -p tsconfig.papeletas.json --watch",
 ```
 
@@ -180,18 +224,20 @@ Then update these four existing script values (prepend `npm run build:papeletas 
 "deploy:staging:full": "npm run build:papeletas && node scripts/bump-sw.js && firebase deploy --project staging",
 ```
 
-- [ ] **Step 5: Verify the (still-empty) project compiles**
+(`watch:papeletas` intentionally does not run the copy script — it's for live type-checking feedback during development, not for producing servable output. Use `npm run build:papeletas` to actually update the served `.js` files.)
+
+- [ ] **Step 7: Verify the (still-empty) project compiles**
 
 ```bash
 npm run build:papeletas
 ```
 
-Expected: exits 0, no errors (only `types/globals.d.ts` matches `include` so far).
+Expected: exits 0, no errors, and `.ts-build/types/globals.d.ts`-adjacent output exists in the gitignored temp dir (nothing to copy back yet since `include` has no `.ts` entries that exist as real files at this point — `globals.d.ts` itself is never copied, it has no `.js` output).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add tsconfig.papeletas.json types/globals.d.ts package.json package-lock.json
+git add tsconfig.papeletas.json types/globals.d.ts scripts/copy-ts-output.js package.json package-lock.json .gitignore
 git commit -m "chore(papeletas): bootstrap TypeScript tooling for Papeletas module"
 git push
 ```
@@ -258,9 +304,9 @@ rm js/app/features/papeletas/papeletas-constants.js
 npm run build:papeletas
 ```
 
-Expected: exits 0, and `js/app/features/papeletas/papeletas-constants.js` exists again (regenerated by `tsc`) with the same exports.
+Expected: `npm run build:papeletas` runs `tsc` (emits to the gitignored `.ts-build/` per Task 1) then `scripts/copy-ts-output.js` (copies `.ts-build/js/app/features/papeletas/papeletas-constants.js` back over the real `js/app/features/papeletas/papeletas-constants.js` you just deleted). Exit 0, the real file exists again with the same exports, and the console log shows `[copy-ts-output] js/app/features/papeletas/papeletas-constants.js` — that line is your confirmation the copy actually happened, not just that `tsc` succeeded.
 
-**If this fails** with a module-resolution error on the `/domain/papeleta.model.js` specifier (e.g. "Cannot find module"): the `moduleResolution: "Bundler"` + `paths` combination in `tsconfig.papeletas.json` (Task 1) isn't resolving root-relative specifiers the way this hybrid no-bundler setup needs. Fallback: change `"moduleResolution": "Bundler"` to `"moduleResolution": "NodeNext"` and `"module": "ESNext"` to `"module": "NodeNext"` in `tsconfig.papeletas.json`, re-run `npm run build:papeletas`, and if it now compiles, keep `NodeNext` for the rest of the migration (update the "Architecture" note at the top of this plan and the tsconfig comment in Task 1 to match, so later tasks aren't confused by the discrepancy). Do not proceed to Task 3 until one of these two configs compiles cleanly.
+**Do not** attempt to work around any `TS5055: Cannot write file ... because it would overwrite input file` error by disabling `allowJs` or hand-writing `.d.ts` declaration files for dependencies — that error is exactly what Task 1's `outDir` + copy-back script (Steps 4-6) already exists to prevent, and if you see it here, something is wrong with Task 1's setup (most likely `tsconfig.papeletas.json`'s `outDir` got lost or `scripts/copy-ts-output.js` isn't being invoked) — report BLOCKED and describe exactly what `npm run build:papeletas` printed rather than changing the tsconfig's `allowJs`/`include` yourself.
 
 - [ ] **Step 3: Confirm the emitted file loads the same as before**
 
