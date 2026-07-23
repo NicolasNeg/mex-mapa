@@ -336,18 +336,38 @@
 }
 .hist-op-table td { padding: 11px 14px; }
 .hist-op-table tbody tr:hover { background: var(--bg); }
-.hist-op-cell-date { color: var(--text); font-weight: 850; }
-.hist-op-cell-mva { color: #0b5cab; }
+.hist-op-cell-date {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.hist-op-cell-mva { color: #0b5cab; font-size: 13px; font-weight: 700; }
+
+/* Jerarquía genérica: dato principal de la fila vs. dato de apoyo */
+.hist-op-cell-primary {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.hist-op-cell-secondary {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+}
 
 .hist-op-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 22px;
-  padding: 3px 8px;
-  border-radius: 6px;
+  gap: 4px;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 4px;
   border: 1px solid transparent;
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
   letter-spacing: .03em;
 }
 .hist-op-badge .material-icons { font-size: 13px; }
@@ -542,16 +562,25 @@
   font-size: 12px;
 }
 .hist-op-table--dense thead th {
-  padding: 8px 12px;
+  padding: 12px 16px;
   position: sticky;
   top: 0;
   z-index: 1;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  border-bottom: 1px solid var(--border-md);
 }
 .hist-op-table--dense td {
-  padding: 8px 12px;
+  padding: 12px 16px;
   vertical-align: top;
+  color: var(--text);
+  font-weight: 400;
 }
 .hist-op-table--dense tbody tr:nth-child(even) { background: var(--bg); }
+.hist-op-table--dense tbody tr:hover { background: var(--accent-pale); }
 
 .hist-op-table--estado th:nth-child(4),
 .hist-op-table--estado td.hist-op-cell-cambio {
@@ -561,7 +590,7 @@
 
 .hist-op-cell-cambio {
   color: var(--text);
-  font-weight: 650;
+  font-weight: 400;
   line-height: 1.4;
 }
 
@@ -569,7 +598,8 @@
 
 .hist-op-change-main {
   color: var(--text);
-  font-weight: 750;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .hist-op-change-details {
@@ -589,8 +619,8 @@
 }
 
 .hist-op-change-detail > span {
-  font-size: 9px;
-  font-weight: 850;
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: .04em;
   text-transform: uppercase;
 }
@@ -627,7 +657,7 @@
   background: var(--bg);
   color: var(--text);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -640,7 +670,7 @@
 
 .hist-op-estado-arrow {
   color: var(--text-muted);
-  font-weight: 800;
+  font-weight: 600;
   font-size: 12px;
 }
 
@@ -668,7 +698,8 @@
 .hist-op-cell-action {
   min-width: 0;
   color: var(--text);
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -688,9 +719,9 @@
 }
 
 .hist-op-cell-context strong,
-.hist-op-cell-author strong { color: var(--text); font-weight: 800; }
+.hist-op-cell-author strong { color: var(--text); font-size: 13px; font-weight: 600; }
 .hist-op-cell-context span,
-.hist-op-cell-author span { margin-top: 3px; color: var(--text-muted); font-size: 10px; }
+.hist-op-cell-author span { margin-top: 4px; color: var(--text-muted); font-size: 11px; font-weight: 400; }
 
 .hist-op-location-cell {
   display: flex;
@@ -706,8 +737,8 @@
   gap: 4px;
   min-width: 0;
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 500;
   line-height: 1.25;
 }
 

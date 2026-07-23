@@ -62,7 +62,7 @@ function _ensureCss() {
   if (!document.querySelector('link[data-app-historial-operativo-css], link[data-hist-op-css]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/css/app-historial-operativo.css?v=20260722a';
+    link.href = '/css/app-historial-operativo.css?v=20260722b';
     link.setAttribute('data-hist-op-css', '1');
     document.head.appendChild(link);
   }
@@ -579,8 +579,8 @@ function _renderMovimientos() {
               <td class="hist-op-cell-date">${esc(r.fecha)}</td>
               <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}"><span class="material-icons">${_tipoIcon(r.tipo)}</span>${esc(_tipoLabel(r.tipo))}</span></td>
               <td class="hist-op-cell-mva">${esc(r.mva)}</td>
-              <td>${esc(_cleanAuditText(r.detalles))}</td>
-              <td>${esc(_cleanAuditText(r.usuario))}</td>
+              <td class="hist-op-cell-primary">${esc(_cleanAuditText(r.detalles))}</td>
+              <td class="hist-op-cell-secondary">${esc(_cleanAuditText(r.usuario))}</td>
             </tr>`).join('')}
         </tbody>
       </table>
@@ -631,7 +631,7 @@ function _renderEstado() {
                 <td class="hist-op-cell-mva">${esc(unidad)}</td>
                 <td class="hist-op-cell-cambio">${_cambioCellHtml(r)}</td>
                 <td class="hist-op-cell-estado">${_estadoCellHtml(r)}</td>
-                <td>${esc(r.autor || "Sistema")}</td>
+                <td class="hist-op-cell-secondary">${esc(r.autor || "Sistema")}</td>
               </tr>`;
           }).join("")}
         </tbody>
