@@ -216,6 +216,25 @@ function _qaBypassProfile() {
   };
 }
 
+function _qrTokenFromPath() {
+  const m = window.location.pathname.match(/^\/app\/qr\/([^/]+)\/?$/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+async function _mountPublicQr(token) {
+  _setBootStatus('Cargando unidad…');
+  if (window.__mexConfigReadyPromise) {
+    try { await window.__mexConfigReadyPromise; } catch (_) {}
+  }
+  const appRoot = document.getElementById('appRoot');
+  const loadSpinner = document.getElementById('appLoadingSpinner');
+  if (!appRoot) return;
+  appRoot.style.display = '';
+  loadSpinner?.remove();
+  const mod = await import('/js/app/views/qr-publica.js');
+  await mod.mount({ container: appRoot, navigate: null });
+}
+
 function _setBootStatus(title, subtitle = '') {
   const t = document.getElementById('mexAppBootstrapTitle');
   const s = document.getElementById('mexAppBootstrapSubtitle');
@@ -232,6 +251,11 @@ async function boot() {
   const user = qaAuthBypass ? _qaBypassUser() : await waitForAuth();
 
   if (!user) {
+    const qrToken = _qrTokenFromPath();
+    if (qrToken) {
+      await _mountPublicQr(qrToken);
+      return;
+    }
     window.location.replace('/login');
     return;
   }

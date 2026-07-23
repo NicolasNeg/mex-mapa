@@ -194,6 +194,7 @@ const OPTIONAL_ASSETS = [
   '/js/programador/views/errores.js',
   '/js/programador/views/deploy.js',
   '/js/app/views/historial-operativo.js',
+  '/js/app/views/qr-publica.js',
   '/css/app-historial-operativo.css',
   // Fuentes de Google — se cachean en runtime la primera vez
 ];

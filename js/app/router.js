@@ -129,6 +129,10 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/unidad-expediente.js'),
     navRoute: '/app/unidades',
   },
+  '/app/qr': {
+    loader:   () => import('/js/app/views/qr-publica.js'),
+    navRoute: '/app/qr',
+  },
   '/app/cuadrarflota': {
     loader: () => import('/js/app/views/cuadrarflota.js'),
     navRoute: '/app/cuadrarflota',
@@ -305,6 +309,7 @@ function _routeForPath(path) {
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return ROUTE_TABLE['/app/traslados'];
   if (key.startsWith('/app/notas/') || key.startsWith('/app/incidencias/')) return ROUTE_TABLE['/app/notas'];
   if (key.startsWith('/app/cuadre/u/')) return ROUTE_TABLE['/app/cuadre/u'];
+  if (key.startsWith('/app/qr/')) return ROUTE_TABLE['/app/qr'];
   if (key.startsWith('/app/editmap/')) return ROUTE_TABLE['/app/editmap'];
   if (key.startsWith('/app/papeletas/')) return ROUTE_TABLE['/app/papeletas'];
   if (key.startsWith('/app/reportes-danos/')) return ROUTE_TABLE['/app/reportes-danos'];
