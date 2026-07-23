@@ -421,6 +421,7 @@ async function _onClick(event) {
 }
 
 function _onInput(event) {
+  if (!_s) return;
   const target = event.target;
   if (target.matches('[data-search]')) {
     _s.historialSearch = target.value;
