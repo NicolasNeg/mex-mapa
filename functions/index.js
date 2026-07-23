@@ -3751,3 +3751,64 @@ exports.webauthnLoginVerify = functions.region(REGION).https.onCall(async (data)
   const token = await admin.auth().createCustomToken(authUser.uid);
   return { token };
 });
+
+// ─── QR Gateway — Fase 1 (gateway público) ────────────────
+// Rate limit en memoria por IP: 30 solicitudes / 60s por instancia. Se
+// resetea en cada cold start — suficiente para frenar abuso trivial de
+// escaneo (spec: "no WAF; subir solo si hay abuso real").
+const _qrRateLimit = new Map();
+function _qrRateLimitOk(ip) {
+  const key = String(ip || "unknown");
+  const now = Date.now();
+  const windowMs = 60000;
+  const maxHits = 30;
+  const entry = _qrRateLimit.get(key);
+  if (!entry || now > entry.resetAt) {
+    _qrRateLimit.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  entry.count += 1;
+  return entry.count <= maxHits;
+}
+
+function _isUnidadActiva(row = {}) {
+  const raw = String(row.activo ?? row.active ?? "").toUpperCase().trim();
+  if (!raw) return true;
+  return !["NO", "FALSE", "INACTIVO", "0", "BAJA"].includes(raw);
+}
+
+/**
+ * Callable: getUnidadPublica - SIN auth. Resuelve un token de QR contra
+ * index_unidades y regresa solo los campos públicos de la unidad. 404
+ * genérico si el token no existe o la unidad está dada de baja (nunca
+ * revela que "existe pero está oculta" — spec §1).
+ */
+exports.getUnidadPublica = functions
+  .region(REGION)
+  .https.onCall(async (data, context) => {
+    const ip = context.rawRequest?.ip
+      || context.rawRequest?.headers?.["x-forwarded-for"]
+      || "unknown";
+    if (!_qrRateLimitOk(ip)) {
+      throw new HttpsError("resource-exhausted", "Demasiadas solicitudes, intenta de nuevo en un minuto.");
+    }
+
+    const token = normalizeString(data?.token);
+    if (!token) throw new HttpsError("not-found", "Unidad no disponible.");
+
+    const snap = await db.collection("index_unidades").where("qrToken", "==", token).limit(1).get();
+    if (snap.empty) throw new HttpsError("not-found", "Unidad no disponible.");
+
+    const row = snap.docs[0].data() || {};
+    if (!_isUnidadActiva(row)) throw new HttpsError("not-found", "Unidad no disponible.");
+
+    return {
+      mva: normalizeString(row.mva),
+      marca: normalizeString(row.marca),
+      modelo: normalizeString(row.modelo),
+      color: normalizeString(row.color),
+      anio: normalizeString(row.anio || row.año),
+      placas: normalizeString(row.placas),
+      fotoUrl: normalizeString(row.fotoUrl || row.foto),
+    };
+  });
