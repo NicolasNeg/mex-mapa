@@ -4,7 +4,7 @@
   "description": "Sistema operativo de patio para gestión de flota vehicular",
   "private": true,
   "scripts": {
-    "build:papeletas": "tsc -p tsconfig.papeletas.json",
+    "build:papeletas": "tsc -p tsconfig.papeletas.json && node scripts/copy-ts-output.js",
     "watch:papeletas": "tsc -p tsconfig.papeletas.json --watch",
     "bump-sw": "node scripts/bump-sw.js",
     "deploy": "npm run build:papeletas && node scripts/bump-sw.js && firebase deploy --only hosting --project production",
