@@ -3389,6 +3389,7 @@ exports.generarYSubirPdf = functions
             resource_type: "raw",
             folder,
             public_id: sanitizeCloudinaryPublicId(filename) || undefined,
+            format: "pdf",
             use_filename: true,
             unique_filename: false,
           },

@@ -7,17 +7,33 @@
 
 import { escapeHtml, formatearFechaDocumento } from '/mapa/features/core/utils.js';
 import { normalizarEstadoPatio } from '/domain/estado.model.js';
-import { exportFooterHtml, buildExportFilename } from '/js/core/export-signing.js';
+import { exportFooterHtml, buildExportFilename, getExportIdentity } from '/js/core/export-signing.js';
 import { generarYAbrirPdf } from '/js/core/pdf-export.js';
+
+// Estados/ubicaciones que cuentan como "fuera, pero justificada" (no es que
+// se haya perdido la unidad — el sistema ya sabe que está en taller,
+// resguardo, venta o traslado). Todo lo demás en FALTANTE es "ubicación
+// desconocida" de verdad.
+const UBICACION_JUSTIFICADA = new Set(['TALLER', 'RESGUARDO', 'VENTA', 'TRASLADO']);
+
+function _esUbicacionJustificada(u = {}) {
+  const ubicacion = String(u.ubicacion || u.pos || '').toUpperCase();
+  const estado = String(u.estado || '').toUpperCase();
+  return UBICACION_JUSTIFICADA.has(ubicacion) || UBICACION_JUSTIFICADA.has(estado);
+}
 
 function _cuadreResumenAuditoria(list = []) {
   const arr = Array.isArray(list) ? list : [];
+  const faltantesList = arr.filter(u => u.status === 'FALTANTE');
+  const fueraJustificado = faltantesList.filter(_esUbicacionJustificada).length;
   return {
     total: arr.length,
     pendientes: arr.filter(u => u.status === 'PENDIENTE').length,
     revisadas: arr.filter(u => u.status !== 'PENDIENTE').length,
     ok: arr.filter(u => u.status === 'OK').length,
-    faltantes: arr.filter(u => u.status === 'FALTANTE').length,
+    faltantes: faltantesList.length,
+    ubicacionDesconocida: faltantesList.length - fueraJustificado,
+    fueraJustificado,
     extras: arr.filter(u => u.status === 'EXTRA').length
   };
 }
@@ -50,24 +66,34 @@ function _cuadrePdfCell(value) {
 
 // Colores por estado de patio (mismos tokens que .fl-dot-* en css/mapa.css).
 const CUADRE_PDF_ESTADO_COLOR = {
-  LISTO: '#22c55e',
-  SUCIO: '#f59e0b',
-  MANTENIMIENTO: '#ef4444',
-  TRASLADO: '#8b5cf6',
-  RESGUARDO: '#94a3b8',
-  VENTA: '#94a3b8',
-  RETENIDA: '#94a3b8',
-  'NO ARRENDABLE': '#94a3b8'
+  LISTO: '#16a34a',
+  SUCIO: '#b45309',
+  MANTENIMIENTO: '#dc2626',
+  TRASLADO: '#7c3aed',
+  RESGUARDO: '#475569',
+  VENTA: '#475569',
+  RETENIDA: '#475569',
+  'NO ARRENDABLE': '#475569',
+  FALTANTE: '#dc2626',
+  SOBRANTE: '#b45309'
 };
 
 function _cuadrePdfEstadoColor(estado) {
-  return CUADRE_PDF_ESTADO_COLOR[String(estado || '').toUpperCase()] || '#ef4444';
+  return CUADRE_PDF_ESTADO_COLOR[String(estado || '').toUpperCase()] || '#334155';
 }
 
-function _cuadrePdfPill(label, colorHex) {
+// Formato "simple": texto en negritas de color para el estado, pill con
+// solo borde (sin relleno) para la ubicación. Nada de badges sólidos.
+function _cuadrePdfEstadoTexto(label, colorHex) {
   const text = String(label || '').trim();
   if (!text) return '';
-  return `<span class="cuadre-pdf-pill" style="background:${colorHex}1a;color:${colorHex}">${escapeHtml(text)}</span>`;
+  return `<span class="cuadre-pdf-estado" style="color:${colorHex}">${escapeHtml(text)}</span>`;
+}
+
+function _cuadrePdfUbicacionPill(label, colorHex) {
+  const text = String(label || '').trim();
+  if (!text) return '';
+  return `<span class="cuadre-pdf-ubi" style="border-color:${colorHex}80;color:${colorHex}">${escapeHtml(text)}</span>`;
 }
 
 function _cuadrePdfFirmaHtml(title, name, dataUrl) {
@@ -75,7 +101,7 @@ function _cuadrePdfFirmaHtml(title, name, dataUrl) {
   const safeName = escapeHtml(name || 'Pendiente');
   const img = dataUrl
     ? `<img src="${escapeHtml(dataUrl)}" alt="${safeTitle}" class="cuadre-pdf-sign-img">`
-    : '';
+    : '<span class="cuadre-pdf-sign-missing">Sin firma capturada</span>';
   return `
     <div class="cuadre-pdf-sign-box">
       <div class="cuadre-pdf-sign-area">${img}</div>
@@ -98,6 +124,14 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
     ..._cuadreResumenAuditoria(units),
     ...(statsInput || {})
   };
+  // Si el caller ya trae stats propios (legacy), recalculamos igual el split
+  // justificado/desconocida a partir de la lista real — no hay forma de
+  // inferirlo de un conteo plano de "faltantes".
+  if (statsInput && (statsInput.ubicacionDesconocida == null || statsInput.fueraJustificado == null)) {
+    const derivado = _cuadreResumenAuditoria(units);
+    stats.ubicacionDesconocida = derivado.ubicacionDesconocida;
+    stats.fueraJustificado = derivado.fueraJustificado;
+  }
   stats.sobrantes = stats.sobrantes ?? stats.extras ?? 0;
   const meta = metaInput || {};
   const fallbackPlaza = String(fallback.plaza || '').toUpperCase().trim();
@@ -106,6 +140,8 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
   const auxiliar = meta.auxiliarNombre || meta.destinatarioNombre || stats.auxiliar || '';
   const ventas = meta.firmaVentas || meta.firmaNombre || meta.cerradoPor || fallback.actorName || '';
   const plaza = meta.plaza || empresa.plaza || fallbackPlaza || '';
+  const exportador = getExportIdentity();
+
   const rows = units.map(u => {
     const status = String(u.status || '').toUpperCase();
     const gas = u.gasolinaCorregida || u.gasolina || u.gas || 'N/A';
@@ -114,20 +150,33 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
 
     let estadoHtml;
     let ubicacionHtml;
+    let rowClass = status || 'PENDIENTE';
     if (status === 'FALTANTE') {
-      estadoHtml = _cuadrePdfPill('FALTANTE', '#ef4444');
-      ubicacionHtml = _cuadrePdfPill('NO LOCALIZADA', '#94a3b8');
+      const justificado = _esUbicacionJustificada(u);
+      if (justificado) {
+        // La unidad no está "perdida": el sistema ya sabe que está fuera
+        // (taller, resguardo, venta, traslado) — se muestra su ubicación
+        // real, no un "no localizada" que no es cierto.
+        const estadoReal = normalizarEstadoPatio(u.estado) || String(u.estado || '').toUpperCase() || 'FUERA';
+        const ubicacionReal = String(u.ubicacion || u.pos || estadoReal).toUpperCase();
+        estadoHtml = _cuadrePdfEstadoTexto(estadoReal, _cuadrePdfEstadoColor(estadoReal));
+        ubicacionHtml = _cuadrePdfUbicacionPill(ubicacionReal, '#2563eb');
+        rowClass = 'JUSTIFICADO';
+      } else {
+        estadoHtml = _cuadrePdfEstadoTexto('FALTANTE', _cuadrePdfEstadoColor('FALTANTE'));
+        ubicacionHtml = _cuadrePdfUbicacionPill('DESCONOCIDA', _cuadrePdfEstadoColor('FALTANTE'));
+      }
     } else if (status === 'EXTRA') {
-      estadoHtml = _cuadrePdfPill('SOBRANTE', '#f59e0b');
-      ubicacionHtml = _cuadrePdfPill(u.ubicacion || u.pos || 'SOBRANTE', '#94a3b8');
+      estadoHtml = _cuadrePdfEstadoTexto('SOBRANTE', _cuadrePdfEstadoColor('SOBRANTE'));
+      ubicacionHtml = _cuadrePdfUbicacionPill(u.ubicacion || u.pos || 'SOBRANTE', _cuadrePdfEstadoColor('SOBRANTE'));
     } else {
       const estadoPatio = normalizarEstadoPatio(u.estado) || String(u.estado || '').toUpperCase() || 'DESCONOCIDO';
-      estadoHtml = _cuadrePdfPill(estadoPatio, _cuadrePdfEstadoColor(estadoPatio));
-      ubicacionHtml = _cuadrePdfPill(u.ubicacion || u.pos || 'PATIO', '#94a3b8');
+      estadoHtml = _cuadrePdfEstadoTexto(estadoPatio, _cuadrePdfEstadoColor(estadoPatio));
+      ubicacionHtml = _cuadrePdfUbicacionPill(u.ubicacion || u.pos || 'PATIO', '#475569');
     }
 
     return `
-      <tr class="status-${escapeHtml(status || 'PENDIENTE')}">
+      <tr class="status-${escapeHtml(rowClass)}">
         <td>${_cuadrePdfCell(u.mva)}</td>
         <td>${_cuadrePdfCell(u.modelo)}</td>
         <td>${_cuadrePdfCell(u.placas)}</td>
@@ -174,22 +223,30 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
       }
       .cuadre-pdf-brand {
         display: flex;
-        gap: 12px;
-        align-items: center;
+        flex-direction: column;
+        gap: 3px;
       }
-      .cuadre-pdf-logo {
-        width: 54px;
-        height: 54px;
-        object-fit: contain;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        padding: 5px;
+      .cuadre-pdf-brand-eyebrow {
+        font-size: 7.5px;
+        font-weight: 800;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: #94a3b8;
+      }
+      .cuadre-pdf-brand-mark {
+        font-size: 17px;
+        font-weight: 900;
+        letter-spacing: -0.01em;
+        color: #111827;
+      }
+      .cuadre-pdf-brand-mark span {
+        color: #3b82f6;
       }
       .cuadre-pdf-company h1 {
         margin: 0 0 4px;
-        font-size: 18px;
+        font-size: 15px;
         line-height: 1.1;
-        font-weight: 900;
+        font-weight: 800;
       }
       .cuadre-pdf-company p,
       .cuadre-pdf-meta p {
@@ -211,7 +268,7 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
       }
       .cuadre-pdf-title h2 {
         margin: 0;
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 900;
         letter-spacing: 0;
       }
@@ -229,23 +286,27 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
       .cuadre-pdf-kpi {
         border: 1px solid #d1d5db;
         border-radius: 4px;
-        padding: 8px 10px;
-        background: #f9fafb;
+        padding: 9px 10px;
+        background: #ffffff;
       }
       .cuadre-pdf-kpi small {
         display: block;
-        color: #6b7280;
-        font-size: 8px;
-        font-weight: 900;
+        color: #64748b;
+        font-size: 7.5px;
+        font-weight: 800;
         text-transform: uppercase;
+        letter-spacing: .04em;
         margin-bottom: 4px;
       }
       .cuadre-pdf-kpi strong {
         display: block;
         color: #111827;
-        font-size: 21px;
+        font-size: 19px;
         line-height: 1;
-        font-weight: 900;
+        font-weight: 800;
+      }
+      .cuadre-pdf-kpi.is-alert strong {
+        color: #dc2626;
       }
       .cuadre-pdf-table {
         width: 100%;
@@ -254,7 +315,7 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
       }
       .cuadre-pdf-table th,
       .cuadre-pdf-table td {
-        border: 1px solid #d1d5db;
+        border: 1px solid #e2e8f0;
         padding: 5px 6px;
         text-align: left;
         vertical-align: top;
@@ -264,19 +325,32 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
         color: #ffffff;
         font-size: 8px;
         text-transform: uppercase;
+        border-color: #111827;
       }
       .cuadre-pdf-table tr.status-FALTANTE td {
-        background: #fff1f2;
+        background: #fef2f2;
       }
       .cuadre-pdf-table tr.status-EXTRA td {
         background: #fffbeb;
       }
-      .cuadre-pdf-pill {
+      .cuadre-pdf-table tr.status-JUSTIFICADO td {
+        background: #eff6ff;
+      }
+      .cuadre-pdf-estado {
+        font-weight: 800;
+        font-size: 8.5px;
+        text-transform: uppercase;
+        letter-spacing: .02em;
+        white-space: nowrap;
+      }
+      .cuadre-pdf-ubi {
         display: inline-block;
         padding: 2px 8px;
         border-radius: 9999px;
+        border: 1px solid;
+        background: #fff;
         font-size: 7.5px;
-        font-weight: 900;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: .02em;
         white-space: nowrap;
@@ -292,6 +366,16 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
         min-height: 510px;
         display: flex;
         flex-direction: column;
+      }
+      .cuadre-pdf-sign-title {
+        margin: 0 0 4px;
+        font-size: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #111827;
+        border-bottom: 2px solid #111827;
+        padding-bottom: 8px;
       }
       .cuadre-pdf-sign-grid {
         display: grid;
@@ -319,6 +403,11 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
         max-height: 74px;
         object-fit: contain;
       }
+      .cuadre-pdf-sign-missing {
+        font-size: 9px;
+        color: #9ca3af;
+        font-style: italic;
+      }
       .cuadre-pdf-sign-line {
         width: 78%;
         border-top: 1.5px solid #111827;
@@ -336,21 +425,44 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
         text-transform: uppercase;
         margin-top: 3px;
       }
-      .cuadre-pdf-final-mark {
+      .cuadre-pdf-client-bar {
         margin-top: auto;
         padding-top: 28px;
-        text-align: right;
-        color: #111827;
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .08em;
       }
-      .cuadre-pdf-final-mark::before {
-        content: "";
-        display: inline-block;
-        width: 190px;
-        border-top: 1px solid #111827;
-        margin: 0 0 8px auto;
+      .cuadre-pdf-client-inner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        background: #111827;
+        color: #ffffff;
+        border-radius: 6px;
+        padding: 12px 16px;
+      }
+      .cuadre-pdf-client-inner .label {
+        font-size: 7.5px;
+        font-weight: 800;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        margin: 0 0 3px;
+      }
+      .cuadre-pdf-client-inner h3 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .cuadre-pdf-client-inner .meta {
+        text-align: right;
+        font-size: 8.5px;
+        color: #cbd5e1;
+        line-height: 1.5;
+      }
+      .cuadre-pdf-exported {
+        margin-top: 10px;
+        text-align: right;
+        font-size: 8px;
+        color: #94a3b8;
       }
       @media print {
         #reporte-pdf-container { display: block !important; }
@@ -360,35 +472,29 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
       <section class="cuadre-pdf-page">
         <header class="cuadre-pdf-header">
           <div class="cuadre-pdf-brand">
-            ${empresa.logo ? `<img class="cuadre-pdf-logo" src="${escapeHtml(empresa.logo)}" alt="Logo">` : ''}
-            <div class="cuadre-pdf-company">
-              <h1>${escapeHtml(empresa.nombre || 'Empresa')}</h1>
-              ${empresa.rfc ? `<p>RFC: ${escapeHtml(empresa.rfc)}</p>` : ''}
-              ${empresa.direccion ? `<p>${escapeHtml(empresa.direccion)}</p>` : ''}
-              ${empresa.correo ? `<p>${escapeHtml(empresa.correo)}</p>` : ''}
-              ${empresa.telefono ? `<p>${escapeHtml(empresa.telefono)}</p>` : ''}
-            </div>
+            <span class="cuadre-pdf-brand-eyebrow">Generado por</span>
+            <span class="cuadre-pdf-brand-mark">Map<span>Gestion</span></span>
           </div>
           <div class="cuadre-pdf-meta">
             <p><strong>Fecha de corte:</strong> ${escapeHtml(fecha)}</p>
             <p><strong>Plaza:</strong> ${escapeHtml(plaza || 'N/D')}</p>
             <p><strong>Auxiliar en patio:</strong> ${escapeHtml(auxiliar || 'N/D')}</p>
             <p><strong>Autorizado por:</strong> ${escapeHtml(ventas || 'N/D')}</p>
-            ${meta.missionId ? `<p><strong>Mision:</strong> ${escapeHtml(meta.missionId)}</p>` : ''}
+            ${meta.missionId ? `<p><strong>Misión:</strong> ${escapeHtml(meta.missionId)}</p>` : ''}
           </div>
         </header>
 
         <div class="cuadre-pdf-title">
-          <h2>Reporte de Auditoria Cruzada</h2>
+          <h2>Reporte de Auditoría Cruzada</h2>
           <span>Cuadre de flota operativo</span>
         </div>
 
         <div class="cuadre-pdf-kpis">
-          <div class="cuadre-pdf-kpi"><small>Total revisadas</small><strong style="color:#3b82f6">${escapeHtml(String(stats.total || units.length || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Cuadre perfecto</small><strong style="color:#16a34a">${escapeHtml(String(stats.ok || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Faltantes fisicos</small><strong style="color:#ef4444">${escapeHtml(String(stats.faltantes || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Sobrantes fisicos</small><strong style="color:#f59e0b">${escapeHtml(String(stats.sobrantes || 0))}</strong></div>
-          <div class="cuadre-pdf-kpi"><small>Pendientes</small><strong style="color:#64748b">${escapeHtml(String(stats.pendientes || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Total revisadas</small><strong>${escapeHtml(String(stats.total || units.length || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Cuadre perfecto</small><strong>${escapeHtml(String(stats.ok || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi${stats.ubicacionDesconocida > 0 ? ' is-alert' : ''}"><small>Ubicación desconocida</small><strong>${escapeHtml(String(stats.ubicacionDesconocida || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi${stats.sobrantes > 0 ? ' is-alert' : ''}"><small>Sobrantes físicos</small><strong>${escapeHtml(String(stats.sobrantes || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Fuera (justif.)</small><strong>${escapeHtml(String(stats.fueraJustificado || 0))}</strong></div>
         </div>
 
         <table class="cuadre-pdf-table">
@@ -400,7 +506,7 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
               <th>Gas</th>
               <th>KM</th>
               <th>Estado</th>
-              <th>Ubicacion</th>
+              <th>Ubicación</th>
               <th>Notas</th>
             </tr>
           </thead>
@@ -409,16 +515,25 @@ export function generarHtmlAuditoriaCuadrePdf(auditList = [], statsInput = null,
       </section>
 
       <section class="cuadre-pdf-page cuadre-pdf-sign-page">
-        <div class="cuadre-pdf-title">
-          <h2>Firmas de Conformidad</h2>
-          <span>Responsables del cuadre</span>
-        </div>
+        <h2 class="cuadre-pdf-sign-title">Firmas de conformidad</h2>
         <div class="cuadre-pdf-sign-grid">
           ${_cuadrePdfFirmaHtml('Auxiliar en patio', meta.firmaAuxiliar || meta.firmaAuxiliarNombre || auxiliar, meta.firmaAuxiliarUrl || meta.auxiliarFirmaUrl || '')}
           ${_cuadrePdfFirmaHtml('Agente de ventas', ventas, meta.firmaDataUrl || meta.ventasFirmaUrl || '')}
         </div>
-        <div class="cuadre-pdf-final-mark">GENERADO POR MAP GESTION</div>
-        ${exportFooterHtml({ escapeHtml })}
+        <div class="cuadre-pdf-client-bar">
+          <div class="cuadre-pdf-client-inner">
+            <div>
+              <p class="label">Cliente / Operador</p>
+              <h3>${escapeHtml(empresa.nombre || 'Empresa')}</h3>
+            </div>
+            <div class="meta">
+              ${empresa.rfc ? `<div>RFC: ${escapeHtml(empresa.rfc)}</div>` : ''}
+              ${empresa.correo ? `<div>${escapeHtml(empresa.correo)}</div>` : ''}
+              ${empresa.direccion ? `<div>${escapeHtml(empresa.direccion)}</div>` : ''}
+            </div>
+          </div>
+          <div class="cuadre-pdf-exported">${exportFooterHtml({ escapeHtml, date: new Date() })}</div>
+        </div>
       </section>
     </div>
   `;
