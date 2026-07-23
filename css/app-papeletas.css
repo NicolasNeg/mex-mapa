@@ -1081,10 +1081,127 @@ body.dark-theme .pap-quick-status button.active {
 }
 
 .pap-ac-empty {
+  grid-column: 1 / -1;
   padding: 24px 12px;
   text-align: center;
   font-size: 13px;
   color: var(--pap-muted);
+}
+
+/* ── Buscador de unidad: header fijo + resultados en tarjetas ─
+   (usado en Nueva papeleta → paso "Unidad") ─────────────────── */
+.pap-editor-shell--unitsearch { padding-bottom: 32px; }
+
+.pap-unit-searchbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 8px 0 16px;
+  background: var(--pap-surface);
+  border-bottom: 1px solid var(--pap-border);
+}
+
+.pap-unit-searchbar .pap-editor-sub { margin: 8px 2px 0; }
+
+.pap-unit-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1180px) {
+  .pap-unit-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .pap-unit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .pap-unit-grid { grid-template-columns: 1fr; }
+  .pap-unit-searchbar { padding: 8px 0 12px; }
+}
+
+.pap-unit-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--pap-border);
+  border-radius: 12px;
+  background: var(--pap-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color .15s, box-shadow .15s, transform .1s;
+}
+
+.pap-unit-card:hover {
+  border-color: var(--pap-accent);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+}
+
+.pap-unit-card:active { transform: scale(0.98); }
+
+.pap-unit-card__media {
+  position: relative;
+  height: 96px;
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pap-unit-card__media .material-symbols-outlined {
+  font-size: 32px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pap-unit-card__eco {
+  padding: 10px 12px 4px;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--pap-ink);
+}
+
+.pap-unit-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+  padding: 4px 12px 12px;
+}
+
+.pap-unit-card__grid div { min-width: 0; }
+
+.pap-unit-card__grid span {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--pap-muted);
+}
+
+.pap-unit-card__grid strong {
+  display: block;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pap-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.dark-theme .pap-unit-card {
+  background: #111827;
+  border-color: #1e293b;
+  color: #e2e8f0;
 }
 
 /* ── Responsive (scrollable table like Traslados) ─────────── */
@@ -3019,7 +3136,7 @@ body.dark-theme .pap-sec-chip.is-active {
   color: #fff;
 }
 
-/* -- v3 h�brido: m�vil pantallas / desktop scroll ----------- */
+/* -- v3 h�brido: m�vil pantallas / desktop scroll ----------- */
 .pap-capture-sec.is-hidden-screen { display: none !important; }
 .pap-capture-scroll--stack {
   scroll-snap-type: none;
@@ -3106,7 +3223,7 @@ body.dark-theme .pap-unit-hero {
   border-color: #334155;
 }
 
-/* -- C�mara guiada v3: landscape + chips + sheet ------------ */
+/* -- C�mara guiada v3: landscape + chips + sheet ------------ */
 .pap-camflow__chips {
   display: flex;
   flex-wrap: wrap;

@@ -84,7 +84,6 @@ let _query = '';
 let _wizardStep = 'datos'; // datos | km_gas | checklist | danos | fotos_firma | firma | entrada | salida | reporte
 let _step6Phase = 'fotos'; // fotos | resumen | firma | exito (inside fotos_firma)
 let _zonaIdx = 0;
-let _showNueva = false;
 let _unitHits = [];
 let _unitQ = '';
 let _unitSearchBusy = false;
@@ -1144,7 +1143,6 @@ export async function mount(ctx) {
   _filter = 'activas';
   _wizardStep = 'datos';
   _zonaIdx = 0;
-  _showNueva = false;
   _casoWarning = '';
   _pendingUnit = null;
   _heroEditing = false;
@@ -1165,7 +1163,7 @@ export async function mount(ctx) {
   }
 
   if (_isVentasPath()) _mode = 'ventas';
-  else if (_isNuevaPath()) { _mode = 'nueva'; _showNueva = true; }
+  else if (_isNuevaPath()) { _mode = 'nueva'; }
   else if (_pathId()) _mode = 'detail';
   else _mode = 'list';
 
@@ -1289,7 +1287,6 @@ function _render() {
           <div class="pap-ventas-host">${_renderVentas()}</div>
         </main>
       ` : _mode === 'nueva' ? _renderNuevaScreen() : editor ? _renderDetail() : _renderList()}
-      ${_showNueva && _mode !== 'nueva' ? _renderNuevaModal() : ''}
     </section>
   `;
   _bind();
@@ -2222,14 +2219,19 @@ function _renderVentas() {
 }
 
 function _unitHitHtml(u) {
+  const img = _modelImageUrl(u.modelo);
   return `
-    <button type="button" class="pap-ac-item" data-act="pick-unit" data-id="${_esc(u.id)}">
-      <span class="pap-ac-item__mva">${_esc(u.mva || '—')}</span>
-      <span class="pap-ac-item__meta">
-        <span>${_esc(u.placas || 'Sin placas')}</span>
-        <span>${_esc(u.modelo || 'Sin modelo')}${u.color ? ` · ${_esc(u.color)}` : ''}</span>
-      </span>
-      <span class="material-symbols-outlined">chevron_right</span>
+    <button type="button" class="pap-unit-card" data-act="pick-unit" data-id="${_esc(u.id)}">
+      <div class="pap-unit-card__media ${img ? 'has-img' : ''}" ${img ? `style="background-image:url('${_esc(img)}')"` : ''}>
+        ${img ? '' : '<span class="material-symbols-outlined">directions_car</span>'}
+      </div>
+      <div class="pap-unit-card__eco">${_esc(u.mva || '—')}</div>
+      <div class="pap-unit-card__grid">
+        <div><span>Modelo</span><strong>${_esc(u.modelo || '—')}</strong></div>
+        <div><span>Placas</span><strong>${_esc(u.placas || '—')}</strong></div>
+        <div><span>Color</span><strong>${_esc(u.color || '—')}</strong></div>
+        <div><span>VIN</span><strong class="pap-td-mono">${_esc(u.vin || '—')}</strong></div>
+      </div>
     </button>`;
 }
 
@@ -2238,7 +2240,7 @@ function _renderUnitHitsHtml() {
     return `<div class="pap-ac-empty">Buscando…</div>`;
   }
   if (!_unitHits.length) {
-    return `<div class="pap-ac-empty">${_unitQ.trim() ? 'Sin coincidencias. Prueba económico o placas.' : 'Escribe económico, placas o modelo.'}</div>`;
+    return `<div class="pap-ac-empty">${_unitQ.trim() ? 'Sin coincidencias. Prueba económico, placas, modelo o VIN.' : 'Escribe económico, placas, modelo o VIN.'}</div>`;
   }
   return _unitHits.map(_unitHitHtml).join('');
 }
@@ -2247,15 +2249,6 @@ function _paintUnitHits() {
   const host = _container?.querySelector('#papUnitHits');
   if (!host) return;
   host.innerHTML = _renderUnitHitsHtml();
-  host.querySelectorAll('[data-act="pick-unit"]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const unit = _unitHits.find((u) => u.id === btn.dataset.id);
-      if (!unit) return;
-      _pendingUnit = { ...unit };
-      _heroEditing = false;
-      _render();
-    });
-  });
 }
 
 async function _runUnitAutocomplete(raw) {
@@ -2328,7 +2321,7 @@ function _renderNuevaScreen() {
       </main>`;
   }
   return `
-    <main class="pap-editor-shell">
+    <main class="pap-editor-shell pap-editor-shell--unitsearch">
       <header class="pap-editor-top pap-sheet-head">
         <div>
           <nav class="pap-breadcrumb" aria-label="Ruta">
@@ -2338,49 +2331,24 @@ function _renderNuevaScreen() {
           </nav>
           <p class="pap-kicker">HOJA DE INSPECCIÓN</p>
           <h1>Buscar unidad</h1>
-          <p class="pap-editor-sub">Económico, placas o modelo — catálogo empresa-global.</p>
         </div>
         <div class="pap-actions-bar">
           <button type="button" class="pap-btn pap-btn--ghost" data-act="back">Volver</button>
         </div>
       </header>
-      <div class="pap-panel pap-panel--wide pap-nueva-panel pap-sheet">
+      <div class="pap-unit-searchbar">
         <label class="pap-ac pap-ac--hero">
           <span class="material-symbols-outlined">directions_car</span>
           <input id="papUnitQ" type="search" inputmode="search" enterkeyhint="search"
-            placeholder="Económico, placas o modelo…"
+            placeholder="Económico, placas, modelo o VIN…"
             value="${_esc(_unitQ)}" autocomplete="off" autocorrect="off" spellcheck="false"/>
         </label>
-        <div class="pap-ac-list" id="papUnitHits" role="listbox">
-          ${_renderUnitHitsHtml()}
-        </div>
+        <p class="pap-editor-sub">Económico, placas, modelo o VIN — catálogo empresa-global.</p>
+      </div>
+      <div class="pap-unit-grid" id="papUnitHits" role="listbox">
+        ${_renderUnitHitsHtml()}
       </div>
     </main>
-  `;
-}
-
-function _renderNuevaModal() {
-  return `
-    <div class="pap-modal-backdrop" data-act="close-modal">
-      <div class="pap-modal pap-modal--ac" data-stop role="dialog" aria-label="Nueva papeleta">
-        <div class="pap-modal__head">
-          <h2>Nueva papeleta</h2>
-          <button type="button" class="pap-icon-btn" data-act="close-nueva" aria-label="Cerrar">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <p class="pap-hint">Busca la unidad y tócala para abrir la papeleta.</p>
-        <label class="pap-ac">
-          <span class="material-symbols-outlined">directions_car</span>
-          <input id="papUnitQ" type="search" inputmode="search" enterkeyhint="search"
-            placeholder="Económico, placas o modelo…"
-            value="${_esc(_unitQ)}" autocomplete="off" autocorrect="off" spellcheck="false"/>
-        </label>
-        <div class="pap-ac-list" id="papUnitHits" role="listbox">
-          ${_renderUnitHitsHtml()}
-        </div>
-      </div>
-    </div>
   `;
 }
 
@@ -2653,18 +2621,23 @@ function _bind() {
   root.querySelectorAll('[data-act="cerrar-caso"]').forEach((btn) => {
     btn.addEventListener('click', () => _cerrar(btn.dataset.id));
   });
-  root.querySelector('[data-act="close-modal"]')?.addEventListener('click', (e) => {
-    if (e.target.dataset.act === 'close-modal') { _showNueva = false; _render(); }
-  });
-  root.querySelector('[data-act="close-nueva"]')?.addEventListener('click', () => {
-    _showNueva = false; _render();
-  });
   root.querySelector('#papUnitQ')?.addEventListener('input', (e) => {
     _scheduleUnitAutocomplete(e.target.value || '');
   });
-  root.querySelectorAll('[data-act="pick-unit"]').forEach((btn) => {
-    btn.addEventListener('click', () => _crearDesdeUnidad(btn.dataset.id));
-  });
+  // Delegación: los resultados se repintan vía _paintUnitHits() sin pasar por _bind(),
+  // así que un binding directo por botón se perdería en cada repintado.
+  if (!root.dataset.papUnitPickDelegated) {
+    root.dataset.papUnitPickDelegated = '1';
+    root.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-act="pick-unit"]');
+      if (!btn) return;
+      const unit = _unitHits.find((u) => u.id === btn.dataset.id);
+      if (!unit) return;
+      _pendingUnit = { ...unit };
+      _heroEditing = false;
+      _render();
+    });
+  }
   // Auto-guardar al elegir foto (flujo rápido en patio)
   root.querySelector('[data-zona-foto][data-autosave]')?.addEventListener('change', () => {
     if (_container.querySelector('[data-zona-foto]')?.files?.[0]) _saveZona();
@@ -3612,14 +3585,12 @@ async function _confirmHeroUnit() {
     _trackPapeleta('papeleta_unit_selected', { papeletaId: id, unidadId: patched.id, mva: patched.mva });
     _pendingUnit = null;
     _heroEditing = false;
-    _showNueva = false;
     _mobileScreen = 'datos';
     _openDetail(id);
   } catch (e) {
     if (e.code === 'ACTIVE_EXISTS' && e.existing?.id) {
       await _mexAlert('Papeleta activa', 'Ya existe una papeleta activa. Se abrirá la existente.');
       _pendingUnit = null;
-      _showNueva = false;
       _openDetail(e.existing.id);
     } else {
       await _mexAlert('Error', e.message || String(e));
@@ -3628,12 +3599,4 @@ async function _confirmHeroUnit() {
     _busy = false;
     if (_mode === 'nueva') _render();
   }
-}
-
-async function _crearDesdeUnidad(unitId) {
-  const unit = _unitHits.find((u) => u.id === unitId);
-  if (!unit) return;
-  _pendingUnit = { ...unit };
-  _heroEditing = false;
-  _render();
 }

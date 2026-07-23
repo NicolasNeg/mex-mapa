@@ -142,16 +142,15 @@ export async function buscarUnidad(query, opts = {}) {
     const placas = _normKey(u.placas);
     const vin = _normKey(u.vin);
     const modelo = String(u.modelo || '').toUpperCase();
-    const color = String(u.color || '').toUpperCase();
     let score = 0;
-    if (mva === q || placas === q) score = 100;
+    if (mva === q || placas === q || vin === q) score = 100;
     else if (mva.startsWith(q)) score = 90;
     else if (placas.startsWith(q)) score = 85;
+    else if (vin.startsWith(q)) score = 80;
     else if (mva.includes(q)) score = 70;
     else if (placas.includes(q)) score = 65;
     else if (modelo.includes(qRaw)) score = 50;
     else if (vin.includes(q)) score = 40;
-    else if (color.includes(qRaw)) score = 20;
     if (score && plazaId && _unitMatchesPlaza(u, plazaId)) score += 5;
     if (score) scored.push({ u, score });
   }
