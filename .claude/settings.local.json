@@ -231,7 +231,8 @@
       "Bash(npm install *)",
       "Bash(xargs grep -l \"generateRegistrationOptions\\\\|verifyAuthenticationResponse\")",
       "Bash('/c/Users/Pc/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/scripts/review-package' 19e96f0 ae47aa9)",
-      "Bash('/c/Users/Pc/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/scripts/review-package' ae47aa9 *)"
+      "Bash('/c/Users/Pc/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/scripts/review-package' ae47aa9 *)",
+      "Bash(gcloud --version)"
     ]
   }
 }
